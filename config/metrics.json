@@ -14,7 +14,9 @@
     "device",
     "interface",
     "operation",
-    "parallel_group"
+    "parallel_group",
+    "rank",
+    "replica"
   ],
   "manifest_only_fields": [
     "git_commit",
@@ -30,7 +32,13 @@
     "storage_path_type",
     "filesystem",
     "cache_state",
-    "node_topology"
+    "node_topology",
+    "verl_config",
+    "ray_address",
+    "rl_insight_server_url",
+    "native_metrics_endpoints",
+    "artifact_root",
+    "storage_topology"
   ],
   "metrics": [
     {
@@ -760,6 +768,110 @@
       "scope": "run",
       "source": "run manifest",
       "policy": "always"
+    },
+    {
+      "name": "rl_stage_duration_seconds",
+      "category": "orchestration",
+      "unit": "s",
+      "scope": "step, phase, and worker",
+      "source": "VERL timing_s metric or application phase span",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "rl_stage_time_per_token_seconds",
+      "category": "orchestration",
+      "unit": "s/token",
+      "scope": "step, phase, and worker",
+      "source": "VERL timing_per_token_ms metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "training_tokens_per_second_per_gpu",
+      "category": "training",
+      "unit": "tokens/s/GPU",
+      "scope": "run",
+      "source": "VERL perf/throughput metric",
+      "policy": "verl"
+    },
+    {
+      "name": "training_tokens_processed",
+      "category": "training",
+      "unit": "tokens",
+      "scope": "step",
+      "source": "VERL perf/total_num_tokens metric",
+      "policy": "verl"
+    },
+    {
+      "name": "reward_score_mean",
+      "category": "reward",
+      "unit": "score",
+      "scope": "step",
+      "source": "VERL critic/score/mean metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "reward_mean",
+      "category": "reward",
+      "unit": "reward",
+      "scope": "step",
+      "source": "VERL critic/rewards/mean metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "rollout_output_tokens_mean",
+      "category": "rollout",
+      "unit": "tokens",
+      "scope": "step",
+      "source": "VERL response_length/mean metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "agent_turns_mean",
+      "category": "agent",
+      "unit": "turns",
+      "scope": "step",
+      "source": "VERL num_turns/mean metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "agent_tool_calls_mean",
+      "category": "agent",
+      "unit": "calls",
+      "scope": "step",
+      "source": "VERL tool_call_counts/mean metric",
+      "policy": "agentic rl"
+    },
+    {
+      "name": "weight_sync_bytes_total",
+      "category": "data_movement",
+      "unit": "bytes",
+      "scope": "step and rollout replica",
+      "source": "weight transfer instrumentation",
+      "policy": "separate rollout and training"
+    },
+    {
+      "name": "policy_version",
+      "category": "orchestration",
+      "unit": "version",
+      "scope": "trainer or rollout replica",
+      "source": "VERL checkpoint manager instrumentation",
+      "policy": "separate rollout and training"
+    },
+    {
+      "name": "policy_version_lag",
+      "category": "orchestration",
+      "unit": "versions",
+      "scope": "rollout replica",
+      "source": "derived from trainer and rollout policy versions",
+      "policy": "separate rollout and training"
+    },
+    {
+      "name": "rollout_replica_ready_lag_seconds",
+      "category": "rollout",
+      "unit": "s",
+      "scope": "rollout replica",
+      "source": "weight apply completion event",
+      "policy": "separate rollout and training"
     }
   ],
   "$schema": "./metrics.schema.json",
@@ -775,6 +887,16 @@
     "rollout",
     "tool_interaction",
     "reward",
-    "weight_sync"
+    "weight_sync",
+    "input_prepare",
+    "rl_step",
+    "agent_loop",
+    "actor_update",
+    "reference_log_prob",
+    "critic",
+    "critic_update",
+    "advantage_estimation",
+    "artifact_write",
+    "profiling"
   ]
 }

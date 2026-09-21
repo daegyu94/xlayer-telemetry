@@ -124,6 +124,9 @@ TELEMETRY_TARGETS='trainer-0=<first-node-address>,rollout-0=<second-node-address
 | 설정만 생성 | `SERVER_CONFIG_ONLY=1`이면 service를 시작하지 않고 provisioning 파일만 생성 |
 | 종료 | server를 실행한 terminal에서 세션을 종료하면 함께 시작한 service를 정리 |
 
+`TELEMETRY_SOURCES_FILE`에 [Agent RL native source 목록](../examples/verl/native-sources.json)을 지정하면 server role이 vLLM, Ray, 3FS exporter endpoint를 검증하고 `native` scrape job에 추가합니다.
+동적 rollout endpoint는 VERL 또는 RL-Insight의 자체 등록을 우선하며 자세한 구성은 [Agent RL Telemetry Guide](agent-rl.md)를 따릅니다.
+
 #### Move an Existing Server to the Controller
 
 기존 Spark node에서 monitoring server를 실행 중이면 먼저 해당 server를 유지한 채 controller server를 병행 실행합니다.
@@ -197,12 +200,13 @@ client browser에서 `http://localhost:13000`을 엽니다.
 | Dashboard | 확인할 내용 |
 | --- | --- |
 | Run Overview (`run-overview.json`, uid `telemetry-overview`) | target 상태·sample age, GPU utilization matrix, worker별 throughput·step time·loss |
+| Agent RL Stage Correlation | run → stage → worker/node/device → reward·tool·sync evidence |
 | Run Logs | node-local run log 검색과 시간순 history |
 | Compute & Communication | GPU health·memory, worker timer, interface throughput, GPU allocation·compute topology |
 | Data & Storage | node-local device·filesystem 성능, storage topology, 선택적 SSD SMART |
 
 화면 링크는 시간·cluster·node·run 선택을 유지합니다.
-`server` role은 `examples/dashboards/`의 metric dashboard 세 개를 provisioning 경로로 복사하고 `ENABLE_LOGS=1`이면 Run Logs도 추가합니다.
+`server` role은 `examples/dashboards/`의 metric dashboard 네 개를 provisioning 경로로 복사하고 `ENABLE_LOGS=1`이면 Run Logs도 추가합니다.
 같은 경로의 `grafana/`와 `compose.yaml`은 별도 Docker Compose 예시입니다.
 
 ## Synthetic Live Demo

@@ -32,7 +32,9 @@ def test_emitter_replaces_worker_snapshot_atomically(tmp_path: Path) -> None:
         "role": "trainer",
         "worker_id": "0",
         "node": "spark1",
+        "rank": None,
         "local_rank": 1,
+        "gpu": None,
         "cuda_visible_devices": "2,5",
         "step": 7,
         "observed_at": 100.0,
@@ -69,6 +71,25 @@ def test_from_env_requires_both_settings(monkeypatch, capsys) -> None:
 
     assert MetricEmitter.from_env(producer="trl", role="trainer") is None
     assert "must be set together" in capsys.readouterr().err
+
+
+def test_from_env_preserves_node_rank_and_physical_gpu(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("TELEMETRY_METRICS_DIR", str(tmp_path))
+    monkeypatch.setenv("TELEMETRY_RUN_ID", "run-1")
+    monkeypatch.setenv("TELEMETRY_NODE", "rollout-0")
+    monkeypatch.setenv("RANK", "4")
+    monkeypatch.setenv("LOCAL_RANK", "1")
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "2,5")
+
+    emitter = MetricEmitter.from_env(producer="verl", role="rollout")
+
+    assert emitter is not None
+    assert emitter.node == "rollout-0"
+    assert emitter.worker_id == "4"
+    assert emitter.rank == 4
+    assert emitter.local_rank == 1
+    assert emitter.gpu == "5"
+    assert emitter.cuda_visible_devices == "2,5"
 
 
 def test_producer_roles_have_distinct_snapshots(tmp_path: Path) -> None:

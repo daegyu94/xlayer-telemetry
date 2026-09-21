@@ -262,6 +262,21 @@ EOF
       - source_labels: [nodename]
         target_label: instance
 EOF
+  if [[ -n "${TELEMETRY_SOURCES_FILE:-}" ]]; then
+    native_targets="$output_dir/native-targets.json"
+    "${PYTHON:-python3}" -m post_training_telemetry.source_discovery \
+      --input "$TELEMETRY_SOURCES_FILE" --output "$native_targets"
+    cat >> "$output_dir/prometheus.yml" <<EOF
+  - job_name: native
+    file_sd_configs:
+      - files:
+          - '$native_targets'
+        refresh_interval: 30s
+    relabel_configs:
+      - target_label: cluster
+        replacement: $cluster_name
+EOF
+  fi
   if [[ -n "${STORAGE_TARGETS:-}" ]]; then
     storage_system="${STORAGE_SYSTEM:-local}"
     if [[ ! "$storage_system" =~ ^[A-Za-z0-9_.-]+$ ]]; then
@@ -373,7 +388,7 @@ providers:
     options:
       path: $output_dir/dashboards
 EOF
-  cp examples/dashboards/{run-overview,compute-communication,data-storage}.json "$output_dir/dashboards/"
+  cp examples/dashboards/{run-overview,compute-communication,data-storage,agent-rl-stages}.json "$output_dir/dashboards/"
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     cp examples/dashboards/run-logs.json "$output_dir/dashboards/"
   fi

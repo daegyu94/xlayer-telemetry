@@ -32,17 +32,25 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
             "worker_id": str(snapshot.get("worker_id", "")),
             "node": str(snapshot.get("node", "")),
         }
+        rank = snapshot.get("rank")
+        if type(rank) is int:
+            labels["rank"] = str(rank)
         local_rank = snapshot.get("local_rank")
         if type(local_rank) is int:
             labels["local_rank"] = str(local_rank)
-        visible = [device.strip() for device in str(snapshot.get("cuda_visible_devices") or "").split(",")]
-        if (type(local_rank) is int and 0 <= local_rank < len(visible)
-                and visible[local_rank] and visible[local_rank] != "-1"):
+        gpu = snapshot.get("gpu")
+        if not gpu:
+            visible = [device.strip() for device in str(snapshot.get("cuda_visible_devices") or "").split(",")]
+            if (type(local_rank) is int and 0 <= local_rank < len(visible)
+                    and visible[local_rank] and visible[local_rank] != "-1"):
+                gpu = visible[local_rank]
+        if gpu:
+            labels["gpu"] = str(gpu)
             metrics.append(GaugeSample(
                 "training_gpu_allocation",
                 "Application worker assignment from CUDA_VISIBLE_DEVICES.",
                 1,
-                {**labels, "gpu": visible[local_rank]},
+                labels,
             ))
         observed_at = snapshot.get("observed_at")
         if isinstance(observed_at, (int, float)):

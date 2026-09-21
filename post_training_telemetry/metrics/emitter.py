@@ -17,7 +17,16 @@ from typing import Callable, Iterable, Mapping
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _METRIC_NAME = re.compile(r"^[a-zA-Z_:][a-zA-Z0-9_:]*$")
 _LABEL_NAME = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-_CONTEXT_LABELS = {"run_id", "producer", "role", "worker_id", "node", "local_rank"}
+_CONTEXT_LABELS = {
+    "run_id",
+    "producer",
+    "role",
+    "worker_id",
+    "node",
+    "rank",
+    "local_rank",
+    "gpu",
+}
 
 
 @dataclass(frozen=True)
@@ -40,7 +49,9 @@ class MetricEmitter:
         role: str,
         worker_id: str,
         node: str | None = None,
+        rank: int | None = None,
         local_rank: int | None = None,
+        gpu: str | None = None,
         cuda_visible_devices: str | None = None,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -48,15 +59,20 @@ class MetricEmitter:
         for name, value in identifiers.items():
             if not _IDENTIFIER.fullmatch(value):
                 raise ValueError(f"invalid {name}: {value!r}")
-        if local_rank is not None and local_rank < 0:
-            raise ValueError("local_rank must be nonnegative")
+        for name, value in (("rank", rank), ("local_rank", local_rank)):
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError(f"{name} must be nonnegative")
+        if gpu is not None and not _IDENTIFIER.fullmatch(gpu):
+            raise ValueError(f"invalid gpu: {gpu!r}")
         self.directory = directory
         self.run_id = run_id
         self.producer = producer
         self.role = role
         self.worker_id = worker_id
         self.node = node or socket.gethostname()
+        self.rank = rank
         self.local_rank = local_rank
+        self.gpu = gpu
         self.cuda_visible_devices = cuda_visible_devices
         self.clock = clock
         self.disabled = False
@@ -80,15 +96,26 @@ class MetricEmitter:
             )
             return None
         try:
+            rank = int(os.environ["RANK"]) if "RANK" in os.environ else None
             local_rank = int(os.environ["LOCAL_RANK"]) if "LOCAL_RANK" in os.environ else None
+            visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
+            visible = [device.strip() for device in (visible_devices or "").split(",")]
+            gpu = None
+            if local_rank is not None and 0 <= local_rank < len(visible):
+                candidate = visible[local_rank]
+                if candidate and candidate != "-1":
+                    gpu = candidate
             return cls(
                 Path(directory),
                 run_id=run_id,
                 producer=producer,
                 role=role,
-                worker_id=worker_id or os.environ.get("RANK", "0"),
+                worker_id=worker_id or str(rank if rank is not None else 0),
+                node=os.environ.get("TELEMETRY_NODE"),
+                rank=rank,
                 local_rank=local_rank,
-                cuda_visible_devices=os.environ.get("CUDA_VISIBLE_DEVICES"),
+                gpu=gpu,
+                cuda_visible_devices=visible_devices,
             )
         except ValueError as exc:
             print(f"[metrics] export disabled: {exc}", file=sys.stderr)
@@ -110,7 +137,9 @@ class MetricEmitter:
                 "role": self.role,
                 "worker_id": self.worker_id,
                 "node": self.node,
+                "rank": self.rank,
                 "local_rank": self.local_rank,
+                "gpu": self.gpu,
                 "cuda_visible_devices": self.cuda_visible_devices,
                 "step": step,
                 "observed_at": self.clock(),

@@ -47,6 +47,7 @@ def test_build_metrics_emits_context_labels_and_metric_kinds() -> None:
         "worker_id": "0",
         "node": "node-a",
         "local_rank": "0",
+        "gpu": "GPU-abc",
     }
 
     assert by_name[("training_loss", None)].labels == labels

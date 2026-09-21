@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "name": "ray-head",
+      "kind": "ray",
+      "target": "trainer-0.internal:8080",
+      "labels": {
+        "role": "orchestrator",
+        "node": "trainer-0"
+      }
+    },
+    {
+      "name": "rollout-0",
+      "kind": "vllm",
+      "target": "rollout-0.internal:8000",
+      "labels": {
+        "role": "rollout",
+        "node": "rollout-0",
+        "replica": "0"
+      }
+    },
+    {
+      "name": "3fs-client-exporter",
+      "kind": "3fs",
+      "target": "rollout-0.internal:9105",
+      "labels": {
+        "role": "rollout",
+        "node": "rollout-0"
+      }
+    }
+  ]
+}

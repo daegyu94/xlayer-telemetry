@@ -68,6 +68,7 @@
               "training",
               "rollout",
               "agent",
+              "reward",
               "orchestration",
               "gpu",
               "host",

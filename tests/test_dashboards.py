@@ -9,6 +9,7 @@ DASHBOARDS = (
     "run-overview.json",
     "compute-communication.json",
     "data-storage.json",
+    "agent-rl-stages.json",
 )
 
 
@@ -22,6 +23,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
         "telemetry-overview",
         "post-training-compute-communication",
         "post-training-data-storage",
+        "agent-rl-stage-correlation",
     ]
     for payload in payloads:
         assert {item["name"] for item in payload["templating"]["list"]} >= {"cluster", "node"}
@@ -48,6 +50,37 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     matrix = payloads[1]["panels"][0]
     assert "telemetry_gpu_sample_timestamp_seconds" in matrix["targets"][0]["expr"]
     assert matrix["transformations"][0]["options"]["rowField"] == "node"
+    agent_rl = payloads[3]
+    assert {"phase", "role", "worker"} <= {
+        item["name"] for item in agent_rl["templating"]["list"]
+    }
+    assert "Completed RL stage duration (step boundary)" in {
+        panel["title"] for panel in agent_rl["panels"]
+    }
+    assert "Live rollout engine signals" in {
+        panel["title"] for panel in agent_rl["panels"]
+    }
+    agent_rl_variables = {
+        item["name"]: item for item in agent_rl["templating"]["list"]
+    }
+    assert "nodename" in agent_rl_variables["node"]["query"]
+    live_rollout = next(
+        panel for panel in agent_rl["panels"]
+        if panel["title"] == "Live rollout engine signals"
+    )
+    assert all('node=~"$node"' in target["expr"] for target in live_rollout["targets"])
+    completed_panels = {
+        "Latest completed RL step",
+        "Latest completed reward mean",
+        "Completed RL stage duration (step boundary)",
+        "Completed step throughput and response length",
+    }
+    for panel in agent_rl["panels"]:
+        if panel["title"] in completed_panels:
+            assert all(
+                "training_sample_timestamp_seconds" not in target["expr"]
+                for target in panel["targets"]
+            )
 
     logs = json.loads(
         (ROOT / "examples/dashboards/run-logs.json").read_text()

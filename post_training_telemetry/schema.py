@@ -13,6 +13,7 @@ ALLOWED_CATEGORIES = {
     "training",
     "rollout",
     "agent",
+    "reward",
     "orchestration",
     "gpu",
     "host",

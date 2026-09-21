@@ -1,16 +1,17 @@
-"""Print a serverless summary of one training run from its output directory.
+"""Print a serverless summary of one post-training or Agent RL run.
 
-No collector, no database: everything here already sits on disk in the
-run's output-dir -- Megatron's run-metadata-<stage>.json / TRL's
-summary-<stage>.json, and the last application metric snapshot per worker.
+No collector or database is required. The command reads manifests, framework
+summaries, the latest metric snapshot per worker, and recent correlation events
+from the run's output directory.
 """
 
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 
 def _load(path: Path) -> dict[str, Any] | None:
@@ -32,8 +33,54 @@ def _flatten(data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _format_sample(sample: dict[str, Any]) -> str:
+    name = sample.get("name")
+    labels = sample.get("labels")
+    if isinstance(labels, dict) and labels:
+        dimensions = ",".join(
+            f"{key}={value}" for key, value in sorted(labels.items())
+        )
+        name = f"{name}{{{dimensions}}}"
+    return f"{name}={sample.get('value')}"
+
+
+def _recent_events(paths: Iterable[Path], limit: int = 20) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
+    recent = []
+    sequence = 0
+    for path in paths:
+        try:
+            with path.open(encoding="utf-8") as stream:
+                for line in stream:
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(record, dict) and record.get("schema_version") == 1:
+                        timestamp = record.get(
+                            "start_time_unix_nano",
+                            record.get("timestamp_unix_nano", 0),
+                        )
+                        if type(timestamp) is not int:
+                            continue
+                        sequence += 1
+                        heapq.heappush(recent, (timestamp, sequence, record))
+                        if len(recent) > limit:
+                            heapq.heappop(recent)
+        except OSError:
+            continue
+    return [record for _, _, record in sorted(recent)]
+
+
 def summarize(output_dir: Path) -> str:
     lines = [f"Run: {output_dir}"]
+
+    manifest_path = output_dir / "telemetry-manifest.json"
+    manifest = _load(manifest_path)
+    if manifest is not None:
+        lines.append("\n[telemetry-manifest.json]")
+        lines.extend(_flatten(manifest))
 
     metadata_files = sorted(
         p for p in output_dir.glob("run-metadata-*.json") if "-rank-" not in p.stem
@@ -56,13 +103,37 @@ def summarize(output_dir: Path) -> str:
         if snapshot is None or snapshot.get("schema_version") != 2:
             continue
         metrics = " ".join(
-            f"{sample.get('name')}={sample.get('value')}"
+            _format_sample(sample)
             for sample in snapshot.get("samples", [])
             if isinstance(sample, dict)
         )
+        context = " ".join(
+            f"{name}={snapshot[name]}"
+            for name in ("node", "rank", "local_rank", "gpu")
+            if snapshot.get(name) is not None
+        )
         lines.append(
             f"\n[{snapshot.get('producer')}/{snapshot.get('role')} worker "
-            f"{snapshot.get('worker_id')}] step {snapshot.get('step')}: {metrics}"
+            f"{snapshot.get('worker_id')}{(' ' + context) if context else ''}] "
+            f"step {snapshot.get('step')}: {metrics}"
+        )
+
+    events_dir = output_dir / "telemetry-events"
+    event_files = sorted(events_dir.glob("*.jsonl")) if events_dir.is_dir() else []
+    events = _recent_events(event_files)
+    if events:
+        lines.append("\n[recent telemetry events]")
+    for event in events:
+        duration = (
+            f" duration={event.get('duration_seconds')}s"
+            if event.get("duration_seconds") is not None
+            else ""
+        )
+        lines.append(
+            f"  step={event.get('step')} phase={event.get('phase')} "
+            f"{event.get('role')}/{event.get('worker_id')} {event.get('name')}"
+            f"{duration} status={event.get('status', 'event')} "
+            f"trace_id={event.get('trace_id')}"
         )
 
     return "\n".join(lines)
