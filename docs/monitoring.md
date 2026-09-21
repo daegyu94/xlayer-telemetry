@@ -227,8 +227,10 @@ DEMO_LIVE=1 \
 | Storage | storage node 8개, node당 SSD 4개 |
 | Network | node당 synthetic traffic 최대 800Gbps RoCE |
 | 반복 주기 | 정상 학습 → data wait → collective → checkpoint → recovery, 100초 |
+| Dummy Agent run | `verl-agent-demo`, 완료 step 6초 간격과 live tool/policy signal |
 
 Dashboard에서는 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
+Agent RL 동작만 확인할 때는 `Agent RL Stage Correlation`에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택합니다.
 
 | 관찰 구간 | 기대 변화 |
 | --- | --- |
@@ -246,6 +248,14 @@ Topology는 전달된 연결 관계이며 link bandwidth나 endpoint별 traffic 
 Synthetic demo이므로 실제 LLM 학습 결과로 해석하지 않습니다.
 
 ![30초 Run Overview synthetic live demo](figures/post-training-run-overview-30s.gif)
+
+### VERL Agent RL Example
+
+아래 GIF는 같은 simulator가 만든 dummy VERL Agent run을 30초 동안 기록한 화면입니다.
+6초마다 completed step, stage duration, reward, throughput이 바뀌고 tool latency와 policy lag는 scrape마다 갱신됩니다.
+이는 실제 VERL 학습이나 성능 측정이 아니라, dashboard 연결과 시간 경계를 확인하는 재현 가능한 입력입니다.
+
+![30초 VERL Agent RL synthetic live demo](figures/verl-agent-telemetry-30s.gif)
 
 해석할 때 주의할 점:
 

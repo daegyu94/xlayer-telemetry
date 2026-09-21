@@ -16,6 +16,21 @@
 기본 사용 경로에서 VERL Python source 수정은 없습니다.
 Wrapper가 기존 VERL 명령에 `file` logger 설정만 추가하고 metric bridge를 sidecar process로 실행합니다.
 
+## Try the Dashboard without VERL
+
+VERL 환경을 준비하기 전에 dummy Agent run으로 전체 수집 경로와 dashboard를 먼저 확인할 수 있습니다.
+
+```bash
+TOOLS_DIR='<controller-local-tools>' \
+OUTPUT_DIR='<controller-local-monitoring-state>' \
+DEMO_LIVE=1 \
+  bash scripts/run_telemetry.sh server
+```
+
+Grafana에서 `Agent RL Stage Correlation`을 열고 `cluster=demo-b300`, `node=gpu-node-0`, `run_id=verl-agent-demo`를 선택합니다.
+6초마다 완료 step 지표가 갱신되며 tool latency와 policy lag는 scrape마다 움직입니다.
+화면 예시와 각 값의 의미는 [Synthetic Live Demo](monitoring.md#synthetic-live-demo)에서 확인합니다.
+
 ## Before You Start
 
 다음 항목이 필요합니다.

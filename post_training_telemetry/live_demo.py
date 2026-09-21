@@ -17,6 +17,7 @@ from post_training_telemetry.metrics.prometheus import GaugeSample, format_gauge
 
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
 _GIB = 1024 ** 3
+_AGENT_RL_STEP_SECONDS = 6
 
 
 def load_topology(directory: Path) -> tuple[dict, dict]:
@@ -136,6 +137,48 @@ class Demo:
             timers = {"forward": .28, "backward": .47, "communication": .12 if phase != "collective" else .48,
                       "data_loader": .08 if phase != "data_wait" else .62, "checkpoint": .01 if phase != "checkpoint" else .40}
             samples.extend(GaugeSample("training_timer_seconds", "Synthetic worker timer.", timer, {**labels, "timer": name}) for name, timer in timers.items())
+        if node == self.gpu["gpu_nodes"][0]:
+            samples.extend(self._agent_rl(now))
+        return samples
+
+    def _agent_rl(self, now: float) -> list[GaugeSample]:
+        """Return a step-boundary VERL Agent run plus scrape-time live signals."""
+        elapsed = now - self.started
+        completed_step = int(elapsed // _AGENT_RL_STEP_SECONDS) + 1
+        step_age = elapsed % _AGENT_RL_STEP_SECONDS
+        wave = math.sin(completed_step * .8)
+        rollout = 2.8 + .35 * wave + (1.4 if completed_step % 5 == 0 else 0)
+        reward = .48 + .08 * math.cos(completed_step * .6)
+        actor_update = 1.55 + .18 * math.sin(completed_step * .45)
+        critic_update = .86 + .09 * math.cos(completed_step * .5)
+        weight_sync = .32 + .06 * math.sin(completed_step * .9)
+        stages = {
+            "rollout": rollout,
+            "reward": reward,
+            "actor_update": actor_update,
+            "critic_update": critic_update,
+            "weight_sync": weight_sync,
+        }
+        labels = {
+            "run_id": "verl-agent-demo",
+            "producer": "verl-file-demo",
+            "role": "trainer",
+            "node": self.gpu["gpu_nodes"][0],
+            "worker_id": "driver",
+        }
+        samples = [
+            GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", time.time() - step_age, labels),
+            GaugeSample("training_step", "Synthetic training step.", completed_step, labels),
+            GaugeSample("reward_mean", "Synthetic completed-step reward mean.", .61 + completed_step * .004 + .025 * wave, labels),
+            GaugeSample("training_tokens_per_second_per_gpu", "Synthetic completed-step throughput per GPU.", 2380 - rollout * 115 + 35 * wave, labels),
+            GaugeSample("rollout_output_tokens_mean", "Synthetic completed-step response length.", 310 + 18 * math.cos(completed_step * .7), labels),
+            GaugeSample("agent_tool_call_duration_seconds", "Synthetic browser tool latency.", .72 + .2 * math.sin(elapsed / 4), {**labels, "tool": "browser"}),
+            GaugeSample("policy_version_lag", "Synthetic live rollout policy lag.", 1 + int((elapsed % 18) > 12), {**labels, "replica": "rollout-0"}),
+        ]
+        samples.extend(
+            GaugeSample("rl_stage_duration_seconds", "Synthetic completed VERL stage duration.", duration, {**labels, "phase": phase})
+            for phase, duration in {**stages, "rl_step": sum(stages.values())}.items()
+        )
         return samples
 
     def _storage_node(self, node: str, now: float, phase: str, value: dict[str, float]) -> list[GaugeSample]:
@@ -183,7 +226,7 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
     def targets(job: str, endpoints: list[str], extra: str = "") -> list[str]:
         lines = [f"  - job_name: {job}", "    static_configs:"]
         for endpoint in endpoints:
-            lines += [f"      - targets: ['{address}']", "        labels:", f"          cluster: {cluster}", f"          instance: {endpoint}", f"          __metrics_path__: /metrics/{endpoint}"]
+            lines += [f"      - targets: ['{address}']", "        labels:", f"          cluster: {cluster}", f"          instance: {endpoint}", f"          nodename: {endpoint}", f"          __metrics_path__: /metrics/{endpoint}"]
             if extra:
                 lines.append(extra)
         return lines
