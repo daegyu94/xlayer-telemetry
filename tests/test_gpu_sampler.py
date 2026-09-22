@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from post_training_telemetry import gpu_sampler
@@ -22,3 +24,28 @@ def test_device_and_process_memory_are_independent(monkeypatch):
     value = gpu_sampler.snapshot()
     assert value["gpus"][0]["memory.used"] is None
     assert value["compute_processes"][0]["used_gpu_memory_mib"] == 412
+
+
+def test_sampler_runs_without_a_default_deadline(tmp_path, monkeypatch):
+    output = tmp_path / "gpu.jsonl"
+    samples = iter(
+        (
+            {"timestamp": 1.0, "host_memory": {}, "gpus": [], "compute_processes": []},
+            RuntimeError("stop after first sample"),
+        )
+    )
+
+    def snapshot():
+        value = next(samples)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(gpu_sampler, "snapshot", snapshot)
+    monkeypatch.setattr(gpu_sampler.time, "sleep", lambda _: None)
+    monkeypatch.setattr(sys, "argv", ["gpu_sampler", "--output", str(output)])
+
+    with pytest.raises(RuntimeError, match="stop after first sample"):
+        gpu_sampler.main()
+
+    assert output.read_text().count("\n") == 1

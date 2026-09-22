@@ -53,15 +53,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--textfile-dir", type=Path)
-    parser.add_argument("--duration", type=float, default=120)
+    parser.add_argument(
+        "--duration",
+        type=float,
+        help="stop after this many seconds; omit to run until interrupted",
+    )
     parser.add_argument("--interval", type=float, default=1)
     args = parser.parse_args()
-    if args.duration <= 0 or args.interval <= 0:
-        parser.error("duration and interval must be positive")
+    if args.duration is not None and args.duration <= 0:
+        parser.error("duration must be positive")
+    if args.interval <= 0:
+        parser.error("interval must be positive")
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    deadline = time.monotonic() + args.duration
+    deadline = time.monotonic() + args.duration if args.duration is not None else None
     with args.output.open("x") as output:
-        while time.monotonic() < deadline:
+        while deadline is None or time.monotonic() < deadline:
             value = snapshot()
             output.write(json.dumps(value) + "\n")
             output.flush()
@@ -80,7 +86,10 @@ def main():
                             {"pid": str(process["pid"]), "gpu_uuid": process["gpu_uuid"]},
                         ))
                 write_gauges(args.textfile_dir, "gpu.prom", samples)
-            time.sleep(min(args.interval, max(0, deadline - time.monotonic())))
+            sleep_seconds = args.interval
+            if deadline is not None:
+                sleep_seconds = min(args.interval, max(0, deadline - time.monotonic()))
+            time.sleep(sleep_seconds)
 
 
 if __name__ == "__main__":

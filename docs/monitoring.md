@@ -4,7 +4,48 @@ System resource metric과 선택적인 application metric을 수집해 Prometheu
 helper script는 ARM64와 x86_64 Linux를 지원하며 특정 workload launcher나 cluster setup을 가정하지 않습니다.
 관측 대상은 `이름=주소` 형식으로 지정하므로 node 구성에 맞게 확장할 수 있습니다.
 
-## Monitoring Flow
+## Choose a Starting Point
+
+처음에는 다음 표에서 환경에 맞는 경로를 선택합니다.
+
+| 목적 | 시작할 절 |
+| --- | --- |
+| 실제 GPU나 storage 없이 dashboard 확인 | [Try the Synthetic Demo](#try-the-synthetic-demo) |
+| 한 Linux host의 실제 자원 관측 | 같은 host에서 `node`와 `server` role을 각각 실행하는 [Monitor Real Nodes](#monitor-real-nodes) |
+| 여러 compute·storage node 관측 | node별 collector와 중앙 server를 배치하는 [Monitor Real Nodes](#monitor-real-nodes) |
+| 학습 loss·처리량 추가 | 기본 수집을 확인한 뒤 [Application Metrics](#application-metrics) |
+| 실행 log 검색 | 기본 수집을 확인한 뒤 [Add Run Logs with Loki](#add-run-logs-with-loki) |
+
+모든 명령은 저장소 루트에서 실행합니다.
+도구와 monitoring state에는 실행 host의 local 경로를 사용합니다.
+실행 전 Linux host에 Python 3, `curl`, `tar`와 `unzip`이 있는지 확인합니다.
+
+## Understand the Deployment Roles
+
+이 문서에서는 Prometheus와 Grafana를 실행하는 machine을 monitoring host라고 부릅니다.
+Monitoring host는 `run_telemetry.sh server`를 실행하며 cluster와 workload의 lifecycle은 관리하지 않습니다.
+
+| Script role | 실행 위치 | 시작하는 주요 process |
+| --- | --- | --- |
+| `node` | 관측할 compute host | Node Exporter, GPU sampler, 선택적 metric collector와 Alloy |
+| `storage` | 관측할 전용 storage host | SMART exporter |
+| `server` | 중앙에서 metric을 모을 monitoring host | Prometheus, Grafana, 선택적 Loki |
+
+처음 한 host에서 확인할 때는 그 host가 compute node와 monitoring host 역할을 함께 맡아도 됩니다.
+이 경우 두 role에 서로 다른 `OUTPUT_DIR`을 지정합니다.
+분산 환경에서는 GPU workload와 monitoring service의 자원 경합을 피하도록 monitoring host를 별도로 두는 구성을 권장합니다.
+
+분산 배치에서는 다음 network 경로가 열려 있어야 합니다.
+
+| Source | Destination | 기본 port | 용도 |
+| --- | --- | --- | --- |
+| Monitoring host | Compute node | `19100` | Node Exporter와 telemetry metric 수집 |
+| Monitoring host | Storage node | `19633` | 선택적 SMART metric 수집 |
+| Compute node | Monitoring host | `13100` | Loki를 사용할 때 log 전송 |
+
+Grafana는 monitoring host의 loopback address에 열리므로 원격 접속에는 아래의 SSH port forwarding을 사용합니다.
+
+## Understand the Data Flow
 
 Monitoring은 서로 독립적으로 생산된 두 metric 경로를 Prometheus에서 결합합니다.
 
@@ -13,23 +54,45 @@ Monitoring은 서로 독립적으로 생산된 두 metric 경로를 Prometheus�
 | System Resource Metrics | host·GPU·network·storage exporter가 자원 상태를 노출 | `node` 또는 `storage` role을 실행하면 기본 활성화 |
 | Application Metrics | worker JSON을 Node Exporter textfile 형식으로 변환 | workload가 metric을 기록하고 `TELEMETRY_METRICS_DIR`를 지정할 때 활성화 |
 
-1. 각 node에서 collector를 실행합니다.
-2. 필요하면 같은 node에서 application metric과 topology 수집을 추가합니다.
-3. controller의 local storage에서 Prometheus와 Grafana를 시작합니다.
-4. Grafana에서 application run·worker와 같은 시간 범위·node의 system resource metric을 함께 봅니다.
+1. 각 compute host에서 `node` role을 실행해 exporter와 collector를 시작합니다.
+2. Monitoring host에서 `server` role을 실행해 각 node의 metric을 Prometheus로 수집합니다.
+3. Grafana에서 같은 시간 범위의 application metric과 system resource metric을 함께 봅니다.
+4. 필요할 때 application metric, topology, log와 SSD health를 추가합니다.
 
 Application 계측 코드를 연결하는 방법은 [Application Metrics Guide](application-metrics.md)를 따릅니다.
 이 문서는 이미 생성된 두 metric 경로를 수집하고 표시하는 운영 절차에 집중합니다.
 
-## Start Monitoring
+## Try the Synthetic Demo
+
+실제 GPU나 storage 없이 전체 dashboard 연결을 먼저 확인할 수 있습니다.
+Server 도구를 local 디렉터리에 설치한 뒤 synthetic source와 monitoring server를 함께 시작합니다.
+
+```bash
+export TOOLS_DIR='<local-telemetry-tools>'
+bash scripts/install_telemetry_tools.sh server
+
+OUTPUT_DIR='<local-monitoring-state>' \
+DEMO_LIVE=1 \
+  bash scripts/run_telemetry.sh server
+```
+
+명령은 foreground에서 실행되며 종료하면 함께 시작한 service도 정리됩니다.
+같은 host에 browser가 있으면 `http://127.0.0.1:13000`을 엽니다.
+원격 host에서 실행했다면 [Open the Dashboards](#open-the-dashboards)의 SSH port forwarding을 사용합니다.
+
+Grafana에서 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
+정상 학습, data wait, collective, checkpoint와 recovery가 반복되면 기본 연결이 동작하는 것입니다.
+
+## Monitor Real Nodes
 
 ### 1. Prepare Tools
 
 `install_telemetry_tools.sh`는 host architecture에 맞는 userspace 도구를 내려받습니다.
 driver와 system package는 설치하지 않습니다.
 
-관측할 node에서는 기본 도구를, controller에서는 server 도구를 설치합니다.
-`TOOLS_DIR`은 node 또는 controller의 local 경로로 반드시 지정합니다.
+`node` 도구에는 Node Exporter, SMART exporter와 Alloy가 포함됩니다.
+`server` 도구에는 Node Exporter와 SMART exporter 외에 Prometheus, Grafana와 Loki가 포함됩니다.
+각 명령의 `TOOLS_DIR`에는 해당 명령을 실행하는 host의 local 경로를 반드시 지정합니다.
 
 ```bash
 TOOLS_DIR='<node-local-tools>' \
@@ -37,7 +100,7 @@ TOOLS_DIR='<node-local-tools>' \
 ```
 
 ```bash
-TOOLS_DIR='<controller-local-tools>' \
+TOOLS_DIR='<monitoring-host-local-tools>' \
   bash scripts/install_telemetry_tools.sh server
 ```
 
@@ -51,14 +114,14 @@ TOOLS_DIR='<controller-local-tools>' \
 - GPU sampler: GPU 지표를 수집하고 textfile metric과 JSONL을 생성
 - 선택 기능: application metrics, topology, local SSD health, node-local log 전송
 
-GPU sampler의 기본 실행 시간은 15분입니다.
-시간이 지나면 sampler가 종료되고 script가 함께 시작한 exporter와 선택적 collector를 정리한 뒤 `node` role도 종료됩니다.
-`DURATION`은 초 단위로 변경할 수 있습니다.
+`node` role은 종료 signal을 받을 때까지 계속 실행됩니다.
+정해진 시간만 수집하려면 `DURATION`에 양의 초 단위 값을 지정합니다.
+지정한 시간이 지나면 sampler가 종료되고 script가 함께 시작한 exporter와 선택적 collector를 정리합니다.
+GPU JSONL에는 interval마다 snapshot이 추가되므로 장기 실행에서는 `OUTPUT_DIR`의 사용량을 확인하거나 `DURATION` 단위로 process를 다시 시작해 파일을 나눕니다.
 
 ```bash
 NODE_ADDR='<node-management-address>' \
 OUTPUT_DIR='<node-local-monitoring-state>' \
-DURATION=3600 \
   bash scripts/run_telemetry.sh node
 ```
 
@@ -73,7 +136,6 @@ DURATION=3600 \
 NODE_ADDR='<node-management-address>' \
 OUTPUT_DIR='<node-local-monitoring-state>' \
 TELEMETRY_METRICS_DIR='<launcher-output>/telemetry-metrics' \
-DURATION=3600 \
   bash scripts/run_telemetry.sh node
 ```
 
@@ -84,7 +146,7 @@ DURATION=3600 \
 
 `TELEMETRY_METRICS_DIR`를 생략하면 application metrics만 수집하지 않으며 host·GPU monitoring은 계속됩니다.
 각 node에는 node-local 경로를 지정해야 합니다.
-여러 node가 같은 NFS 디렉터리를 읽으면 동일한 worker가 여러 `instance`에 중복됩니다.
+여러 node가 shared storage의 같은 디렉터리를 읽으면 동일한 worker가 여러 `instance`에 중복됩니다.
 
 Dashboard의 freshness 처리는 다음과 같습니다.
 
@@ -99,16 +161,17 @@ Dashboard의 freshness 처리는 다음과 같습니다.
 
 ### 3. Start the Monitoring Server
 
-Monitoring server는 GPU workload와 자원 경합이 없도록 controller에서 실행합니다.
-`OUTPUT_DIR`과 `TOOLS_DIR`에는 NFS checkout 밖의 controller-local 경로를 지정합니다.
-Controller가 각 node의 management address와 exporter port에 접근할 수 있어야 합니다.
+Prometheus와 Grafana는 monitoring host에서 실행합니다.
+분산 환경에서는 GPU workload와 자원 경합이 없도록 별도 host를 사용합니다.
+`OUTPUT_DIR`과 `TOOLS_DIR`에는 monitoring host의 local 경로를 지정합니다.
+Monitoring host가 각 node의 management address와 exporter port에 접근할 수 있어야 합니다.
 
 `TELEMETRY_TARGETS`에 `이름=주소` 항목을 쉼표로 연결합니다.
 node 수와 역할은 고정하지 않습니다.
 
 ```bash
-TOOLS_DIR='<controller-local-tools>' \
-OUTPUT_DIR='<controller-local-monitoring-state>' \
+TOOLS_DIR='<monitoring-host-local-tools>' \
+OUTPUT_DIR='<monitoring-host-local-state>' \
 CLUSTER_NAME='<cluster-name>' \
 TELEMETRY_TARGETS='trainer-0=<first-node-address>,rollout-0=<second-node-address>' \
   bash scripts/run_telemetry.sh server
@@ -116,8 +179,8 @@ TELEMETRY_TARGETS='trainer-0=<first-node-address>,rollout-0=<second-node-address
 
 | 항목 | 동작 |
 | --- | --- |
-| Prometheus | controller의 `127.0.0.1:19090`에서 실행 |
-| Grafana | controller의 `127.0.0.1:13000`에서 실행 |
+| Prometheus | monitoring host의 `127.0.0.1:19090`에서 실행 |
+| Grafana | monitoring host의 `127.0.0.1:13000`에서 실행 |
 | 시작 확인 | 두 HTTP endpoint와 Prometheus query를 확인한 뒤 URL과 `startup-summary.json`을 출력 |
 | 기본 접근 권한 | anonymous Viewer |
 | 관리자 비밀번호 | 필요할 때만 `GRAFANA_ADMIN_PASSWORD`로 지정 |
@@ -127,35 +190,52 @@ TELEMETRY_TARGETS='trainer-0=<first-node-address>,rollout-0=<second-node-address
 `TELEMETRY_SOURCES_FILE`에 [Agent RL native source 목록](../examples/verl/native-sources.json)을 지정하면 server role이 vLLM, Ray, 3FS exporter endpoint를 검증하고 `native` scrape job에 추가합니다.
 동적 rollout endpoint는 VERL 또는 RL-Insight의 자체 등록을 우선하며 자세한 구성은 [Agent RL Telemetry Guide](agent-rl.md)를 따릅니다.
 
-#### Move an Existing Server to the Controller
+### 4. Open the Dashboards
 
-기존 Spark node에서 monitoring server를 실행 중이면 먼저 해당 server를 유지한 채 controller server를 병행 실행합니다.
-두 Prometheus가 같은 exporter를 scrape해도 서로 다른 local TSDB에 저장하므로 이전 검증 동안 함께 실행할 수 있습니다.
+Monitoring host에서 browser를 사용하면 `http://127.0.0.1:13000`을 엽니다.
+원격 monitoring host에는 browser가 있는 client에서 SSH port forwarding으로 접속합니다.
+다음 명령은 monitoring host의 Grafana port를 client의 `localhost:13000`으로 전달합니다.
 
-Controller에서 Prometheus target, Grafana health와 실제 run metric을 확인한 뒤 Spark node의 server를 종료합니다.
-Spark node의 기존 server data는 즉시 삭제하지 않고 rollback 기간 동안 보존합니다.
-문제가 생기면 controller server를 종료하고 기존 Spark node server를 다시 시작하며 workload와 node collector는 중단하지 않습니다.
+```bash
+ssh -NT -L 13000:127.0.0.1:13000 <user>@<monitoring-host-ssh-alias>
+```
 
-### 4. Enable Run Logs
+client browser에서 `http://localhost:13000`을 엽니다.
 
-Loki는 controller에서 실행하고 각 Spark node의 Alloy가 그 node의 local log file을 전송합니다.
-공유 NFS는 code 배포에만 사용하며 log 원본, Alloy position과 Loki data에는 사용하지 않습니다.
+| Dashboard | 확인할 내용 |
+| --- | --- |
+| Run Overview (`run-overview.json`, uid `telemetry-overview`) | target 상태·sample age, GPU utilization matrix, worker별 throughput·step time·loss |
+| Agent RL Stage Correlation | run → stage → worker/node/device → reward·tool·sync evidence |
+| Run Logs (`ENABLE_LOGS=1`) | node-local run log 검색과 시간순 history |
+| Compute & Communication | GPU health·memory, worker timer, interface throughput, GPU allocation·compute topology |
+| Data & Storage | node-local device·filesystem 성능, storage topology, 선택적 SSD SMART |
 
-먼저 controller의 management address에 Loki를 bind합니다.
-이 구성은 인증을 사용하지 않으므로 public interface가 아니라 Spark node만 접근할 수 있는 관리망 주소를 지정합니다.
+Run Overview에서 각 target이 `UP`이고 최근 sample이 표시되면 기본 수집 경로가 연결된 것입니다.
+화면 링크는 시간·cluster·node·run 선택을 유지합니다.
+`server` role은 `examples/dashboards/`의 metric dashboard 네 개를 provisioning 경로로 복사하고 `ENABLE_LOGS=1`이면 Run Logs도 추가합니다.
+같은 경로의 `grafana/`와 `compose.yaml`은 별도 Docker Compose 예시입니다.
+
+## Add Run Logs with Loki
+
+Loki는 monitoring host에서 실행하고 각 compute node의 Alloy가 지정된 log file을 전송합니다.
+Log root가 shared storage에 있으면 같은 file을 여러 collector가 보내지 않도록 각 root를 하나의 collector에만 할당합니다.
+Alloy position과 Loki data에는 각 process가 실행되는 host의 local 경로를 사용합니다.
+
+먼저 monitoring host의 management address에 Loki를 bind합니다.
+이 구성은 인증을 사용하지 않으므로 public interface가 아니라 compute node만 접근할 수 있는 관리망 주소를 지정합니다.
 기본 보존 기간은 7일이며 `LOKI_RETENTION`으로 바꿀 수 있습니다.
 
 ```bash
-TOOLS_DIR='<controller-local-tools>' \
-OUTPUT_DIR='<controller-local-monitoring-state>' \
+TOOLS_DIR='<monitoring-host-local-tools>' \
+OUTPUT_DIR='<monitoring-host-local-state>' \
 CLUSTER_NAME='<cluster-name>' \
 TELEMETRY_TARGETS='trainer-0=<first-node-address>,rollout-0=<second-node-address>' \
 ENABLE_LOGS=1 \
-LOKI_LISTEN_ADDR='<controller-management-address>' \
+LOKI_LISTEN_ADDR='<monitoring-host-address>' \
   bash scripts/run_telemetry.sh server
 ```
 
-각 Spark node에서 workload 이름과 node-local output root를 `TELEMETRY_LOG_ROOTS`에 전달합니다.
+각 compute node에서 workload 이름과 node-local output root를 `TELEMETRY_LOG_ROOTS`에 전달합니다.
 Alloy는 각 root의 `<run-id>/logs/**/*.log`를 찾으므로 launcher 종류와 무관하게 같은 규칙을 사용할 수 있습니다.
 TRL, Megatron과 Verl launcher가 이 규칙을 사용하며 이후 agentic RL workload도 `logs` 아래에 file을 기록하면 별도 Loki 연동 코드가 필요 없습니다.
 
@@ -164,13 +244,12 @@ NODE_ADDR='<node-management-address>' \
 NODE_NAME='<node-name>' \
 OUTPUT_DIR='<node-local-monitoring-state>' \
 CLUSTER_NAME='<cluster-name>' \
-LOKI_PUSH_URL='http://<controller-management-address>:13100/loki/api/v1/push' \
+LOKI_PUSH_URL='http://<monitoring-host-address>:13100/loki/api/v1/push' \
 TELEMETRY_LOG_ROOTS='trl=<node-local-trl-output-root>,megatron=<node-local-megatron-output-root>,verl=<node-local-verl-output-root>' \
-DURATION=3600 \
   bash scripts/run_telemetry.sh node
 ```
 
-`run_telemetry.sh`는 log root의 filesystem을 확인하고 NFS/NFS4이면 시작을 거부합니다.
+`run_telemetry.sh`는 log root가 기존 absolute directory인지 확인합니다.
 Alloy는 읽은 offset을 node-local `OUTPUT_DIR/alloy-data`에 저장하므로 재시작 뒤 이미 전송한 구간부터 이어서 처리합니다.
 처음 연결할 때는 과거 file 전체를 한꺼번에 적재하지 않도록 기본 24시간보다 오래된 file을 제외하며 `ALLOY_IGNORE_OLDER_THAN`으로 조정할 수 있습니다.
 Alloy는 `cluster`, `node`, `workload`만 직접 index label로 설정하고 `run_id`, 상대 log file과 원본 경로는 log record 안에 넣어 stream cardinality 증가를 막습니다.
@@ -182,43 +261,13 @@ Run Overview의 `Run Logs` 링크는 현재 시간 범위와 run 선택을 유�
 PYTHONPATH=. python -m post_training_telemetry.stack validate-stack \
   --prometheus-url http://127.0.0.1:19090 \
   --grafana-url http://127.0.0.1:13000 \
-  --loki-url http://<controller-management-address>:13100 \
+  --loki-url http://<monitoring-host-address>:13100 \
   --output '<validation-summary.json>'
 ```
 
-### 5. Open the Dashboards
+## Understand the Synthetic Demo
 
-Controller에는 GUI browser가 없으므로 browser가 있는 client에서 SSH port forwarding을 사용합니다.
-다음 명령은 controller의 Grafana port를 client의 `localhost:13000`으로 전달합니다.
-
-```bash
-ssh -NT -L 13000:127.0.0.1:13000 <user>@<controller-ssh-alias>
-```
-
-client browser에서 `http://localhost:13000`을 엽니다.
-
-| Dashboard | 확인할 내용 |
-| --- | --- |
-| Run Overview (`run-overview.json`, uid `telemetry-overview`) | target 상태·sample age, GPU utilization matrix, worker별 throughput·step time·loss |
-| Agent RL Stage Correlation | run → stage → worker/node/device → reward·tool·sync evidence |
-| Run Logs | node-local run log 검색과 시간순 history |
-| Compute & Communication | GPU health·memory, worker timer, interface throughput, GPU allocation·compute topology |
-| Data & Storage | node-local device·filesystem 성능, storage topology, 선택적 SSD SMART |
-
-화면 링크는 시간·cluster·node·run 선택을 유지합니다.
-`server` role은 `examples/dashboards/`의 metric dashboard 네 개를 provisioning 경로로 복사하고 `ENABLE_LOGS=1`이면 Run Logs도 추가합니다.
-같은 경로의 `grafana/`와 `compose.yaml`은 별도 Docker Compose 예시입니다.
-
-## Synthetic Live Demo
-
-실제 GPU나 storage 없이 dashboard 동작을 확인하려면 controller에서 실행합니다.
-
-```bash
-TOOLS_DIR='<controller-local-tools>' \
-OUTPUT_DIR='<controller-local-monitoring-state>' \
-DEMO_LIVE=1 \
-  bash scripts/run_telemetry.sh server
-```
+앞의 [Try the Synthetic Demo](#try-the-synthetic-demo)는 다음 가상 cluster를 반복해서 생성합니다.
 
 | 구성 | Demo 값 |
 | --- | --- |
@@ -319,11 +368,11 @@ SMARTCTL_EXPORTER='<smartctl-exporter-path>' \
 
 ### Add Storage Targets
 
-Controller의 monitoring server에는 compute target과 storage target을 함께 전달합니다.
+Monitoring host의 `server` role에는 compute target과 storage target을 함께 전달합니다.
 
 ```bash
-TOOLS_DIR='<controller-local-tools>' \
-OUTPUT_DIR='<controller-local-monitoring-state>' \
+TOOLS_DIR='<monitoring-host-local-tools>' \
+OUTPUT_DIR='<monitoring-host-local-state>' \
 CLUSTER_NAME='<cluster-name>' \
 TELEMETRY_TARGETS='trainer-0=<trainer-address>,trainer-1=<trainer-address>' \
 STORAGE_SYSTEM='3fs' \
@@ -331,7 +380,7 @@ STORAGE_TARGETS='storage-0=<storage-address>,storage-1=<storage-address>' \
   bash scripts/run_telemetry.sh server
 ```
 
-`STORAGE_SYSTEM`에는 `local`, `3fs`, `pnfs`처럼 배치를 식별하는 값을 사용합니다.
+`STORAGE_SYSTEM`에는 `local`, `3fs`, `distributed-fs`처럼 배치를 식별하는 값을 사용합니다.
 Data & Storage dashboard는 `cluster → storage system → storage node → SSD` 순서로 필터링합니다.
 
 ### Read SSD Metrics
@@ -343,7 +392,7 @@ Data & Storage dashboard는 `cluster → storage system → storage node → SSD
 | Percentage used | vendor가 추정한 endurance 사용률 |
 | Available spare | 남은 spare 비율 |
 | Media errors | 복구되지 않은 media error 누계 |
-| Lifetime host bytes written | host가 controller에 기록한 누계 |
+| Lifetime host bytes written | host가 SSD controller에 기록하도록 요청한 누계 |
 
 `smartctl_device_bytes_written`에는 garbage collection과 wear leveling의 내부 NAND write가 포함되지 않습니다.
 따라서 SSD write amplification으로 해석하지 않습니다.
@@ -361,7 +410,7 @@ Docker Compose 예시는 `targets/storage.json`을 읽습니다.
     "targets": ["storage-0.example:19633"],
     "labels": {
       "cluster": "<cluster-name>",
-      "storage_system": "pnfs",
+      "storage_system": "distributed-fs",
       "instance": "storage-0"
     }
   }

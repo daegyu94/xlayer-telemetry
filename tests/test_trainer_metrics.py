@@ -14,7 +14,7 @@ def test_callback_writes_loss_step_time_and_token_rate(tmp_path: Path) -> None:
         producer="trl",
         role="trainer",
         worker_id="0",
-        node="spark1",
+        node="trainer-0",
         clock=lambda: 100.0,
     )
     callback = _MetricsCallback(emitter, clock=lambda: next(times))

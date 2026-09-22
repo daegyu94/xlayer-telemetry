@@ -7,7 +7,46 @@ VERL Agent RL은 run·stage·worker/node/device·evidence를 잇는 correlation 
 
 이 저장소는 cluster와 workload lifecycle을 소유하는 launcher를 포함하지 않습니다.
 `scripts/run_verl_with_telemetry.sh`는 사용자가 전달한 VERL 명령에 logger·sidecar만 붙이는 선택적 wrapper입니다.
-[`post-training-lab`](https://github.com/daegyu94/post-training-lab)은 이 저장소를 `third_party/post-training-telemetry` submodule로 참조합니다.
+
+## Why Cross-Layer Telemetry
+
+Post-training 성능 문제는 한 계층에만 머물지 않습니다.
+VERL stage가 느려졌을 때 원인은 vLLM queue, GPU·network 포화, 3FS latency 또는 다른 workload의 자원 경합일 수 있지만 각 계층의 dashboard와 log만 따로 보면 같은 실행의 같은 순간을 연결하기 어렵습니다.
+
+이 프로젝트는 각 시스템의 native metric과 log를 유지하면서 `run_id`, 시간 범위, node·role·worker·device와 topology를 공통 문맥으로 연결합니다.
+이를 통해 느린 stage에서 시작해 관련 resource와 service evidence를 좁히고, 상시 telemetry로 답할 수 없을 때만 짧은 trace나 hardware baseline을 추가할 수 있습니다.
+
+```text
++----------------------- GPU CLUSTER -----------------------+
+| VERL trainer > vLLM rollout engine                        |
+| stage/reward    queue, KV cache, TTFT                     |
+| GPU / host / NIC metrics        3FS client                |
++-------------------+--------------------+------------------+
+                    |                    |
+                    | telemetry signals  | checkpoint I/O
+                    |                    v
+                    |    +---------------+------------------+
+                    |    | STORAGE CLUSTER                  |
+                    |    | 3FS service > SSD                |
+                    |    | latency/count > SMART/device I/O |
+                    |    +---------------+------------------+
+                    |                    |
+                    +---------+----------+
+                              |
+                              v
++---------------- POST-TRAINING TELEMETRY ------------------+
+| Prometheus metrics | Loki logs | JSONL events             |
+| run manifest       | 3FS ClickHouse reference             |
+| Correlation: run_id + time window + node/role/topology    |
++----------------------------+------------------------------+
+                             |
+                             v
++------------------- CORRELATED EVIDENCE -------------------+
+| Slow VERL stage > affected worker/node/device             |
+| vLLM pressure, GPU/NIC saturation, or 3FS latency?        |
+| Dashboard first > focused trace or baseline when needed   |
++-----------------------------------------------------------+
+```
 
 ## Observation Model
 
@@ -17,22 +56,6 @@ VERL Agent RL은 run·stage·worker/node/device·evidence를 잇는 correlation 
 | --- | --- | --- | --- |
 | System Resource Metrics | GPU, host, network와 storage가 어떤 상태인가? | utilization, memory, power, traffic, I/O, SMART | GPU sampler, Node Exporter, system exporter |
 | Application Metrics | workload가 어떤 단계에서 어떤 성능을 내는가? | loss, step, throughput, timer, phase | framework adapter, `MetricEmitter`, native exporter |
-
-```mermaid
-flowchart LR
-    S["System Resource Metrics<br/>GPU · host · network · storage"] --> E["Exporters"]
-    A["Application Metrics<br/>loss · step · throughput · phase"] --> J["Worker JSON"]
-    A --> N["Native endpoint"]
-    J --> T["Textfile collector"]
-    T --> E
-    E --> P["Prometheus"]
-    N --> P
-    P --> G["Grafana"]
-    J --> R["show_run"]
-    G --> D["Correlation and diagnosis"]
-    R --> D
-    D --> X["Focused trace · baseline"]
-```
 
 Application metric에서 `run_id`와 worker를 선택하고, 같은 시간 범위와 node의 system resource metric을 함께 해석합니다.
 System resource metric은 자원이 어디에서 포화됐는지 보여 주고, application metric은 그때 workload가 무엇을 하고 있었는지 보여 줍니다.
@@ -53,8 +76,7 @@ Agent RL의 request·trajectory ID와 tool event는 Prometheus label이 아니�
 
 ## Python Package Usage
 
-`post-training-lab`과 source checkout을 함께 개발할 때는 저장소 루트를 `PYTHONPATH`에 추가합니다.
-이 방식이 `post-training-lab` launcher의 기본값이며 checkout된 submodule commit을 그대로 사용합니다.
+Source checkout에서 Python module을 사용하려면 저장소 루트를 `PYTHONPATH`에 추가합니다.
 
 ```bash
 export PYTHONPATH="/path/to/post-training-telemetry${PYTHONPATH:+:$PYTHONPATH}"
@@ -103,30 +125,3 @@ for f in scripts/*.sh; do bash -n "$f"; done
 ```
 
 미설치 도구 표시는 해당 기능을 아직 사용할 수 없다는 뜻이며 다른 로컬 검사는 계속 실행할 수 있습니다.
-
-## Migrating from `observability/`
-
-`post-training-lab/observability`에서 분리하면서 다음 이름이 바뀌었습니다.
-`training_*` application metric 이름은 그대로입니다.
-
-| 이전 | 현재 |
-| --- | --- |
-| `scripts/run_observability.sh` | `scripts/run_telemetry.sh` |
-| `scripts/install_observability_tools.sh` | `scripts/install_telemetry_tools.sh` |
-| `scripts/validate_observability.sh` | `scripts/validate_stack.sh` |
-| `observatory_metrics` | `post_training_telemetry.metrics` |
-| `profiling_lab` | `post_training_telemetry` |
-| `profiling_lab.telemetry` | `post_training_telemetry.gpu_sampler` |
-| `profiling_lab.observability` | `post_training_telemetry.stack` |
-| `resource_sampler.py`, `run_summary.py` (저장소 루트) | `post_training_telemetry.resource_sampler`, `post_training_telemetry.run_summary` |
-| `OBSERVATORY_RUN_ID`, `OBSERVATORY_METRICS_DIR`, `OBSERVATORY_METRICS_INTERVAL` | `TELEMETRY_RUN_ID`, `TELEMETRY_METRICS_DIR`, `TELEMETRY_METRICS_INTERVAL` |
-| `<output>/observatory-metrics/`, textfile `observatory.prom` | `<output>/telemetry-metrics/`, `application.prom` |
-| Prometheus metric `profiling_gpu_*`, `profiling_topology_*` | `telemetry_gpu_*`, `telemetry_topology_*` |
-| `examples/observability/` | `examples/dashboards/` |
-| `OBSERVABILITY_TARGETS`, `OBSERVABILITY_LOG_ROOTS` | `TELEMETRY_TARGETS`, `TELEMETRY_LOG_ROOTS` |
-| 기본 `TOOLS_DIR` `~/.local/share/observability-tools` | `TOOLS_DIR` 필수 지정 |
-| Prometheus job `observability` | `telemetry` |
-| Grafana uid `observability-{overview,prometheus,loki}` | `telemetry-{overview,prometheus,loki}` |
-
-기존 tool 설치를 다시 내려받지 않으려면 `TOOLS_DIR`에 이전 경로를 지정합니다.
-Prometheus job과 Grafana uid가 바뀌었으므로 이전 monitoring state의 TSDB·dashboard와 새 시계열은 이어지지 않습니다.

@@ -60,7 +60,7 @@ PYTHONPATH=. python3 -m post_training_telemetry.show_run '<output-dir>'
 ```
 
 Application metric을 보려면 실행 시 `TELEMETRY_RUN_ID`와 `TELEMETRY_METRICS_DIR`가 설정되어 있어야 합니다.
-output directory가 node-local이라 controller에서 보이지 않으면 해당 node에서 명령을 실행합니다.
+output directory가 node-local이라 monitoring host에서 보이지 않으면 해당 node에서 명령을 실행합니다.
 
 `show_run`이 보여 주는 application metric은 마지막 snapshot입니다.
 전체 loss 추이나 step별 변화는 `logs/`의 학습 log를 확인합니다.

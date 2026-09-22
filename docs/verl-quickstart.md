@@ -21,8 +21,8 @@ Wrapper가 기존 VERL 명령에 `file` logger 설정만 추가하고 metric bri
 VERL 환경을 준비하기 전에 dummy Agent run으로 전체 수집 경로와 dashboard를 먼저 확인할 수 있습니다.
 
 ```bash
-TOOLS_DIR='<controller-local-tools>' \
-OUTPUT_DIR='<controller-local-monitoring-state>' \
+TOOLS_DIR='<monitoring-host-local-tools>' \
+OUTPUT_DIR='<monitoring-host-local-state>' \
 DEMO_LIVE=1 \
   bash scripts/run_telemetry.sh server
 ```
@@ -76,7 +76,6 @@ NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
 OUTPUT_DIR='/local/monitoring/node' \
 TELEMETRY_METRICS_DIR="$RUN_ROOT/telemetry-metrics" \
-DURATION=3600 \
 TOOLS_DIR="$TOOLS_DIR" \
   bash scripts/run_telemetry.sh node
 ```
@@ -251,7 +250,7 @@ Source의 `labels.node`는 `TELEMETRY_TARGETS`에 사용한 logical node 이름�
 ### GPU는 보이지만 run filter가 비어 있음
 
 Node collector의 `TELEMETRY_METRICS_DIR`와 wrapper의 `--output/telemetry-metrics`가 같은 node-local 경로인지 확인합니다.
-공유 NFS directory를 여러 node collector가 동시에 읽지 않습니다.
+Shared storage의 같은 directory를 여러 node collector가 동시에 읽지 않습니다.
 
 ### VERL 명령이 logger 설정 오류로 종료됨
 

@@ -115,11 +115,6 @@ EOF
         echo "TELEMETRY_LOG_ROOTS workload names must be unique: $workload" >&2
         exit 2
       fi
-      fs_type="$(findmnt -T "$root" -n -o FSTYPE)"
-      if [[ "$fs_type" == nfs || "$fs_type" == nfs4 ]]; then
-        echo "log root must be node-local, not $fs_type: $root" >&2
-        exit 2
-      fi
       seen_workloads+=" $workload"
       escaped_root="${root//\\/\\\\}"
       escaped_root="${escaped_root//\"/\\\"}"
@@ -154,13 +149,13 @@ loki.relabel "run_path" {
 }
 
 loki.process "pack_metadata" {
-  forward_to = [loki.write.controller.receiver]
+  forward_to = [loki.write.monitoring_host.receiver]
   stage.pack {
     labels = ["filename", "run_id", "log_file"]
   }
 }
 
-loki.write "controller" {
+loki.write "monitoring_host" {
   endpoint {
     url = "$LOKI_PUSH_URL"
   }
@@ -179,9 +174,14 @@ EOF
   if [[ "${ENABLE_SSD_HEALTH:-0}" == 1 ]]; then
     start_smartctl_exporter
   fi
-  "${PYTHON:-python3}" -m post_training_telemetry.gpu_sampler \
-    --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl" \
-    --textfile-dir "$output_dir/textfile" --duration "${DURATION:-900}" &
+  gpu_sampler_args=(
+    --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl"
+    --textfile-dir "$output_dir/textfile"
+  )
+  if [[ -n "${DURATION:-}" ]]; then
+    gpu_sampler_args+=(--duration "$DURATION")
+  fi
+  "${PYTHON:-python3}" -m post_training_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
   pids+=("$!")
   if [[ -n "${TELEMETRY_METRICS_DIR:-}" ]]; then
     "${PYTHON:-python3}" -m post_training_telemetry.metrics.textfile \
@@ -427,5 +427,5 @@ else
   echo 'Use node, storage, or server' >&2
   exit 2
 fi
-# Exit and clean up siblings when one service exits; external timeout bounds the lab.
+# Exit and clean up siblings when one managed service exits.
 wait -n "${pids[@]}"

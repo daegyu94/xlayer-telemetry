@@ -66,7 +66,7 @@ Remote Ray worker나 custom agent에서 `EventRecorder` 또는 `MetricEmitter`�
 - node-local 경로인 `TELEMETRY_METRICS_DIR`와 `TELEMETRY_EVENTS_DIR`
 - 해당 worker가 import할 수 있는 package 또는 checkout 경로
 
-여러 node가 같은 NFS snapshot directory에 쓰게 하지 않습니다.
+여러 node가 shared storage의 같은 snapshot directory에 쓰게 하지 않습니다.
 각 node collector가 자기 local directory만 읽게 하고, logical node 이름은 `TELEMETRY_TARGETS`의 이름과 native source의 `labels.node`에서 동일하게 사용합니다.
 Wrapper의 자동 manifest는 single-driver 시작점이므로 multi-node에서는 위 `manifest` 명령으로 실제 role 배치를 추가 기록합니다.
 
@@ -198,7 +198,6 @@ NODE_ADDR='10.0.0.10' \
 NODE_NAME='trainer-0' \
 TELEMETRY_METRICS_DIR="$TELEMETRY_METRICS_DIR" \
 OUTPUT_DIR='/local/monitoring-node' \
-DURATION=3600 \
   bash scripts/run_telemetry.sh node
 ```
 

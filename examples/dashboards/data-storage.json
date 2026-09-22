@@ -214,7 +214,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "These are client-node local device and filesystem counters. They can be correlated with a run's time range, but are not attributed to a dataset, checkpoint, trajectory, replay store, or tool call without workload instrumentation. This dashboard does not assume NFS. A future 3FS, pNFS, or other remote-storage topology requires supplied component and edge IDs plus matching service metrics; metadata and data roles may share a server or be separate."
+        "content": "These are client-node local device and filesystem counters. They can be correlated with a run's time range, but are not attributed to a dataset, checkpoint, trajectory, replay store, or tool call without workload instrumentation. This dashboard does not assume a specific shared storage system. A remote-storage topology requires supplied component and edge IDs plus matching service metrics; metadata and data roles may share a server or be separate."
       }
     },
     {

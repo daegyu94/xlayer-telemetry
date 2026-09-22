@@ -155,8 +155,8 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     loki.chmod(0o755)
     output = tmp_path / "monitoring"
     environment = os.environ | {
-        "CLUSTER_NAME": "spark-cluster",
-        "TELEMETRY_TARGETS": "spark1=10.0.0.10,spark2=10.0.0.11",
+        "CLUSTER_NAME": "training-cluster",
+        "TELEMETRY_TARGETS": "trainer-0=10.0.0.10,rollout-0=10.0.0.11",
         "ENABLE_LOGS": "1",
         "LOKI": str(loki),
         "LOKI_LISTEN_ADDR": "192.168.0.1",
@@ -197,8 +197,8 @@ def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -
     output = tmp_path / "monitoring"
     environment = os.environ | {
         "NODE_ADDR": "127.0.0.1",
-        "NODE_NAME": "spark1",
-        "CLUSTER_NAME": "spark-cluster",
+        "NODE_NAME": "trainer-0",
+        "CLUSTER_NAME": "training-cluster",
         "LOKI_PUSH_URL": "http://192.168.0.1:13100/loki/api/v1/push",
         "TELEMETRY_LOG_ROOTS": f"trl={trl},verl={verl}",
         "ALLOY": str(alloy),
@@ -223,36 +223,6 @@ def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -
     assert 'workload = "verl"' in config
     assert 'labels = ["filename", "run_id", "log_file"]' in config
     assert 'ignore_older_than = "24h"' in config
-
-
-def test_node_log_config_rejects_nfs_roots(tmp_path: Path) -> None:
-    script = ROOT / "scripts" / "run_telemetry.sh"
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    findmnt = bin_dir / "findmnt"
-    findmnt.write_text("#!/usr/bin/env bash\necho nfs4\n")
-    findmnt.chmod(0o755)
-    root = tmp_path / "logs"
-    root.mkdir()
-    result = subprocess.run(
-        ["bash", str(script), "node"],
-        cwd=ROOT,
-        env=os.environ
-        | {
-            "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
-            "NODE_ADDR": "127.0.0.1",
-            "LOKI_PUSH_URL": "http://192.168.0.1:13100/loki/api/v1/push",
-            "TELEMETRY_LOG_ROOTS": f"trl={root}",
-            "NODE_CONFIG_ONLY": "1",
-            "OUTPUT_DIR": str(tmp_path / "monitoring"),
-        },
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 2
-    assert "log root must be node-local" in result.stderr
 
 
 def test_storage_role_starts_smartctl_exporter_with_slow_polling(tmp_path: Path) -> None:
