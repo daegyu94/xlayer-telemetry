@@ -1,127 +1,130 @@
 # Post-Training Telemetry
 
-분산 학습 실행의 상태와 성능을 관측하는 collector, metric SDK, dashboard와 분석 도구입니다.
-먼저 host·GPU·통신·저장소와 학습 지표에서 이상이 발생한 시간·node·rank를 찾고, 원인 분석이 필요할 때만 해당 구간의 짧은 trace를 수집합니다.
-Synthetic demo는 dashboard 동작을 보여 주기 위한 예시이며 실제 LLM 학습 결과와 구분합니다.
-VERL Agent RL은 run·stage·worker/node/device·evidence를 잇는 correlation layer를 추가로 사용합니다.
-
-이 저장소는 cluster와 workload lifecycle을 소유하는 launcher를 포함하지 않습니다.
-`scripts/run_verl_with_telemetry.sh`는 사용자가 전달한 VERL 명령에 logger·sidecar만 붙이는 선택적 wrapper입니다.
+VERL 기반 post-training 실행을 GPU·host, rollout engine, network, storage 상태와 함께 해석하는 독립적인 cross-layer telemetry 도구입니다.
+Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
 
 ## Why Cross-Layer Telemetry
 
-Post-training 성능 문제는 한 계층에만 머물지 않습니다.
-VERL stage가 느려졌을 때 원인은 vLLM queue, GPU·network 포화, 3FS latency 또는 다른 workload의 자원 경합일 수 있지만 각 계층의 dashboard와 log만 따로 보면 같은 실행의 같은 순간을 연결하기 어렵습니다.
+학습 step이 느려졌다는 사실만으로는 GPU 연산, rollout queue, network 전송, storage 대기 중 어디를 확인해야 할지 알기 어렵습니다.
+이 프로젝트는 application의 실행 단계와 같은 시간·node의 자원 지표를 연결해 조사할 범위를 좁힙니다.
+예를 들어 VERL rollout 지연을 vLLM queue 및 GPU 사용률과 비교하고, checkpoint 지연을 3FS latency 및 SSD 상태와 비교할 수 있습니다.
 
-이 프로젝트는 각 시스템의 native metric과 log를 유지하면서 `run_id`, 시간 범위, node·role·worker·device와 topology를 공통 문맥으로 연결합니다.
-이를 통해 느린 stage에서 시작해 관련 resource와 service evidence를 좁히고, 상시 telemetry로 답할 수 없을 때만 짧은 trace나 hardware baseline을 추가할 수 있습니다.
+다음은 VERL·vLLM과 3FS를 함께 사용하는 배치의 예입니다.
+주된 사용 경로는 기존 VERL 실행에 telemetry를 붙이는 것이며, 3FS와 multi-node 배치는 필요에 따라 추가합니다.
+SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수 있습니다.
 
 ```text
-+----------------------- GPU CLUSTER -----------------------+
-| VERL trainer > vLLM rollout engine                        |
-| stage/reward    queue, KV cache, TTFT                     |
-| GPU / host / NIC metrics        3FS client                |
-+-------------------+--------------------+------------------+
-                    |                    |
-                    | telemetry signals  | checkpoint I/O
-                    |                    v
-                    |    +---------------+------------------+
-                    |    | STORAGE CLUSTER                  |
-                    |    | 3FS service > SSD                |
-                    |    | latency/count > SMART/device I/O |
-                    |    +---------------+------------------+
-                    |                    |
-                    +---------+----------+
-                              |
-                              v
-+---------------- POST-TRAINING TELEMETRY ------------------+
-| Prometheus metrics | Loki logs | JSONL events             |
-| run manifest       | 3FS ClickHouse reference             |
-| Correlation: run_id + time window + node/role/topology    |
-+----------------------------+------------------------------+
-                             |
-                             v
-+------------------- CORRELATED EVIDENCE -------------------+
-| Slow VERL stage > affected worker/node/device             |
-| vLLM pressure, GPU/NIC saturation, or 3FS latency?        |
-| Dashboard first > focused trace or baseline when needed   |
-+-----------------------------------------------------------+
++------------------------------------+         +--------------------------------+
+| GPU CLUSTER                        |         | STORAGE CLUSTER                |
+| VERL stages / vLLM rollout         |         | 3FS services                   |
+| GPU / host / NIC                   |         | Service latency                |
+| 3FS client                         |-- I/O > | SSDs / device health           |
++------------------------------------+         +--------------------------------+
+          | telemetry                                   | telemetry
+          +----------------------+----------------------+
+                                 |
++-------------------------------------------------------------------------------+
+| POST-TRAINING TELEMETRY                                                       |
+| Metrics > Prometheus / Grafana       Logs > Alloy / Loki                      |
+| Events / traces > run artifacts      3FS > ClickHouse queries                 |
+| Match time window + node / role / device + run context                        |
++-------------------------------------------------------------------------------+
+                                 |
+                                 +----> Slow stage > related signals > diagnosis
 ```
 
-## Observation Model
+Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
+공유 GPU·network·storage의 사용량 전체가 특정 run의 사용량이라는 뜻은 아니며, 동시 변화는 원인 후보를 찾는 근거입니다.
+3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, 3FS 서비스 전용 Grafana dashboard는 제공하지 않습니다.
 
-관측 데이터는 누가 값을 생산하는지에 따라 두 경로로 나뉩니다.
+## Start Here
 
-| 경로 | 답하는 질문 | 대표 신호 | 생산자 |
-| --- | --- | --- | --- |
-| System Resource Metrics | GPU, host, network와 storage가 어떤 상태인가? | utilization, memory, power, traffic, I/O, SMART | GPU sampler, Node Exporter, system exporter |
-| Application Metrics | workload가 어떤 단계에서 어떤 성능을 내는가? | loss, step, throughput, timer, phase | framework adapter, `MetricEmitter`, native exporter |
+처음이라면 GPU나 학습 환경 없이 [synthetic demo](docs/monitoring.md#try-the-demo)를 실행해 화면부터 확인합니다.
+실제 VERL 실행은 [VERL Quick Start](docs/verl-quickstart.md)에서 자원 관측과 trainer metric을 함께 연결합니다.
+다른 application을 계측하려면 Application Metrics Guide를 사용합니다.
 
-Application metric에서 `run_id`와 worker를 선택하고, 같은 시간 범위와 node의 system resource metric을 함께 해석합니다.
-System resource metric은 자원이 어디에서 포화됐는지 보여 주고, application metric은 그때 workload가 무엇을 하고 있었는지 보여 줍니다.
-`network`, `checkpoint`, `data_movement`처럼 두 경로에 걸친 영역은 metric 이름이 아니라 실제 source를 기준으로 구분합니다.
-Agent RL의 request·trajectory ID와 tool event는 Prometheus label이 아니라 JSONL event·trace에 기록하고, run manifest가 native endpoint와 profile artifact를 연결합니다.
-
-## Layout
-
-| 경로 | 내용 |
+| 원하는 작업 | 안내 |
 | --- | --- |
-| `post_training_telemetry/metrics/` | framework를 import하지 않는 application metric SDK와 textfile 변환 |
-| `post_training_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger adapter |
-| `post_training_telemetry/events.py`, `manifest.py` | Agent RL phase span과 실행별 source·artifact correlation |
-| `post_training_telemetry/` | GPU·host resource sampler, topology·live demo, stack 검증, `show_run`, run summary |
-| `scripts/` | tool 설치, `node`·`storage`·`server` role 실행, profile·NCCL baseline |
-| `examples/dashboards/` | Grafana dashboard와 Docker Compose 예시 |
-| `config/` | Metrics Contract |
+| GPU·host 관측, Prometheus·Grafana 실행 | [Monitoring Guide](docs/monitoring.md) |
+| 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
+| 기존 VERL 명령에 telemetry 추가 | [VERL Quick Start](docs/verl-quickstart.md) |
+| Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
+| 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/analysis.md) |
+| Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |
+
+## Terms Used in This Project
+
+| 용어 | 의미 |
+| --- | --- |
+| Node / host | 관측 대상 machine |
+| Monitoring host | Prometheus·Grafana를 실행하는 machine; 관측 node와 같은 machine이어도 됨 |
+| Exporter | metric을 HTTP endpoint로 노출하는 process |
+| Collector | JSON이나 장치 상태를 읽어 관측 가능한 metric으로 만드는 process |
+| Run / `run_id` | 한 번의 workload 실행과 그 식별자 |
+| Worker / rank | workload를 수행하는 process와 분산 실행에서의 번호 |
+| Manifest | 실행 조건, role 배치, endpoint와 산출물 위치를 기록한 JSON |
+| Trace / span | 개별 작업의 시작·종료와 소요 시간을 기록한 상세 증거 |
+
+Prometheus는 수치 시계열을 저장하고 Grafana는 이를 시각화합니다.
+Loki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.
+각 역할은 기존 도구를 조합하고, 이 프로젝트는 계층 사이의 공통 문맥과 연결 절차를 제공합니다.
+
+## Prepare a Checkout
+
+Shell script와 dashboard를 사용하려면 이 저장소를 직접 checkout합니다.
+아래 명령은 clone할 상위 directory에서 실행합니다.
+
+```bash
+git clone https://github.com/daegyu94/post-training-telemetry.git
+cd post-training-telemetry
+bash scripts/setup.sh
+. .venv/bin/activate
+```
+
+Python 3.10 이상과 `venv` 지원이 필요합니다.
+`setup.sh`는 telemetry용 가상환경과 pytest를 준비하며 GPU driver, CUDA PyTorch, VERL, Prometheus·Grafana는 설치하지 않습니다.
+Monitoring binary 설치는 [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어집니다.
+
+문서의 shell 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
+`<...>`와 `/path/to/...`는 자신의 주소나 경로로 바꾸고, 새 terminal에서도 working directory와 Python 환경을 준비합니다.
 
 ## Python Package Usage
 
-Source checkout에서 Python module을 사용하려면 저장소 루트를 `PYTHONPATH`에 추가합니다.
-
-```bash
-export PYTHONPATH="/path/to/post-training-telemetry${PYTHONPATH:+:$PYTHONPATH}"
-```
-
-독립된 application에서 Python module만 사용하려면 선택적으로 설치할 수 있습니다.
+Application의 Python 환경에 SDK만 설치하려면 checkout 경로를 사용합니다.
 
 ```bash
 python -m pip install /path/to/post-training-telemetry
 ```
 
-설치 후에는 `PYTHONPATH`를 설정하지 않아도 `post_training_telemetry`를 import할 수 있습니다.
-로컬에서 telemetry source를 함께 수정할 때는 `python -m pip install -e /path/to/post-training-telemetry`를 사용할 수 있습니다.
-Shell script, dashboard와 demo fixture는 Python package에 포함되지 않으므로 해당 기능은 source checkout에서 실행합니다.
+Source를 수정하면서 사용하려면 `python -m pip install -e /path/to/post-training-telemetry`로 설치합니다.
+설치 없이 import하려면 해당 process의 `PYTHONPATH`에 저장소 루트를 추가합니다.
+Shell script, dashboard와 demo fixture는 Python package에 포함되지 않으므로 checkout에서 실행합니다.
 
-## Start Here
+## Scope and Layout
 
-System resource metric을 수집하고 dashboard를 실행하려면 [분산 실행 모니터링](docs/monitoring.md)에서 시작합니다.
-Training metric을 함께 보려면 [Application Metrics Guide](docs/application-metrics.md)에 따라 adapter나 emitter를 연결합니다.
-VERL을 처음 연결할 때는 [VERL Telemetry Quick Start](docs/verl-quickstart.md)의 비침투적 wrapper 경로를 먼저 사용합니다.
-Multi-node, RL-Insight, 3FS와 custom event는 [Agent RL Telemetry Guide](docs/agent-rl.md)에서 확장합니다.
-이상이 발견되면 [실행 분석](docs/analysis.md)에서 두 경로를 연관 지어 보고, 필요한 구간에만 selected-rank trace나 hardware baseline을 추가합니다.
-지표를 추가하거나 의미를 해석할 때는 [Metrics Contract](docs/metrics.md)의 이름·단위·측정 범위를 따릅니다.
+이 프로젝트는 cluster 배포, workload scheduling, training launcher를 관리하지 않습니다.
+VERL wrapper는 전달받은 명령에 file logger와 별도 telemetry process를 연결하며 기존 workload의 종료 코드를 보존합니다.
+Event·trace와 native exporter는 해당 source를 활성화했을 때만 이용할 수 있습니다.
 
-| 목적 | 문서 |
+| 경로 | 내용 |
 | --- | --- |
-| host, GPU, network, storage collector와 dashboard 실행 | [분산 실행 모니터링](docs/monitoring.md) |
-| application에 metric emitter나 framework adapter 연결 | [Application Metrics Guide](docs/application-metrics.md) |
-| 기존 VERL 명령에 telemetry를 처음 연결 | [VERL Telemetry Quick Start](docs/verl-quickstart.md) |
-| VERL Agent RL의 stage·worker·resource·evidence 확장 | [Agent RL Telemetry Guide](docs/agent-rl.md) |
-| 두 경로의 상관분석, 실행 요약, trace, hardware baseline | [실행 분석](docs/analysis.md) |
-| metric 이름·단위·scope, label, workflow phase | [Metrics Contract](docs/metrics.md) |
+| `post_training_telemetry/metrics/` | Framework에 독립적인 metric SDK와 textfile 변환 |
+| `post_training_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
+| `post_training_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
+| `scripts/` | 도구 설치, 관측 process 실행, profile·통신 baseline |
+| `examples/` | Dashboard, synthetic demo, framework 연결 예시 |
+| `config/metrics.json` | Metric 이름·단위·측정 범위의 공통 규칙 |
 
 ## Local Validation
 
-GPU workload를 실행하기 전에 기본 도구 상태와 테스트를 로컬 환경에서 확인합니다.
-다음 명령은 저장소 루트에서 실행합니다.
-`setup.sh`는 `.venv`와 pytest만 준비하며 CUDA PyTorch, NCCL Tests, Python package는 설치하지 않습니다.
+Checkout의 Python 환경을 활성화한 뒤 실행합니다.
 
 ```bash
-bash scripts/setup.sh
-. .venv/bin/activate
-bash scripts/check_tools.sh
 python -m pytest -q
-for f in scripts/*.sh; do bash -n "$f"; done
+for script in scripts/*.sh; do bash -n "$script"; done
+bash scripts/check_tools.sh
 ```
 
-미설치 도구 표시는 해당 기능을 아직 사용할 수 없다는 뜻이며 다른 로컬 검사는 계속 실행할 수 있습니다.
+CPU 테스트는 외부 training framework 없이 실행할 수 있습니다.
+`check_tools.sh`의 미설치 표시는 해당 선택 기능의 도구가 없다는 뜻입니다.
+Synthetic demo와 smoke test의 수치는 실제 LLM 학습 성능을 나타내지 않습니다.

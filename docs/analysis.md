@@ -1,117 +1,76 @@
 # Run Analysis
 
-이 문서는 dashboard에서 발견한 이상 징후의 원인을 좁히는 방법을 설명합니다.
-System resource metric으로 자원 상태를 확인하고 application metric으로 같은 시간의 workload 상태를 확인합니다.
-두 상시 지표만으로 원인을 판단할 수 없을 때 trace나 hardware baseline을 추가로 수집합니다.
+이 문서는 VERL 실행이 느려졌을 때 원인 후보를 좁히는 순서를 설명합니다.
+먼저 [VERL Quick Start](verl-quickstart.md)로 application과 GPU·host 지표를 연결합니다.
+Trace와 통신 baseline은 상시 지표만으로 답하기 어려울 때 추가합니다.
 
-## Choose the Evidence
+## Start with One Slow Interval
 
-조사하려는 질문에 맞는 가장 작은 증거부터 사용합니다.
+Grafana의 Agent RL Stage Correlation에서 조사할 run과 시간 범위를 선택합니다.
+어느 완료 stage의 시간이 증가했는지 찾고 같은 시간·node의 resource 지표를 비교합니다.
+예를 들어 rollout 시간이 늘어났다면 vLLM queue, GPU 사용률, tool 대기를 차례로 살펴봅니다.
 
-| 질문 | 먼저 사용할 도구 | 확인할 내용 |
+| 관찰한 변화 | 함께 확인할 신호 | 다음에 조사할 후보 |
 | --- | --- | --- |
-| 자원이 포화되거나 오류를 보고했는가? | system resource dashboard | GPU·host·network·storage 상태와 sample freshness |
-| 그때 workload가 무엇을 하고 있었는가? | application metric dashboard | loss, step, throughput, timer, phase |
-| 실행이 어느 stage까지 진행됐는가? | `show_run` | stage 상태, rank별 마지막 step, output 위치 |
-| 특정 구간에서 CPU·GPU·통신이 어떻게 겹치는가? | selected-rank PyTorch trace | kernel 제출, copy, collective, synchronization |
-| 통신 성능이 hardware 한계에 가까운가? | NCCL baseline | topology 조건, correctness, collective bandwidth |
+| Rollout 시간 증가 | vLLM waiting·KV cache·GPU 사용률 | Queue, concurrency, 긴 response |
+| Rollout 지연과 낮은 engine queue | Tool span·외부 호출 log | Tool 또는 environment 대기 |
+| Actor update 지연과 낮은 GPU 사용률 | CPU·memory·network·input 지표 | Host staging 또는 collective 대기 |
+| Weight sync 지연 | NIC/RDMA traffic·error | 전송 경로와 replica 준비 상태 |
+| Checkpoint 지연 | Storage latency·device write·queue | Client부터 SSD까지의 I/O 경로 |
+| Throughput 감소와 높은 GPU 사용률 | Clock·power·temperature, worker 차이 | Throttling 또는 straggler |
 
-Trace와 baseline은 항상 필요한 절차가 아닙니다.
-run summary와 [monitoring dashboard](monitoring.md)만으로 답할 수 없을 때 추가합니다.
+이 표의 신호는 해당 source가 연결되어 있을 때만 보입니다.
+`N/A`는 0이 아니며, 먼저 target 상태와 sample age를 확인합니다.
+VERL file logger의 stage 값은 step 완료 시 갱신되므로 진행 중인 phase와 혼동하지 않습니다.
 
-## Analysis Workflow
+## Check the Run Context
 
-1. Dashboard에서 이상이 발생한 시간 범위와 `run_id`, node, worker를 기록합니다.
-2. 같은 범위의 system resource metric과 application metric을 비교합니다.
-3. `show_run`으로 실행 상태와 마지막 application metric을 확인합니다.
-4. 원인이 남아 있으면 같은 조건에서 짧은 trace를 수집합니다.
-5. 통신 병목이 의심되면 별도의 NCCL baseline과 비교합니다.
-6. 원인을 수정한 뒤 profiler를 끈 실행에서 효과를 다시 측정합니다.
+같은 시간에 값이 변했다는 사실은 원인 후보를 좁히는 근거입니다.
+Host나 shared storage의 metric에는 다른 workload도 포함될 수 있으므로 node·role·device 배치와 run 조건을 함께 확인합니다.
+여러 machine의 clock가 맞지 않으면 시간상 비교도 틀어질 수 있습니다.
 
-Synthetic trace나 NCCL baseline을 실제 LLM throughput으로 해석하지 않습니다.
-비교할 실행은 model·batch·sequence·topology 등 성능에 영향을 주는 조건을 같게 유지합니다.
+`show_run`은 monitoring server 없이 run directory의 최신 기록을 보여 줍니다.
+Checkout의 Python 환경을 활성화한 뒤 실행합니다.
 
-## Correlate System and Application Metrics
+```bash
+PYTHONPATH=. python -m post_training_telemetry.show_run \
+  "$HOME/telemetry-runs/grpo-001"
+```
 
-두 경로의 시간상 동시 발생은 원인 후보를 좁히는 증거이며 그 자체로 인과관계를 증명하지 않습니다.
-
-| Application signal | 함께 볼 system resource signal | 확인할 가설 |
-| --- | --- | --- |
-| step time 증가, GPU utilization 감소 | host CPU·memory pressure, storage latency·throughput | input 또는 host staging 대기 |
-| communication timer 증가 | NIC·RDMA traffic과 error, GPU 간 utilization imbalance | collective 또는 rank synchronization 병목 |
-| checkpoint timer 증가 | filesystem·device write throughput과 queue | checkpoint write 경로 병목 |
-| throughput 감소, GPU utilization 유지 | power·clock·temperature, worker별 step 차이 | throttling 또는 straggler |
-
-System resource metric은 특정 process나 run의 단독 사용량이 아닐 수 있습니다.
-같은 node의 다른 workload, metric freshness와 topology 조건을 확인한 뒤 application metric과 연결합니다.
-
-## Inspect Run State
-
-[`show_run`](../post_training_telemetry/show_run.py)은 monitoring server 없이 한 output directory의 실행 상태를 요약합니다.
-
-| 입력 | 표시하는 정보 |
+| 읽는 파일 | 확인하는 내용 |
 | --- | --- |
-| Megatron `run-metadata-<stage>.json` | stage별 실행 metadata와 상태 |
-| TRL `summary-<stage>.json` | stage별 summary |
-| `telemetry-metrics/<producer>-<role>-<worker>.json` | worker별 마지막 step과 metric |
+| `telemetry-manifest.json` | Run 식별자, 배치와 기록된 실행 조건 |
+| `telemetry-metrics/*.json` | Worker의 최신 step과 metric |
+| `telemetry-events/*.jsonl` | 최근 event·span |
+| `diagnostics/latest.json` | 선택적인 최신 진단 결과 |
+| `run-metadata-*.json`, `summary-*.json` | Application이 별도로 제공한 stage 요약 |
 
-```bash
-PYTHONPATH=. python3 -m post_training_telemetry.show_run '<output-dir>'
-```
+마지막 두 종류의 stage 요약 파일은 특정 framework가 자동으로 만든다고 가정하지 않습니다.
+파일이 없으면 해당 요약이 생략되며, 이것만으로 실행 실패를 의미하지 않습니다.
+Node-local directory라면 파일이 있는 node에서 명령을 실행합니다.
 
-Application metric을 보려면 실행 시 `TELEMETRY_RUN_ID`와 `TELEMETRY_METRICS_DIR`가 설정되어 있어야 합니다.
-output directory가 node-local이라 monitoring host에서 보이지 않으면 해당 node에서 명령을 실행합니다.
+최신 snapshot만으로 과거 모든 step을 재구성할 수는 없습니다.
+VERL의 원본 이력은 `logs/verl-metrics.jsonl`을 확인하고 다른 application은 자체 log를 사용합니다.
+[자동 진단](agent-rl.md#add-diagnostics)을 켰다면 `missing_sources`와 판단 근거도 읽습니다.
 
-`show_run`이 보여 주는 application metric은 마지막 snapshot입니다.
-전체 loss 추이나 step별 변화는 `logs/`의 학습 log를 확인합니다.
+## Follow the Storage Path
 
-## Capture a Focused Trace
+Checkpoint 지연을 조사한다면 application의 지연 시각을 먼저 정합니다.
+그 시간대의 3FS 서비스 latency, storage node의 device 상태, client network를 비교합니다.
+3FS ClickHouse의 `max_observed_p99`는 관측된 p99 중 최댓값이며 전체 요청의 global p99가 아닙니다.
 
-`run_profile.sh`는 profiler overhead를 비교할 수 있도록 synthetic DDP workload를 같은 조건에서 실행합니다.
+SSD SMART 지표는 장치 건강 상태를 설명하고 application의 write latency를 직접 측정하지 않습니다.
+Device write bytes 역시 해당 run의 checkpoint bytes와 같다고 가정하지 않습니다.
+여러 run이 shared storage를 사용한다면 같은 창에 경쟁한 작업도 확인합니다.
 
-| Mode | 동작 | 용도 |
-| --- | --- | --- |
-| `baseline` | profiler 없이 synthetic DDP 실행 | trace overhead 비교 기준 |
-| `capture` | 선택한 rank의 PyTorch trace 수집 | CPU·GPU operation과 synchronization 확인 |
-| `collective` | synthetic collective 실행 | 분산 통신 경로 확인 |
+## Capture a Short Trace
 
-각 참여 node에서 같은 `PROFILE_RUN_ID`를 사용하고 `NODE_RANK`만 다르게 지정합니다.
-`MASTER_ADDR`은 rank 0 node의 data-interface 주소입니다.
+원인 후보가 특정 stage나 rank로 좁혀지면 짧은 trace로 CPU 작업, GPU kernel, copy, collective가 겹치는 모습을 확인합니다.
+Trace는 수집 비용과 파일 크기가 있으므로 필요한 rank와 구간만 선택합니다.
+실제 VERL profiler 연결 참고는 [설정 예제](../examples/verl/torch-profiler.yaml)에 있으며 사용하는 VERL 환경에 맞춰 적용합니다.
 
-```bash
-PROFILE_RUN_ID=profile-001 \
-NODE_RANK=0 \
-MASTER_ADDR='<rank-0-data-address>' \
-PYTHON='<cuda-python>' \
-  bash scripts/run_profile.sh baseline
-```
-
-`capture`를 수집할 때는 mode만 바꾸고 baseline과 동시에 실행하지 않습니다.
-
-```bash
-PROFILE_RUN_ID=profile-001 \
-NODE_RANK=0 \
-MASTER_ADDR='<rank-0-data-address>' \
-PYTHON='<cuda-python>' \
-  bash scripts/run_profile.sh capture
-```
-
-| 설정 | 기본값 |
-| --- | --- |
-| Step 수 (`baseline`, `capture`) | `STEPS=24` |
-| 실행 제한 | `RUN_TIMEOUT=300`초 |
-| 출력 | `artifacts/telemetry/<run-id>/<mode>/` |
-
-명령은 기존 GPU process와 최소 가용 memory를 확인한 뒤 workload를 시작합니다.
-다른 GPU 작업이 있으면 종료될 때까지 기다리며 임의로 중지하지 않습니다.
-
-각 rank의 log·manifest·JSON 결과를 확인하고, `capture`에서는 `traces/`도 확인합니다.
-이 workload는 trace 절차를 검증하는 synthetic DDP이며 실제 LLM 실행이 아닙니다.
-
-### Instrument an Existing PyTorch Loop
-
-[Selected-rank helper](../examples/pytorch/selected_rank_profiler.py)는 선택하지 않은 rank에 no-op profiler를 돌려줍니다.
-다음 코드는 기존 PyTorch loop에서 필요한 rank와 짧은 구간만 수집합니다.
+직접 작성한 PyTorch loop에는 [selected-rank helper](../examples/pytorch/selected_rank_profiler.py)를 넣을 수 있습니다.
+아래 `train_loader`와 `train_step`은 기존 application의 객체와 함수입니다.
 
 ```python
 from pathlib import Path
@@ -119,7 +78,7 @@ from examples.pytorch.selected_rank_profiler import selected_rank_profile
 
 with selected_rank_profile(
     Path("artifacts/traces/run-001"),
-    ranks={0, 1},
+    ranks={0},
     skip_first=4,
     wait=1,
     warmup=1,
@@ -131,35 +90,58 @@ with selected_rank_profile(
 ```
 
 모든 iteration에서 `profiler.step()`을 호출해야 schedule이 진행됩니다.
-shape·memory·stack 수집은 기본적으로 꺼져 있으며 필요한 질문이 있을 때만 켭니다.
-비교할 rank는 같은 run과 capture 구간을 사용해야 합니다.
+선택하지 않은 rank는 no-op profiler를 사용합니다.
+결과 경로와 수집 조건을 run manifest에도 기록하면 나중에 비교하기 쉽습니다.
 
-[verl profiler 설정](../examples/verl/torch-profiler.yaml)은 외부 framework 연동 참고이며 이 저장소에 verl backend가 있다는 뜻이 아닙니다.
+## Practice with a Synthetic Profile
 
-## Compare a Hardware Baseline
-
-NCCL baseline은 training code와 분리된 collective 통신 성능을 측정합니다.
-MPI를 지원하는 `all_reduce_perf`, `mpirun`, 할당된 GPU node가 필요하며 지정한 모든 node에 GPU 부하를 발생시킵니다.
+`run_profile.sh`는 실제 VERL run을 profile하는 명령이 아니라 작은 GPU workload로 수집 절차와 overhead를 확인하는 도구입니다.
+CUDA PyTorch 환경과 사용 가능한 GPU가 필요합니다.
+다음은 node 한 대에서 연습하는 예이며 Python 경로를 실제 CUDA 환경으로 바꿉니다.
 
 ```bash
-NCCL_TEST_BINARY='<all-reduce-perf-path>' \
-HOSTS='<first-host>,<second-host>' GPUS_PER_NODE=1 \
+PROFILE_RUN_ID=profile-001 \
+NNODES=1 NODE_RANK=0 MASTER_ADDR=127.0.0.1 \
+PYTHON='/path/to/cuda-env/bin/python' \
+  bash scripts/run_profile.sh baseline
+
+PROFILE_RUN_ID=profile-001 \
+NNODES=1 NODE_RANK=0 MASTER_ADDR=127.0.0.1 \
+PYTHON='/path/to/cuda-env/bin/python' \
+  bash scripts/run_profile.sh capture
+```
+
+| Mode | 실행 내용 |
+| --- | --- |
+| `baseline` | Profiler 없이 synthetic DDP 실행 |
+| `capture` | 같은 workload에서 선택한 rank의 trace 수집 |
+| `collective` | Synthetic collective 실행 |
+
+기본 step 수는 `STEPS=24`, 제한 시간은 `RUN_TIMEOUT=300`초입니다.
+결과는 `artifacts/telemetry/<run-id>/<mode>/`에 log·manifest·JSON으로 남고 capture에는 trace가 추가됩니다.
+이 제한 시간은 상시 GPU sampler의 기본 무제한 실행과 별개입니다.
+
+Script는 기존 GPU process와 최소 가용 memory를 검사합니다.
+다른 GPU 작업이 있으면 기다리지 않고 종료하므로 사용 가능한 할당에서 실행합니다.
+여러 node에서는 각 node에 같은 `PROFILE_RUN_ID`·`NNODES`·rank 0의 `MASTER_ADDR`를 지정하고 `NODE_RANK`만 다르게 실행합니다.
+
+## Measure a Communication Baseline
+
+통신 병목이 의심될 때 NCCL baseline으로 같은 hardware 경로의 collective 성능을 확인할 수 있습니다.
+MPI 지원 `all_reduce_perf`, `mpirun`과 참여 node에 할당된 GPU가 필요합니다.
+이 명령은 지정한 node에 실제 GPU·network 부하를 발생시킵니다.
+
+```bash
+NCCL_TEST_BINARY='/path/to/all_reduce_perf' \
+HOSTS='gpu-0,gpu-1' GPUS_PER_NODE=1 \
   bash scripts/run_nccl_baseline.sh
 ```
 
-| 결과 | 확인할 내용 |
-| --- | --- |
-| `artifacts/nccl-baseline/manifest.env` | host, GPU 수, 환경변수 등 측정 조건 |
-| `artifacts/nccl-baseline/all-reduce.log` | correctness 오류와 collective bandwidth |
+`artifacts/nccl-baseline/manifest.env`에서 측정 조건을, `all-reduce.log`에서 correctness 오류와 bandwidth를 확인합니다.
+Baseline은 학습 throughput이 아니므로 같은 node·GPU·network 조건의 비교 기준으로만 사용합니다.
 
-NCCL baseline은 학습 throughput이 아닙니다.
-같은 node·GPU·network 조건에서 측정한 값만 training communication metric의 비교 기준으로 사용합니다.
+## Compare After a Change
 
-## Verify the Fix
-
-분석이 끝나면 다음 항목을 확인합니다.
-
-- 수정 전후 실행의 model·batch·sequence·topology 조건이 같은가?
-- profiler를 끈 실행에서도 개선이 유지되는가?
-- throughput 개선이 loss·correctness 오류와 맞바뀌지 않았는가?
-- synthetic 결과와 실제 LLM 실행 결과를 구분해 기록했는가?
+Model, batch, sequence length, concurrency, cache 상태와 topology를 기록하고 비교 run에서 동일하게 유지합니다.
+원인 후보를 하나씩 변경한 뒤 profiler를 끈 실제 VERL 실행에서 개선이 유지되는지 확인합니다.
+Throughput뿐 아니라 loss·reward와 correctness도 함께 확인하고, synthetic 결과와 실제 workload 결과는 구분해 남깁니다.

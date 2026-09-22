@@ -1,129 +1,102 @@
-# VERL Telemetry Quick Start
+# VERL Quick Start
 
-이 문서는 VERL Python 코드를 수정하지 않고 기존 학습 명령에 integrated telemetry를 붙이는 가장 짧은 경로입니다.
-처음 사용하는 사람은 이 순서대로 실행하고, multi-node·3FS·custom tool trace가 필요할 때만 [상세 가이드](agent-rl.md)로 이동하면 됩니다.
+이미 실행 가능한 VERL 학습 명령에 GPU·host 관측과 trainer metric을 연결합니다.
+첫 연결은 GPU node 한 대에서 진행하고, 성공한 다음 [여러 node와 외부 서비스 연결](agent-rl.md)로 확장합니다.
+학습 환경이 아직 없다면 [synthetic demo](monitoring.md#try-the-demo)로 dashboard부터 확인할 수 있습니다.
 
-## What You Get
+## What You Will See
 
-한 run을 시작하면 다음 정보가 공통 `run_id`와 시간축으로 연결됩니다.
+Wrapper는 VERL의 file logger를 읽는 bridge를 함께 실행합니다.
+Bridge가 완료된 step의 stage 시간과 scalar를 JSON으로 기록하면 node collector가 이를 Prometheus에 노출하고 Grafana가 GPU·host 지표와 함께 보여 줍니다.
 
-- VERL의 rollout, reward, actor update, weight sync 완료 시간
-- vLLM/Ray native metric을 등록한 경우 queue, KV cache, task 상태
-- GPU, CPU, memory, NIC/RDMA, NVMe 상태
-- 실제 role·node 배치와 metric endpoint를 기록한 run manifest
-- Grafana의 stage-first 병목 분석 dashboard
-
-기본 사용 경로에서 VERL Python source 수정은 없습니다.
-Wrapper가 기존 VERL 명령에 `file` logger 설정만 추가하고 metric bridge를 sidecar process로 실행합니다.
-
-## Try the Dashboard without VERL
-
-VERL 환경을 준비하기 전에 dummy Agent run으로 전체 수집 경로와 dashboard를 먼저 확인할 수 있습니다.
-
-```bash
-TOOLS_DIR='<monitoring-host-local-tools>' \
-OUTPUT_DIR='<monitoring-host-local-state>' \
-DEMO_LIVE=1 \
-  bash scripts/run_telemetry.sh server
+```text
+VERL file logger > bridge > application snapshot > node collector
+GPU / host -------------------------------------> node collector
+                                                       |
+                                                       |
+                                    Prometheus > Grafana
 ```
 
-Grafana에서 `Agent RL Stage Correlation`을 열고 `cluster=demo-b300`, `node=gpu-node-0`, `run_id=verl-agent-demo`를 선택합니다.
-6초마다 완료 step 지표가 갱신되며 tool latency와 policy lag는 scrape마다 움직입니다.
-화면 예시와 각 값의 의미는 [Synthetic Live Demo](monitoring.md#synthetic-live-demo)에서 확인합니다.
+처음부터 모든 panel이 채워지지는 않습니다.
+vLLM queue, Ray 상태, tool event와 3FS 진단은 각각 source를 추가해야 사용할 수 있습니다.
 
-## Before You Start
+## 1. Prepare the Environments
 
-다음 항목이 필요합니다.
-
-- 실행 가능한 VERL 환경과 기존 `python -m verl.trainer.main_ppo ...` 명령
-- 이 저장소 checkout
-- GPU node에서 쓸 node-local run directory
-- Dashboard까지 사용할 경우 node exporter, Prometheus, Grafana를 둘 local tool directory
-
-Telemetry Python package를 VERL 환경에 설치할 필요는 없습니다.
-Wrapper는 이 checkout을 `PYTHONPATH`로 사용하고 workload는 사용자가 전달한 Python command로 그대로 실행합니다.
-
-## 1. Validate This Checkout
-
-저장소 루트에서 telemetry 자체 테스트를 먼저 확인합니다.
+[README의 checkout 준비](../README.md#prepare-a-checkout)를 마친 뒤 저장소 루트에서 시작합니다.
+GPU driver와 실행 가능한 VERL 환경은 별도로 준비되어 있어야 합니다.
+Telemetry용 `.venv`에는 VERL이나 CUDA PyTorch가 설치되지 않습니다.
 
 ```bash
-bash scripts/setup.sh
-. .venv/bin/activate
-python -m pytest -q
-```
-
-VERL은 별도 virtual environment를 사용해도 됩니다.
-그 경우 wrapper를 호출할 때 `--` 뒤에 그 환경의 Python 경로를 전달합니다.
-
-## 2. Prepare the Monitoring Processes
-
-Dashboard가 이미 운영 중이면 이 단계를 건너뜁니다.
-처음 한 host에서 확인할 때는 local tool directory를 만들고 node·server 도구를 준비합니다.
-
-```bash
-export TOOLS_DIR='/local/telemetry-tools'
+export TOOLS_DIR="$HOME/.local/share/telemetry-tools"
 bash scripts/install_telemetry_tools.sh
 bash scripts/install_telemetry_tools.sh server
 ```
 
-첫 번째 terminal에서 GPU·host collector를 시작합니다.
-Wrapper와 동일한 `RUN_ROOT`를 사용해야 application metric도 함께 수집됩니다.
+아래 세 terminal은 모두 같은 machine의 같은 checkout에서 실행합니다.
+각 예제는 필요한 경로를 다시 지정하므로 다른 terminal의 환경 변수에 의존하지 않습니다.
+실행마다 새로운 run 이름과 directory를 사용합니다.
+
+## 2. Start the Node Collector
+
+첫 번째 terminal에서 학습을 관측할 process를 실행합니다.
+`RUN_ROOT`는 다음 단계의 wrapper와 같은 경로여야 합니다.
 
 ```bash
-export RUN_ROOT='/local/runs/grpo-quickstart'
+. .venv/bin/activate
+export RUN_ROOT="$HOME/telemetry-runs/grpo-001"
+TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
-OUTPUT_DIR='/local/monitoring/node' \
+OUTPUT_DIR="$HOME/telemetry-state/node" \
 TELEMETRY_METRICS_DIR="$RUN_ROOT/telemetry-metrics" \
-TOOLS_DIR="$TOOLS_DIR" \
   bash scripts/run_telemetry.sh node
 ```
 
-두 번째 terminal에서 Prometheus와 Grafana를 시작합니다.
-각 terminal에서 저장소 루트로 이동하고 `export TOOLS_DIR='/local/telemetry-tools'`를 실행합니다.
-다른 terminal의 환경 변수는 자동으로 전달되지 않습니다.
+명령이 계속 실행되는 것이 정상입니다.
+GPU sampler는 기본적으로 시간 제한 없이 동작하며, `Ctrl+C`로 collector를 종료합니다.
+Run directory에 아직 application snapshot이 없어도 학습이 시작되면 읽을 수 있습니다.
+
+## 3. Start Prometheus and Grafana
+
+두 번째 terminal에서 실행합니다.
+`TELEMETRY_TARGETS`의 왼쪽 이름을 앞 단계의 `NODE_NAME`과 맞춥니다.
 
 ```bash
-CLUSTER_NAME='agent-rl-local' \
+. .venv/bin/activate
+TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-OUTPUT_DIR='/local/monitoring/server' \
-TOOLS_DIR="$TOOLS_DIR" \
+OUTPUT_DIR="$HOME/telemetry-state/server" \
   bash scripts/run_telemetry.sh server
 ```
 
-정상 시작되면 Grafana 주소는 `http://127.0.0.1:13000`입니다.
-원격 node라면 [SSH port forwarding 절차](monitoring.md#5-open-the-dashboards)를 사용합니다.
+같은 machine의 browser에서 `http://127.0.0.1:13000`을 엽니다.
+원격 machine에서 실행했다면 [접속 안내](monitoring.md#open-the-dashboards)를 따릅니다.
+앞서 demo를 실행했다면 port가 겹치므로 먼저 종료합니다.
 
-이 첫 연결 경로는 single driver와 한 node를 기준으로 합니다.
-Multi-node에서는 node마다 collector와 local metric directory를 두고 [Multi-node scope](agent-rl.md#multi-node-scope)에 따라 Ray worker 환경과 실제 role 배치를 기록합니다.
+## 4. Wrap Your VERL Command
 
-## 3. Wrap the Existing VERL Command
-
-세 번째 terminal에서 평소 쓰던 VERL 명령 앞에 wrapper만 추가합니다.
-먼저 `export RUN_ROOT='/local/runs/grpo-quickstart'`를 설정하고 VERL 환경을 활성화하거나 해당 Python의 절대 경로를 사용합니다.
-Telemetry 테스트용 `.venv`에는 VERL이 설치되어 있지 않습니다.
-기존 run의 로그를 덮어쓰지 않도록 실행마다 새로운 output directory를 사용합니다.
-`--` 뒤의 model, data, batch, GPU 설정은 기존 명령을 그대로 사용합니다.
+세 번째 terminal에서 기존 VERL 실행 명령 앞에 wrapper를 붙입니다.
+아래 `/path/to/verl-env/bin/python`은 VERL이 설치된 Python으로 바꾸고, `...`는 평소 사용하던 model·data·batch·GPU 설정 전체로 바꿉니다.
+이 예제는 telemetry 연결 형태를 보여 주며 독립적인 학습 recipe는 아닙니다.
 
 ```bash
-bash scripts/run_verl_with_telemetry.sh \
-  --output "$RUN_ROOT" \
-  --run-id 'grpo-quickstart' \
-  --node 'gpu-local' \
-  --set model_id=Qwen/Qwen2.5-0.5B-Instruct \
-  --set algorithm=grpo \
-  -- python -m verl.trainer.main_ppo \
-    algorithm.adv_estimator=grpo \
-    data.train_files=/path/to/train.parquet \
-    data.val_files=/path/to/test.parquet \
-    actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
-    trainer.n_gpus_per_node=1 \
-    trainer.nnodes=1 \
-    ...
+export RUN_ROOT="$HOME/telemetry-runs/grpo-001"
+TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
+  bash scripts/run_verl_with_telemetry.sh \
+    --output "$RUN_ROOT" \
+    --run-id 'grpo-001' \
+    --node 'gpu-local' \
+    --set algorithm=grpo \
+    -- /path/to/verl-env/bin/python -m verl.trainer.main_ppo \
+      ...
 ```
 
-Wrapper가 자동으로 추가하는 VERL override는 다음 세 개입니다.
+`TELEMETRY_PYTHON`은 bridge 등 telemetry process에만 적용됩니다.
+`--` 뒤의 workload는 지정한 Python으로 실행되므로 VERL 환경을 바꾸지 않습니다.
+
+Wrapper는 기존 명령에 없는 경우 아래 logger 설정을 추가합니다.
+직접 `trainer.logger`를 지정했다면 반드시 `file`을 포함합니다.
 
 ```text
 trainer.logger=["console","file"]
@@ -131,138 +104,52 @@ trainer.project_name=agent-rl
 trainer.experiment_name=<run-id>
 ```
 
-기존 명령에 `trainer.logger`가 있으면 `file`을 포함해야 합니다.
-RL-Insight server가 있으면 `--rl-insight-url http://monitor.internal:18080`을 추가할 수 있으며 wrapper가 `rl_insight` logger도 활성화합니다.
+Wrapper는 기존 manifest나 metric log가 있는 output directory의 재사용을 거부합니다.
+새 실행에서는 `--run-id`와 `--output`을 바꾸고 node collector가 새 metric directory를 읽도록 재시작합니다.
 
-실행 중 다음 artifact가 생성됩니다.
+## 5. Confirm the First Completed Step
+
+Grafana에서 `Agent RL Stage Correlation`을 열고 `cluster=training-cluster`, `node=gpu-local`, `run_id=grpo-001`을 선택합니다.
+GPU·host 값은 수집 주기에 따라 갱신되고 stage 시간·reward·throughput은 VERL step이 끝난 뒤 나타납니다.
+긴 step 동안 완료 지표가 유지되는 것은 정상일 수 있으므로 `Worker sample age`를 함께 확인합니다.
+
+Dashboard 없이도 최신 기록을 확인할 수 있습니다.
+
+```bash
+. .venv/bin/activate
+PYTHONPATH=. python -m post_training_telemetry.show_run \
+  "$HOME/telemetry-runs/grpo-001"
+```
+
+기본 실행이 만드는 주요 파일은 다음과 같습니다.
+`diagnostics/`는 [선택적인 자동 진단](agent-rl.md#add-diagnostics)을 켰을 때만 생성됩니다.
 
 ```text
-<RUN_ROOT>/
+grpo-001/
   telemetry-manifest.json
   telemetry-metrics/
     verl-trainer-driver.json
   telemetry-events/
     verl-steps.jsonl
-  diagnostics/
-    diagnostics.jsonl
-    latest.json
   logs/
     verl-metrics.jsonl
     telemetry-bridge.log
 ```
 
-## 4. Read the Dashboard Correctly
+Snapshot은 최신 상태 한 개이며 전체 step 이력이 아닙니다.
+Stage별 원본 scalar는 `logs/verl-metrics.jsonl`, 완료 경계 event는 `telemetry-events/verl-steps.jsonl`에서 확인합니다.
 
-Grafana에서 `Agent RL Stage Correlation` dashboard를 열고 `run_id=grpo-quickstart`를 선택합니다.
+## If Data Is Missing
 
-- GPU·host와 등록한 vLLM native metric은 scrape 주기마다 갱신됩니다.
-- `Completed RL stage duration (step boundary)`, reward와 throughput은 VERL step이 끝날 때 갱신됩니다.
-- 완료 지표는 다음 step이 끝나거나 run이 정리될 때까지 마지막 값을 유지하므로 `Worker sample age`와 함께 읽습니다.
-- `Worker sample age`가 계속 증가하면 long-running step, stalled worker 또는 metric export 실패를 구분해 조사합니다.
-- 진행 중 rollout phase는 `Live rollout engine signals`와 RL-Insight state timeline을 사용합니다.
-
-File log가 append되고 있다는 이유만으로 모든 panel이 초 단위로 갱신되는 것은 아닙니다.
-특히 actor update와 weight sync의 현재 phase는 VERL step 완료 전에는 file logger만으로 알 수 없습니다.
-등록하지 않은 tool event나 native vLLM source의 panel은 `N/A`가 정상이며 0으로 해석하지 않습니다.
-
-## Enable Automatic Bottleneck Diagnosis
-
-자동 진단은 VERL, vLLM, Ray와 3FS source code를 수정하지 않습니다.
-Wrapper가 VERL file logger를 읽고 별도 process가 Prometheus와 3FS ClickHouse를 조회합니다.
-
-[`diagnostics.json`](../examples/verl/diagnostics.json)을 복사해 Prometheus URL과 3FS mount filter를 배포 환경에 맞게 수정합니다.
-3FS ClickHouse 인증이 필요하면 비밀번호를 파일에 쓰지 않고 `THREEFS_CLICKHOUSE_USER`와 `THREEFS_CLICKHOUSE_PASSWORD`로 전달합니다.
-3FS를 사용하지 않는 실행에서는 config의 `threefs` object를 제거합니다.
-
-```bash
-export THREEFS_CLICKHOUSE_USER='<read-only-user>'
-export THREEFS_CLICKHOUSE_PASSWORD='<password>'
-
-bash scripts/run_verl_with_telemetry.sh \
-  --output "$RUN_ROOT" \
-  --run-id 'grpo-quickstart' \
-  --node 'gpu-local' \
-  --diagnostics-config examples/verl/diagnostics.json \
-  --diagnostics-interval 10 \
-  -- python -m verl.trainer.main_ppo \
-    actor_rollout_ref.rollout.mode=async \
-    ...
-```
-
-Wrapper는 `actor_rollout_ref.rollout.mode=async`와 `verl.experimental.fully_async_policy.fully_async_main`을 감지합니다.
-필요하면 `--execution-mode sync` 또는 `--execution-mode async`로 명시할 수 있습니다.
-
-동기 실행의 완료 record는 `rl_step`, 비동기 실행의 완료 record는 `trainer_update` 경계로 기록됩니다.
-비동기 실행에서는 vLLM, Ray와 3FS activity가 step과 독립적으로 계속될 수 있으므로 진단기는 주기적 시간 창을 사용하고 특정 step이 activity를 소유한다고 판단하지 않습니다.
-`policy_version_lag`처럼 직접적인 연결 근거가 있을 때만 update와 함께 표시합니다.
-
-진단 결과는 `diagnostics/diagnostics.jsonl`에 누적되고 최신 결과는 `diagnostics/latest.json`과 `show_run`에 표시됩니다.
-`bottleneck_suspected`, `no_anomaly_observed`, `insufficient_data`를 구분하며 누락된 metric은 `missing_sources`에 남습니다.
-VERL file logger에 원본 timestamp가 없으므로 완료 step의 시간 창은 `approximate`이며, 3FS 결과는 shared storage window로 표시됩니다.
-3FS p99는 현재 창과 직전 동일 길이 창의 `max_observed_p99`를 비교하며 전체 구간의 global p99로 해석하지 않습니다.
-
-Prometheus나 Ray 배포의 metric 이름 또는 label이 기본 query와 다르면 config의 `prometheus.queries`에서 signal별 PromQL을 재정의할 수 있습니다.
-진단 process 오류는 workload 종료 코드를 바꾸지 않으며 상세 오류는 `logs/telemetry-diagnostics.log`에 기록됩니다.
-
-## First Bottleneck Check
-
-먼저 느린 stage를 고른 뒤 같은 시간·node의 live resource signal을 비교합니다.
-
-| 관찰 | 먼저 확인할 후보 |
+| 증상 | 확인 순서 |
 | --- | --- |
-| Rollout 완료 시간이 증가하고 request waiting이 증가 | replica 부족, 긴 response, scheduler queue |
-| Rollout이 느리고 KV usage·preemption이 증가 | KV pressure, concurrency, cache configuration |
-| Rollout이 느리지만 engine queue는 낮고 tool event가 김 | external tool 또는 environment wait |
-| Actor update가 느리고 GPU utilization이 높음 | compute·memory-bound update |
-| Actor update가 느리고 GPU utilization이 낮음 | input, host pressure, collective wait |
-| Weight sync가 느리고 NIC/RDMA traffic·error가 변함 | transfer 또는 network path |
-| 모든 stage가 느리고 worker sample age가 동시에 증가 | node contention, Ray scheduling, stalled process |
-| 3FS latency와 NVMe queue가 같은 시간에 증가 | client→service→device storage path |
+| GPU도 보이지 않음 | node collector log, `nvidia-smi`, Prometheus target 상태 |
+| GPU는 보이지만 run이 없음 | wrapper와 collector의 metric 경로 일치, 첫 snapshot 생성 여부 |
+| Stage 값이 없음 | 첫 step 완료 여부, `file` logger 지원, `telemetry-bridge.log` |
+| 한 step 동안 stage 값이 유지됨 | sample age와 live GPU 지표 확인; file logger는 현재 phase를 실시간으로 알려 주지 않음 |
+| vLLM·tool panel이 `N/A` | 해당 source 연결 여부; 미수집은 0과 다름 |
+| Logger 설정 오류 | 사용 중인 VERL의 logger 지원과 직접 지정한 `trainer.logger` 확인 |
 
-함께 변한 값은 원인 후보이며 인과관계의 증명은 아닙니다.
-원인이 남으면 선택한 step·rank만 profile하고 run manifest의 동일한 model·batch·topology 조건으로 재현합니다.
-
-## Add Native vLLM, Ray, or 3FS Metrics
-
-고정 endpoint가 있으면 [native source 예시](../examples/verl/native-sources.json)를 복사해 실제 `host:port`로 바꿉니다.
-Monitoring server 시작 시 `TELEMETRY_SOURCES_FILE`을 추가하면 source를 검증하고 `native` Prometheus job으로 수집합니다.
-
-```bash
-TELEMETRY_SOURCES_FILE='/path/to/native-sources.json' \
-CLUSTER_NAME='agent-rl-local' \
-TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-OUTPUT_DIR='/local/monitoring/server' \
-TOOLS_DIR="$TOOLS_DIR" \
-  bash scripts/run_telemetry.sh server
-```
-
-VERL async rollout처럼 endpoint port가 동적으로 바뀌면 고정 파일 대신 VERL의 Prometheus registration 또는 RL-Insight를 사용합니다.
-Source의 `labels.node`는 `TELEMETRY_TARGETS`에 사용한 logical node 이름과 같아야 dashboard에서 함께 필터링됩니다.
-
-## Troubleshooting
-
-### Dashboard에 stage가 보이지 않음
-
-`logs/verl-metrics.jsonl`이 존재하고 각 줄에 `{"step":...,"data":...}`가 있는지 확인합니다.
-`telemetry-bridge.log`에 오류가 없고 `telemetry-metrics/verl-trainer-driver.json`이 생성됐는지 확인합니다.
-첫 stage 값은 첫 training step이 끝난 뒤 나타납니다.
-
-### GPU는 보이지만 run filter가 비어 있음
-
-Node collector의 `TELEMETRY_METRICS_DIR`와 wrapper의 `--output/telemetry-metrics`가 같은 node-local 경로인지 확인합니다.
-Shared storage의 같은 directory를 여러 node collector가 동시에 읽지 않습니다.
-
-### VERL 명령이 logger 설정 오류로 종료됨
-
-현재 VERL 버전이 `file` logger를 지원하는지 확인합니다.
-사용자가 직접 `trainer.logger`를 지정했다면 `["console","file"]` 또는 `["console","file","rl_insight"]`처럼 `file`을 포함합니다.
-
-### 한 step 동안 dashboard stage가 멈춰 보임
-
-정상일 수 있습니다.
-Step-complete panel 대신 GPU·host, native rollout panel, RL-Insight state timeline과 worker sample age를 확인합니다.
-
-## Next Steps
-
-Multi-node role 배치, Ray runtime environment, RL-Insight, 3FS ClickHouse, custom tool span과 focused profiling은 [Agent RL Telemetry 상세 가이드](agent-rl.md)를 따릅니다.
-Metric 이름·단위·label을 확장할 때는 [Metrics Contract](metrics.md)를 먼저 확인합니다.
+학습 종료 후에도 별도로 실행한 node·server terminal은 남아 있습니다.
+관측을 마치면 각 terminal에서 `Ctrl+C`로 종료합니다.
+다음 단계는 [vLLM·Ray·3FS 연결](agent-rl.md), [Loki log 수집](monitoring.md#add-run-logs-with-loki), [병목 분석](analysis.md)입니다.
