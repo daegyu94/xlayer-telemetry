@@ -136,6 +136,22 @@ def summarize(output_dir: Path) -> str:
             f"trace_id={event.get('trace_id')}"
         )
 
+    diagnosis = _load(output_dir / "diagnostics" / "latest.json")
+    if diagnosis is not None and diagnosis.get("schema_version") == 1:
+        lines.append(
+            f"\n[latest bottleneck diagnosis] verdict={diagnosis.get('verdict')} "
+            f"trigger={diagnosis.get('trigger')} step={diagnosis.get('step')} "
+            f"scope={diagnosis.get('boundary_scope')}"
+        )
+        for finding in diagnosis.get("findings", []):
+            if isinstance(finding, dict):
+                lines.append(
+                    f"  {finding.get('component')}: {finding.get('candidate')}"
+                )
+        missing = diagnosis.get("missing_sources", [])
+        if missing:
+            lines.append(f"  missing_sources={len(missing)}")
+
     return "\n".join(lines)
 
 

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "lookback_seconds": 60,
+  "prometheus": {
+    "url": "http://monitor.internal:19090",
+    "query_step_seconds": 2,
+    "timeout_seconds": 5
+  },
+  "threefs": {
+    "url": "http://storage-monitor.internal:8123",
+    "database": "3fs",
+    "filters": {
+      "mount_name": "training"
+    },
+    "user_env": "THREEFS_CLICKHOUSE_USER",
+    "password_env": "THREEFS_CLICKHOUSE_PASSWORD",
+    "timeout_seconds": 5
+  },
+  "thresholds": {
+    "step_slowdown_ratio": 1.5,
+    "vllm_waiting": 1,
+    "vllm_kv_usage": 0.9,
+    "ray_pending_tasks": 1,
+    "policy_version_lag": 2,
+    "threefs_latency_slowdown_ratio": 2
+  }
+}

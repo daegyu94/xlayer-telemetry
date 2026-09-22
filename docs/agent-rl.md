@@ -185,6 +185,10 @@ VERL async rollout이 port를 동적으로 관리하면 VERL의 Prometheus 설�
 3FS `monitor_collector`가 ClickHouse에 기록하는 배포에서는 데이터를 Prometheus로 복제하지 않습니다.
 Manifest의 ClickHouse endpoint, client/server role과 storage topology를 사용해 선택한 시간 창의 operation latency를 조회합니다.
 
+Wrapper의 `--diagnostics-config`를 사용하면 별도 진단 process가 이 ClickHouse source를 read-only로 조회합니다.
+비동기 실행에서는 3FS activity를 trainer step에 귀속하지 않고 현재 시간 창과 직전 동일 길이 창을 비교하며, 결과를 shared storage evidence로 기록합니다.
+설정과 실행 예시는 [VERL Telemetry Quick Start](verl-quickstart.md#enable-automatic-bottleneck-diagnosis)를 따릅니다.
+
 ## Collect and Analyze
 
 각 compute node에서는 기존 node role로 system metric과 application snapshot을 함께 수집합니다.

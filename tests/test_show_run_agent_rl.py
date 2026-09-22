@@ -70,3 +70,30 @@ def test_summarize_includes_manifest_context_and_recent_events(tmp_path: Path) -
     assert "rl_stage_duration_seconds{phase=rollout}=1.2" in output
     assert "phase=tool_interaction agent/0 tool.call duration=0.25s" in output
     assert "trace_id=trace-1" in output
+
+
+def test_summarize_includes_latest_bottleneck_diagnosis(tmp_path: Path) -> None:
+    diagnostics = tmp_path / "diagnostics"
+    diagnostics.mkdir()
+    (diagnostics / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "verdict": "bottleneck_suspected",
+                "trigger": "step_observed",
+                "step": 4,
+                "boundary_scope": "trainer_update",
+                "findings": [
+                    {"component": "vllm", "candidate": "rollout_capacity_or_kv_pressure"}
+                ],
+                "missing_sources": ["prometheus:ray_pending_tasks"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output = summarize(tmp_path)
+
+    assert "verdict=bottleneck_suspected trigger=step_observed step=4 scope=trainer_update" in output
+    assert "vllm: rollout_capacity_or_kv_pressure" in output
+    assert "missing_sources=1" in output

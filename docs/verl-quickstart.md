@@ -143,6 +143,10 @@ RL-Insight server가 있으면 `--rl-insight-url http://monitor.internal:18080`�
   telemetry-metrics/
     verl-trainer-driver.json
   telemetry-events/
+    verl-steps.jsonl
+  diagnostics/
+    diagnostics.jsonl
+    latest.json
   logs/
     verl-metrics.jsonl
     telemetry-bridge.log
@@ -161,6 +165,45 @@ Grafana에서 `Agent RL Stage Correlation` dashboard를 열고 `run_id=grpo-quic
 File log가 append되고 있다는 이유만으로 모든 panel이 초 단위로 갱신되는 것은 아닙니다.
 특히 actor update와 weight sync의 현재 phase는 VERL step 완료 전에는 file logger만으로 알 수 없습니다.
 등록하지 않은 tool event나 native vLLM source의 panel은 `N/A`가 정상이며 0으로 해석하지 않습니다.
+
+## Enable Automatic Bottleneck Diagnosis
+
+자동 진단은 VERL, vLLM, Ray와 3FS source code를 수정하지 않습니다.
+Wrapper가 VERL file logger를 읽고 별도 process가 Prometheus와 3FS ClickHouse를 조회합니다.
+
+[`diagnostics.json`](../examples/verl/diagnostics.json)을 복사해 Prometheus URL과 3FS mount filter를 배포 환경에 맞게 수정합니다.
+3FS ClickHouse 인증이 필요하면 비밀번호를 파일에 쓰지 않고 `THREEFS_CLICKHOUSE_USER`와 `THREEFS_CLICKHOUSE_PASSWORD`로 전달합니다.
+3FS를 사용하지 않는 실행에서는 config의 `threefs` object를 제거합니다.
+
+```bash
+export THREEFS_CLICKHOUSE_USER='<read-only-user>'
+export THREEFS_CLICKHOUSE_PASSWORD='<password>'
+
+bash scripts/run_verl_with_telemetry.sh \
+  --output "$RUN_ROOT" \
+  --run-id 'grpo-quickstart' \
+  --node 'gpu-local' \
+  --diagnostics-config examples/verl/diagnostics.json \
+  --diagnostics-interval 10 \
+  -- python -m verl.trainer.main_ppo \
+    actor_rollout_ref.rollout.mode=async \
+    ...
+```
+
+Wrapper는 `actor_rollout_ref.rollout.mode=async`와 `verl.experimental.fully_async_policy.fully_async_main`을 감지합니다.
+필요하면 `--execution-mode sync` 또는 `--execution-mode async`로 명시할 수 있습니다.
+
+동기 실행의 완료 record는 `rl_step`, 비동기 실행의 완료 record는 `trainer_update` 경계로 기록됩니다.
+비동기 실행에서는 vLLM, Ray와 3FS activity가 step과 독립적으로 계속될 수 있으므로 진단기는 주기적 시간 창을 사용하고 특정 step이 activity를 소유한다고 판단하지 않습니다.
+`policy_version_lag`처럼 직접적인 연결 근거가 있을 때만 update와 함께 표시합니다.
+
+진단 결과는 `diagnostics/diagnostics.jsonl`에 누적되고 최신 결과는 `diagnostics/latest.json`과 `show_run`에 표시됩니다.
+`bottleneck_suspected`, `no_anomaly_observed`, `insufficient_data`를 구분하며 누락된 metric은 `missing_sources`에 남습니다.
+VERL file logger에 원본 timestamp가 없으므로 완료 step의 시간 창은 `approximate`이며, 3FS 결과는 shared storage window로 표시됩니다.
+3FS p99는 현재 창과 직전 동일 길이 창의 `max_observed_p99`를 비교하며 전체 구간의 global p99로 해석하지 않습니다.
+
+Prometheus나 Ray 배포의 metric 이름 또는 label이 기본 query와 다르면 config의 `prometheus.queries`에서 signal별 PromQL을 재정의할 수 있습니다.
+진단 process 오류는 workload 종료 코드를 바꾸지 않으며 상세 오류는 `logs/telemetry-diagnostics.log`에 기록됩니다.
 
 ## First Bottleneck Check
 

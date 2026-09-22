@@ -7,6 +7,9 @@ output_dir=""
 run_id=""
 node_name="${TELEMETRY_NODE:-$(hostname)}"
 rl_insight_url="${RL_INSIGHT_SERVER_URL:-}"
+diagnostics_config=""
+diagnostics_interval="10"
+execution_mode="auto"
 declare -a sources=()
 declare -a settings=()
 
@@ -16,6 +19,8 @@ Usage:
   bash scripts/run_verl_with_telemetry.sh \
     --output DIR [--run-id ID] [--node NAME] \
     [--rl-insight-url URL] [--source NAME=ENDPOINT] [--set NAME=VALUE] \
+    [--diagnostics-config FILE] [--diagnostics-interval SECONDS] \
+    [--execution-mode auto|sync|async] \
     -- VERL_COMMAND [ARGS...]
 
 The wrapper adds VERL's file logger (and rl_insight when configured), starts the
@@ -46,6 +51,21 @@ while (($#)); do
       rl_insight_url="$2"
       shift 2
       ;;
+    --diagnostics-config)
+      [[ $# -ge 2 ]] || { echo "--diagnostics-config requires a value" >&2; exit 2; }
+      diagnostics_config="$2"
+      shift 2
+      ;;
+    --diagnostics-interval)
+      [[ $# -ge 2 ]] || { echo "--diagnostics-interval requires a value" >&2; exit 2; }
+      diagnostics_interval="$2"
+      shift 2
+      ;;
+    --execution-mode)
+      [[ $# -ge 2 ]] || { echo "--execution-mode requires a value" >&2; exit 2; }
+      execution_mode="$2"
+      shift 2
+      ;;
     --source)
       [[ $# -ge 2 ]] || { echo "--source requires NAME=ENDPOINT" >&2; exit 2; }
       sources+=("$2")
@@ -74,6 +94,15 @@ done
 
 [[ -n "$output_dir" ]] || { echo "--output is required" >&2; exit 2; }
 (($#)) || { echo "a VERL command is required after --" >&2; exit 2; }
+[[ "$execution_mode" == auto || "$execution_mode" == sync || "$execution_mode" == async ]] || { echo "--execution-mode must be auto, sync, or async" >&2; exit 2; }
+[[ "$diagnostics_interval" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v value="$diagnostics_interval" 'BEGIN { exit !(value > 0) }' || { echo "--diagnostics-interval must be positive" >&2; exit 2; }
+if [[ -n "$diagnostics_config" ]]; then
+  [[ -f "$diagnostics_config" ]] || { echo "diagnostics config is not a file: $diagnostics_config" >&2; exit 2; }
+  diagnostics_config="$(cd "$(dirname "$diagnostics_config")" && pwd -P)/$(basename "$diagnostics_config")"
+  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    "$telemetry_python" -m post_training_telemetry.diagnostics \
+      --config "$diagnostics_config" --check-config
+fi
 if [[ -z "$run_id" ]]; then
   run_id="verl-$(date -u +%Y%m%dT%H%M%SZ)"
 fi
@@ -89,14 +118,23 @@ export TELEMETRY_NODE="$node_name"
 export TELEMETRY_METRICS_DIR="$output_dir/telemetry-metrics"
 export TELEMETRY_EVENTS_DIR="$output_dir/telemetry-events"
 export VERL_FILE_LOGGER_PATH="$output_dir/logs/verl-metrics.jsonl"
+step_history_path="$output_dir/telemetry-events/verl-steps.jsonl"
 if [[ -n "$rl_insight_url" ]]; then
   export RL_INSIGHT_SERVER_URL="$rl_insight_url"
 fi
 
 command=("$@")
+if [[ "$execution_mode" == auto ]]; then
+  execution_mode=sync
+  for argument in "${command[@]}"; do
+    if [[ "$argument" == "verl.experimental.fully_async_policy.fully_async_main" || "$argument" == actor_rollout_ref.rollout.mode=async ]]; then
+      execution_mode=async
+    fi
+  done
+fi
 is_main_ppo=0
 for argument in "${command[@]}"; do
-  if [[ "$argument" == "verl.trainer.main_ppo" ]]; then
+  if [[ "$argument" == "verl.trainer.main_ppo" || "$argument" == "verl.experimental.fully_async_policy.fully_async_main" ]]; then
     is_main_ppo=1
   fi
 done
@@ -143,6 +181,14 @@ manifest_args=(
   --role "rollout=$node_name"
   --artifact "logs=$output_dir/logs"
 )
+if [[ -n "$diagnostics_config" ]]; then
+  manifest_args+=(--artifact "diagnostics=$output_dir/diagnostics")
+fi
+has_execution_mode_setting=0
+for setting in "${settings[@]}"; do
+  [[ "$setting" == execution_mode=* ]] && has_execution_mode_setting=1
+done
+((has_execution_mode_setting)) || manifest_args+=(--set "execution_mode=$execution_mode")
 for source in "${sources[@]}"; do
   manifest_args+=(--source "$source")
 done
@@ -154,11 +200,22 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
   "$telemetry_python" -m post_training_telemetry.manifest "${manifest_args[@]}"
 
 bridge_pid=""
+diagnostics_pid=""
 stop_bridge() {
   if [[ -n "$bridge_pid" ]] && kill -0 "$bridge_pid" 2>/dev/null; then
     kill "$bridge_pid" 2>/dev/null || true
     wait "$bridge_pid" 2>/dev/null || true
   fi
+}
+stop_diagnostics() {
+  if [[ -n "$diagnostics_pid" ]] && kill -0 "$diagnostics_pid" 2>/dev/null; then
+    kill "$diagnostics_pid" 2>/dev/null || true
+    wait "$diagnostics_pid" 2>/dev/null || true
+  fi
+}
+stop_sidecars() {
+  stop_bridge
+  stop_diagnostics
 }
 workload_pid=""
 interrupt_workload() {
@@ -170,7 +227,7 @@ interrupt_workload() {
   fi
   exit "$status"
 }
-trap stop_bridge EXIT
+trap stop_sidecars EXIT
 # Background commands may inherit SIGINT ignored; SIGTERM requests cleanup.
 trap 'interrupt_workload TERM 130' INT
 trap 'interrupt_workload TERM 143' TERM
@@ -182,10 +239,24 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     --run-id "$TELEMETRY_RUN_ID" \
     --worker-id driver \
     --node "$node_name" \
+    --history "$step_history_path" \
+    --execution-mode "$execution_mode" \
     --poll-interval 0.2 \
     --follow \
     > "$output_dir/logs/telemetry-bridge.log" 2>&1 &
 bridge_pid=$!
+if [[ -n "$diagnostics_config" ]]; then
+  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    "$telemetry_python" -m post_training_telemetry.diagnostics \
+      --config "$diagnostics_config" \
+      --history "$step_history_path" \
+      --output "$output_dir/diagnostics" \
+      --run-id "$run_id" --node "$node_name" \
+      --execution-mode "$execution_mode" \
+      --interval "$diagnostics_interval" \
+      > "$output_dir/logs/telemetry-diagnostics.log" 2>&1 &
+  diagnostics_pid=$!
+fi
 
 printf '[telemetry] run_id=%s output=%s\n' "$run_id" "$output_dir"
 printf '[telemetry] executing:'
@@ -200,8 +271,9 @@ workload_status=$?
 workload_pid=""
 set -e
 
-stop_bridge
+stop_sidecars
 bridge_pid=""
+diagnostics_pid=""
 if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     "$telemetry_python" -m post_training_telemetry.adapters.verl \
@@ -209,7 +281,17 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
       --metrics-dir "$TELEMETRY_METRICS_DIR" \
       --run-id "$TELEMETRY_RUN_ID" \
       --worker-id driver \
-      --node "$node_name" || echo "[telemetry] final metric export failed" >&2
+      --node "$node_name" \
+      --history "$step_history_path" \
+      --execution-mode "$execution_mode" || echo "[telemetry] final metric export failed" >&2
+fi
+if [[ -n "$diagnostics_config" ]]; then
+  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    "$telemetry_python" -m post_training_telemetry.diagnostics \
+      --config "$diagnostics_config" --history "$step_history_path" \
+      --output "$output_dir/diagnostics" --run-id "$run_id" \
+      --node "$node_name" --execution-mode "$execution_mode" --once --pending-only \
+      >> "$output_dir/logs/telemetry-diagnostics.log" 2>&1 || echo "[telemetry] final diagnosis failed" >&2
 fi
 
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \

@@ -12,6 +12,7 @@ import time
 from typing import Any, Iterable, Iterator, Mapping
 
 from post_training_telemetry.metrics import Metric, MetricEmitter
+from post_training_telemetry.step_history import StepHistoryWriter
 
 
 STAGE_PHASES = {
@@ -127,6 +128,7 @@ def iter_file_records(
 def bridge_records(
     records: Iterable[Mapping[str, Any]],
     adapter: VerlMetricsAdapter,
+    history: StepHistoryWriter | None = None,
 ) -> int:
     emitted = 0
     for record in records:
@@ -134,6 +136,8 @@ def bridge_records(
         data = record.get("data")
         if type(step) is not int or step < 0 or not isinstance(data, dict):
             continue
+        if history is not None:
+            history.append(record)
         if adapter.emit(data, step=step) is not None:
             emitted += 1
     return emitted
@@ -150,6 +154,8 @@ def main() -> None:
     parser.add_argument("--run-id", default=os.environ.get("TELEMETRY_RUN_ID"))
     parser.add_argument("--worker-id", default="driver")
     parser.add_argument("--node", default=socket.gethostname())
+    parser.add_argument("--history", type=Path)
+    parser.add_argument("--execution-mode", choices=("sync", "async"), default="sync")
     parser.add_argument("--follow", action="store_true")
     parser.add_argument("--poll-interval", type=float, default=1.0)
     args = parser.parse_args()
@@ -170,6 +176,17 @@ def main() -> None:
         worker_id=args.worker_id,
         node=args.node,
     )
+    history = (
+        StepHistoryWriter(
+            args.history,
+            run_id=args.run_id,
+            node=args.node,
+            worker_id=args.worker_id,
+            execution_mode=args.execution_mode,
+        )
+        if args.history is not None
+        else None
+    )
     bridge_records(
         iter_file_records(
             args.input,
@@ -177,6 +194,7 @@ def main() -> None:
             poll_interval=args.poll_interval,
         ),
         VerlMetricsAdapter(emitter),
+        history,
     )
 
 
