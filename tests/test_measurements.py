@@ -1,6 +1,6 @@
 import pytest
 
-from post_training_telemetry.measurements import summarize_steps
+from xlayer_telemetry.measurements import summarize_steps
 
 
 def test_warmup_is_excluded_and_percentiles_use_nearest_rank():

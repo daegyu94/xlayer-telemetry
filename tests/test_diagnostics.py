@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry import diagnostics
-from post_training_telemetry.diagnostics import (
+from xlayer_telemetry import diagnostics
+from xlayer_telemetry.diagnostics import (
     DiagnosticEngine,
     PrometheusClient,
     ThreeFSClient,
     run_once,
 )
-from post_training_telemetry.step_history import StepHistoryWriter
+from xlayer_telemetry.step_history import StepHistoryWriter
 
 
 class FakePrometheus:

@@ -18,7 +18,7 @@ if ! command -v "$python_bin" >/dev/null 2>&1; then
   exit 1
 fi
 
-"$python_bin" -m post_training_telemetry.stack check-targets \
+"$python_bin" -m xlayer_telemetry.stack check-targets \
   --target-dir "$target_dir"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -57,7 +57,7 @@ if [[ "$require_targets_up" == "1" ]]; then
 fi
 
 set +e
-"$python_bin" -m post_training_telemetry.stack validate-stack "${validation_args[@]}"
+"$python_bin" -m xlayer_telemetry.stack validate-stack "${validation_args[@]}"
 validation_status=$?
 set -e
 

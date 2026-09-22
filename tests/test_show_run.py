@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.show_run import summarize
+from xlayer_telemetry.show_run import summarize
 
 
 def test_summarize_reads_metadata_and_application_metrics_without_rank_duplicates(tmp_path: Path) -> None:

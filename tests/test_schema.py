@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.schema import load_schema
+from xlayer_telemetry.schema import load_schema
 
 
 def test_metric_schema_is_valid_and_unique() -> None:

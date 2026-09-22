@@ -17,8 +17,8 @@ from torch import nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from examples.pytorch.selected_rank_profiler import selected_rank_profile
-from post_training_telemetry.measurements import summarize_steps
-from post_training_telemetry.run_summary import make_run_summary
+from xlayer_telemetry.measurements import summarize_steps
+from xlayer_telemetry.run_summary import make_run_summary
 
 
 def parse_ranks(value: str) -> set[int]:

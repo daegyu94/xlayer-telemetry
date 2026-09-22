@@ -7,4 +7,4 @@ if [[ ! -d .venv ]]; then
 fi
 
 . .venv/bin/activate
-python -m post_training_telemetry.tool_check
+python -m xlayer_telemetry.tool_check

@@ -78,7 +78,7 @@ Wrapper의 기본 manifest는 driver node에서 시작하는 단순한 배치를
 
 ```bash
 . .venv/bin/activate
-PYTHONPATH=. python -m post_training_telemetry.manifest \
+PYTHONPATH=. python -m xlayer_telemetry.manifest \
   --output "$HOME/telemetry-runs/grpo-001/topology-manifest.json" \
   --run-id grpo-001 \
   --role trainer=trainer-0 \
@@ -174,7 +174,7 @@ export TELEMETRY_EVENTS_DIR="$HOME/telemetry-runs/grpo-001/telemetry-events"
 `call_tool()`은 application의 실제 함수로 바꿉니다.
 
 ```python
-from post_training_telemetry.events import EventRecorder
+from xlayer_telemetry.events import EventRecorder
 
 events = EventRecorder.from_env(producer="agent", role="rollout")
 if events is None:

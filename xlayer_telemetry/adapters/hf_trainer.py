@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable
 
-from post_training_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.metrics import Metric, MetricEmitter
 
 
 class _MetricsCallback:

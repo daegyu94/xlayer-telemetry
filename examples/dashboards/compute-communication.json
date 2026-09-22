@@ -575,7 +575,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Post-Training Compute & Communication",
-  "uid": "post-training-compute-communication",
+  "title": "XLayer Compute & Communication",
+  "uid": "xlayer-compute-communication",
   "version": 2
 }

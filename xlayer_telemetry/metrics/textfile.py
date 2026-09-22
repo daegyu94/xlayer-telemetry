@@ -7,7 +7,7 @@ import json
 import time
 from pathlib import Path
 
-from post_training_telemetry.metrics.prometheus import GaugeSample, write_gauges
+from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
 
 
 def _iter_snapshots(metrics_dir: Path) -> list[dict]:

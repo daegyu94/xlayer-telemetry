@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry.metrics.prometheus import GaugeSample, write_gauges
+from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
 
 
 def test_write_gauges_emits_labels_and_replaces_atomically(tmp_path: Path) -> None:

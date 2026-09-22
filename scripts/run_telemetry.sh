@@ -181,16 +181,16 @@ EOF
   if [[ -n "${DURATION:-}" ]]; then
     gpu_sampler_args+=(--duration "$DURATION")
   fi
-  "${PYTHON:-python3}" -m post_training_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
+  "${PYTHON:-python3}" -m xlayer_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
   pids+=("$!")
   if [[ -n "${TELEMETRY_METRICS_DIR:-}" ]]; then
-    "${PYTHON:-python3}" -m post_training_telemetry.metrics.textfile \
+    "${PYTHON:-python3}" -m xlayer_telemetry.metrics.textfile \
       --metrics-dir "$TELEMETRY_METRICS_DIR" \
       --textfile-dir "$output_dir/textfile" --interval "${TELEMETRY_METRICS_INTERVAL:-2}" &
     pids+=("$!")
   fi
   if [[ -n "${TOPOLOGY_DIR:-}" ]]; then
-    "${PYTHON:-python3}" -m post_training_telemetry.topology_textfile \
+    "${PYTHON:-python3}" -m xlayer_telemetry.topology_textfile \
       --topology-dir "$TOPOLOGY_DIR" --textfile-dir "$output_dir/textfile" \
       --interval "${TOPOLOGY_INTERVAL:-10}" &
     pids+=("$!")
@@ -221,11 +221,11 @@ elif [[ "$role" == server ]]; then
     demo_addr="${DEMO_ADDR:-127.0.0.1}"
     demo_port="${DEMO_PORT:-19110}"
     demo_topology_dir="${DEMO_TOPOLOGY_DIR:-$PWD/examples/live-demo}"
-    "${PYTHON:-python3}" -m post_training_telemetry.live_demo \
+    "${PYTHON:-python3}" -m xlayer_telemetry.live_demo \
       --listen "$demo_addr:$demo_port" --topology-dir "$demo_topology_dir" \
       --write-prometheus-config "$output_dir/prometheus.yml"
     if [[ "${SERVER_CONFIG_ONLY:-0}" != 1 ]]; then
-      "${PYTHON:-python3}" -m post_training_telemetry.live_demo \
+      "${PYTHON:-python3}" -m xlayer_telemetry.live_demo \
         --listen "$demo_addr:$demo_port" --topology-dir "$demo_topology_dir" &
       pids+=("$!")
     fi
@@ -264,7 +264,7 @@ EOF
 EOF
   if [[ -n "${TELEMETRY_SOURCES_FILE:-}" ]]; then
     native_targets="$output_dir/native-targets.json"
-    "${PYTHON:-python3}" -m post_training_telemetry.source_discovery \
+    "${PYTHON:-python3}" -m xlayer_telemetry.source_discovery \
       --input "$TELEMETRY_SOURCES_FILE" --output "$native_targets"
     cat >> "$output_dir/prometheus.yml" <<EOF
   - job_name: native
@@ -421,7 +421,7 @@ EOF
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     validation_args+=(--loki-url "http://$loki_listen_addr:13100")
   fi
-  "${PYTHON:-python3}" -m post_training_telemetry.stack "${validation_args[@]}"
+  "${PYTHON:-python3}" -m xlayer_telemetry.stack "${validation_args[@]}"
   printf 'Monitoring server ready: Prometheus=http://127.0.0.1:19090 Grafana=http://127.0.0.1:13000\n'
 else
   echo 'Use node, storage, or server' >&2

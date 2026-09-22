@@ -1,4 +1,4 @@
-# Post-Training Telemetry
+# XLayer Telemetry
 
 VERL 기반 post-training 실행을 GPU·host, rollout engine, network, storage 상태와 함께 해석하는 독립적인 cross-layer telemetry 도구입니다.
 Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
@@ -24,7 +24,7 @@ SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수
           +----------------------+----------------------+
                                  |
 +-------------------------------------------------------------------------------+
-| POST-TRAINING TELEMETRY                                                       |
+| XLAYER TELEMETRY                                                              |
 | Metrics > Prometheus / Grafana       Logs > Alloy / Loki                      |
 | Events / traces > run artifacts      3FS > ClickHouse queries                 |
 | Match time window + node / role / device + run context                        |
@@ -75,8 +75,8 @@ Shell script와 dashboard를 사용하려면 이 저장소를 직접 checkout합
 아래 명령은 clone할 상위 directory에서 실행합니다.
 
 ```bash
-git clone https://github.com/daegyu94/post-training-telemetry.git
-cd post-training-telemetry
+git clone https://github.com/daegyu94/xlayer-telemetry.git
+cd xlayer-telemetry
 bash scripts/setup.sh
 . .venv/bin/activate
 ```
@@ -93,10 +93,10 @@ Monitoring binary 설치는 [Monitoring Guide](docs/monitoring.md#prepare-the-ho
 Application의 Python 환경에 SDK만 설치하려면 checkout 경로를 사용합니다.
 
 ```bash
-python -m pip install /path/to/post-training-telemetry
+python -m pip install /path/to/xlayer-telemetry
 ```
 
-Source를 수정하면서 사용하려면 `python -m pip install -e /path/to/post-training-telemetry`로 설치합니다.
+Source를 수정하면서 사용하려면 `python -m pip install -e /path/to/xlayer-telemetry`로 설치합니다.
 설치 없이 import하려면 해당 process의 `PYTHONPATH`에 저장소 루트를 추가합니다.
 Shell script, dashboard와 demo fixture는 Python package에 포함되지 않으므로 checkout에서 실행합니다.
 
@@ -108,9 +108,9 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 
 | 경로 | 내용 |
 | --- | --- |
-| `post_training_telemetry/metrics/` | Framework에 독립적인 metric SDK와 textfile 변환 |
-| `post_training_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
-| `post_training_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
+| `xlayer_telemetry/metrics/` | Framework에 독립적인 metric SDK와 textfile 변환 |
+| `xlayer_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
+| `xlayer_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
 | `scripts/` | 도구 설치, 관측 process 실행, profile·통신 baseline |
 | `examples/` | Dashboard, synthetic demo, framework 연결 예시 |
 | `config/metrics.json` | Metric 이름·단위·측정 범위의 공통 규칙 |

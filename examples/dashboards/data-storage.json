@@ -884,7 +884,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Post-Training Data & Storage",
-  "uid": "post-training-data-storage",
+  "title": "XLayer Data & Storage",
+  "uid": "xlayer-data-storage",
   "version": 3
 }

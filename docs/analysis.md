@@ -33,7 +33,7 @@ Host나 shared storage의 metric에는 다른 workload도 포함될 수 있으�
 Checkout의 Python 환경을 활성화한 뒤 실행합니다.
 
 ```bash
-PYTHONPATH=. python -m post_training_telemetry.show_run \
+PYTHONPATH=. python -m xlayer_telemetry.show_run \
   "$HOME/telemetry-runs/grpo-001"
 ```
 

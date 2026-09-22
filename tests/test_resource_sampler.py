@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from post_training_telemetry import resource_sampler
+from xlayer_telemetry import resource_sampler
 
 
 def test_memory_values_are_bytes() -> None:

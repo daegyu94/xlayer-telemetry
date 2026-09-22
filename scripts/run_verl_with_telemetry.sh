@@ -100,7 +100,7 @@ if [[ -n "$diagnostics_config" ]]; then
   [[ -f "$diagnostics_config" ]] || { echo "diagnostics config is not a file: $diagnostics_config" >&2; exit 2; }
   diagnostics_config="$(cd "$(dirname "$diagnostics_config")" && pwd -P)/$(basename "$diagnostics_config")"
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m post_training_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.diagnostics \
       --config "$diagnostics_config" --check-config
 fi
 if [[ -z "$run_id" ]]; then
@@ -197,7 +197,7 @@ for setting in "${settings[@]}"; do
 done
 
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-  "$telemetry_python" -m post_training_telemetry.manifest "${manifest_args[@]}"
+  "$telemetry_python" -m xlayer_telemetry.manifest "${manifest_args[@]}"
 
 bridge_pid=""
 diagnostics_pid=""
@@ -233,7 +233,7 @@ trap 'interrupt_workload TERM 130' INT
 trap 'interrupt_workload TERM 143' TERM
 
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-  "$telemetry_python" -m post_training_telemetry.adapters.verl \
+  "$telemetry_python" -m xlayer_telemetry.adapters.verl \
     --input "$VERL_FILE_LOGGER_PATH" \
     --metrics-dir "$TELEMETRY_METRICS_DIR" \
     --run-id "$TELEMETRY_RUN_ID" \
@@ -247,7 +247,7 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
 bridge_pid=$!
 if [[ -n "$diagnostics_config" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m post_training_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.diagnostics \
       --config "$diagnostics_config" \
       --history "$step_history_path" \
       --output "$output_dir/diagnostics" \
@@ -276,7 +276,7 @@ bridge_pid=""
 diagnostics_pid=""
 if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m post_training_telemetry.adapters.verl \
+    "$telemetry_python" -m xlayer_telemetry.adapters.verl \
       --input "$VERL_FILE_LOGGER_PATH" \
       --metrics-dir "$TELEMETRY_METRICS_DIR" \
       --run-id "$TELEMETRY_RUN_ID" \
@@ -287,7 +287,7 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
 fi
 if [[ -n "$diagnostics_config" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m post_training_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.diagnostics \
       --config "$diagnostics_config" --history "$step_history_path" \
       --output "$output_dir/diagnostics" --run-id "$run_id" \
       --node "$node_name" --execution-mode "$execution_mode" --once --pending-only \
@@ -295,5 +295,5 @@ if [[ -n "$diagnostics_config" ]]; then
 fi
 
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-  "$telemetry_python" -m post_training_telemetry.show_run "$output_dir" || echo "[telemetry] run summary failed" >&2
+  "$telemetry_python" -m xlayer_telemetry.show_run "$output_dir" || echo "[telemetry] run summary failed" >&2
 exit "$workload_status"

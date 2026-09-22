@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry.metrics import textfile
-from post_training_telemetry.metrics.textfile import _iter_snapshots, build_metrics
+from xlayer_telemetry.metrics import textfile
+from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
 
 
 SNAPSHOT = {

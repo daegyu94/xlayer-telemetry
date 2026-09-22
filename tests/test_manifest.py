@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.manifest import make_agent_rl_manifest, write_manifest
+from xlayer_telemetry.manifest import make_agent_rl_manifest, write_manifest
 
 
 def test_manifest_links_deployment_sources_and_artifacts(tmp_path: Path) -> None:

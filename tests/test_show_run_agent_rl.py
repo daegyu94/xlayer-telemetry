@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.show_run import summarize
+from xlayer_telemetry.show_run import summarize
 
 
 def test_summarize_includes_manifest_context_and_recent_events(tmp_path: Path) -> None:

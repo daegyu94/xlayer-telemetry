@@ -23,7 +23,7 @@ Application이 실행되는 Python 환경에서 [package 설치](../README.md#py
 다음 명령이 성공하면 SDK를 사용할 수 있습니다.
 
 ```bash
-python -c "from post_training_telemetry.metrics import MetricEmitter"
+python -c "from xlayer_telemetry.metrics import MetricEmitter"
 ```
 
 같은 terminal에서 실행 식별자와 출력 위치를 정합니다.
@@ -49,7 +49,7 @@ Monitoring server의 `TELEMETRY_TARGETS`에 `gpu-local=주소`로 등록하면 n
 
 ```bash
 python - <<'PY'
-from post_training_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.metrics import Metric, MetricEmitter
 
 emitter = MetricEmitter.from_env(producer="demo", role="trainer")
 if emitter is not None:
@@ -57,7 +57,7 @@ if emitter is not None:
     print(path)
 PY
 
-python -m post_training_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
+python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 ```
 
 출력에서 `demo/trainer`, `step 1`, `training_loss=1.25`를 찾습니다.
@@ -75,7 +75,7 @@ Worker는 metric을 생산하는 application process입니다.
 Emitter는 process 시작 시 한 번 만들고 step이 끝날 때 `emit()`을 호출합니다.
 
 ```python
-from post_training_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.metrics import Metric, MetricEmitter
 
 emitter = MetricEmitter.from_env(producer="my-training-app", role="trainer")
 
@@ -97,7 +97,7 @@ Run마다 directory를 분리하고, 각 node의 application과 collector는 같
 아래 `trainer`는 자신의 코드에서 만든 객체이며 callback을 연결한 뒤 학습을 시작합니다.
 
 ```python
-from post_training_telemetry.adapters.hf_trainer import make_trainer_callback
+from xlayer_telemetry.adapters.hf_trainer import make_trainer_callback
 
 callback = make_trainer_callback(producer="my-training-app")
 if callback is not None:

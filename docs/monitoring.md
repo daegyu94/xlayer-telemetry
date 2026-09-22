@@ -277,7 +277,7 @@ Native service 연결은 [상세 가이드](agent-rl.md#register-native-endpoint
 Monitoring host에서 준비된 Python 환경으로 상태를 검사할 수 있습니다.
 
 ```bash
-PYTHONPATH=. python -m post_training_telemetry.stack validate-stack \
+PYTHONPATH=. python -m xlayer_telemetry.stack validate-stack \
   --prometheus-url http://127.0.0.1:19090 \
   --grafana-url http://127.0.0.1:13000 \
   --require-targets-up \
@@ -294,7 +294,7 @@ Demo는 GPU node 4개·node당 GPU 8개, storage node 8개·node당 SSD 4개의 
 정상 학습 → data wait → collective → checkpoint → recovery를 100초 주기로 반복합니다.
 Agent RL 예시는 약 6초마다 완료 step 지표를 생성합니다.
 
-![Run Overview synthetic demo](figures/post-training-run-overview-30s.gif)
+![Run Overview synthetic demo](figures/xlayer-run-overview-30s.gif)
 
 ![VERL Agent RL synthetic demo](figures/verl-agent-telemetry-30s.gif)
 

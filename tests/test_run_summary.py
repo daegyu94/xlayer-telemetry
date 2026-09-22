@@ -1,4 +1,4 @@
-from post_training_telemetry.run_summary import SUMMARY_SECTIONS, make_run_summary
+from xlayer_telemetry.run_summary import SUMMARY_SECTIONS, make_run_summary
 
 
 def test_make_run_summary_emits_stable_top_level_schema() -> None:

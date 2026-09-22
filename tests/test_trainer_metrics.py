@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 import types
 
-from post_training_telemetry.metrics import MetricEmitter
-from post_training_telemetry.adapters.hf_trainer import _MetricsCallback
+from xlayer_telemetry.metrics import MetricEmitter
+from xlayer_telemetry.adapters.hf_trainer import _MetricsCallback
 
 
 def test_callback_writes_loss_step_time_and_token_rate(tmp_path: Path) -> None:

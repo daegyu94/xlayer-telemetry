@@ -21,8 +21,8 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
 
     assert [payload["uid"] for payload in payloads] == [
         "telemetry-overview",
-        "post-training-compute-communication",
-        "post-training-data-storage",
+        "xlayer-compute-communication",
+        "xlayer-data-storage",
         "agent-rl-stage-correlation",
     ]
     for payload in payloads:
@@ -85,7 +85,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     logs = json.loads(
         (ROOT / "examples/dashboards/run-logs.json").read_text()
     )
-    assert logs["uid"] == "post-training-run-logs"
+    assert logs["uid"] == "xlayer-run-logs"
     assert logs["panels"][0]["datasource"]["uid"] == "telemetry-loki"
     assert "| unpack | run_id=~" in logs["panels"][0]["targets"][0]["expr"]
 

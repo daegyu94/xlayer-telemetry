@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry.events import CorrelationContext, EventRecorder
+from xlayer_telemetry.events import CorrelationContext, EventRecorder
 
 
 def test_span_records_correlation_duration_and_error(tmp_path: Path) -> None:

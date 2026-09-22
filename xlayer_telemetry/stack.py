@@ -14,7 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from post_training_telemetry.run_summary import make_run_summary
+from xlayer_telemetry.run_summary import make_run_summary
 
 
 TARGET_FILES = ("applications.json", "gpus.json", "nodes.json")
@@ -79,7 +79,7 @@ def grafana_database_is_healthy(payload: dict[str, Any]) -> bool:
 
 
 def _request(url: str, timeout: float = 5.0) -> bytes:
-    request = Request(url, headers={"User-Agent": "post-training-telemetry-validation/1"})
+    request = Request(url, headers={"User-Agent": "xlayer-telemetry-validation/1"})
     with urlopen(request, timeout=timeout) as response:
         return response.read()
 

@@ -6,8 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from post_training_telemetry.adapters import verl
-from post_training_telemetry.show_run import _recent_events
+from xlayer_telemetry.adapters import verl
+from xlayer_telemetry.show_run import _recent_events
 
 ROOT = Path(__file__).parents[1]
 
@@ -49,7 +49,7 @@ def test_wrapper_preserves_workload_status_when_summary_fails(tmp_path):
     interpreter.write_text(
         "#!" + sys.executable + chr(10)
         + "import os, sys" + chr(10)
-        + "if 'post_training_telemetry.show_run' in sys.argv: sys.exit(99)" + chr(10)
+        + "if 'xlayer_telemetry.show_run' in sys.argv: sys.exit(99)" + chr(10)
         + "os.execv(" + repr(sys.executable) + ", [" + repr(sys.executable)
         + "] + sys.argv[1:])" + chr(10)
     )

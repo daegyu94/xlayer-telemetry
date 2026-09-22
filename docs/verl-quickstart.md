@@ -117,7 +117,7 @@ Dashboard 없이도 최신 기록을 확인할 수 있습니다.
 
 ```bash
 . .venv/bin/activate
-PYTHONPATH=. python -m post_training_telemetry.show_run \
+PYTHONPATH=. python -m xlayer_telemetry.show_run \
   "$HOME/telemetry-runs/grpo-001"
 ```
 

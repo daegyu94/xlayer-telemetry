@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry import stack
+from xlayer_telemetry import stack
 
 
 def write_targets(directory: Path) -> None:

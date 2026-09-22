@@ -10,9 +10,9 @@ import os
 from pathlib import Path
 import time
 
-from post_training_telemetry.events import CorrelationContext, EventRecorder
-from post_training_telemetry.manifest import make_agent_rl_manifest, write_manifest
-from post_training_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.events import CorrelationContext, EventRecorder
+from xlayer_telemetry.manifest import make_agent_rl_manifest, write_manifest
+from xlayer_telemetry.metrics import Metric, MetricEmitter
 
 
 def main() -> None:

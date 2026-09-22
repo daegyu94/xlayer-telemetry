@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.metrics import Metric, MetricEmitter
 
 
 def test_emitter_replaces_worker_snapshot_atomically(tmp_path: Path) -> None:

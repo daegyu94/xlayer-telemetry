@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.topology_textfile import build_gauges
+from xlayer_telemetry.topology_textfile import build_gauges
 
 
 def test_build_gauges_emits_supplied_components_and_edges(tmp_path: Path) -> None:

@@ -1,11 +1,11 @@
 import json
 from pathlib import Path
 
-from post_training_telemetry.adapters.verl import (
+from xlayer_telemetry.adapters.verl import (
     VerlMetricsAdapter,
     bridge_records,
 )
-from post_training_telemetry.metrics import MetricEmitter
+from xlayer_telemetry.metrics import MetricEmitter
 
 
 def test_translate_verl_stage_and_scalar_metrics() -> None:

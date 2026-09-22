@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from post_training_telemetry.source_discovery import (
+from xlayer_telemetry.source_discovery import (
     build_file_discovery,
     write_file_discovery,
 )

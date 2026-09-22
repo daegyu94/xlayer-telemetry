@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from post_training_telemetry.live_demo import Demo, prometheus_config
+from xlayer_telemetry.live_demo import Demo, prometheus_config
 
 
 ROOT = Path(__file__).parents[1]

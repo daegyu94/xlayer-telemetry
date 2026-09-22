@@ -130,6 +130,6 @@ Checkout의 [Python 환경](../README.md#prepare-a-checkout)을 준비한 뒤 �
 python -m pytest -q tests/test_schema.py
 ```
 
-[Schema validator](../post_training_telemetry/schema.py)는 필수 field, 허용된 이름·분류, 중복 등을 확인합니다.
+[Schema validator](../xlayer_telemetry/schema.py)는 필수 field, 허용된 이름·분류, 중복 등을 확인합니다.
 검사 통과가 실제 endpoint의 가용성이나 값의 의미까지 보증하지는 않습니다.
 기존 metric의 단위·의미를 바꾸면 consumer에 영향을 주므로 adapter와 query를 함께 검토합니다.

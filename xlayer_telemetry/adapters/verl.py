@@ -11,8 +11,8 @@ import socket
 import time
 from typing import Any, Iterable, Iterator, Mapping
 
-from post_training_telemetry.metrics import Metric, MetricEmitter
-from post_training_telemetry.step_history import StepHistoryWriter
+from xlayer_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.step_history import StepHistoryWriter
 
 
 STAGE_PHASES = {

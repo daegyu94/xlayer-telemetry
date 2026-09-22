@@ -3,11 +3,11 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "post-training-telemetry"
+name = "xlayer-telemetry"
 version = "0.1.0"
-description = "Telemetry helpers for distributed post-training workloads"
+description = "Cross-layer telemetry for distributed training workloads"
 readme = "README.md"
 requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
-include = ["post_training_telemetry*"]
+include = ["xlayer_telemetry*"]
