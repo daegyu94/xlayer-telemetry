@@ -1,4 +1,4 @@
-"""Local, read-only step drilldown for a recorded VERL run."""
+"""Read-only step drilldown across nodes of a recorded VERL run."""
 
 from __future__ import annotations
 
@@ -48,6 +48,30 @@ def load_steps(run_root: Path) -> list[dict[str, Any]]:
     return sorted(steps, key=lambda item: (item["observed_at"], item["step"]))
 
 
+def load_nodes(run_root: Path, run_id: str, observed_node: str, topology_manifest: Path | None = None) -> list[dict[str, Any]]:
+    """Resolve run roles without assuming that the driver is the rollout node."""
+    path = topology_manifest
+    if path is None:
+        path = run_root / "topology-manifest.json"
+        if not path.is_file():
+            path = run_root / "telemetry-manifest.json"
+    assignments: dict[str, set[str]] = {}
+    if path.is_file():
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if manifest.get("schema_version") != 1 or manifest.get("run_id") != run_id:
+            raise ValueError(f"manifest schema or run_id does not match the selected step: {path}")
+        for item in manifest.get("deployment", {}).get("roles", []):
+            role, node = item.get("role"), item.get("node")
+            if not isinstance(role, str) or not role or not isinstance(node, str) or not node:
+                raise ValueError(f"invalid role assignment in {path}")
+            assignments.setdefault(node, set()).add(role)
+    assignments.setdefault(observed_node, set()).add("step observer")
+    return [
+        {"name": node, "roles": sorted(roles)}
+        for node, roles in sorted(assignments.items(), key=lambda item: (item[0] != observed_node, item[0]))
+    ]
+
+
 def _request_json(base_url: str, path: str, params: dict[str, Any]) -> dict[str, Any]:
     url = base_url.rstrip("/") + path + "?" + urlencode(params)
     with urlopen(url, timeout=8) as response:
@@ -73,10 +97,10 @@ def _series(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
-def _signals(cluster: str, node: str) -> dict[str, dict[str, str]]:
+def _signals(cluster: str, node: str, *, include_vllm: bool = True) -> dict[str, dict[str, str]]:
     telemetry = f'job="telemetry",cluster="{_label(cluster)}",instance="{_label(node)}"'
     native = f'job="native",cluster="{_label(cluster)}",node="{_label(node)}",telemetry_source="vllm"'
-    return {
+    signals = {
         "gpu": {"title": "GPU utilization", "unit": "%", "scope": "node", "query": f'avg(telemetry_gpu_utilization_percent{{{telemetry}}})'},
         "gpu_memory": {"title": "Compute-process GPU memory", "unit": "GiB", "scope": "node processes", "query": f'sum(telemetry_gpu_process_memory_bytes{{{telemetry}}}) / 1073741824'},
         "cpu": {"title": "Host CPU busy", "unit": "%", "scope": "node", "query": f'100 * (1 - avg(rate(node_cpu_seconds_total{{{telemetry},mode="idle"}}[1m])))'},
@@ -85,9 +109,11 @@ def _signals(cluster: str, node: str) -> dict[str, dict[str, str]]:
         "network_tx": {"title": "Network transmit", "unit": "MiB/s", "scope": "node", "query": f'sum(rate(node_network_transmit_bytes_total{{{telemetry},device!~"lo|docker.*|veth.*"}}[1m])) / 1048576'},
         "disk_read": {"title": "Disk read", "unit": "MiB/s", "scope": "node", "query": f'sum(rate(node_disk_read_bytes_total{{{telemetry}}}[1m])) / 1048576'},
         "disk_write": {"title": "Disk write", "unit": "MiB/s", "scope": "node", "query": f'sum(rate(node_disk_written_bytes_total{{{telemetry}}}[1m])) / 1048576'},
-        "vllm_waiting": {"title": "vLLM waiting", "unit": "requests", "scope": "shared engine", "query": f'sum(vllm:num_requests_waiting{{{native}}})'},
-        "kv_store": {"title": "KV offload store", "unit": "MiB/s", "scope": "shared engine", "query": f'sum(rate(vllm:kv_offload_total_bytes_total{{{native},transfer_type="GPU_to_CPU"}}[1m])) / 1048576'},
     }
+    if include_vllm:
+        signals["vllm_waiting"] = {"title": "vLLM waiting", "unit": "requests", "scope": "shared engine", "query": f'sum(vllm:num_requests_waiting{{{native}}})'}
+        signals["kv_store"] = {"title": "KV offload store", "unit": "MiB/s", "scope": "shared engine", "query": f'sum(rate(vllm:kv_offload_total_bytes_total{{{native},transfer_type="GPU_to_CPU"}}[1m])) / 1048576'}
+    return signals
 
 
 def _summary(series: list[dict[str, Any]], start: float, end: float) -> dict[str, float] | None:
@@ -98,12 +124,13 @@ def _summary(series: list[dict[str, Any]], start: float, end: float) -> dict[str
 
 
 class StepExplorer:
-    def __init__(self, run_root: Path, prometheus_url: str | None, cluster: str, loki_url: str | None, log_run_id: str | None):
+    def __init__(self, run_root: Path, prometheus_url: str | None, cluster: str, loki_url: str | None, log_run_id: str | None, topology_manifest: Path | None = None):
         self.run_root = run_root
         self.prometheus_url = prometheus_url
         self.cluster = cluster
         self.loki_url = loki_url
         self.log_run_id = log_run_id
+        self.topology_manifest = topology_manifest
 
     def steps(self) -> list[dict[str, Any]]:
         return [
@@ -123,42 +150,66 @@ class StepExplorer:
             raise KeyError(record_id)
         window = record["analysis_window"]
         start, end = window["start"], window["end"]
-        node = record["node"]
-        output: dict[str, Any] = {"step": next(item for item in self.steps() if item["id"] == record_id), "stages": record.get("stage_durations_seconds", {}), "signals": {}, "logs": [], "errors": {}}
+        nodes = load_nodes(self.run_root, record["run_id"], record["node"], self.topology_manifest)
+        output: dict[str, Any] = {
+            "step": next(item for item in self.steps() if item["id"] == record_id),
+            "stages": record.get("stage_durations_seconds", {}),
+            "nodes": nodes,
+            "node_data": {node["name"]: {"signals": {}, "logs": [], "errors": {}} for node in nodes},
+        }
         if self.prometheus_url:
             query_step = max(2, min(15, round((end - start) / 30)))
-            def fetch_signal(item: tuple[str, dict[str, str]]) -> tuple[str, dict[str, Any] | None, str | None]:
-                key, signal = item
+            has_rollout = any("rollout" in node["roles"] for node in nodes)
+            requests = [
+                (node["name"], key, signal)
+                for node in nodes
+                for key, signal in _signals(
+                    self.cluster, node["name"],
+                    include_vllm="rollout" in node["roles"] or not has_rollout,
+                ).items()
+            ]
+
+            def fetch_signal(item: tuple[str, str, dict[str, str]]) -> tuple[str, str, dict[str, Any] | None, str | None]:
+                node_name, key, signal = item
                 try:
                     payload = _request_json(self.prometheus_url, "/api/v1/query_range", {
                         "query": signal["query"], "start": start, "end": end, "step": query_step,
                     })
                     values = _series(payload)
-                    return key, {"title": signal["title"], "unit": signal["unit"], "scope": signal["scope"], "series": values, "summary": _summary(values, start, end)}, None
+                    return node_name, key, {"title": signal["title"], "unit": signal["unit"], "scope": signal["scope"], "series": values, "summary": _summary(values, start, end)}, None
                 except (OSError, ValueError, TimeoutError) as exc:
-                    return key, None, str(exc)
+                    return node_name, key, None, str(exc)
 
-            with ThreadPoolExecutor(max_workers=5) as pool:
-                for key, signal, error in pool.map(fetch_signal, _signals(self.cluster, node).items()):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                for node_name, key, signal, error in pool.map(fetch_signal, requests):
                     if error is not None:
-                        output["errors"][key] = error
+                        output["node_data"][node_name]["errors"][key] = error
                     else:
-                        output["signals"][key] = signal
+                        output["node_data"][node_name]["signals"][key] = signal
         if self.loki_url and self.log_run_id:
-            try:
-                selector = f'{{cluster="{_label(self.cluster)}",node="{_label(node)}"}} | unpack | run_id="{_label(self.log_run_id)}"'
-                payload = _request_json(self.loki_url, "/loki/api/v1/query_range", {
-                    "query": selector, "start": int(start * 1e9), "end": int(end * 1e9),
-                    "limit": 100, "direction": "FORWARD",
-                })
-                if payload.get("status") != "success":
-                    raise ValueError(payload.get("error", "Loki query failed"))
-                output["logs"] = sorted(
-                    [[int(ts) / 1e9, ANSI_ESCAPE.sub("", message)] for item in payload.get("data", {}).get("result", []) for ts, message in item.get("values", [])],
-                    key=lambda item: item[0],
-                )[:100]
-            except (OSError, ValueError, TimeoutError) as exc:
-                output["errors"]["logs"] = str(exc)
+            def fetch_logs(node_name: str) -> tuple[str, list[list[Any]] | None, str | None]:
+                try:
+                    selector = f'{{cluster="{_label(self.cluster)}",node="{_label(node_name)}"}} | unpack | run_id="{_label(self.log_run_id)}"'
+                    payload = _request_json(self.loki_url, "/loki/api/v1/query_range", {
+                        "query": selector, "start": int(start * 1e9), "end": int(end * 1e9),
+                        "limit": 100, "direction": "FORWARD",
+                    })
+                    if payload.get("status") != "success":
+                        raise ValueError(payload.get("error", "Loki query failed"))
+                    logs = sorted(
+                        [[int(ts) / 1e9, ANSI_ESCAPE.sub("", message)] for item in payload.get("data", {}).get("result", []) for ts, message in item.get("values", [])],
+                        key=lambda item: item[0],
+                    )[:100]
+                    return node_name, logs, None
+                except (OSError, ValueError, TimeoutError) as exc:
+                    return node_name, None, str(exc)
+
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                for node_name, logs, error in pool.map(fetch_logs, [node["name"] for node in nodes]):
+                    if error is not None:
+                        output["node_data"][node_name]["errors"]["logs"] = error
+                    else:
+                        output["node_data"][node_name]["logs"] = logs
         return output
 
 
@@ -180,6 +231,9 @@ def make_handler(explorer: StepExplorer) -> type[BaseHTTPRequestHandler]:
             except KeyError:
                 self.send_error(404, "step not found")
                 return
+            except ValueError as exc:
+                self.send_error(400, str(exc))
+                return
             except OSError as exc:
                 self.send_error(503, str(exc))
                 return
@@ -200,6 +254,7 @@ def main() -> None:
     parser.add_argument("--cluster", default="training-cluster", help="Prometheus/Loki cluster label")
     parser.add_argument("--loki-url", help="Optional Loki HTTP URL")
     parser.add_argument("--log-run-id", help="Loki run directory label, which can differ from telemetry run_id")
+    parser.add_argument("--topology-manifest", type=Path, help="Run manifest with actual role-to-node assignments")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
@@ -207,7 +262,15 @@ def main() -> None:
         parser.error("run root must contain telemetry-events/verl-steps.jsonl")
     if args.loki_url and not args.log_run_id:
         parser.error("--log-run-id is required with --loki-url")
-    explorer = StepExplorer(args.run_root, args.prometheus_url, args.cluster, args.loki_url, args.log_run_id)
+    if args.topology_manifest and not args.topology_manifest.is_file():
+        parser.error("--topology-manifest must be an existing file")
+    explorer = StepExplorer(args.run_root, args.prometheus_url, args.cluster, args.loki_url, args.log_run_id, args.topology_manifest)
+    steps = explorer.steps()
+    if steps:
+        try:
+            load_nodes(args.run_root, steps[-1]["run_id"], steps[-1]["node"], args.topology_manifest)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     server = ThreadingHTTPServer((args.host, args.port), make_handler(explorer))
     print(f"Step Explorer: http://{args.host}:{server.server_port}/", flush=True)
     try:

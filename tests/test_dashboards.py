@@ -51,7 +51,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert "telemetry_gpu_sample_timestamp_seconds" in matrix["targets"][0]["expr"]
     assert matrix["transformations"][0]["options"]["rowField"] == "node"
     agent_rl = payloads[3]
-    assert any(link["title"] == "Step Explorer (local)" for link in agent_rl["links"])
+    assert any(link["title"] == "Step Explorer" for link in agent_rl["links"])
     assert {"phase", "role", "worker"} <= {
         item["name"] for item in agent_rl["templating"]["list"]
     }
@@ -127,7 +127,7 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
     } == set(DASHBOARDS)
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
-    assert any(link["title"] == "Step Explorer (local)" for link in provisioned["links"])
+    assert any(link["title"] == "Step Explorer" for link in provisioned["links"])
 
 
 def test_server_config_rejects_duplicate_target_names(tmp_path: Path) -> None:

@@ -7,7 +7,7 @@
     {
       "includeTimeRange": false,
       "keepTime": false,
-      "title": "Step Explorer (local)",
+      "title": "Step Explorer",
       "type": "link",
       "url": "http://127.0.0.1:8765/"
     },

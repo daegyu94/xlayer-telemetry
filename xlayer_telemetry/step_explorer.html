@@ -30,6 +30,9 @@
     .stage span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .track { background: #243b55; border-radius: 4px; height: 11px; overflow: hidden; }
     .fill { background: #56b9d8; height: 100%; border-radius: 4px; }
+    .node-group { border-top: 1px solid #34516f; padding-top: 15px; margin-top: 16px; }
+    .node-group h3 { font-size: 17px; margin-bottom: 10px; }
+    .node-group h3 small { font-size: 13px; font-weight: normal; margin-left: 10px; }
     .signals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .signal { background: #1b2d44; border-radius: 8px; padding: 11px; min-width: 0; }
     .signal header { margin: 0 0 7px; align-items: start; }
@@ -45,7 +48,7 @@
   </style>
 </head>
 <body>
-  <header><div><h1>Step Explorer</h1><p class="muted">Inspect a completed VERL step alongside resource samples and run logs.</p></div><span class="pill">Read-only · local</span></header>
+  <header><div><h1>Step Explorer</h1><p class="muted">Inspect a completed VERL step across the nodes in its run.</p></div><span class="pill">Read-only · self-hosted</span></header>
   <div class="controls">
     <label>Step<select id="step"></select></label>
     <label>Compare with<select id="compare"><option value="">None</option></select></label>
@@ -55,8 +58,8 @@
     <section class="card wide" id="context"></section>
     <section class="card" id="stages"></section>
     <section class="card" id="comparison"></section>
-    <section class="card wide"><h2>Resource samples during the step</h2><p class="muted">These samples describe a node or shared engine. Rate queries use a one-minute lookback, so a point can include activity before the step.</p><div class="signals" id="signals"></div></section>
-    <section class="card wide"><h2>Run logs in the same interval</h2><div class="logs" id="logs"></div></section>
+    <section class="card wide"><h2>Resource samples during the step</h2><p class="muted">Each node uses the same estimated step interval. Rate queries use a one-minute lookback, so a point can include earlier activity.</p><div id="signals"></div></section>
+    <section class="card wide"><h2>Run logs in the same interval</h2><div id="logs"></div></section>
   </main>
   <script>
     const $ = id => document.getElementById(id);
@@ -105,18 +108,32 @@
       $('stages').innerHTML = `<h2>Reported stage durations · step ${s.step}</h2>${stageRows(primary.stages)}`;
       if (other) {
         const names = [...new Set([...Object.keys(primary.stages), ...Object.keys(other.stages)])].filter(name => name !== 'step');
-        const resources = Object.entries(primary.signals).map(([key,signal]) => {
-          const before = other.signals[key]?.summary?.mean, after = signal.summary?.mean;
-          if (before === undefined || after === undefined) return '';
-          return `<div class="stage"><span title="${esc(signal.title)}">${esc(signal.title)}</span><span>${number(after)} vs ${number(before)} ${esc(signal.unit)}</span><strong>${after-before>=0?'+':''}${number(after-before)}</strong></div>`;
+        const resources = primary.nodes.map(node => {
+          const current = primary.node_data[node.name]?.signals || {};
+          const previous = other.node_data[node.name]?.signals || {};
+          const rows = Object.entries(current).map(([key,signal]) => {
+            const before = previous[key]?.summary?.mean, after = signal.summary?.mean;
+            if (before === undefined || after === undefined) return '';
+            return `<div class="stage"><span title="${esc(signal.title)}">${esc(signal.title)}</span><span>${number(after)} vs ${number(before)} ${esc(signal.unit)}</span><strong>${after-before>=0?'+':''}${number(after-before)}</strong></div>`;
+          }).join('');
+          return rows ? `<h3>${esc(node.name)} · resource means</h3>${rows}` : '';
         }).join('');
-        $('comparison').innerHTML = `<h2>Compare with step ${other.step.step}</h2><p class="muted">Selected minus comparison. Resource values are interval sample means from shared node or engine signals.</p>${names.map(name => { const a=primary.stages[name], b=other.stages[name]; return `<div class="stage"><span title="${esc(name)}">${esc(name)}</span><span>${a === undefined || b === undefined ? 'Missing in one step' : `${number(a)}s vs ${number(b)}s`}</span><strong>${a === undefined || b === undefined ? 'N/A' : `${a-b>=0?'+':''}${number(a-b)}s`}</strong></div>`; }).join('')}${resources ? `<h3>Resource sample means</h3>${resources}` : ''}`;
+        $('comparison').innerHTML = `<h2>Compare with step ${other.step.step}</h2><p class="muted">Selected minus comparison. Resource values are interval sample means from each node or shared engine.</p>${names.map(name => { const a=primary.stages[name], b=other.stages[name]; return `<div class="stage"><span title="${esc(name)}">${esc(name)}</span><span>${a === undefined || b === undefined ? 'Missing in one step' : `${number(a)}s vs ${number(b)}s`}</span><strong>${a === undefined || b === undefined ? 'N/A' : `${a-b>=0?'+':''}${number(a-b)}s`}</strong></div>`; }).join('')}${resources}`;
       } else $('comparison').innerHTML = '<h2>Compare steps</h2><p class="muted">Choose another completed step above to compare stage durations.</p>';
-      const cards = Object.values(primary.signals).map(signalCard).join('');
-      $('signals').innerHTML = cards || '<p class="muted">Add a Prometheus URL when starting Step Explorer to see resource samples.</p>';
-      const logList = primary.logs.map(([time,message]) => `<div class="log"><time>${esc(clock(time))}</time>${esc(message)}</div>`).join('');
-      $('logs').innerHTML = logList || '<p class="muted">No matching logs. Loki requires the run directory label used by Alloy.</p>';
-      const errors = Object.entries(primary.errors);
+      $('signals').innerHTML = primary.nodes.map(node => {
+        const data = primary.node_data[node.name];
+        const cards = Object.values(data.signals).map(signalCard).join('');
+        const failures = Object.keys(data.errors).filter(key => key !== 'logs');
+        const warning = failures.length ? `<p class="warning">Unavailable resource queries: ${esc(failures.join(', '))}</p>` : '';
+        return `<section class="node-group"><h3>${esc(node.name)}<small>${esc(node.roles.join(' · '))}</small></h3>${warning}<div class="signals">${cards || '<p class="muted">No resource data for this node.</p>'}</div></section>`;
+      }).join('');
+      $('logs').innerHTML = primary.nodes.map(node => {
+        const data = primary.node_data[node.name];
+        const lines = data.logs.map(([time,message]) => `<div class="log"><time>${esc(clock(time))}</time>${esc(message)}</div>`).join('');
+        const warning = data.errors.logs ? `<p class="warning">Log query unavailable: ${esc(data.errors.logs)}</p>` : '';
+        return `<section class="node-group"><h3>${esc(node.name)}<small>${esc(node.roles.join(' · '))}</small></h3>${warning}<div class="logs">${lines || '<p class="muted">No matching logs for this node and interval.</p>'}</div></section>`;
+      }).join('');
+      const errors = primary.nodes.flatMap(node => Object.entries(primary.node_data[node.name].errors).map(([key,message]) => [`${node.name}/${key}`, message]));
       $('status').textContent = errors.length ? `Loaded with ${errors.length} unavailable sources` : `Loaded step ${s.step}`;
       $('status').title = errors.map(([key,message]) => `${key}: ${message}`).join('\n');
     }
