@@ -193,6 +193,7 @@ Node 사이의 시계가 맞지 않으면 같은 시간 범위의 비교도 어�
 
 현재 VERL file logger에는 원래 step 경계 시각이 없으므로 `approximate`는 bridge가 관측한 완료 시각에서 보고된 step 시간을 빼서 만든 구간입니다.
 File logger 기록이 늦게 쓰이거나 bridge가 늦게 읽으면 추정 구간도 뒤로 밀릴 수 있습니다.
+해당 구간의 log가 비어 있어도 기록이 없었다는 뜻은 아니므로 앞뒤 시간을 넓힌 Run Logs에서 같은 실행의 log를 확인합니다.
 Stage 값은 완료된 step의 소요 시간이며 stage의 실제 시작·종료 순서를 나타내지 않습니다.
 `testing` 같은 추가 timing은 보고된 step duration에 포함되지 않을 수 있으므로 별도로 표시하며, 시간 범위 안에 있었다고 가정하지 않습니다.
 Async 실행에서는 이 구간이 `trainer_update` 경계이고 vLLM rollout이나 3FS I/O가 같은 step에 일대일로 속한다고 보장하지 않습니다.
