@@ -121,7 +121,7 @@ ssh -NT -L 13000:127.0.0.1:13000 user@monitoring-host
 | Data & Storage | Local device·filesystem, storage topology, 선택적 SMART |
 | Run Logs | Loki를 활성화했을 때만 제공되는 log 검색 |
 
-실제 실행 화면을 시간순으로 해석하는 예는 [GIF와 대시보드 읽는 법](real-verl-demo.md#read-the-gif-and-dashboards)에 있습니다.
+각 화면의 필터·패널·측정 범위는 [Dashboard Guide](dashboards.md)에서 설명하고, [실제 실행 GIF](real-verl-demo.md)에서 값이 채워진 예를 볼 수 있습니다.
 
 GPU sample은 기본 30초, 학습 지표는 `Training sample max age (s)` 기본 300초 기준으로 오래된 값을 숨길 수 있습니다.
 긴 step에서는 sample age와 filter를 함께 확인하며, N/A를 사용량 0으로 읽지 않습니다.

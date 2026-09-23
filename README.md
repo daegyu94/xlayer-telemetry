@@ -47,6 +47,7 @@ Application에는 `run_id`를 붙이고, system resource와 shared service는 �
 | 원하는 작업 | 안내 |
 | --- | --- |
 | GPU·host 관측, Prometheus·Grafana 실행 | [Monitoring Guide](docs/monitoring.md) |
+| Grafana 화면과 주요 패널 읽는 법 | [Dashboard Guide](docs/dashboards.md) |
 | 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
 | 기존 VERL 명령에 telemetry 추가 | [VERL Quick Start](docs/verl-quickstart.md) |
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
