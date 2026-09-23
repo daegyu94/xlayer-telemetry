@@ -27,7 +27,7 @@ GPU driver와 실행 가능한 VERL 환경은 별도로 준비되어 있어야 �
 Telemetry용 `.venv`에는 VERL이나 CUDA PyTorch가 설치되지 않습니다.
 
 ```bash
-export TOOLS_DIR="$HOME/.local/share/telemetry-tools"
+export TOOLS_DIR="$HOME/telemetry/tools"
 bash scripts/install_telemetry_tools.sh
 bash scripts/install_telemetry_tools.sh server
 ```
@@ -44,10 +44,10 @@ bash scripts/install_telemetry_tools.sh server
 ```bash
 . .venv/bin/activate
 export RUN_ROOT="$HOME/telemetry-runs/grpo-001"
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
-OUTPUT_DIR="$HOME/telemetry-state/node" \
+OUTPUT_DIR="$HOME/telemetry/state/node" \
 TELEMETRY_METRICS_DIR="$RUN_ROOT/telemetry-metrics" \
   bash scripts/run_telemetry.sh node
 ```
@@ -63,10 +63,10 @@ Run directory에 아직 application snapshot이 없어도 학습이 시작되면
 
 ```bash
 . .venv/bin/activate
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
   bash scripts/run_telemetry.sh server
 ```
 

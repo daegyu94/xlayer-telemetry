@@ -417,6 +417,51 @@
           ]
         }
       }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "vLLM KV offload store and load",
+      "description": "Native vLLM offload bytes scraped independently of VERL steps. These counters include all configured offload tiers and are scoped by cluster and node, not run_id. Pair them with host disk I/O and the configured filesystem tier to identify file offloading.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",transfer_type=\"GPU_to_CPU\"}[$__rate_interval])",
+          "legendFormat": "store {{telemetry_name}}"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",transfer_type=\"CPU_to_GPU\"}[$__rate_interval])",
+          "legendFormat": "load {{telemetry_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      }
     }
   ],
   "refresh": "5s",

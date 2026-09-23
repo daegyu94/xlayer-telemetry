@@ -11,8 +11,8 @@ case "$machine" in
   *) echo "Unsupported architecture: $machine (expected ARM64 or x86_64)" >&2; exit 2 ;;
 esac
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
-tools_dir="${TOOLS_DIR:-$HOME/.local/share/telemetry-tools}"
-output_dir="${OUTPUT_DIR:-$PWD/artifacts/telemetry/monitoring-$(hostname)}"
+tools_dir="${TOOLS_DIR:-$HOME/telemetry/tools}"
+output_dir="${OUTPUT_DIR:-$HOME/telemetry/state/$role-$(hostname)}"
 mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
 pids=()

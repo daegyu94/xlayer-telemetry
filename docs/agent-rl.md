@@ -8,7 +8,7 @@
 
 | 알고 싶은 내용 | 추가할 source | 결과를 볼 위치 |
 | --- | --- | --- |
-| Rollout queue·KV cache 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout panel |
+| Rollout queue·KV cache·KV offload 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout·KV offload panel |
 | Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Prometheus와 대응 dashboard panel |
 | 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | 진단 JSON과 `show_run` |
 | Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Resource·SSD dashboard |
@@ -50,8 +50,8 @@ System resource와 shared service metric에는 application의 `run_id`가 자동
 
 ```bash
 . .venv/bin/activate
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
 TELEMETRY_SOURCES_FILE="$HOME/telemetry-config/native-sources.json" \

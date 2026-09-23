@@ -40,6 +40,7 @@ Application에는 `run_id`를 붙이고, system resource와 shared service는 �
 ## Start Here
 
 처음이라면 GPU나 학습 환경 없이 [synthetic demo](docs/monitoring.md#try-the-demo)를 실행해 화면부터 확인합니다.
+실제 VERL·vLLM 결과를 보려면 [real-run demo](docs/real-verl-demo.md)를 확인합니다.
 실제 VERL 실행은 [VERL Quick Start](docs/verl-quickstart.md)에서 자원 관측과 trainer metric을 함께 연결합니다.
 다른 application을 계측하려면 Application Metrics Guide를 사용합니다.
 

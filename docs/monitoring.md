@@ -23,7 +23,9 @@ Prometheus가 exporter를 주기적으로 조회하는 것을 scrape라고 부�
 Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`을 사용합니다.
 실제 `node` role에는 NVIDIA driver와 동작하는 `nvidia-smi`가 필요하며, GPU가 없으면 demo를 사용합니다.
 
-아래 예제는 쓰기 가능한 local 경로인 `$HOME/.local/share/telemetry-tools`와 `$HOME/telemetry-state`를 사용합니다.
+아래 예제는 `$HOME/telemetry` 아래에 설치 도구(`tools`)와 실행 상태(`state`)를 나누어 저장합니다.
+`state` 아래에서는 역할과 demo별로 `OUTPUT_DIR`을 분리합니다.
+`run_telemetry.sh`에서 경로를 생략하면 `tools`와 `state/<role>-<hostname>`을 기본값으로 사용합니다.
 자신의 경로로 바꿔도 되지만 설치 때와 실행 때 같은 `TOOLS_DIR`을 전달해야 합니다.
 새 terminal에서도 저장소 루트로 이동하고 Python 환경을 활성화합니다.
 
@@ -33,9 +35,9 @@ GPU나 VERL 없이 synthetic metric으로 화면을 확인합니다.
 Monitoring host에서 다음 명령을 실행합니다.
 
 ```bash
-export TOOLS_DIR="$HOME/.local/share/telemetry-tools"
+export TOOLS_DIR="$HOME/telemetry/tools"
 bash scripts/install_telemetry_tools.sh server
-OUTPUT_DIR="$HOME/telemetry-state/demo" \
+OUTPUT_DIR="$HOME/telemetry/state/demo" \
 DEMO_LIVE=1 \
   bash scripts/run_telemetry.sh server
 ```
@@ -56,7 +58,7 @@ Agent RL Stage Correlation에서는 `run_id=verl-agent-demo`, `node=gpu-node-0`�
 ### 1. Install the Tools
 
 ```bash
-export TOOLS_DIR="$HOME/.local/share/telemetry-tools"
+export TOOLS_DIR="$HOME/telemetry/tools"
 bash scripts/install_telemetry_tools.sh node
 bash scripts/install_telemetry_tools.sh server
 ```
@@ -70,10 +72,10 @@ Driver, `smartmontools`, training framework는 별도입니다.
 첫 terminal에서 실행합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
-OUTPUT_DIR="$HOME/telemetry-state/node" \
+OUTPUT_DIR="$HOME/telemetry/state/node" \
   bash scripts/run_telemetry.sh node
 ```
 
@@ -87,8 +89,8 @@ GPU snapshot JSONL은 계속 누적되므로 장기 운영에서는 출력 direc
 두 번째 terminal에서 실행합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
   bash scripts/run_telemetry.sh server
@@ -130,10 +132,10 @@ VERL은 [wrapper](verl-quickstart.md), 다른 workload는 [SDK](application-metr
 같은 node의 collector를 다시 시작할 때 다음 설정을 추가합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
-OUTPUT_DIR="$HOME/telemetry-state/node" \
+OUTPUT_DIR="$HOME/telemetry/state/node" \
 TELEMETRY_METRICS_DIR='/path/to/run/telemetry-metrics' \
   bash scripts/run_telemetry.sh node
 ```
@@ -149,8 +151,8 @@ Node의 `NODE_ADDR`는 loopback 대신 monitoring host에서 접근할 수 있�
 Server에는 모든 관측 node를 쉼표로 나열합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
   bash scripts/run_telemetry.sh server
@@ -180,8 +182,8 @@ Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수�
 Monitoring server를 종료한 뒤 기존 설정에 `ENABLE_LOGS=1`과 Loki 주소를 추가해 다시 시작합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
 ENABLE_LOGS=1 \
@@ -197,10 +199,10 @@ LOKI_LISTEN_ADDR='10.0.0.20' \
 Application metric도 수집 중이었다면 기존 `TELEMETRY_METRICS_DIR`을 함께 전달합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='10.0.0.10' \
 NODE_NAME='trainer-0' \
-OUTPUT_DIR="$HOME/telemetry-state/node" \
+OUTPUT_DIR="$HOME/telemetry/state/node" \
 CLUSTER_NAME='training-cluster' \
 LOKI_PUSH_URL='http://10.0.0.20:13100/loki/api/v1/push' \
 TELEMETRY_LOG_ROOTS='verl=/path/to/runs' \
@@ -223,9 +225,9 @@ Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
 Storage node에 node 도구와 system package `smartmontools`를 설치한 뒤 실행합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='10.0.0.30' \
-OUTPUT_DIR="$HOME/telemetry-state/storage" \
+OUTPUT_DIR="$HOME/telemetry/state/storage" \
   bash scripts/run_telemetry.sh storage
 ```
 
@@ -237,8 +239,8 @@ NVMe SMART 접근에는 추가 권한이 필요할 수 있으며 자동 모드�
 Monitoring host의 기존 server 설정에 다음 항목을 추가해 재시작합니다.
 
 ```bash
-TOOLS_DIR="$HOME/.local/share/telemetry-tools" \
-OUTPUT_DIR="$HOME/telemetry-state/server" \
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
 CLUSTER_NAME='training-cluster' \
 TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
 STORAGE_SYSTEM='3fs' \
@@ -296,8 +298,13 @@ Agent RL 예시는 약 6초마다 완료 step 지표를 생성합니다.
 
 ![Run Overview synthetic demo](figures/xlayer-run-overview-30s.gif)
 
-![VERL Agent RL synthetic demo](figures/verl-agent-telemetry-30s.gif)
-
 Fixture는 `examples/live-demo/`에 있으며 `DEMO_TOPOLOGY_DIR`·`DEMO_ADDR`·`DEMO_PORT`로 설정할 수 있습니다.
-값은 실제 hardware나 VERL 성능 측정 결과가 아닙니다.
+위 화면의 값은 실제 hardware나 VERL 성능 측정 결과가 아닙니다.
+
+아래 화면은 [실제 VERL·vLLM·3FS·Loki 실행](real-verl-demo.md)의 step 1–8, 완료 stage 시간, 처리량, GPU 사용률, 3FS FUSE에 둔 filesystem KV offload, host disk I/O와 VERL log를 보여 줍니다.
+GIF는 다섯 대시보드를 스크롤합니다.
+3FS 서비스 latency와 SMART exporter는 이 GIF의 Grafana 패널에 연결하지 않았습니다.
+
+![Real VERL and vLLM run with 3FS POSIX KV offloading and Loki logs, eight steps and five Grafana dashboards](figures/verl-vllm-real-run.gif)
+
 첫 연결이 끝나면 [VERL Quick Start](verl-quickstart.md)에서 실제 workload를 연결합니다.
