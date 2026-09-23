@@ -130,6 +130,37 @@ GPU sample은 기본 30초, 학습 지표는 `Training sample max age (s)` 기�
 Prometheus는 `127.0.0.1:19090`에서 실행되고 Grafana 기본 접근 권한은 anonymous Viewer입니다.
 관리자 비밀번호는 `GRAFANA_ADMIN_PASSWORD`로 지정합니다.
 
+## Enable Grafana Alerts
+
+Monitoring server를 시작할 때 `ENABLE_ALERTS=1`을 추가하면 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
+Node collector 연결 끊김, GPU 표본이 60초 넘게 갱신되지 않거나 사라짐, 지정한 filesystem의 여유 공간 부족을 node별로 평가합니다.
+기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다.
+
+```bash
+TOOLS_DIR="$HOME/telemetry/tools" \
+OUTPUT_DIR="$HOME/telemetry/state/server" \
+CLUSTER_NAME='training-cluster' \
+TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
+ENABLE_ALERTS=1 \
+ALERT_MOUNTPOINT='/' \
+ALERT_FREE_PERCENT=10 \
+  bash scripts/run_telemetry.sh server
+```
+
+서버를 다시 시작한 뒤 Grafana의 `Alerting > Alert rules`에서 `XLayer Telemetry` 폴더를 확인합니다.
+Node collector와 GPU 규칙은 30초마다 평가하고 조건이 1분 지속되면 발화하며, 용량 규칙은 5분 지속되면 발화합니다.
+Prometheus 조회 오류는 `Error` 상태로 표시하고, 해당 지표가 아직 없는 `No Data`는 정상 상태로 처리합니다.
+따라서 설정에서 target 자체를 제거하거나 감시할 filesystem이 없으면 이 세 규칙만으로는 누락을 감지하지 못합니다.
+
+규칙 상태는 Grafana에서 보이지만 외부로 받으려면 관리자 계정으로 `Alerting > Contact points`에서 수신처를 설정하고 notification policy에 연결해야 합니다.
+프로젝트는 수신처를 자동 설정하지 않으며 `service=xlayer-telemetry` label로 별도 notification policy를 만들 수 있습니다.
+관리자 비밀번호와 webhook URL 등은 저장소에 넣지 않습니다.
+규칙 파일은 `OUTPUT_DIR/provisioning/alerting/operations.json`에 생성되고 Grafana를 다시 시작할 때 적용됩니다.
+파일에서 관리하는 규칙은 Grafana UI에서 직접 편집할 수 없으며 `ENABLE_ALERTS=0`으로 다시 시작하면 세 규칙을 삭제합니다.
+
+이 규칙은 운영 중인 수집 경로만 검사합니다.
+완료된 step의 metric은 학습 종료 후에도 마지막 값이 남을 수 있으므로 학습 정지 알림은 활성 run 상태를 따로 계측하기 전까지 포함하지 않습니다.
+
 ## Application Metrics
 
 VERL은 [wrapper](verl-quickstart.md), 다른 workload는 [SDK](application-metrics.md)로 JSON snapshot을 생성합니다.

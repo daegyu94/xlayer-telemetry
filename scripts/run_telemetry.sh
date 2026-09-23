@@ -217,6 +217,15 @@ elif [[ "$role" == server ]]; then
     IFS=',' read -r -a targets <<< "$TELEMETRY_TARGETS"
   fi
   mkdir -p "$output_dir/provisioning/datasources" "$output_dir/provisioning/dashboards" "$output_dir/dashboards"
+  if [[ "${ENABLE_ALERTS:-0}" == 1 ]]; then
+    "${PYTHON:-python3}" -m xlayer_telemetry.alerting \
+      --output "$output_dir/provisioning/alerting/operations.json" \
+      --mountpoint "${ALERT_MOUNTPOINT:-/}" \
+      --free-percent "${ALERT_FREE_PERCENT:-10}"
+  else
+    "${PYTHON:-python3}" -m xlayer_telemetry.alerting \
+      --output "$output_dir/provisioning/alerting/operations.json" --disabled
+  fi
   if [[ "${DEMO_LIVE:-0}" == 1 ]]; then
     demo_addr="${DEMO_ADDR:-127.0.0.1}"
     demo_port="${DEMO_PORT:-19110}"
