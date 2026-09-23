@@ -11,6 +11,7 @@ DASHBOARDS = (
     "data-storage.json",
     "agent-rl-stages.json",
 )
+NAV_DASHBOARD = "start-here.json"
 
 
 def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> None:
@@ -32,9 +33,9 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
             for panel in payload["panels"]
             if panel["type"] != "text"
         )
-    assert "${node:queryparam}" in payloads[0]["links"][0]["url"]
+    assert "${node:queryparam}" in next(link["url"] for link in payloads[0]["links"] if link["title"] == "Compute & Communication")
     assert any(link["title"] == "Run Logs" for link in payloads[0]["links"])
-    assert "${run_id:queryparam}" in payloads[2]["links"][0]["url"]
+    assert "${run_id:queryparam}" in next(link["url"] for link in payloads[2]["links"] if link["title"] == "Run Overview")
     storage_variables = {item["name"] for item in payloads[2]["templating"]["list"]}
     assert {"storage_system", "storage_node", "ssd"} <= storage_variables
     storage_titles = {panel["title"] for panel in payloads[2]["panels"]}
@@ -91,6 +92,27 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert "| unpack | run_id=~" in logs["panels"][0]["targets"][0]["expr"]
 
 
+def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
+    payloads = [json.loads((ROOT / "examples/dashboards" / name).read_text()) for name in (*DASHBOARDS, "run-logs.json")]
+    start = json.loads((ROOT / "examples/dashboards" / NAV_DASHBOARD).read_text())
+    assert start["uid"] == "xlayer-start-here"
+    assert start["title"] == "00 · Start Here"
+    assert sorted(item["title"] for item in payloads) == [
+        "01 · Run Overview",
+        "02 · Agent RL Stage Correlation",
+        "03 · Compute & Communication",
+        "04 · Data & Storage",
+        "05 · Run Logs",
+    ]
+    content = "\n".join(panel["options"]["content"] for panel in start["panels"])
+    for item in payloads:
+        assert f"/d/{item['uid']}" in content
+        assert len(item["tags"]) == 2
+        assert item["links"][0]["title"] == "Start Here"
+        assert item["links"][0]["url"] == "/d/xlayer-start-here"
+    assert "http://127.0.0.1:8765/" in content
+
+
 def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) -> None:
     script = ROOT / "scripts" / "run_telemetry.sh"
     environment = os.environ | {
@@ -125,7 +147,7 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
     assert "nodename: storage-0" in config
     assert {
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
-    } == set(DASHBOARDS)
+    } == set(DASHBOARDS) | {NAV_DASHBOARD}
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
     assert any(link["title"] == "Step Explorer" for link in provisioned["links"])
 

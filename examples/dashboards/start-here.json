@@ -1,0 +1,88 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Choose a telemetry view by the question you need to answer.",
+  "editable": true,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Choose a question",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Start with Run Overview** to check that data is arriving, then open the view that matches the symptom. Set cluster, node, run, and time there. Other dashboards reuse this context; Run Logs may need a different run directory name. Node and shared-service metrics can include other workloads."
+      }
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "Is this run being observed?",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 3 },
+      "options": {
+        "mode": "markdown",
+        "content": "Check exporter status, sample freshness, GPU utilization, and the latest completed step.\n\n[Open Run Overview](/d/telemetry-overview)"
+      }
+    },
+    {
+      "id": 3,
+      "type": "text",
+      "title": "Which training stage slowed?",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 3 },
+      "options": {
+        "mode": "markdown",
+        "content": "Compare completed VERL stage times with rollout queue, KV cache, and GPU activity.\n\n[Open Agent RL Stage Correlation](/d/agent-rl-stage-correlation)"
+      }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "Is compute or communication busy?",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 7 },
+      "options": {
+        "mode": "markdown",
+        "content": "Inspect GPU power, clock, process memory, Ethernet, and RDMA on the selected nodes.\n\n[Open Compute & Communication](/d/xlayer-compute-communication)"
+      }
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "Is the data path involved?",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 7 },
+      "options": {
+        "mode": "markdown",
+        "content": "Compare device I/O and filesystem mounts; inspect topology and optional SSD health.\n\n[Open Data & Storage](/d/xlayer-data-storage)"
+      }
+    },
+    {
+      "id": 6,
+      "type": "text",
+      "title": "What happened in the logs?",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 11 },
+      "options": {
+        "mode": "markdown",
+        "content": "Search node-local run logs in the selected interval. This view needs Loki.\n\n[Open Run Logs](/d/xlayer-run-logs)"
+      }
+    },
+    {
+      "id": 7,
+      "type": "text",
+      "title": "What changed within one step?",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 11 },
+      "options": {
+        "mode": "markdown",
+        "content": "Inspect stage times with node-by-node resource samples and logs, then compare another step. Start the self-hosted Step Explorer first.\n\n[Open Step Explorer](http://127.0.0.1:8765/)"
+      }
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": ["telemetry"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "00 · Start Here",
+  "uid": "xlayer-start-here",
+  "version": 2
+}

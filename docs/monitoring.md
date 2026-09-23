@@ -110,11 +110,13 @@ TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
 ssh -NT -L 13000:127.0.0.1:13000 user@monitoring-host
 ```
 
-먼저 Run Overview에서 cluster와 node를 선택하고 target 상태와 최근 GPU sample을 확인합니다.
+먼저 [Start Here](http://127.0.0.1:13000/d/xlayer-start-here)에서 조사할 질문에 맞는 화면을 고릅니다.
+Run Overview에서 cluster와 node를 선택하고 target 상태와 최근 GPU sample을 확인합니다.
 아직 workload를 연결하지 않았다면 run 목록과 application panel이 비어 있는 것이 정상입니다.
 
 | Dashboard | 확인할 내용 |
 | --- | --- |
+| Start Here | 목적별 화면 선택과 조사 순서 |
 | Run Overview | Target 상태, GPU 사용률, run별 학습 지표 |
 | Agent RL Stage Correlation | VERL 완료 stage와 등록한 rollout engine 지표 |
 | Compute & Communication | GPU·host·NIC/RDMA와 topology |

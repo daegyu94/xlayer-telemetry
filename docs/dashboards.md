@@ -1,7 +1,15 @@
 # Dashboard Guide
 
-이 문서는 Grafana의 다섯 대시보드가 어떤 신호를 보여 주는지, 한 실행을 조사할 때 어떤 순서로 읽을지 설명합니다.
+이 문서는 Grafana의 시작 화면과 다섯 관측 대시보드가 어떤 신호를 보여 주는지, 한 실행을 조사할 때 어떤 순서로 읽을지 설명합니다.
 대시보드를 띄우는 절차는 [Monitoring Guide](monitoring.md#open-the-dashboards)에, 실제 값이 채워진 화면은 [VERL·vLLM·3FS·Loki 데모](real-verl-demo.md)에 있습니다.
+
+## Start Here
+
+`00 · Start Here`는 조사할 질문에 맞는 화면을 고르는 진입점입니다.
+`01`부터 `05`까지의 제목은 일반적인 조사 순서이며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
+Step Explorer는 별도로 실행하는 UI이므로 링크를 열기 전에 [실행 절차](step-explorer.md#start-the-explorer)를 따릅니다.
+
+![Grafana Start Here에서 수집 상태, 학습 stage, compute, storage, log, step 조사를 선택하는 화면](figures/grafana-start-here.png)
 
 ## Select the Context
 

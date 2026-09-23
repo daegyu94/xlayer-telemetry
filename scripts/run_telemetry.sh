@@ -388,7 +388,7 @@ providers:
     options:
       path: $output_dir/dashboards
 EOF
-  cp examples/dashboards/{run-overview,compute-communication,data-storage,agent-rl-stages}.json "$output_dir/dashboards/"
+  cp examples/dashboards/{start-here,run-overview,compute-communication,data-storage,agent-rl-stages}.json "$output_dir/dashboards/"
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     cp examples/dashboards/run-logs.json "$output_dir/dashboards/"
   fi

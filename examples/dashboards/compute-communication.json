@@ -5,6 +5,13 @@
   "editable": true,
   "links": [
     {
+      "includeTimeRange": false,
+      "keepTime": false,
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here"
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Run Overview",
@@ -489,9 +496,7 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": [
-    "post-training",
     "compute",
-    "communication",
     "telemetry"
   ],
   "templating": {
@@ -578,7 +583,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "XLayer Compute & Communication",
+  "title": "03 · Compute & Communication",
+  "description": "Inspect GPU, host, Ethernet, and RDMA activity on selected nodes.",
   "uid": "xlayer-compute-communication",
-  "version": 2
+  "version": 3
 }

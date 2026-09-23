@@ -5,6 +5,13 @@
   "editable": true,
   "links": [
     {
+      "includeTimeRange": false,
+      "keepTime": false,
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here"
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Run Overview",
@@ -721,8 +728,6 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": [
-    "post-training",
-    "data",
     "storage",
     "telemetry"
   ],
@@ -903,7 +908,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "XLayer Data & Storage",
+  "title": "04 · Data & Storage",
+  "description": "Inspect local devices, filesystem mounts, topology, and optional SSD health.",
   "uid": "xlayer-data-storage",
-  "version": 3
+  "version": 4
 }

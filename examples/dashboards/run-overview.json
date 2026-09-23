@@ -5,6 +5,13 @@
   "editable": true,
   "links": [
     {
+      "includeTimeRange": false,
+      "keepTime": false,
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here"
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Compute & Communication",
@@ -455,7 +462,6 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": [
-    "post-training",
     "overview",
     "telemetry"
   ],
@@ -543,7 +549,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "XLayer Run Overview",
+  "title": "01 · Run Overview",
+  "description": "Start here to check exporter health, recent GPU samples, and run progress.",
   "uid": "telemetry-overview",
-  "version": 2
+  "version": 3
 }

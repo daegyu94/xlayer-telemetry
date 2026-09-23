@@ -7,6 +7,13 @@
     {
       "includeTimeRange": false,
       "keepTime": false,
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here"
+    },
+    {
+      "includeTimeRange": false,
+      "keepTime": false,
       "title": "Step Explorer",
       "type": "link",
       "url": "http://127.0.0.1:8765/"
@@ -487,7 +494,6 @@
   "schemaVersion": 41,
   "tags": [
     "agent-rl",
-    "verl",
     "telemetry"
   ],
   "templating": {
@@ -583,7 +589,8 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Agent RL Stage Correlation",
+  "title": "02 · Agent RL Stage Correlation",
+  "description": "Compare completed VERL stage times with rollout engine signals.",
   "uid": "agent-rl-stage-correlation",
-  "version": 1
+  "version": 2
 }
