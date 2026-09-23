@@ -4,6 +4,29 @@
 이 문서는 vLLM·Ray endpoint, 여러 node의 배치 정보, 3FS 진단, custom tool event를 연결하는 방법을 설명합니다.
 모든 기능을 켤 필요는 없으며 조사하려는 질문에 필요한 source부터 연결합니다.
 
+## How the Signals Flow
+
+VERL 실행에서는 trainer metric과 node 자원 지표를 Prometheus에서 시간 기준으로 비교합니다.
+추가 source는 수집 방식에 따라 Grafana metric, log, run 진단 결과로 나뉩니다.
+
+```mermaid
+flowchart LR
+    VERL["VERL trainer<br/>loss / reward / step time"] --> BRIDGE["File logger bridge"] --> SNAP["Application snapshot"] --> COLLECT["Node collector"] --> EXPORTER["Node Exporter"]
+    GPU["GPU"] --> SAMPLER["GPU sampler"] --> EXPORTER
+    HOST["CPU / network / filesystem<br/>including 3FS FUSE mount"] --> EXPORTER
+    EXPORTER --> PROM["Prometheus"] --> GRAF["Grafana metric dashboards"]
+    NATIVE["vLLM / Ray<br/>metrics endpoints"] --> PROM
+    THREEFS["3FS service latency"] --> CH["ClickHouse"] --> DIAG["Run diagnostics / show_run"]
+    PROM --> DIAG
+    TOOL["Tool call spans"] --> EVENTS["Run event JSONL / show_run"]
+    LOGS["Workload log files"] --> ALLOY["Alloy"] --> LOKI["Loki"] --> LOGUI["Grafana Run Logs"]
+```
+
+Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 변환하고, GPU sampler와 host 지표도 Node Exporter를 거쳐 Prometheus에 수집됩니다.
+Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
+3FS FUSE mount의 filesystem 지표는 node 자원 경로로 볼 수 있지만 3FS 서비스 latency는 ClickHouse를 조회하는 실행 진단에 기록됩니다.
+Tool span은 JSONL event로 남고 workload log는 Alloy·Loki를 거쳐 Grafana Run Logs에 표시됩니다.
+
 ## Choose the Next Source
 
 | 알고 싶은 내용 | 추가할 source | 결과를 볼 위치 |

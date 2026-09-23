@@ -37,6 +37,7 @@ SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수
 Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
 공유 GPU·network·storage의 사용량 전체가 특정 run의 사용량이라는 뜻은 아니며, 동시 변화는 원인 후보를 찾는 근거입니다.
 3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, 3FS 서비스 전용 Grafana dashboard는 제공하지 않습니다.
+Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-the-signals-flow)에 정리했습니다.
 
 ## Start Here
 
