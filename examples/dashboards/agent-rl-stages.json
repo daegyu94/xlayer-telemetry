@@ -39,7 +39,7 @@
       "type": "stat",
       "title": "Latest completed RL step",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 0,
         "y": 0
@@ -69,6 +69,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       },
       "description": "Last completed VERL training step. This value is intentionally retained between updates; use worker sample age to tell a long in-progress step or stopped run from fresh data."
@@ -78,7 +82,7 @@
       "type": "stat",
       "title": "Latest completed reward mean",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 6,
         "y": 0
@@ -109,6 +113,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       },
       "description": "Last completed reward scalar, retained between step updates. This is not a live indication that reward computation is currently running; check worker sample age."
@@ -118,7 +126,7 @@
       "type": "stat",
       "title": "Worker sample age",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 12,
         "x": 12,
         "y": 0
@@ -149,6 +157,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       },
       "description": "Age since each worker last completed a logger update. A growing value can mean a long step, a stalled worker, or failed metric export."
@@ -162,7 +174,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -202,7 +214,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 13
       },
       "datasource": {
         "type": "prometheus",
@@ -246,7 +258,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 13
       },
       "datasource": {
         "type": "prometheus",
@@ -286,7 +298,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 21
       },
       "datasource": {
         "type": "prometheus",
@@ -331,7 +343,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 21
       },
       "datasource": {
         "type": "prometheus",
@@ -377,7 +389,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 29
       },
       "datasource": {
         "type": "prometheus",
@@ -427,7 +439,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 37
       },
       "datasource": {
         "type": "prometheus",

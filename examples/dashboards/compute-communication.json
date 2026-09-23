@@ -19,7 +19,7 @@
       "title": "GPU utilization matrix (latest sample)",
       "description": "Rows: cluster/node; columns: reported GPU index. Samples older than 30 seconds are hidden. 0% means measured idle; N/A means missing evidence, not an unallocated GPU. Host-wide, independent of the Run filter.",
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 24,
         "x": 0,
         "y": 0
@@ -58,7 +58,8 @@
         "showHeader": true,
         "footer": {
           "show": false
-        }
+        },
+        "cellHeight": "md"
       },
       "transformations": [
         {
@@ -79,7 +80,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -116,7 +117,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -151,7 +152,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 14
       },
       "datasource": {
         "type": "prometheus",
@@ -186,7 +187,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 14
       },
       "datasource": {
         "type": "prometheus",
@@ -222,7 +223,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 22
       },
       "datasource": {
         "type": "prometheus",
@@ -257,7 +258,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 22
       },
       "datasource": {
         "type": "prometheus",
@@ -293,7 +294,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -333,7 +334,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -373,11 +374,11 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 38
       },
       "options": {
         "mode": "markdown",
-        "content": "Utilization is host-wide; allocation is the latest explicit CUDA_VISIBLE_DEVICES assignment within the selected age window. Index and UUID identifiers are not automatically interchangeable. Missing or old snapshots do not prove that a GPU is free. TCP/RDMA panels show port counters, not endpoint-pair traffic. Supplied topology is cluster-wide and does not measure bandwidth or latency."
+        "content": "**How to read compute signals**\n\n- GPU utilization is host-wide. Allocation uses the latest explicit `CUDA_VISIBLE_DEVICES` assignment in the selected age window.\n- GPU index and UUID are different identifiers. Missing or old snapshots do not prove that a GPU is free.\n- TCP/RDMA charts show port counters, not endpoint-pair traffic. Supplied topology does not measure bandwidth or latency."
       }
     },
     {
@@ -389,7 +390,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 46
       },
       "datasource": {
         "type": "prometheus",
@@ -426,7 +427,8 @@
         "overrides": []
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "md"
       },
       "transformations": [
         {
@@ -448,7 +450,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 46
       },
       "datasource": {
         "type": "prometheus",
@@ -469,7 +471,8 @@
         "overrides": []
       },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "md"
       },
       "transformations": [
         {

@@ -32,7 +32,7 @@
       "type": "stat",
       "title": "Exporter targets up",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 0,
         "y": 0
@@ -62,6 +62,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       }
     },
@@ -70,7 +74,7 @@
       "type": "stat",
       "title": "Host available memory by node",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 6,
         "y": 0
@@ -101,6 +105,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       }
     },
@@ -109,7 +117,7 @@
       "type": "stat",
       "title": "Training sample age by worker",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 12,
         "y": 0
@@ -140,6 +148,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       },
       "description": "Age of each selected worker snapshot, including stale ones. A fresh worker must not hide a stalled worker; age alone does not prove whether a process is alive."
@@ -149,7 +161,7 @@
       "type": "stat",
       "title": "GPU sample age by node",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 6,
         "x": 18,
         "y": 0
@@ -180,6 +192,10 @@
           ],
           "fields": "",
           "values": false
+        },
+        "text": {
+          "titleSize": 16,
+          "valueSize": 64
         }
       }
     },
@@ -189,10 +205,10 @@
       "title": "GPU utilization matrix (latest sample)",
       "description": "Rows: cluster/node; columns: reported GPU index. Samples older than 30 seconds are hidden. 0% means measured idle; N/A means missing evidence, not an unallocated GPU. Host-wide, independent of the Run filter.",
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -228,7 +244,8 @@
         "showHeader": true,
         "footer": {
           "show": false
-        }
+        },
+        "cellHeight": "md"
       },
       "transformations": [
         {
@@ -249,7 +266,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -285,7 +302,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -321,7 +338,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -357,11 +374,11 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 18
       },
       "options": {
         "mode": "markdown",
-        "content": "This overview relates a run to the selected nodes and time range; host and GPU metrics are **not** run-exclusive until allocation mapping is collected. GPU utilization of 0% is measured idle, while a missing cell is not a claim of no allocation. on systems with unified host/GPU memory, host memory and GPU allocation are not additive; unavailable GPU-memory values stay N/A."
+        "content": "**How to read these signals**\n\n- Host and GPU metrics cover the selected nodes; they are not exclusive to the selected run until allocation mapping is collected.\n- GPU utilization of 0% is measured idle. A missing cell does not prove that a GPU is free.\n- On unified-memory systems, host memory and GPU allocation are not additive. Unavailable GPU-memory values remain N/A."
       }
     },
     {
@@ -372,7 +389,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -407,7 +424,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
