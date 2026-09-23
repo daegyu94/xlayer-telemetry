@@ -1,6 +1,6 @@
 # Cross-Layer Integration for VERL
 
-[VERL Quick Start](verl-quickstart.md)에서 trainer와 GPU 지표를 확인했다면 필요한 계층을 하나씩 추가합니다.
+[VERL 연결 가이드](verl-quickstart.md)에서 trainer와 GPU 지표를 확인했다면 필요한 계층을 하나씩 추가합니다.
 이 문서는 vLLM·Ray endpoint, 여러 node의 배치 정보, 3FS 진단, custom tool event를 연결하는 방법을 설명합니다.
 모든 기능을 켤 필요는 없으며 조사하려는 질문에 필요한 source부터 연결합니다.
 
@@ -44,18 +44,12 @@ System resource와 shared service metric에는 application의 `run_id`가 자동
 }
 ```
 
-이를 monitoring host의 `$HOME/telemetry-config/native-sources.json`으로 저장했다고 가정합니다.
-기존 server를 종료한 다음 아래처럼 source 파일을 추가해 다시 시작합니다.
+이를 monitoring host의 `$HOME/telemetry/config/native-sources.json`으로 저장했다고 가정합니다.
+기존 server를 종료한 다음 같은 server 설정 파일에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 적고 다시 시작합니다.
 주소는 실제 배포로 바꾸며 각 node collector는 먼저 실행되어 있어야 합니다.
 
 ```bash
-. .venv/bin/activate
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
-TELEMETRY_SOURCES_FILE="$HOME/telemetry-config/native-sources.json" \
-  bash scripts/run_telemetry.sh server
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 시작 시 설정 형식을 검증하고 Prometheus의 `native` job에 사용할 target 파일을 만듭니다.
@@ -126,7 +120,7 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
     --output "$HOME/telemetry-runs/grpo-002" \
     --run-id grpo-002 \
     --node gpu-local \
-    --diagnostics-config "$HOME/telemetry-config/diagnostics.json" \
+    --diagnostics-config "$HOME/telemetry/config/diagnostics.json" \
     --diagnostics-interval 10 \
     -- /path/to/verl-env/bin/python -m verl.trainer.main_ppo \
       ...

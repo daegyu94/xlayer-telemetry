@@ -2,6 +2,7 @@
 
 VERL 기반 post-training 실행을 GPU·host, rollout engine, network, storage 상태와 함께 해석하는 독립적인 cross-layer telemetry 도구입니다.
 Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
+처음 사용한다면 [Start Here](#start-here)의 세 단계로 synthetic 화면부터 확인합니다.
 
 ## Why Cross-Layer Telemetry
 
@@ -39,9 +40,14 @@ Application에는 `run_id`를 붙이고, system resource와 shared service는 �
 
 ## Start Here
 
-처음이라면 GPU나 학습 환경 없이 [synthetic demo](docs/monitoring.md#try-the-demo)를 실행해 화면부터 확인합니다.
+처음이라면 아래 순서로 GPU나 학습 환경 없이 첫 화면을 확인합니다.
+
+1. [Checkout과 Python 환경](#prepare-a-checkout)을 준비합니다.
+2. [Synthetic demo](docs/monitoring.md#try-the-demo)를 실행합니다.
+3. Grafana의 Start Here에서 Run Overview를 열고 `Exporter targets up`이 0보다 큰지 확인합니다.
+
 실제 VERL·vLLM 결과를 보려면 [real-run demo](docs/real-verl-demo.md)를 확인합니다.
-실제 VERL 실행은 [VERL Quick Start](docs/verl-quickstart.md)에서 자원 관측과 trainer metric을 함께 연결합니다.
+이미 실행 가능한 VERL 명령이 있다면 [VERL 연결 가이드](docs/verl-quickstart.md)에서 자원 관측과 trainer metric을 함께 연결합니다.
 다른 application을 계측하려면 Application Metrics Guide를 사용합니다.
 
 | 원하는 작업 | 안내 |
@@ -50,7 +56,7 @@ Application에는 `run_id`를 붙이고, system resource와 shared service는 �
 | Grafana 화면과 주요 패널 읽는 법 | [Dashboard Guide](docs/dashboards.md) |
 | 완료된 VERL step의 node별 자원·log 비교 | [Step Explorer](docs/step-explorer.md) |
 | 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
-| 기존 VERL 명령에 telemetry 추가 | [VERL Quick Start](docs/verl-quickstart.md) |
+| 기존 VERL 명령에 telemetry 추가 | [VERL 연결 가이드](docs/verl-quickstart.md) |
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
 | 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/analysis.md) |
 | Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |

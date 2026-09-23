@@ -46,7 +46,7 @@ Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 경로에서 이 값을 추�
 
 3FS가 POSIX FUSE 경로에 마운트돼 있고 KV 파일을 저장할 하위 디렉터리에 쓰기 권한이 있어야 합니다.
 `agentic-rl-lab`의 dataset과 Docker sandbox image는 해당 저장소의 `README.md`에 따라 준비합니다.
-[Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node collector와 server를 시작하고, server에는 `ENABLE_LOGS=1`, node에는 `LOKI_PUSH_URL`과 `TELEMETRY_LOG_ROOTS`를 지정합니다.
+[Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node collector와 server를 시작하고, 같은 server 설정 파일에 `ENABLE_LOGS=1`, node에는 `LOKI_PUSH_URL`과 `TELEMETRY_LOG_ROOTS`를 지정합니다.
 Node collector의 `TELEMETRY_METRICS_DIR`는 아래 결과 디렉터리의 `telemetry/telemetry-metrics`로 설정합니다.
 
 ```bash

@@ -1,7 +1,7 @@
 # Run Analysis
 
 이 문서는 VERL 실행이 느려졌을 때 원인 후보를 좁히는 순서를 설명합니다.
-먼저 [VERL Quick Start](verl-quickstart.md)로 application과 GPU·host 지표를 연결합니다.
+먼저 [VERL 연결 가이드](verl-quickstart.md)로 application과 GPU·host 지표를 연결합니다.
 Trace와 통신 baseline은 상시 지표만으로 답하기 어려울 때 추가합니다.
 
 ## Start with One Slow Interval

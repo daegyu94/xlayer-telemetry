@@ -1,6 +1,6 @@
 # Application Metrics Guide
 
-VERL 사용자는 먼저 [VERL Quick Start](verl-quickstart.md)의 file logger wrapper를 사용합니다.
+VERL 사용자는 먼저 [VERL 연결 가이드](verl-quickstart.md)의 file logger wrapper를 사용합니다.
 이 문서는 VERL의 custom worker·tool 또는 다른 application에 loss·step·처리량 계측을 직접 추가할 때 사용하는 SDK 가이드입니다.
 이 값에 run과 worker 문맥을 붙이면 같은 시간·node의 GPU·network·storage 지표와 비교할 수 있습니다.
 Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로 Prometheus와 직접 통신할 필요가 없습니다.
@@ -11,7 +11,7 @@ Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로
 | --- | --- |
 | Custom loop, Megatron integration | 아래 최소 예제를 확인한 뒤 `emit()`을 loop에 연결 |
 | Hugging Face Trainer / TRL | [Callback 연결](#use-a-trainer-callback) |
-| VERL | [VERL Quick Start](verl-quickstart.md)의 wrapper 사용 |
+| VERL | [VERL 연결 가이드](verl-quickstart.md)의 wrapper 사용 |
 | vLLM·Ray 등 native metric service | [Endpoint 등록](agent-rl.md#register-native-endpoints); SDK 환경변수는 필요 없음 |
 
 아래 절차는 SDK로 JSON snapshot을 만드는 application용입니다.

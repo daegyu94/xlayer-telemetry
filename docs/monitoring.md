@@ -2,7 +2,7 @@
 
 이 문서는 VERL 같은 workload가 실행되는 GPU node의 자원을 관측하고 Grafana에서 확인하는 방법을 설명합니다.
 먼저 demo 화면을 확인하고, 실제 node 하나를 연결한 뒤 여러 node·log·storage 관측으로 확장합니다.
-VERL trainer metric 연결은 [VERL Quick Start](verl-quickstart.md)에서 이어집니다.
+VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 이어집니다.
 
 ## Know the Roles
 
@@ -23,7 +23,7 @@ Prometheus가 exporter를 주기적으로 조회하는 것을 scrape라고 부�
 Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`을 사용합니다.
 실제 `node` role에는 NVIDIA driver와 동작하는 `nvidia-smi`가 필요하며, GPU가 없으면 demo를 사용합니다.
 
-아래 예제는 `$HOME/telemetry` 아래에 설치 도구(`tools`)와 실행 상태(`state`)를 나누어 저장합니다.
+아래 예제는 `$HOME/telemetry` 아래에 설치 도구(`tools`), 실행 상태(`state`), server 설정(`config`)을 나누어 저장합니다.
 `state` 아래에서는 역할과 demo별로 `OUTPUT_DIR`을 분리합니다.
 `run_telemetry.sh`에서 경로를 생략하면 `tools`와 `state/<role>-<hostname>`을 기본값으로 사용합니다.
 자신의 경로로 바꿔도 되지만 설치 때와 실행 때 같은 `TOOLS_DIR`을 전달해야 합니다.
@@ -32,9 +32,10 @@ Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`�
 ## Try the Demo
 
 GPU나 VERL 없이 synthetic metric으로 화면을 확인합니다.
-Monitoring host에서 다음 명령을 실행합니다.
+먼저 [checkout과 Python 환경 준비](../README.md#prepare-a-checkout)를 마치고 저장소 루트에서 다음 명령을 실행합니다.
 
 ```bash
+. .venv/bin/activate
 export TOOLS_DIR="$HOME/telemetry/tools"
 bash scripts/install_telemetry_tools.sh server
 OUTPUT_DIR="$HOME/telemetry/state/demo" \
@@ -43,8 +44,10 @@ DEMO_LIVE=1 \
 ```
 
 이 명령은 foreground에서 계속 실행되므로 terminal을 열어 둡니다.
-[Dashboard 접속](#open-the-dashboards) 후 Run Overview에서는 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
-Agent RL Stage Correlation에서는 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택합니다.
+[Start Here](http://127.0.0.1:13000/d/xlayer-start-here)를 열고 Run Overview로 이동해 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
+`Exporter targets up`이 0보다 크고 GPU matrix에 값이 나타나면 수집과 Grafana 연결에 성공한 것입니다.
+Agent RL Stage Correlation에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택하면 완료 step 값이 증가하는 것도 확인할 수 있습니다.
+화면이 비어 있으면 먼저 실행 terminal의 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
 실제 학습 성능이 아닌 화면·수집 경로 확인용 값입니다.
 
 실제 node를 연결하기 전 `Ctrl+C`로 demo를 종료해 동일한 service port를 비웁니다.
@@ -72,6 +75,7 @@ Driver, `smartmontools`, training framework는 별도입니다.
 첫 terminal에서 실행합니다.
 
 ```bash
+. .venv/bin/activate
 TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
@@ -87,18 +91,22 @@ GPU snapshot JSONL은 계속 누적되므로 장기 운영에서는 출력 direc
 ### 3. Start the Server
 
 두 번째 terminal에서 실행합니다.
+처음 한 번만 예제 설정을 개인 경로로 복사하고 `TELEMETRY_TARGETS`를 실제 collector 주소로 수정합니다.
+이후 server를 재시작할 때도 같은 설정 파일을 사용합니다.
 
 ```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-  bash scripts/run_telemetry.sh server
+. .venv/bin/activate
+mkdir -p "$HOME/telemetry/config"
+if [[ ! -f "$HOME/telemetry/config/server.conf" ]]; then
+  cp examples/monitoring-server.conf "$HOME/telemetry/config/server.conf"
+fi
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 `TELEMETRY_TARGETS`는 `logical-node-name=address` 형식입니다.
 이름은 dashboard에서 사용하고 주소는 exporter 접속에 사용합니다.
 시작 시 HTTP 상태와 query를 검사하고 `OUTPUT_DIR/startup-summary.json`을 기록합니다.
+설정 파일은 로컬 Bash 파일이므로 `$HOME`을 사용할 수 있으며, 파일에 적힌 값이 현재 terminal의 같은 이름 환경 변수보다 우선합니다.
 
 ## Open the Dashboards
 
@@ -132,19 +140,13 @@ Prometheus는 `127.0.0.1:19090`에서 실행되고 Grafana 기본 접근 권한�
 
 ## Enable Grafana Alerts
 
-Monitoring server를 시작할 때 `ENABLE_ALERTS=1`을 추가하면 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
+Monitoring server 설정 파일에서 `ENABLE_ALERTS=1`로 바꾸면 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
 Node collector 연결 끊김, GPU 표본이 60초 넘게 갱신되지 않거나 사라짐, 지정한 filesystem의 여유 공간 부족을 node별로 평가합니다.
 기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다.
+기존 server terminal에서 `Ctrl+C`로 종료한 뒤 같은 설정 파일로 다시 시작합니다.
 
 ```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-ENABLE_ALERTS=1 \
-ALERT_MOUNTPOINT='/' \
-ALERT_FREE_PERCENT=10 \
-  bash scripts/run_telemetry.sh server
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 서버를 다시 시작한 뒤 Grafana의 `Alerting > Alert rules`에서 `XLayer Telemetry` 폴더를 확인합니다.
@@ -156,7 +158,7 @@ Prometheus 조회 오류는 `Error` 상태로 표시하고, 해당 지표가 아
 프로젝트는 수신처를 자동 설정하지 않으며 `service=xlayer-telemetry` label로 별도 notification policy를 만들 수 있습니다.
 관리자 비밀번호와 webhook URL 등은 저장소에 넣지 않습니다.
 규칙 파일은 `OUTPUT_DIR/provisioning/alerting/operations.json`에 생성되고 Grafana를 다시 시작할 때 적용됩니다.
-파일에서 관리하는 규칙은 Grafana UI에서 직접 편집할 수 없으며 `ENABLE_ALERTS=0`으로 다시 시작하면 세 규칙을 삭제합니다.
+파일에서 관리하는 규칙은 Grafana UI에서 직접 편집할 수 없으며 설정 파일을 `ENABLE_ALERTS=0`으로 바꿔 다시 시작하면 세 규칙을 삭제합니다.
 
 이 규칙은 운영 중인 수집 경로만 검사합니다.
 완료된 step의 metric은 학습 종료 후에도 마지막 값이 남을 수 있으므로 학습 정지 알림은 활성 run 상태를 따로 계측하기 전까지 포함하지 않습니다.
@@ -183,17 +185,13 @@ Application의 `TELEMETRY_NODE`와 server target 이름을 맞춰 같은 node의
 
 각 GPU node에는 node 도구와 collector를, monitoring host에는 server 도구를 설치합니다.
 Node의 `NODE_ADDR`는 loopback 대신 monitoring host에서 접근할 수 있는 주소로 바꿉니다.
-Server에는 모든 관측 node를 쉼표로 나열합니다.
+Server 설정 파일의 `TELEMETRY_TARGETS`에 모든 관측 node를 쉼표로 나열하고 기존 server를 종료한 뒤 다시 시작합니다.
+예를 들어 `TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11'`처럼 적고 주소는 실제 배치에 맞게 바꿉니다.
 
 ```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
-  bash scripts/run_telemetry.sh server
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
-주소는 예시이며 실제 배치에 맞게 바꿉니다.
 Clock를 동기화해야 다른 machine의 같은 시간 구간을 비교할 수 있습니다.
 Run directory는 node별로 두고 shared storage의 동일 snapshot을 여러 collector가 읽지 않도록 합니다.
 
@@ -214,16 +212,10 @@ vLLM·Ray 등 추가 endpoint는 해당 port도 접근 가능해야 합니다.
 Workload가 이 경로에 log를 쓰도록 설정해야 하며 자동으로 stdout 전체가 수집되지는 않습니다.
 Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수집 담당 collector를 하나로 정합니다.
 
-Monitoring server를 종료한 뒤 기존 설정에 `ENABLE_LOGS=1`과 Loki 주소를 추가해 다시 시작합니다.
+Monitoring server를 종료한 뒤 같은 설정 파일에 `ENABLE_LOGS=1`, `LOKI_LISTEN_ADDR='10.0.0.20'`을 적고 다시 시작합니다.
 
 ```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
-ENABLE_LOGS=1 \
-LOKI_LISTEN_ADDR='10.0.0.20' \
-  bash scripts/run_telemetry.sh server
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 `10.0.0.20`은 monitoring host의 예시 주소입니다.
@@ -271,16 +263,10 @@ SMART exporter 기본 port는 `19633`, 장치 조회 주기는 60초입니다.
 NVMe SMART 접근에는 추가 권한이 필요할 수 있으며 자동 모드는 필요할 때 `smartctl`만 passwordless sudo로 실행합니다.
 `SMARTCTL_SUDO=0` 또는 `1`로 명시할 수 있고 sudo preflight가 실패하면 수집을 시작하지 않습니다.
 
-Monitoring host의 기존 server 설정에 다음 항목을 추가해 재시작합니다.
+Monitoring host의 같은 server 설정 파일에 `STORAGE_SYSTEM='3fs'`, `STORAGE_TARGETS='storage-0=10.0.0.30'`을 추가해 재시작합니다.
 
 ```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11' \
-STORAGE_SYSTEM='3fs' \
-STORAGE_TARGETS='storage-0=10.0.0.30' \
-  bash scripts/run_telemetry.sh server
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 `STORAGE_SYSTEM`은 배치 식별 label이며 값을 `3fs`로 설정해도 3FS 서비스를 자동 계측하지 않습니다.
@@ -301,6 +287,7 @@ Native service 연결은 [상세 가이드](agent-rl.md#register-native-endpoint
 `Ctrl+C`로 role을 종료하면 함께 시작한 process를 정리하며, node 종료 시 GPU·application textfile도 제거합니다.
 수집기 하나가 종료되어도 해당 role의 나머지 process가 종료되므로 예상치 못한 종료는 해당 terminal과 log를 확인합니다.
 구성 변경 시 기존 process를 종료하고 같은 role을 다시 시작하며 다른 workload process를 종료할 필요는 없습니다.
+Server는 앞서 복사한 `server.conf`로 다시 시작해 알림·로그·storage 설정을 함께 유지합니다.
 
 | 증상 | 먼저 확인할 항목 |
 | --- | --- |
@@ -342,4 +329,4 @@ GIF는 다섯 대시보드를 스크롤합니다.
 
 ![Real VERL and vLLM run with 3FS POSIX KV offloading and Loki logs, eight steps and five Grafana dashboards](figures/verl-vllm-real-run.gif)
 
-첫 연결이 끝나면 [VERL Quick Start](verl-quickstart.md)에서 실제 workload를 연결합니다.
+첫 연결이 끝나면 [VERL 연결 가이드](verl-quickstart.md)에서 기존 workload를 연결합니다.

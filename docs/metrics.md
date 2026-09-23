@@ -2,7 +2,7 @@
 
 Metric을 여러 계층에서 함께 해석하려면 이름뿐 아니라 단위와 측정 범위도 일치해야 합니다.
 이 문서는 새로운 collector·adapter·dashboard를 추가할 때 사용할 공통 기준을 설명합니다.
-기존 dashboard를 사용하기만 한다면 [Monitoring Guide](monitoring.md)와 [VERL Quick Start](verl-quickstart.md)부터 시작합니다.
+기존 dashboard를 사용하기만 한다면 [Monitoring Guide](monitoring.md)와 [VERL 연결 가이드](verl-quickstart.md)부터 시작합니다.
 
 ## Understand a Metric
 

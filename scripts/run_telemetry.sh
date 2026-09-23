@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
+caller_dir="$PWD"
 cd "$(dirname "$0")/.."
 role="${1:?Use node, storage, or server}"
+shift
+if (( $# > 0 )); then
+  if [[ "$role" != server || $# != 2 || "$1" != --config ]]; then
+    echo 'Usage: run_telemetry.sh server [--config FILE]' >&2
+    exit 2
+  fi
+  config_file="$2"
+  [[ "$config_file" == /* ]] || config_file="$caller_dir/$config_file"
+  if [[ ! -f "$config_file" ]]; then
+    echo "Server config file not found: $config_file" >&2
+    exit 2
+  fi
+  # This is a local Bash configuration file; keep its assignments for every restart.
+  source "$config_file"
+fi
 system="$(uname -s)"
 [[ "$system" == Linux ]] || { echo "Unsupported operating system: $system (expected Linux)" >&2; exit 2; }
 machine="$(uname -m)"

@@ -1,8 +1,8 @@
-# VERL Quick Start
+# Connect an Existing VERL Run
 
-이미 실행 가능한 VERL 학습 명령에 GPU·host 관측과 trainer metric을 연결합니다.
+이 가이드는 이미 실행 가능한 VERL 학습 명령과 GPU 환경이 있는 사용자를 위한 telemetry 연결 절차입니다.
+VERL 설치나 학습 recipe를 준비하는 문서는 아니며, 아직 명령이 없다면 [synthetic demo](monitoring.md#try-the-demo)로 수집과 화면부터 확인합니다.
 첫 연결은 GPU node 한 대에서 진행하고, 성공한 다음 [여러 node와 외부 서비스 연결](agent-rl.md)로 확장합니다.
-학습 환경이 아직 없다면 [synthetic demo](monitoring.md#try-the-demo)로 dashboard부터 확인할 수 있습니다.
 
 ## What You Will See
 
@@ -60,14 +60,15 @@ Run directory에 아직 application snapshot이 없어도 학습이 시작되면
 
 두 번째 terminal에서 실행합니다.
 `TELEMETRY_TARGETS`의 왼쪽 이름을 앞 단계의 `NODE_NAME`과 맞춥니다.
+예제 설정 파일은 `gpu-local=127.0.0.1`을 사용하며 이미 개인 설정이 있다면 복사 명령이 기존 파일을 덮어쓰지 않습니다.
 
 ```bash
 . .venv/bin/activate
-TOOLS_DIR="$HOME/telemetry/tools" \
-CLUSTER_NAME='training-cluster' \
-TELEMETRY_TARGETS='gpu-local=127.0.0.1' \
-OUTPUT_DIR="$HOME/telemetry/state/server" \
-  bash scripts/run_telemetry.sh server
+mkdir -p "$HOME/telemetry/config"
+if [[ ! -f "$HOME/telemetry/config/server.conf" ]]; then
+  cp examples/monitoring-server.conf "$HOME/telemetry/config/server.conf"
+fi
+bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
 같은 machine의 browser에서 `http://127.0.0.1:13000`을 엽니다.
