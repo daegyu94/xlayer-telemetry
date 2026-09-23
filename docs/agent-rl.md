@@ -36,12 +36,14 @@ vLLM / Ray metrics endpoints ----------------------> Prometheus
 Prometheus ----------------------> Run diagnostics / show_run
 Tool call spans > Run event JSONL / show_run
 Workload log files > Alloy > Loki > Grafana Run Logs
+VERL step events > JSONL > Alloy > Loki > Grafana Step Explorer
 ```
 
 Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 변환하고, GPU sampler와 host 지표도 Node Exporter를 거쳐 Prometheus에 수집됩니다.
 Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
 3FS FUSE mount의 filesystem 지표는 node 자원 경로로 볼 수 있지만 3FS 서비스 latency는 ClickHouse를 조회하는 실행 진단에 기록됩니다.
 Tool span은 JSONL event로 남고 workload log는 Alloy·Loki를 거쳐 Grafana Run Logs에 표시됩니다.
+VERL step event는 별도로 Loki에 수집하면 Grafana Step Explorer의 목록과 상세 구간을 엽니다.
 
 ## Choose the Next Source
 

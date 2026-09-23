@@ -19,6 +19,20 @@ def _duration(data: Mapping[str, Any]) -> float | None:
     return None
 
 
+def dashboard_fields(start: float | None, end: float, stages: Mapping[str, float], accuracy: str) -> dict[str, Any]:
+    """Flatten a step window for Grafana's Loki table and data links."""
+    return {
+        "stage_summary": " · ".join(
+            f"{name}: {seconds:.2f}s"
+            for name, seconds in sorted(stages.items(), key=lambda item: -item[1])
+            if name != "step"
+        ),
+        "window_start_ms": math.floor(start * 1000) if start is not None else None,
+        "window_end_ms": math.ceil(end * 1000),
+        "boundary_accuracy": accuracy,
+    }
+
+
 class StepHistoryWriter:
     """Persist each distinct file-logger record once across bridge restarts."""
 
@@ -93,6 +107,7 @@ class StepHistoryWriter:
             "observed_at": observed_at,
             "step_duration_seconds": duration,
             "stage_durations_seconds": stages,
+            **dashboard_fields(start, observed_at, stages, "approximate" if start is not None else "unknown"),
             "analysis_window": {
                 "start": start,
                 "end": observed_at,

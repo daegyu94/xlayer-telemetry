@@ -208,7 +208,7 @@ vLLM·Ray 등 추가 endpoint는 해당 port도 접근 가능해야 합니다.
 
 ## Add Run Logs with Loki
 
-각 run의 `<log-root>/<run-id>/logs/**/*.log`를 Alloy가 읽어 Loki에 전송합니다.
+각 run의 `<log-root>/<run-id>/logs/**/*.log`와 VERL의 `telemetry-events/verl-steps.jsonl`을 Alloy가 읽어 Loki에 전송합니다.
 Workload가 이 경로에 log를 쓰도록 설정해야 하며 자동으로 stdout 전체가 수집되지는 않습니다.
 Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수집 담당 collector를 하나로 정합니다.
 
@@ -244,6 +244,9 @@ Alloy의 읽기 offset은 `OUTPUT_DIR/alloy-data`에 저장되며 기본적으�
 Run Logs에서 cluster·node·workload·run을 선택합니다.
 `run_id`와 file 경로는 log record에 저장되고 `cluster`·`node`·`workload`가 index label로 사용됩니다.
 Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
+Grafana의 `06 · Step Explorer`는 step event에서 `run_id`와 시간 범위를 읽습니다.
+VERL wrapper가 만든 `telemetry/telemetry-events/verl-steps.jsonl`도 수집하며, 기존 기록의 backfill 파일도 같은 패턴으로 읽습니다.
+두 경로가 모두 없다면 step 목록은 비어 있습니다.
 
 ## SSD Health
 

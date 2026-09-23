@@ -171,6 +171,40 @@ loki.process "pack_metadata" {
   }
 }
 
+loki.source.file "verl_steps" {
+  targets = [
+EOF
+    for entry in "${log_roots[@]}"; do
+      workload="${entry%%=*}"
+      root="${entry#*=}"
+      escaped_root="${root//\\/\\\\}"
+      escaped_root="${escaped_root//\"/\\\"}"
+      cat >> "$output_dir/alloy.alloy" <<EOF
+    { __path__ = "$escaped_root/*/telemetry-events/verl-steps*.jsonl", cluster = "$cluster_name", node = "$node_name", workload = "$workload", signal = "verl_step" },
+    { __path__ = "$escaped_root/*/telemetry/telemetry-events/verl-steps*.jsonl", cluster = "$cluster_name", node = "$node_name", workload = "$workload", signal = "verl_step" },
+EOF
+    done
+    cat >> "$output_dir/alloy.alloy" <<EOF
+  ]
+  forward_to = [loki.process.step_events.receiver]
+  file_match {
+    enabled = true
+    ignore_older_than = "${ALLOY_IGNORE_OLDER_THAN:-24h}"
+    sync_period = "2s"
+  }
+}
+
+loki.process "step_events" {
+  forward_to = [loki.write.monitoring_host.receiver]
+  stage.json {
+    expressions = { observed_at = "observed_at" }
+  }
+  stage.timestamp {
+    source = "observed_at"
+    format = "Unix"
+  }
+}
+
 loki.write "monitoring_host" {
   endpoint {
     url = "$LOKI_PUSH_URL"
@@ -415,7 +449,7 @@ providers:
 EOF
   cp examples/dashboards/{start-here,run-overview,compute-communication,data-storage,agent-rl-stages}.json "$output_dir/dashboards/"
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
-    cp examples/dashboards/run-logs.json "$output_dir/dashboards/"
+    cp examples/dashboards/{run-logs,step-explorer,step-detail}.json "$output_dir/dashboards/"
   fi
   if [[ "${SERVER_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   "$tools_dir/prometheus-3.5.0.linux-$release_arch/prometheus" \

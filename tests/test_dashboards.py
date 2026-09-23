@@ -90,6 +90,19 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert logs["uid"] == "xlayer-run-logs"
     assert logs["panels"][0]["datasource"]["uid"] == "telemetry-loki"
     assert "| unpack | run_id=~" in logs["panels"][0]["targets"][0]["expr"]
+    step_index = json.loads((ROOT / "examples/dashboards/step-explorer.json").read_text())
+    step_detail = json.loads((ROOT / "examples/dashboards/step-detail.json").read_text())
+    assert step_index["uid"] == "xlayer-step-explorer"
+    assert step_detail["uid"] == "xlayer-step-detail"
+    assert 'signal="verl_step"' in step_index["panels"][1]["targets"][0]["expr"]
+    step_link = step_index["panels"][1]["fieldConfig"]["overrides"][0]["properties"][0]["value"][0]["url"]
+    assert all(value in step_link for value in ('window_start_ms', 'window_end_ms', 'record_id'))
+    assert not step_index["panels"][1]["transformations"][1]["options"]["excludeByName"]
+    assert {"window_start_ms", "window_end_ms", "record_id"} <= {
+        override["matcher"]["options"] for override in step_index["panels"][1]["fieldConfig"]["overrides"]
+        if any(property_["id"] == "custom.hidden" for property_ in override["properties"])
+    }
+    assert {panel.get("datasource", {}).get("uid") for panel in step_detail["panels"]} == {None, "telemetry-loki", "telemetry-prometheus"}
 
 
 def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
@@ -110,7 +123,7 @@ def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
         assert len(item["tags"]) == 2
         assert item["links"][0]["title"] == "Start Here"
         assert item["links"][0]["url"] == "/d/xlayer-start-here"
-    assert "http://127.0.0.1:8765/" in content
+    assert "/d/xlayer-step-explorer" in content
 
 
 def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) -> None:
@@ -207,7 +220,7 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     assert "url: http://192.168.0.1:13100" in (
         output / "provisioning/datasources/default.yaml"
     ).read_text()
-    assert (output / "dashboards/run-logs.json").is_file()
+    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "run-logs.json", "step-explorer.json", "step-detail.json"}
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:
@@ -248,6 +261,10 @@ def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -
     assert 'workload = "verl"' in config
     assert 'labels = ["filename", "run_id", "log_file"]' in config
     assert 'ignore_older_than = "24h"' in config
+    assert f'{verl}/*/telemetry-events/verl-steps*.jsonl' in config
+    assert f'{verl}/*/telemetry/telemetry-events/verl-steps*.jsonl' in config
+    assert 'signal = "verl_step"' in config
+    assert 'format = "Unix"' in config
 
 
 def test_storage_role_starts_smartctl_exporter_with_slow_polling(tmp_path: Path) -> None:

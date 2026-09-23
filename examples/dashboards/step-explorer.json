@@ -1,0 +1,416 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "description": "Choose a completed VERL step recorded in Loki and inspect its resource window inside Grafana.",
+  "links": [
+    {
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here",
+      "includeTimeRange": false,
+      "keepTime": false
+    },
+    {
+      "title": "Agent RL Stage Correlation",
+      "type": "link",
+      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Select a completed step",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Choose the cluster and run, then click a step number. The link opens that step’s approximate time window with node metrics and logs. This view needs Loki step-event ingestion; missing steps are not zero-duration steps."
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Completed VERL steps",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 18
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | window_start_ms != \"\" | __error__=\"\"",
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": true
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "step": 0,
+              "run_id": 1,
+              "node": 2,
+              "worker_id": 3,
+              "boundary_scope": 4,
+              "step_duration_seconds": 5,
+              "stage_summary": 6,
+              "record_id": 8
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Inspect step",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-log_run_id=${__data.fields[\"run_id\"]}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "analysis_window"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_scope"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "execution_mode"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observed_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_type"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_durations_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worker_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 390
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": [
+    "agent-rl",
+    "telemetry"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "telemetry-loki"
+        },
+        "query": "label_values({signal=\"verl_step\"}, cluster)",
+        "definition": "label_values({signal=\"verl_step\"}, cluster)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "telemetry-loki"
+        },
+        "query": "label_values({signal=\"verl_step\",cluster=~\"$cluster\"}, node)",
+        "definition": "label_values({signal=\"verl_step\",cluster=~\"$cluster\"}, node)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "run_id",
+        "label": "Run",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "06 · Step Explorer",
+  "uid": "xlayer-step-explorer",
+  "version": 1
+}

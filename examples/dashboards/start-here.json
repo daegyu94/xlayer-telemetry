@@ -73,7 +73,7 @@
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 11 },
       "options": {
         "mode": "markdown",
-        "content": "Inspect stage times with node-by-node resource samples and logs, then compare another step. Start the self-hosted Step Explorer first.\n\n[Open Step Explorer](http://127.0.0.1:8765/)"
+        "content": "Choose a completed VERL step and inspect its node resources and logs in Grafana. This view needs Loki step-event collection.\n\n[Open Step Explorer](/d/xlayer-step-explorer)"
       }
     }
   ],

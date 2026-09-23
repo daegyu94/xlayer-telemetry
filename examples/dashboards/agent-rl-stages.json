@@ -16,7 +16,7 @@
       "keepTime": false,
       "title": "Step Explorer",
       "type": "link",
-      "url": "http://127.0.0.1:8765/"
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}"
     },
     {
       "includeTimeRange": true,

@@ -44,7 +44,7 @@
       },
       "targets": [
         {
-          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\"} | unpack | run_id=~\"$run_id\"",
+          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\"} | unpack | run_id=~\"$run_id\"",
           "queryType": "range",
           "refId": "A"
         }

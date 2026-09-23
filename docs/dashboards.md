@@ -7,7 +7,8 @@
 
 `00 · Start Here`는 조사할 질문에 맞는 화면을 고르는 진입점입니다.
 `01`부터 `05`까지의 제목은 일반적인 조사 순서이며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
-Step Explorer는 별도로 실행하는 UI이므로 링크를 열기 전에 [실행 절차](step-explorer.md#start-the-explorer)를 따릅니다.
+Step Explorer와 Step Detail은 Loki를 활성화했을 때 Grafana에 추가됩니다.
+완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](step-explorer.md#open-in-grafana)에 있습니다.
 
 ![Grafana Start Here에서 수집 상태, 학습 stage, compute, storage, log, step 조사를 선택하는 화면](figures/grafana-start-here.png)
 
@@ -83,5 +84,6 @@ Loki를 활성화하면 Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 파�
 Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 느려진 완료 stage와 시각을 고릅니다.
 같은 node·시간 범위의 Compute & Communication, Data & Storage, Run Logs를 순서대로 비교합니다.
 두 신호가 동시에 변해도 인과관계가 확정되지는 않으며, 공유 자원에는 다른 workload의 영향도 포함될 수 있습니다.
-완료된 step 하나를 확대하고 다른 step과 비교하려면 [Step Explorer](step-explorer.md)를 엽니다.
+완료된 step 하나를 확대하려면 Grafana의 [Step Explorer](step-explorer.md#open-in-grafana)를 엽니다.
+두 step의 자원 평균 차이를 계산하려면 기존 [로컬 UI](step-explorer.md#legacy-standalone-explorer)를 사용합니다.
 증상별 다음 조사 항목과 trace 연결은 [Run Analysis](analysis.md)에서 다룹니다.

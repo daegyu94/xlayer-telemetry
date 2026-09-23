@@ -176,6 +176,10 @@ printf '%s\n' '{"step":2,"data":{"timing_s/step":2.0,"timing_s/gen":1.0}}' > "$V
     )
     assert history["execution_mode"] == "async"
     assert history["boundary_scope"] == "trainer_update"
+    assert history["window_start_ms"] == int(history["analysis_window"]["start"] * 1000)
+    assert history["window_end_ms"] >= int(history["analysis_window"]["end"] * 1000)
+    assert history["stage_summary"]
+    assert history["boundary_accuracy"] == "approximate"
     diagnosis = json.loads(
         (output / "diagnostics" / "latest.json").read_text(encoding="utf-8")
     )

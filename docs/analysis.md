@@ -22,7 +22,7 @@ Grafana의 Agent RL Stage Correlation에서 조사할 run과 시간 범위를 �
 이 표의 신호는 해당 source가 연결되어 있을 때만 보입니다.
 `N/A`는 0이 아니며, 먼저 target 상태와 sample age를 확인합니다.
 VERL file logger의 stage 값은 step 완료 시 갱신되므로 진행 중인 phase와 혼동하지 않습니다.
-[Step Explorer](step-explorer.md)는 완료된 step 하나의 근사 시간 범위를 확대해 같은 시간대의 자원 표본과 log를 보여 줍니다.
+[Step Explorer](step-explorer.md)는 Grafana에서 완료된 step 하나의 근사 시간 범위를 확대해 같은 시간대의 자원 표본과 log를 보여 줍니다.
 
 ## Check the Run Context
 
