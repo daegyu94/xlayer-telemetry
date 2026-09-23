@@ -7,14 +7,30 @@ VERL 설치나 학습 recipe를 준비하는 문서는 아니며, 아직 명령�
 ## What You Will See
 
 Wrapper는 VERL의 file logger를 읽는 bridge를 함께 실행합니다.
-Bridge가 완료된 step의 stage 시간과 scalar를 JSON으로 기록하면 node collector가 이를 Prometheus에 노출하고 Grafana가 GPU·host 지표와 함께 보여 줍니다.
+Bridge가 완료된 step의 stage 시간과 scalar를 snapshot에 기록하면 node collector와 Node Exporter를 거쳐 Prometheus에 수집됩니다.
+Grafana는 이를 GPU·host 지표와 함께 보여 줍니다.
 
 ```text
-VERL file logger > bridge > application snapshot > node collector
-GPU / host -------------------------------------> node collector
-                                                       |
-                                                       |
-                                    Prometheus > Grafana
+GPU node
++--------------------------------------------------------------------+
+| VERL > file logger > $RUN_ROOT/logs/verl-metrics.jsonl             |
+|                                | Telemetry Bridge                  |
+|                                v                                   |
+|       $RUN_ROOT/telemetry-metrics/verl-trainer-driver.json         |
+|                                | Node Collector                    |
+|                                v                                   |
+|       $OUTPUT_DIR/textfile/application.prom -----------------+     |
+| GPU > GPU sampler > $OUTPUT_DIR/textfile/gpu.prom -----------+     |
+| CPU / memory / network / disk -------------------------------+     |
+|                                                             v      |
+|                                           Node Exporter (:19100)   |
++-------------------------------------------------------------+------+
+                                                              | scrape
+                                                              v
+                                                         Prometheus
+                                                              |
+                                                              v
+                                                           Grafana
 ```
 
 처음부터 모든 panel이 채워지지는 않습니다.
@@ -55,6 +71,14 @@ TELEMETRY_METRICS_DIR="$RUN_ROOT/telemetry-metrics" \
 명령이 계속 실행되는 것이 정상입니다.
 GPU sampler는 기본적으로 시간 제한 없이 동작하며, `Ctrl+C`로 collector를 종료합니다.
 Run directory에 아직 application snapshot이 없어도 학습이 시작되면 읽을 수 있습니다.
+
+| 경로 | 역할 |
+| --- | --- |
+| `$RUN_ROOT` | 이번 VERL 실행의 기록을 보관합니다. VERL logger의 JSONL, bridge snapshot, step event와 manifest가 여기에 생성됩니다. |
+| `$OUTPUT_DIR` | 이 node의 수집기가 사용하는 작업 디렉터리입니다. `textfile/application.prom`·`textfile/gpu.prom`, `gpu-*.jsonl`, `node-exporter.log`가 여기에 생성됩니다. |
+
+`$OUTPUT_DIR/textfile/*.prom`은 수집 중 갱신되며 Node Exporter가 이를 읽어 Prometheus에 노출합니다.
+다음 실행에서는 새 `$RUN_ROOT`를 사용하고 node collector가 그 경로의 `telemetry-metrics`를 읽도록 재시작합니다.
 
 ## 3. Start Prometheus and Grafana
 

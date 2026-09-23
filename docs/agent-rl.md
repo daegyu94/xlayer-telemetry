@@ -9,17 +9,33 @@
 VERL 실행에서는 trainer metric과 node 자원 지표를 Prometheus에서 시간 기준으로 비교합니다.
 추가 source는 수집 방식에 따라 Grafana metric, log, run 진단 결과로 나뉩니다.
 
-```mermaid
-flowchart LR
-    VERL["VERL trainer<br/>loss / reward / step time"] --> BRIDGE["File logger bridge"] --> SNAP["Application snapshot"] --> COLLECT["Node collector"] --> EXPORTER["Node Exporter"]
-    GPU["GPU"] --> SAMPLER["GPU sampler"] --> EXPORTER
-    HOST["CPU / network / filesystem<br/>including 3FS FUSE mount"] --> EXPORTER
-    EXPORTER --> PROM["Prometheus"] --> GRAF["Grafana metric dashboards"]
-    NATIVE["vLLM / Ray<br/>metrics endpoints"] --> PROM
-    THREEFS["3FS service latency"] --> CH["ClickHouse"] --> DIAG["Run diagnostics / show_run"]
-    PROM --> DIAG
-    TOOL["Tool call spans"] --> EVENTS["Run event JSONL / show_run"]
-    LOGS["Workload log files"] --> ALLOY["Alloy"] --> LOKI["Loki"] --> LOGUI["Grafana Run Logs"]
+```text
+Agent RL / VERL                          GPU / host node
++-----------------------------+          +-----------------------------------+
+| VERL trainer               |          | GPU > GPU sampler > gpu.prom       |
+| loss / reward / step time   |          | CPU / network / filesystem        |
++-------------+---------------+          | (including 3FS FUSE mount)        |
+              | file logger              +----------------+------------------+
+              v                                           |
+     logs/verl-metrics.jsonl                              |
+              | bridge                                    |
+              v                                           |
+     application snapshot                                 |
+              |                                           |
+              v                                           v
+        Node collector ---------------------------> Node Exporter (:19100)
+        (application.prom)                                |
+                                                          | scrape
+                                                          v
+vLLM / Ray metrics endpoints ----------------------> Prometheus
+                                                          |
+                                                          v
+                                                  Grafana metric dashboards
+
+3FS service latency > ClickHouse > Run diagnostics / show_run
+Prometheus ----------------------> Run diagnostics / show_run
+Tool call spans > Run event JSONL / show_run
+Workload log files > Alloy > Loki > Grafana Run Logs
 ```
 
 Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 변환하고, GPU sampler와 host 지표도 Node Exporter를 거쳐 Prometheus에 수집됩니다.
