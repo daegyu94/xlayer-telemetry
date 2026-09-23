@@ -5,6 +5,13 @@
   "editable": true,
   "links": [
     {
+      "includeTimeRange": false,
+      "keepTime": false,
+      "title": "Step Explorer (local)",
+      "type": "link",
+      "url": "http://127.0.0.1:8765/"
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Run Overview",

@@ -11,3 +11,6 @@ requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
 include = ["xlayer_telemetry*"]
+
+[tool.setuptools.package-data]
+xlayer_telemetry = ["step_explorer.html"]

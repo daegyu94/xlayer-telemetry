@@ -75,4 +75,5 @@ Loki를 활성화하면 Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 파�
 Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 느려진 완료 stage와 시각을 고릅니다.
 같은 node·시간 범위의 Compute & Communication, Data & Storage, Run Logs를 순서대로 비교합니다.
 두 신호가 동시에 변해도 인과관계가 확정되지는 않으며, 공유 자원에는 다른 workload의 영향도 포함될 수 있습니다.
+완료된 step 하나를 확대하고 다른 step과 비교하려면 [Step Explorer](step-explorer.md)를 엽니다.
 증상별 다음 조사 항목과 trace 연결은 [Run Analysis](analysis.md)에서 다룹니다.
