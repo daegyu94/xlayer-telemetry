@@ -3,6 +3,8 @@
 이 GIF는 `agentic-rl-lab`의 실제 VERL 학습에서 vLLM KV block을 3FS FUSE 마운트에 오프로드하고, 학습 로그를 Alloy와 Loki로 수집한 Grafana 화면입니다.
 완료된 step 1–8을 시간순으로 재생한 뒤 Agent RL, Run Overview, Compute & Communication, Data & Storage, Run Logs 대시보드를 스크롤합니다.
 Data & Storage의 `Mount`는 실제 3FS 마운트이며, Run Logs는 같은 실행의 VERL 로그를 보여 줍니다.
+처음 연결하는 사용자는 이 환경 전용 recipe보다 [VERL 연결 가이드](verl-quickstart.md)를 먼저 따라야 합니다.
+이 페이지는 연결된 결과의 해석과 동일한 환경에서 재현할 때 필요한 조건을 기록합니다.
 
 ![Real VERL, vLLM, 3FS and Loki run](figures/verl-vllm-real-run.gif)
 
@@ -41,6 +43,7 @@ Run Logs에는 일부 tool-call decode error도 보이지만 학습 프로세스
 
 Run Logs의 `Run` 변수에는 telemetry run ID 대신 lab 결과 디렉터리 이름이 들어갑니다.
 Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 경로에서 이 값을 추출하기 때문입니다.
+동일한 실행의 지표와 로그를 비교할 때도 Grafana의 `Run` 값이 두 화면에서 같은 문자열인지 먼저 확인합니다.
 
 ## Reproduce the Run
 
@@ -48,6 +51,8 @@ Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 경로에서 이 값을 추�
 `agentic-rl-lab`의 dataset과 Docker sandbox image는 해당 저장소의 `README.md`에 따라 준비합니다.
 [Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node collector와 server를 시작하고, 같은 server 설정 파일에 `ENABLE_LOGS=1`, node에는 `LOKI_PUSH_URL`과 `TELEMETRY_LOG_ROOTS`를 지정합니다.
 Node collector의 `TELEMETRY_METRICS_DIR`는 아래 결과 디렉터리의 `telemetry/telemetry-metrics`로 설정합니다.
+`TELEMETRY_LOG_ROOTS`는 `$LAB_ROOT/results`처럼 `$RESULTS_DIR`의 부모를 가리키고, 학습 log를 수집할 collector 한 대에만 설정합니다.
+Wrapper의 `--output`이 `$RESULTS_DIR/telemetry`이므로 Step Explorer가 읽는 event 파일은 `$RESULTS_DIR/telemetry/telemetry-events/verl-steps.jsonl`에 생깁니다.
 
 ```bash
 export LAB_ROOT=/path/to/agentic-rl-lab

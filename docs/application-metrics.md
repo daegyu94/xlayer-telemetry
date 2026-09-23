@@ -4,6 +4,7 @@ VERL 사용자는 먼저 [VERL 연결 가이드](verl-quickstart.md)의 file log
 이 문서는 VERL의 custom worker·tool 또는 다른 application에 loss·step·처리량 계측을 직접 추가할 때 사용하는 SDK 가이드입니다.
 이 값에 run과 worker 문맥을 붙이면 같은 시간·node의 GPU·network·storage 지표와 비교할 수 있습니다.
 Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로 Prometheus와 직접 통신할 필요가 없습니다.
+공통 수집 경로와 snapshot이 전체 step 이력이 아닌 이유는 [구현 구조](architecture.md#the-basic-path)에 설명합니다.
 
 ## Choose Your Path
 
@@ -42,6 +43,7 @@ Monitoring server의 `TELEMETRY_TARGETS`에 `gpu-local=주소`로 등록하면 n
 `TELEMETRY_RUN_ID`와 `TELEMETRY_METRICS_DIR`는 함께 설정해야 합니다.
 둘 다 없으면 emitter가 비활성화되며, 하나만 있으면 경고 후 비활성화됩니다.
 환경변수는 다른 terminal이나 remote worker로 자동 전달되지 않습니다.
+Emitter가 비활성화되어도 예제의 application 동작은 계속되므로 JSON이 없으면 먼저 이 두 환경변수와 `emit()` 호출을 확인합니다.
 
 ## 2. Write and Inspect One Snapshot
 
@@ -67,6 +69,7 @@ python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 `show_run`에는 `telemetry-metrics` directory 자체가 아니라 그 부모 run directory를 전달합니다.
 다음 `emit()`은 같은 worker의 snapshot을 교체하므로 전체 step history를 저장하지 않습니다.
 Prometheus도 scrape 사이에 교체된 모든 snapshot을 보존하지는 않으며, 모든 step이 필요하면 application log를 함께 남깁니다.
+이 구조는 값의 최신 상태를 낮은 비용으로 보여 주는 경로이며, 개별 호출의 시작·종료는 [event span](agent-rl.md#record-a-custom-tool-span)으로 기록합니다.
 
 ## 3. Connect Your Workload
 
@@ -154,6 +157,7 @@ TELEMETRY_METRICS_DIR='/path/to/artifacts/metrics-demo-001/telemetry-metrics' \
 Collector는 기본 2초마다 `OUTPUT_DIR/textfile/application.prom`을 갱신합니다.
 `TELEMETRY_METRICS_INTERVAL`로 주기를 바꿀 수 있습니다.
 Shared storage의 같은 snapshot을 여러 node collector가 읽으면 중복 시계열이 생길 수 있습니다.
+JSON 생성은 되지만 Grafana가 비어 있다면 JSON 경로, `application.prom`, Node Exporter target, dashboard filter 순서로 확인합니다.
 
 ## 5. Check the Dashboard
 
@@ -168,5 +172,5 @@ Run Overview에서 `cluster`, `node`, `run_id`를 선택합니다.
 | Metric 파일은 있지만 dashboard가 비어 있음 | Prometheus target, cluster·node·run 선택, sample age |
 | 같은 worker가 여러 instance에 표시됨 | Shared directory를 여러 collector가 읽는지 확인 |
 
-Loss나 step time 변화가 보이면 같은 시간의 자원 지표를 [Run Analysis](analysis.md)에 따라 비교합니다.
+Loss나 step time 변화가 보이면 같은 시간의 자원 지표를 [Run Analysis](dashboards.md#run-analysis)에 따라 비교합니다.
 SDK는 workload의 실행과 종료를 관리하지 않으며, 이 연결 방식은 특정 launcher나 다른 저장소를 요구하지 않습니다.

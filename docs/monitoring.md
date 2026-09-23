@@ -3,6 +3,7 @@
 이 문서는 VERL 같은 workload가 실행되는 GPU node의 자원을 관측하고 Grafana에서 확인하는 방법을 설명합니다.
 먼저 demo 화면을 확인하고, 실제 node 하나를 연결한 뒤 여러 node·log·storage 관측으로 확장합니다.
 VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 이어집니다.
+전체 데이터 흐름과 경로의 역할은 [구현 구조](architecture.md#the-basic-path)에 설명합니다.
 
 ## Know the Roles
 
@@ -16,6 +17,7 @@ VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 
 Monitoring host는 monitoring process를 실행하는 machine을 뜻합니다.
 처음에는 GPU node와 같은 machine을 사용해도 되며 별도 cluster 제어기는 필요하지 않습니다.
 Prometheus가 exporter를 주기적으로 조회하는 것을 scrape라고 부릅니다.
+Node collector는 metric을 노출하고 monitoring server가 이를 가져가는 구조이므로, 여러 node에서는 server에서 각 node의 `:19100` 주소에 접근할 수 있어야 합니다.
 
 ## Prepare the Host
 
@@ -28,6 +30,8 @@ Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`�
 `run_telemetry.sh`에서 경로를 생략하면 `tools`와 `state/<role>-<hostname>`을 기본값으로 사용합니다.
 자신의 경로로 바꿔도 되지만 설치 때와 실행 때 같은 `TOOLS_DIR`을 전달해야 합니다.
 새 terminal에서도 저장소 루트로 이동하고 Python 환경을 활성화합니다.
+서버의 `server.conf`는 monitoring host에서만 읽고, `node`·`storage` 역할의 값은 해당 machine의 실행 환경 변수로 전달합니다.
+같은 이름의 `OUTPUT_DIR`을 모든 역할에 쓰면 상태 파일이 섞이므로 역할별 directory를 유지합니다.
 
 ## Try the Demo
 
@@ -49,6 +53,7 @@ DEMO_LIVE=1 \
 Agent RL Stage Correlation에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택하면 완료 step 값이 증가하는 것도 확인할 수 있습니다.
 화면이 비어 있으면 먼저 실행 terminal의 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
 실제 학습 성능이 아닌 화면·수집 경로 확인용 값입니다.
+이 demo의 target은 합성 exporter이며 실제 GPU driver, VERL 실행, 3FS 서비스가 연결되었다는 뜻은 아닙니다.
 
 실제 node를 연결하기 전 `Ctrl+C`로 demo를 종료해 동일한 service port를 비웁니다.
 상세한 가상 구성과 화면 예시는 [Demo Details](#demo-details)에 있습니다.
@@ -105,6 +110,8 @@ bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.con
 
 `TELEMETRY_TARGETS`는 `logical-node-name=address` 형식입니다.
 이름은 dashboard에서 사용하고 주소는 exporter 접속에 사용합니다.
+예제의 `gpu-local=127.0.0.1`은 node와 server가 같은 machine에 있을 때만 유효합니다.
+다른 host에 server를 두면 node의 `NODE_ADDR`와 target 주소를 monitoring host에서 도달 가능한 주소로 함께 바꿉니다.
 시작 시 HTTP 상태와 query를 검사하고 `OUTPUT_DIR/startup-summary.json`을 기록합니다.
 설정 파일은 로컬 Bash 파일이므로 `$HOME`을 사용할 수 있으며, 파일에 적힌 값이 현재 terminal의 같은 이름 환경 변수보다 우선합니다.
 
@@ -121,6 +128,7 @@ ssh -NT -L 13000:127.0.0.1:13000 user@monitoring-host
 먼저 [Start Here](http://127.0.0.1:13000/d/xlayer-start-here)에서 조사할 질문에 맞는 화면을 고릅니다.
 Run Overview에서 cluster와 node를 선택하고 target 상태와 최근 GPU sample을 확인합니다.
 아직 workload를 연결하지 않았다면 run 목록과 application panel이 비어 있는 것이 정상입니다.
+Target이 up인데 run이 보이지 않는다면 [VERL 연결 가이드](verl-quickstart.md#3-check-the-first-completed-step)에서 wrapper·snapshot·collector 경로를 확인합니다.
 
 | Dashboard | 확인할 내용 |
 | --- | --- |
@@ -140,7 +148,8 @@ Prometheus는 `127.0.0.1:19090`에서 실행되고 Grafana 기본 접근 권한�
 
 ## Enable Grafana Alerts
 
-Monitoring server 설정 파일에서 `ENABLE_ALERTS=1`로 바꾸면 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
+Monitoring Guide의 수동 경로에서는 server 설정 파일의 `ENABLE_ALERTS=1`로 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
+단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_ALERTS=1`을 설정하고 `verl_local.sh server`를 다시 실행합니다.
 Node collector 연결 끊김, GPU 표본이 60초 넘게 갱신되지 않거나 사라짐, 지정한 filesystem의 여유 공간 부족을 node별로 평가합니다.
 기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다.
 기존 server terminal에서 `Ctrl+C`로 종료한 뒤 같은 설정 파일로 다시 시작합니다.
@@ -208,45 +217,53 @@ vLLM·Ray 등 추가 endpoint는 해당 port도 접근 가능해야 합니다.
 
 ## Add Run Logs with Loki
 
-각 run의 `<log-root>/<run-id>/logs/**/*.log`와 VERL의 `telemetry-events/verl-steps.jsonl`을 Alloy가 읽어 Loki에 전송합니다.
-Workload가 이 경로에 log를 쓰도록 설정해야 하며 자동으로 stdout 전체가 수집되지는 않습니다.
+각 run의 `<log-root>/<run-directory>/logs/**/*.log`와 VERL의 `telemetry-events/verl-steps*.jsonl`을 Alloy가 읽어 Loki에 전송합니다.
+Wrapper의 `telemetry-bridge.log`는 이 패턴에 들어가지만 VERL의 metric JSONL이나 terminal의 stdout 전체가 자동으로 Run Logs에 나타나지는 않습니다.
+학습 log를 보려면 workload가 같은 `logs/` 아래 `.log` 파일을 쓰도록 설정합니다.
 Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수집 담당 collector를 하나로 정합니다.
 
-Monitoring server를 종료한 뒤 같은 설정 파일에 `ENABLE_LOGS=1`, `LOKI_LISTEN_ADDR='10.0.0.20'`을 적고 다시 시작합니다.
+Monitoring Guide의 수동 단일 host 예제에서는 monitoring server를 종료하고 `server.conf`의 `ENABLE_LOGS=1`만 바꿔 다시 시작합니다.
+기본 `LOKI_LISTEN_ADDR='127.0.0.1'`은 같은 host에서 실행하는 collector가 접근할 수 있습니다.
+단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_LOGS=1`을 설정하고 `verl_local.sh server`와 `verl_local.sh node`를 각각 다시 실행합니다.
+이 경로는 log root와 metric snapshot 경로를 같은 `RUN_ID`에서 자동으로 계산하므로 아래의 수동 환경 변수 예제를 입력할 필요가 없습니다.
 
 ```bash
 bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
 ```
 
-`10.0.0.20`은 monitoring host의 예시 주소입니다.
-생성되는 Loki 설정에는 인증이 없으므로 collector가 접근하는 관리망 주소를 사용합니다.
+다른 node에서 Loki로 전송하려면 `LOKI_LISTEN_ADDR`을 monitoring host의 관리망 주소로 바꾸고, 아래 `LOKI_PUSH_URL`도 그 주소로 바꿉니다.
+생성되는 Loki 설정에는 인증이 없으므로 관리망에서만 접근하도록 배치합니다.
 기본 보존 기간은 7일이며 `LOKI_RETENTION`으로 바꿀 수 있습니다.
 
-각 log 수집 node에서 기존 collector를 종료하고 다음 설정으로 다시 시작합니다.
-Application metric도 수집 중이었다면 기존 `TELEMETRY_METRICS_DIR`을 함께 전달합니다.
+앞의 `grpo-001` 단일 node 예제를 이어간다면 같은 node에서 기존 collector를 종료하고 다음 설정으로 다시 시작합니다.
+`TELEMETRY_LOG_ROOTS`는 run directory 자체가 아니라 그 부모 directory이고, `TELEMETRY_METRICS_DIR`은 계속 같은 run의 snapshot directory를 가리킵니다.
 
 ```bash
 TOOLS_DIR="$HOME/telemetry/tools" \
-NODE_ADDR='10.0.0.10' \
-NODE_NAME='trainer-0' \
+NODE_ADDR='127.0.0.1' \
+NODE_NAME='gpu-local' \
 OUTPUT_DIR="$HOME/telemetry/state/node" \
 CLUSTER_NAME='training-cluster' \
-LOKI_PUSH_URL='http://10.0.0.20:13100/loki/api/v1/push' \
-TELEMETRY_LOG_ROOTS='verl=/path/to/runs' \
+TELEMETRY_METRICS_DIR="$HOME/telemetry-runs/grpo-001/telemetry-metrics" \
+LOKI_PUSH_URL='http://127.0.0.1:13100/loki/api/v1/push' \
+TELEMETRY_LOG_ROOTS="verl=$HOME/telemetry-runs" \
   bash scripts/run_telemetry.sh node
 ```
 
 Log root는 존재하는 절대 경로여야 합니다.
+따라서 위 예제에서는 `$HOME/telemetry-runs/grpo-001/logs/`와 `$HOME/telemetry-runs/grpo-001/telemetry-events/`를 찾습니다.
 여러 root는 `verl=/path/a,custom=/path/b`처럼 구분하고 workload 이름을 중복하지 않습니다.
 Alloy의 읽기 offset은 `OUTPUT_DIR/alloy-data`에 저장되며 기본적으로 24시간보다 오래된 file을 제외합니다.
 `ALLOY_IGNORE_OLDER_THAN`으로 이 기준을 바꾸고 Alloy state와 Loki data는 각각 host-local 경로에 둡니다.
 
 Run Logs에서 cluster·node·workload·run을 선택합니다.
 `run_id`와 file 경로는 log record에 저장되고 `cluster`·`node`·`workload`가 index label로 사용됩니다.
+`run_id`는 여기서 경로의 run directory 이름이며 wrapper에 전달한 `--run-id`와 다를 수 있습니다.
 Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
 Grafana의 `06 · Step Explorer`는 step event에서 `run_id`와 시간 범위를 읽습니다.
 VERL wrapper가 만든 `telemetry/telemetry-events/verl-steps.jsonl`도 수집하며, 기존 기록의 backfill 파일도 같은 패턴으로 읽습니다.
 두 경로가 모두 없다면 step 목록은 비어 있습니다.
+Grafana Step Explorer는 event를 Loki에서, 자원 그래프를 Prometheus에서 읽으므로 두 datasource의 보존 기간과 선택한 시간 범위를 함께 확인합니다.
 
 ## SSD Health
 

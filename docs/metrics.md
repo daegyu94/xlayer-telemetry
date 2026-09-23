@@ -3,6 +3,7 @@
 Metric을 여러 계층에서 함께 해석하려면 이름뿐 아니라 단위와 측정 범위도 일치해야 합니다.
 이 문서는 새로운 collector·adapter·dashboard를 추가할 때 사용할 공통 기준을 설명합니다.
 기존 dashboard를 사용하기만 한다면 [Monitoring Guide](monitoring.md)와 [VERL 연결 가이드](verl-quickstart.md)부터 시작합니다.
+왜 application과 shared resource의 scope를 구분하는지는 [설계 원칙](architecture.md#design-principles)에 설명합니다.
 
 ## Understand a Metric
 
@@ -28,6 +29,7 @@ SDK counter를 기록할 때는 application이 누적값을 관리합니다.
 기준 파일은 [config/metrics.json](../config/metrics.json)입니다.
 이 파일은 공통 어휘와 구현 기준이며 metric을 자동 수집하거나 exporter 이름을 자동 변환하는 registry는 아닙니다.
 실제 수집에는 collector·adapter가, 화면 표시에는 해당 metric을 읽는 query가 필요합니다.
+따라서 계약에 이름을 추가한 것만으로 Prometheus 시계열이나 Grafana panel이 생기지는 않습니다.
 
 | 최상위 field | 내용 |
 | --- | --- |
@@ -79,8 +81,9 @@ Shared service metric은 해당 서비스의 관측 범위를 유지하면서 �
 | Tool event·trace | Run, worker, span 시간 | 별도 상세 증거이며 자동 Prometheus 시계열이 아님 |
 
 서로 다른 scope의 값을 비교한 결과는 병목 후보입니다.
-인과관계가 필요한 경우 [Run Analysis](analysis.md)에 따라 log·event·trace를 확인합니다.
+인과관계가 필요한 경우 [Run Analysis](dashboards.md#run-analysis)에 따라 log·event·trace를 확인합니다.
 Derived metric에는 원본, 계산식과 시간 창을 함께 기록합니다.
+특히 `run_id`가 없는 node·native service 시계열을 run별 사용량으로 표시하는 query를 만들지 않습니다.
 
 ## Choose Labels Carefully
 
