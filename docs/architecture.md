@@ -31,6 +31,7 @@ XLayer는 이 수치를 workload interval과 측정 scope에 연결해 조사 �
 OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
 XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
 DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비할 수 있는 유용한 signal source이며, XLayer가 그 수집 stack을 다시 만들지는 않습니다.
+[eBPF 도입 검토](ebpf-integration-study.md)는 현재 process attribution의 공백과 RDMA·3FS USRBIO의 관측 한계를 기준으로 optional source의 선택 조건을 정리합니다.
 Coroot의 dependency map과 evidence 기반 investigation, Darshan/Drishti의 I/O pattern 진단은 UX와 rule 설계의 참고입니다.
 Nsight Systems, PyTorch Profiler, Pyroscope는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
