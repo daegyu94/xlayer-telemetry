@@ -18,6 +18,13 @@
       "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}",
       "includeTimeRange": true,
       "keepTime": true
+    },
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
     }
   ],
   "panels": [
@@ -410,7 +417,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "06 · Step Explorer",
+  "title": "03 · Step Explorer",
   "uid": "xlayer-step-explorer",
   "version": 1
 }

@@ -31,6 +31,13 @@
       "title": "Run Logs",
       "type": "link",
       "url": "/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}"
+    },
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
     }
   ],
   "panels": [

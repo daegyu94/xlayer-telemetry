@@ -135,7 +135,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "05 · Run Logs",
+  "title": "09 · Run Logs",
   "description": "Search node-local run logs when Loki is enabled.",
   "uid": "xlayer-run-logs",
   "version": 2

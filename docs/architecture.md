@@ -4,6 +4,42 @@
 먼저 한 node의 기본 경로를 이해한 뒤 vLLM·Ray·3FS·Loki를 추가하면, 화면의 빈 값이 설정 문제인지 아직 연결하지 않은 source인지 구분할 수 있습니다.
 실행 명령은 [VERL 연결 가이드](verl-quickstart.md)에, 추가 source 설정은 [Cross-Layer Integration](agent-rl.md)에 있습니다.
 
+## Why XLayer Exists
+
+XLayer는 generic APM platform이나 새로운 telemetry backend가 아니라 distributed AI/HPC workload를 위한 correlation·diagnosis layer입니다.
+기존 collector, storage, dashboard, profiler의 결과를 run·step·phase 문맥에 연결하고, 느린 구간에서 확인할 bottleneck candidate와 누락된 근거를 제시합니다.
+
+```text
+Telemetry sources
+  Application / framework   vLLM / Ray   GPU / host   network / RDMA
+  filesystem / 3FS / SSD    logs         traces       profiles
+  |
+  +--> XLayer semantic correlation
+       run > step/iteration > phase > span/event
+       + node / role / worker / rank / GPU / topology / observation scope
+       |
+       +--> XLayer diagnosis
+            symptom > baseline comparison > candidate > evidence / missing evidence
+            |
+            +--> Existing detail tools: Grafana / Loki / PyTorch Profiler / Nsight / NCCL
+```
+
+Grafana·Prometheus는 시계열 저장·query·시각화에 쓰지만 training step, rollout, weight sync, worker, rank, KV offload, storage path를 자동으로 같은 실행 단위로 해석하지 않습니다.
+GPU utilization 40%, 3FS p99 15 ms, RDMA 250 Gbps가 같은 시간에 보여도 어느 run의 어느 phase가 왜 느려졌는지는 사용자가 별도로 조사해야 합니다.
+XLayer는 이 수치를 workload interval과 측정 scope에 연결해 조사 가설을 만들고, 공유 자원 사용량을 특정 run에 자동 귀속하지 않습니다.
+
+OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
+XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
+DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비할 수 있는 유용한 signal source이며, XLayer가 그 수집 stack을 다시 만들지는 않습니다.
+Coroot의 dependency map과 evidence 기반 investigation, Darshan/Drishti의 I/O pattern 진단은 UX와 rule 설계의 참고입니다.
+Nsight Systems, PyTorch Profiler, Pyroscope는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
+DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
+
+이 분리는 코드에도 반영됩니다.
+`diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
+Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
+구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
+
 ## The Basic Path
 
 Node collector와 monitoring server는 별도 process입니다.
@@ -64,6 +100,10 @@ $RUN_ROOT/                              $OUTPUT_DIR/
     verl-trainer-driver.json             alloy-data/         (logs enabled)
   telemetry-events/
     verl-steps.jsonl
+  diagnostics/
+    latest.json
+    diagnostics.jsonl
+    investigation/*.jsonl          (Loki projection, diagnostics enabled)
 ```
 
 JSON snapshot은 최신 상태를 빠르게 노출하기 위한 것이므로 모든 step의 이력이 아닙니다.
@@ -85,6 +125,7 @@ Source마다 저장소와 화면이 달라서 endpoint를 하나 등록하는 �
 | 3FS FUSE mount·SSD | Node Exporter·선택적 SMART exporter > Prometheus | Data & Storage |
 | 3FS service latency | ClickHouse > 선택적 diagnostics process | `diagnostics/latest.json`, `show_run` |
 | Custom tool span | Application SDK > JSONL event | `show_run`, 원본 event |
+| 진단 후보·timeline | Diagnostics JSON > Alloy > Loki, EventRecorder JSONL > Alloy > Loki | Bottleneck Summary, Cross-Layer Timeline; Loki 없이 JSON·`show_run` |
 
 3FS의 POSIX/FUSE mount 용량과 node disk I/O는 host 관측치입니다.
 3FS service latency는 ClickHouse 진단 경로이고, Grafana의 Data & Storage 패널에 자동 표시되지 않습니다.

@@ -119,7 +119,7 @@ def summarize(output_dir: Path) -> str:
         )
 
     events_dir = output_dir / "telemetry-events"
-    event_files = sorted(events_dir.glob("*.jsonl")) if events_dir.is_dir() else []
+    event_files = sorted(path for path in events_dir.glob("*.jsonl") if not path.name.startswith("verl-steps")) if events_dir.is_dir() else []
     events = _recent_events(event_files)
     if events:
         lines.append("\n[recent telemetry events]")
@@ -148,9 +148,32 @@ def summarize(output_dir: Path) -> str:
                 lines.append(
                     f"  {finding.get('component')}: {finding.get('candidate')}"
                 )
+        comparison = diagnosis.get("comparison", {})
+        if comparison.get("baseline_record_id"):
+            lines.append(f"  baseline_record_id={comparison['baseline_record_id']}")
+        for candidate in diagnosis.get("candidates", []):
+            if not isinstance(candidate, dict):
+                continue
+            lines.append(
+                f"  candidate {candidate.get('id')} [{candidate.get('state')}] "
+                f"scope={candidate.get('observation_scope')}"
+            )
+            for item in candidate.get("evidence", []):
+                lines.append(
+                    f"    evidence {item.get('signal')}={item.get('value')} "
+                    f"scope={item.get('observation_scope')} source={item.get('source')}"
+                )
+            if candidate.get("missing_evidence"):
+                lines.append("    missing=" + ", ".join(candidate["missing_evidence"]))
         missing = diagnosis.get("missing_sources", [])
         if missing:
             lines.append(f"  missing_sources={len(missing)}")
+        lines.append("  full_report=diagnostics/latest.json")
+
+    for pattern in ("artifacts/**/*.pt.trace.json", "artifacts/**/*.nsys-rep", "artifacts/nccl-baseline/manifest.env", "artifacts/nccl-baseline/all-reduce.log"):
+        for path in sorted(output_dir.glob(pattern)):
+            if path.is_file():
+                lines.append(f"  investigation_artifact={path.relative_to(output_dir)}")
 
     return "\n".join(lines)
 

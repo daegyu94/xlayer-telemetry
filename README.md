@@ -1,6 +1,6 @@
 # XLayer Telemetry
 
-VERL 기반 post-training 실행을 GPU·host, rollout engine, network, storage 상태와 함께 해석하는 독립적인 cross-layer telemetry 도구입니다.
+Distributed AI/HPC workload의 실행 단위를 GPU·host, rollout engine, network, storage 신호와 연결해 bottleneck candidate와 근거를 조사하는 cross-layer diagnosis 도구입니다.
 Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
 처음 사용한다면 [Start Here](#start-here)에서 synthetic 화면을 확인한 뒤 실제 VERL 실행을 연결합니다.
 
@@ -36,7 +36,8 @@ SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수
 
 Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
 공유 GPU·network·storage의 사용량 전체가 특정 run의 사용량이라는 뜻은 아니며, 동시 변화는 원인 후보를 찾는 근거입니다.
-3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, 3FS 서비스 전용 Grafana dashboard는 제공하지 않습니다.
+3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, Loki를 연결하면 Bottleneck Summary의 후보 근거로도 볼 수 있습니다.
+3FS 서비스 전용 실시간 Grafana panel은 제공하지 않습니다.
 Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-the-signals-flow)에 정리했습니다.
 
 ## What Works Today
@@ -51,8 +52,9 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Ray 전용 Grafana panel은 없고 공유 engine metric은 run별로 자동 분리되지 않습니다. |
 | Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Node 이름과 clock을 맞춰야 합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Grafana Step Explorer | File 경로와 Loki를 설정해야 합니다. Step Explorer의 경계는 VERL file logger를 바탕으로 추정합니다. |
-| Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
+| Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
 | 운영·분석 | 선택적 Grafana alert rule, `show_run`, diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
+| Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
 
 기능별 수집 경로와 설계 이유는 [How XLayer Telemetry Works](docs/architecture.md)에, 실행 순서는 아래 [Start Here](#start-here)에 있습니다.
 
@@ -68,7 +70,7 @@ VERL에 여러 계층을 연결하려면 아래 순서로 읽고, 각 단계의 
 | 3 | 이미 실행 가능한 VERL 명령을 [VERL 연결 가이드](docs/verl-quickstart.md)에 따라 한 GPU node에 붙입니다. | `show_run`에 완료 step이 나오고 Agent RL에서 step·GPU 값이 보입니다. |
 | 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 해당 node의 패널이 채워집니다. |
 | 5 | 필요하면 [Loki log·step 수집](docs/monitoring.md#add-run-logs-with-loki), [3FS 진단](docs/agent-rl.md#add-diagnostics)을 추가합니다. | Run Logs·Step Explorer 또는 `diagnostics/latest.json`에서 해당 증거를 확인합니다. |
-| 6 | [Dashboard Guide](docs/dashboards.md)와 [Run Analysis](docs/dashboards.md#run-analysis)로 한 느린 구간을 조사합니다. | 시간·node·source 범위를 맞추고 원인 후보와 근거를 구분합니다. |
+| 6 | [Cross-Layer Diagnosis](docs/diagnosis.md)와 [Dashboard Guide](docs/dashboards.md)로 한 느린 구간을 조사합니다. | Baseline, candidate, evidence, missing evidence의 측정 범위를 구분합니다. |
 
 Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습입니다.
 실제 환경에서 채워진 화면과 재현 조건은 [real-run demo](docs/real-verl-demo.md)에 있으며, 그 recipe가 자신의 VERL 환경을 대신하지는 않습니다.
@@ -84,6 +86,7 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | 기존 VERL 명령에 telemetry 추가 | [VERL 연결 가이드](docs/verl-quickstart.md) |
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
 | 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/dashboards.md#run-analysis) |
+| Rule catalog, baseline, scope와 Bottleneck Summary 사용 | [Cross-Layer Diagnosis](docs/diagnosis.md) |
 | Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |
 | Process·파일·시계열의 연결 원리와 설계 원칙 | [How XLayer Telemetry Works](docs/architecture.md) |
 

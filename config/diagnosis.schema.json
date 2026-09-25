@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/daegyu94/xlayer-telemetry/blob/main/config/diagnosis.schema.json",
+  "title": "XLayer bottleneck diagnosis",
+  "type": "object",
+  "required": ["schema_version", "record_type", "run_id", "analysis_window", "verdict", "findings", "evidence", "missing_sources", "diagnosis_schema_version", "symptom", "comparison", "candidates"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "record_type": {"const": "bottleneck_diagnosis"},
+    "diagnosis_schema_version": {"const": 1},
+    "run_id": {"type": "string"},
+    "data_origin": {"enum": ["observed", "synthetic"]},
+    "analysis_window": {"type": "object"},
+    "verdict": {"enum": ["bottleneck_suspected", "no_anomaly_observed", "insufficient_data"]},
+    "findings": {"type": "array"},
+    "evidence": {"type": "object"},
+    "missing_sources": {"type": "array", "items": {"type": "string"}},
+    "symptom": {"type": "object"},
+    "comparison": {
+      "type": "object",
+      "required": ["current_interval", "baseline_interval", "selection", "signals"],
+      "properties": {
+        "current_interval": {"type": "object"},
+        "baseline_interval": {"type": ["object", "null"]},
+        "baseline_record_id": {"type": ["string", "null"]},
+        "selection": {"enum": ["same_run_same_worker_nearest_prior_median", "unavailable"]},
+        "signals": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "component", "summary", "state", "evidence", "counter_evidence", "missing_evidence", "observation_scope", "related_nodes", "related_devices", "related_spans"],
+        "properties": {
+          "id": {"type": "string"},
+          "component": {"type": "string"},
+          "summary": {"type": "string"},
+          "state": {"enum": ["weak_signal", "supporting_signal", "strong_signal"]},
+          "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+          "counter_evidence": {"type": "array", "items": {"type": "object"}},
+          "missing_evidence": {"type": "array", "items": {"type": "string"}},
+          "observation_scope": {"$ref": "#/$defs/observation_scope"},
+          "related_nodes": {"type": "array", "items": {"type": "string"}},
+          "related_devices": {"type": "array", "items": {"type": "string"}},
+          "related_spans": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "observation_scope": {
+      "enum": ["application", "process", "worker", "device", "node", "network-interface", "service", "shared-service", "cluster", "mixed", "unknown"]
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["signal", "value", "observation_scope", "source", "boundary_accuracy"],
+      "properties": {
+        "signal": {"type": "string"},
+        "value": {"type": "number"},
+        "baseline": {"type": ["number", "null"]},
+        "observation_scope": {"$ref": "#/$defs/observation_scope"},
+        "source": {"type": "string"},
+        "query": {"type": ["string", "null"]},
+        "window": {"type": ["object", "null"]},
+        "boundary_accuracy": {"type": "string"}
+      }
+    }
+  }
+}

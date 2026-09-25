@@ -286,6 +286,12 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
       --execution-mode "$execution_mode" || echo "[telemetry] final metric export failed" >&2
 fi
 if [[ -n "$diagnostics_config" ]]; then
+  # 3FS ClickHouse distributions can arrive after the workload boundary.
+  # Keep the final step pending until its service window has settled.
+  settle_seconds=$("$telemetry_python" -c 'import json,sys; c=json.load(open(sys.argv[1])); print(c.get("threefs", {}).get("settle_seconds", 30) if c.get("threefs") else 0)' "$diagnostics_config")
+  if awk -v value="$settle_seconds" 'BEGIN { exit !(value > 0) }'; then
+    sleep "$settle_seconds"
+  fi
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     "$telemetry_python" -m xlayer_telemetry.diagnostics \
       --config "$diagnostics_config" --history "$step_history_path" \

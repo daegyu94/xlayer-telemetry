@@ -165,7 +165,8 @@ Remote worker의 snapshot을 Grafana에 표시하려면 그 worker node에도 co
 ## Add Diagnostics
 
 진단 process는 완료 step, Prometheus signal과 선택적인 3FS ClickHouse 조회를 조합해 병목 후보를 기록합니다.
-이 process는 wrapper의 선택적 sidecar이며 Grafana dashboard를 추가하지 않습니다.
+이 process는 wrapper의 선택적 sidecar입니다.
+`ENABLE_LOGS=1`과 Alloy/Loki도 연결하면 결과를 Bottleneck Summary와 Cross-Layer Timeline에서 볼 수 있습니다.
 [diagnostics.json](../examples/verl/diagnostics.json)을 별도 파일로 복사하고 Prometheus 주소를 실제 주소로 수정합니다.
 3FS를 사용하지 않으면 `threefs` object를 제거합니다.
 단일 host에서는 `verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 추가하고 새 `RUN_ID`로 `run`을 실행합니다.
@@ -190,6 +191,7 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
 ```
 
 결과는 `diagnostics/diagnostics.jsonl`에 누적되고 최신 결과는 `diagnostics/latest.json`과 `show_run`에서 확인합니다.
+`diagnostics/investigation/*.jsonl`은 Loki가 읽는 작은 projection이며 완전한 evidence는 `latest.json`에 있습니다.
 진단 오류는 `logs/telemetry-diagnostics.log`에서 확인하며 workload의 종료 코드를 바꾸지 않습니다.
 
 | 결과 | 의미 |
@@ -204,9 +206,16 @@ VERL file logger에 원본 timestamp가 없으므로 완료 step 시간 범위�
 3FS 결과는 같은 시간대의 shared storage 상태이며 특정 step의 I/O만 분리한 값이 아닙니다.
 진단에 필요한 source를 연결하지 않았다면 `missing_sources`를 먼저 해결하고 `no_anomaly_observed`만으로 병목이 없다고 판단하지 않습니다.
 
-3FS latency 비교는 현재 창과 직전 동일 길이 창에서 관측한 `max_observed_p99`를 사용합니다.
+기존 `findings`의 3FS latency 비교는 현재 창과 직전 동일 길이 창에서 관측한 `max_observed_p99`를 사용합니다.
+새 `candidates`는 같은 run·worker의 이전 step 창에서 **같은 3FS metricName**을 비교하며, 해당 baseline이 없으면 강한 storage 판정을 만들지 않습니다.
 전체 요청을 합친 global p99로 해석하지 않습니다.
-이 결과를 Grafana의 내장 ClickHouse datasource로 보여 주는 기능은 제공하지 않습니다.
+Grafana는 ClickHouse를 직접 query하지 않고 Loki에 전달된 diagnosis projection을 보여 줍니다.
+
+추가 rule에 필요한 source는 실제 배포의 metric과 측정 대상을 확인한 뒤 `prometheus.queries`에 지정합니다.
+예를 들어 `storage_device_busy_ratio`는 **3FS storage device**의 busy ratio이고 기본 `disk_busy_ratio`는 trainer node의 local disk이므로 서로 바꾸어 사용할 수 없습니다.
+`network_utilization_ratio`도 측정한 NIC의 link capacity로 정규화한 실제 비율이어야 합니다.
+이 값이나 request size가 없으면 해당 strong rule은 `missing_evidence`를 표시합니다.
+전체 조건과 baseline 선택법은 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
 
 ## Understand Asynchronous Runs
 
@@ -244,7 +253,8 @@ else:
 
 파일은 `<producer>-<role>-<worker>.jsonl`로 생성됩니다.
 같은 directory의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
-Event는 그 자체로 Prometheus metric이나 Loki log가 되지 않으므로 JSONL에서 읽거나 별도 변환 경로를 구현합니다.
+Event는 그 자체로 Prometheus metric이 되지 않습니다.
+Loki를 켜고 Alloy가 해당 run root를 읽으면 `xlayer_event` stream으로 전달되어 Cross-Layer Timeline의 exact span에 나타납니다.
 
 ## Optional Integrations
 

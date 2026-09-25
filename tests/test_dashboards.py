@@ -113,9 +113,9 @@ def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
     assert sorted(item["title"] for item in payloads) == [
         "01 · Run Overview",
         "02 · Agent RL Stage Correlation",
-        "03 · Compute & Communication",
-        "04 · Data & Storage",
-        "05 · Run Logs",
+        "07 · Compute & Communication",
+        "08 · Data & Storage",
+        "09 · Run Logs",
     ]
     content = "\n".join(panel["options"]["content"] for panel in start["panels"])
     for item in payloads:
@@ -220,7 +220,7 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     assert "url: http://192.168.0.1:13100" in (
         output / "provisioning/datasources/default.yaml"
     ).read_text()
-    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "run-logs.json", "step-explorer.json", "step-detail.json"}
+    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "run-logs.json", "step-explorer.json", "step-detail.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:
@@ -265,6 +265,36 @@ def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -
     assert f'{verl}/*/telemetry/telemetry-events/verl-steps*.jsonl' in config
     assert 'signal = "verl_step"' in config
     assert 'format = "Unix"' in config
+    assert f'{verl}/*/diagnostics/investigation/*.jsonl' in config
+    assert 'signal = "xlayer_diagnosis"' in config
+    assert 'signal = "xlayer_event"' in config
+    assert '__path_exclude__' in config
+    assert 'format = "UnixNs"' in config
+    assert config.count('stage.label_drop') == 2
+
+
+def test_investigation_dashboards_keep_boundary_accuracy_and_navigation():
+    summary = json.loads((ROOT / "examples/dashboards/bottleneck-summary.json").read_text())
+    timeline = json.loads((ROOT / "examples/dashboards/cross-layer-timeline.json").read_text())
+    assert {summary["uid"], timeline["uid"]} == {"xlayer-bottleneck-summary", "xlayer-cross-layer-timeline"}
+    assert any("missing_evidence_summary" in str(panel) for panel in summary["panels"])
+    evidence = next(panel for panel in summary["panels"] if panel["title"].startswith("Evidence details"))
+    assert 'row_kind="evidence"' in evidence["targets"][0]["expr"]
+    assert any(item["matcher"]["options"] == "signal" for item in evidence["fieldConfig"]["overrides"])
+    assert any("window_start_ms" in str(panel) and "record_id" in str(panel) for panel in summary["panels"])
+    assert [panel["type"] for panel in timeline["panels"]].count("state-timeline") == 2
+    assert 'record_type="span"' in timeline["panels"][1]["targets"][0]["expr"]
+    assert "Approximate" in timeline["panels"][2]["title"]
+    names = (NAV_DASHBOARD, *DASHBOARDS, "run-logs.json", "step-explorer.json",
+             "step-detail.json", "bottleneck-summary.json", "cross-layer-timeline.json")
+    dashboards = [json.loads((ROOT / "examples/dashboards" / name).read_text()) for name in names]
+    assert len({item["uid"] for item in dashboards}) == len(dashboards)
+    assert [item["title"] for item in sorted(dashboards, key=lambda item: item["title"])] == [
+        "00 · Start Here", "01 · Run Overview", "02 · Agent RL Stage Correlation",
+        "03 · Step Explorer", "04 · Bottleneck Summary", "05 · Cross-Layer Timeline",
+        "06 · Step Detail", "07 · Compute & Communication",
+        "08 · Data & Storage", "09 · Run Logs",
+    ]
 
 
 def test_storage_role_starts_smartctl_exporter_with_slow_polling(tmp_path: Path) -> None:

@@ -908,7 +908,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "04 · Data & Storage",
+  "title": "08 · Data & Storage",
   "description": "Inspect local devices, filesystem mounts, topology, and optional SSD health.",
   "uid": "xlayer-data-storage",
   "version": 4

@@ -583,7 +583,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "03 · Compute & Communication",
+  "title": "07 · Compute & Communication",
   "description": "Inspect GPU, host, Ethernet, and RDMA activity on selected nodes.",
   "uid": "xlayer-compute-communication",
   "version": 3

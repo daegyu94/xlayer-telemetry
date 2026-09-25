@@ -217,7 +217,7 @@ vLLM·Ray 등 추가 endpoint는 해당 port도 접근 가능해야 합니다.
 
 ## Add Run Logs with Loki
 
-각 run의 `<log-root>/<run-directory>/logs/**/*.log`와 VERL의 `telemetry-events/verl-steps*.jsonl`을 Alloy가 읽어 Loki에 전송합니다.
+각 run의 `<log-root>/<run-directory>/logs/**/*.log`, VERL의 `telemetry-events/verl-steps*.jsonl`, EventRecorder JSONL, diagnostics projection을 Alloy가 읽어 Loki에 전송합니다.
 Wrapper의 `telemetry-bridge.log`는 이 패턴에 들어가지만 VERL의 metric JSONL이나 terminal의 stdout 전체가 자동으로 Run Logs에 나타나지는 않습니다.
 학습 log를 보려면 workload가 같은 `logs/` 아래 `.log` 파일을 쓰도록 설정합니다.
 Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수집 담당 collector를 하나로 정합니다.
@@ -251,7 +251,7 @@ TELEMETRY_LOG_ROOTS="verl=$HOME/telemetry-runs" \
 ```
 
 Log root는 존재하는 절대 경로여야 합니다.
-따라서 위 예제에서는 `$HOME/telemetry-runs/grpo-001/logs/`와 `$HOME/telemetry-runs/grpo-001/telemetry-events/`를 찾습니다.
+따라서 위 예제에서는 `$HOME/telemetry-runs/grpo-001/logs/`, `telemetry-events/`, `diagnostics/investigation/`을 찾습니다.
 여러 root는 `verl=/path/a,custom=/path/b`처럼 구분하고 workload 이름을 중복하지 않습니다.
 Alloy의 읽기 offset은 `OUTPUT_DIR/alloy-data`에 저장되며 기본적으로 24시간보다 오래된 file을 제외합니다.
 `ALLOY_IGNORE_OLDER_THAN`으로 이 기준을 바꾸고 Alloy state와 Loki data는 각각 host-local 경로에 둡니다.
@@ -260,10 +260,12 @@ Run Logs에서 cluster·node·workload·run을 선택합니다.
 `run_id`와 file 경로는 log record에 저장되고 `cluster`·`node`·`workload`가 index label로 사용됩니다.
 `run_id`는 여기서 경로의 run directory 이름이며 wrapper에 전달한 `--run-id`와 다를 수 있습니다.
 Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
-Grafana의 `06 · Step Explorer`는 step event에서 `run_id`와 시간 범위를 읽습니다.
+Grafana의 `03 · Step Explorer`는 step event에서 `run_id`와 시간 범위를 읽습니다.
 VERL wrapper가 만든 `telemetry/telemetry-events/verl-steps.jsonl`도 수집하며, 기존 기록의 backfill 파일도 같은 패턴으로 읽습니다.
 두 경로가 모두 없다면 step 목록은 비어 있습니다.
 Grafana Step Explorer는 event를 Loki에서, 자원 그래프를 Prometheus에서 읽으므로 두 datasource의 보존 기간과 선택한 시간 범위를 함께 확인합니다.
+`04 · Bottleneck Summary`는 diagnostics projection, `05 · Cross-Layer Timeline`은 EventRecorder span·step event·Prometheus sample을 읽습니다.
+진단과 EventRecorder를 쓰지 않은 run에서는 해당 panel이 비어 있으며, 설정 경로는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
 
 ## SSD Health
 

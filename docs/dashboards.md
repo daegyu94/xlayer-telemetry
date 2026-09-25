@@ -76,7 +76,8 @@ Filesystem used·free space는 선택한 마운트의 용량 상태이고, disk 
 같은 시간대의 변화는 조사 단서지만 이번 run의 KV offload I/O 양을 직접 증명하지는 않습니다.
 
 Storage topology 표는 component·edge 정보를 공급했을 때, SSD health 패널은 SMART exporter를 연결했을 때 채워집니다.
-3FS 서비스 latency는 이 Grafana 화면에 포함되지 않으며 [ClickHouse 진단](agent-rl.md#add-diagnostics)에서 별도로 확인합니다.
+3FS 서비스 latency는 이 상세 그래프에 포함되지 않습니다.
+진단을 켜면 Bottleneck Summary에서 ClickHouse 비교 결과와 측정 범위를 확인하고, 원본 수치는 [ClickHouse 진단](agent-rl.md#add-diagnostics)에서 확인합니다.
 
 ## Run Logs
 
@@ -91,8 +92,20 @@ Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 �
 같은 node·시간 범위의 Compute & Communication, Data & Storage, Run Logs를 순서대로 비교합니다.
 두 신호가 동시에 변해도 인과관계가 확정되지는 않으며, 공유 자원에는 다른 workload의 영향도 포함될 수 있습니다.
 완료된 step 하나를 확대하려면 Grafana의 [Step Explorer](dashboards.md#open-in-grafana)를 엽니다.
-두 step의 자원 평균 차이를 계산하려면 기존 [로컬 UI](dashboards.md#legacy-standalone-explorer)를 사용합니다.
+같은 run의 이전 step 대비 주요 signal 변화와 후보는 [Bottleneck Summary](#bottleneck-summary-and-cross-layer-timeline)에서 봅니다.
+두 step의 자원 평균 차이를 직접 지정해 계산하려면 기존 [로컬 UI](dashboards.md#legacy-standalone-explorer)를 사용합니다.
 증상별 다음 조사 항목과 trace 연결은 [Run Analysis](dashboards.md#run-analysis)에서 다룹니다.
+
+## Bottleneck Summary and Cross-Layer Timeline
+
+두 화면은 진단 sidecar와 Loki가 연결된 run에서 동작합니다.
+Step Explorer에서 느린 step을 선택한 뒤 Bottleneck Summary로 이동하면 같은 run의 baseline, 후보 상태, 근거, 반대 근거와 누락된 근거를 볼 수 있습니다.
+각 행의 scope가 `shared-service`나 `node`라면 해당 수치는 그 run에 귀속된 사용량이 아닙니다.
+
+Cross-Layer Timeline은 EventRecorder의 실제 start/end span, VERL file logger에서 추정한 step band, Prometheus의 sampled resource line을 같은 시간축에 놓습니다.
+`exact`, `approximate`, `sampled` 구분을 확인하고, stage duration을 시간 순서가 있는 phase bar로 읽지 않습니다.
+Loki가 없으면 `diagnostics/latest.json`과 `show_run`에서 후보를 읽을 수 있습니다.
+사용 순서와 rule 조건은 [Cross-Layer Diagnosis](diagnosis.md)를 따릅니다.
 
 ## Step Explorer
 
@@ -110,8 +123,8 @@ Alloy는 각 root 아래 `<run>/telemetry-events/verl-steps*.jsonl`과 `<run>/te
 Step event의 `run_id`는 JSON 내용에서 읽으며, Loki stream의 `cluster`·`node`·`workload`는 collector 설정에서 가져옵니다.
 Shared storage의 같은 파일을 여러 collector가 중복 수집하지 않도록 한 node에서만 읽습니다.
 
-Grafana의 `06 · Step Explorer`에서 Cluster, Observer node, Run을 선택한 뒤 표의 step 번호를 누릅니다.
-`07 · Step Detail`은 기록된 시작·종료 시각으로 시간 범위를 맞추고, stage 요약과 node별 GPU·CPU·memory·network·disk·vLLM 지표 및 같은 구간의 log를 표시합니다.
+Grafana의 `03 · Step Explorer`에서 Cluster, Observer node, Run을 선택한 뒤 표의 step 번호를 누릅니다.
+`06 · Step Detail`은 기록된 시작·종료 시각으로 시간 범위를 맞추고, stage 요약과 node별 GPU·CPU·memory·network·disk·vLLM 지표 및 같은 구간의 log를 표시합니다.
 Resource node는 기본적으로 모든 node이므로 run에 속한 node를 골라 보며, `Log directory`가 telemetry `run_id`와 다르면 실제 결과 디렉터리 이름으로 바꿉니다.
 Loki와 Prometheus가 해당 node를 수집하고 있어야 값이 채워집니다.
 목록이 비면 먼저 `telemetry-events/verl-steps.jsonl`의 생성 여부와 Alloy의 파일 경로·Loki push 상태를 확인합니다.

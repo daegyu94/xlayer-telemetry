@@ -133,7 +133,7 @@ def test_no_external_samples_is_insufficient_data() -> None:
     report = engine.analyze(None, [])
 
     assert report["verdict"] == "insufficient_data"
-    assert len(report["missing_sources"]) == 8
+    assert len(report["missing_sources"]) == len(diagnostics.DEFAULT_QUERIES)
 
 
 def test_run_once_writes_detailed_and_latest_reports(tmp_path: Path) -> None:
@@ -169,6 +169,65 @@ def test_run_once_writes_detailed_and_latest_reports(tmp_path: Path) -> None:
     assert len(reports.read_text().splitlines()) == 1
 
 
+def test_threefs_step_waits_for_ingest_settle_before_diagnosis(tmp_path: Path) -> None:
+    history = tmp_path / "steps.jsonl"
+    history.write_text(json.dumps({
+        "schema_version": 1, "record_type": "verl_step_observation",
+        "record_id": "late", "run_id": "r", "worker_id": "driver",
+        "boundary_scope": "rl_step", "observed_at": 100,
+        "analysis_window": {"start": 90, "end": 100},
+    }) + "\n")
+    clock = [110.0]
+    engine = DiagnosticEngine(
+        {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+         "threefs": {"url": "http://clickhouse", "settle_seconds": 30}},
+        prometheus=FakePrometheus({}), threefs=FakeThreeFS([], []),
+        clock=lambda: clock[0],
+    )
+    output = tmp_path / "diagnostics"
+    assert run_once(engine, history, output) == 0
+    assert not (output / "diagnostics.jsonl").exists()
+    clock[0] = 131.0
+    assert run_once(engine, history, output) == 1
+    report = json.loads((output / "latest.json").read_text())
+    assert report["step"] is None
+    assert "threefs:no_data" in report["missing_sources"]
+
+
+def test_gpu_comparison_uses_the_same_labeled_device() -> None:
+    class DetailedPrometheus:
+        def query_range_detail(self, query, start, end, step):
+            if "telemetry_gpu_utilization_percent" in query:
+                values = (40, 90) if start >= 90 else (90, 90)
+                return {"aggregate": {"mean": sum(values) / 2},
+                        "series": [{"labels": {"gpu": str(index)}, "stats": {"mean": value}}
+                                   for index, value in enumerate(values)]}
+            if "num_requests_waiting" in query:
+                return {"aggregate": {"max": 3 if start >= 90 else 0}, "series": []}
+            return {"aggregate": None, "series": []}
+
+    engine = DiagnosticEngine(
+        {"schema_version": 1, "prometheus": {"url": "http://prometheus"}},
+        prometheus=DetailedPrometheus(), clock=lambda: 101,
+    )
+    prior = {"run_id": "r", "worker_id": "driver", "boundary_scope": "rl_step",
+             "record_id": "prior", "observed_at": 80, "step_duration_seconds": 10,
+             "analysis_window": {"start": 70, "end": 80}}
+    current = {"run_id": "r", "worker_id": "driver", "boundary_scope": "rl_step",
+               "record_id": "current", "observed_at": 100, "step_duration_seconds": 20,
+               "analysis_window": {"start": 90, "end": 100, "accuracy": "approximate"}}
+
+    report = engine.analyze(current, [prior])
+    starvation = next(item for item in report["candidates"] if item["id"] == "gpu_starvation")
+    assert starvation["state"] == "strong_signal"
+    assert starvation["related_devices"] == ["0"]
+    gpu = next(item for item in starvation["evidence"] if item["signal"] == "gpu_utilization_percent")
+    assert gpu["value"] == 40
+    assert gpu["baseline"] == 90
+    assert gpu["labels"] == {"gpu": "0"}
+    assert gpu["observation_scope"] == "device"
+
+
 def test_threefs_rejects_unbounded_filter_columns() -> None:
     with pytest.raises(ValueError, match="unsupported 3FS filters"):
         ThreeFSClient("http://clickhouse", filters={"metricName": "anything"})
@@ -197,8 +256,8 @@ def test_prometheus_client_parses_matrix_and_counter_delta(monkeypatch) -> None:
             "status": "success",
             "data": {
                 "result": [
-                    {"values": [[90, "1"], [100, "4"]]},
-                    {"values": [[90, "2"], [100, "8"]]},
+                    {"metric": {"gpu": "0"}, "values": [[90, "1"], [100, "4"]]},
+                    {"metric": {"gpu": "1"}, "values": [[90, "2"], [100, "8"]]},
                 ]
             },
         }
@@ -225,6 +284,10 @@ def test_prometheus_client_parses_matrix_and_counter_delta(monkeypatch) -> None:
     }
     assert "/api/v1/query_range?" in requests[0][0].full_url
     assert requests[0][1] == 3
+    detail = PrometheusClient("http://prometheus", timeout=3).query_range_detail(
+        "metric_name", 90, 100, 2
+    )
+    assert [item["labels"]["gpu"] for item in detail["series"]] == ["0", "1"]
 
 
 def test_threefs_client_uses_bounded_read_only_query_and_env_auth(
@@ -235,7 +298,7 @@ def test_threefs_client_uses_bounded_read_only_query_and_env_auth(
     def fake_urlopen(request, timeout):
         requests.append((request, timeout))
         return FakeResponse(
-            b'{"metricName":"client_read_latency","count":2,"max_observed_p99":3}\n'
+            b'{"metricName":"client_read_latency","sample_count":2,"max_value":4,"max_observed_p99":3}\n'
         )
 
     monkeypatch.setattr(diagnostics, "urlopen", fake_urlopen)
@@ -246,8 +309,12 @@ def test_threefs_client_uses_bounded_read_only_query_and_env_auth(
     ).query_window(90, 100)
 
     assert rows[0]["metricName"] == "client_read_latency"
+    assert rows[0]["count"] == 2
+    assert rows[0]["max"] == 4
     query = requests[0][0].data.decode()
     assert "FROM 3fs.distributions" in query
+    assert "AS sample_count" in query
+    assert "AS count" not in query
     assert "TIMESTAMP >= toDateTime(90)" in query
     assert "TIMESTAMP < toDateTime(100)" in query
     assert "mount_name = 'training'" in query

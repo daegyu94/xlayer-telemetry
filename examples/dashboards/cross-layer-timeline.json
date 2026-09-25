@@ -1,0 +1,994 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": [
+    "xlayer",
+    "diagnosis"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "telemetry-loki"
+        },
+        "query": "label_values({signal=\"verl_step\"}, cluster)",
+        "definition": "label_values({signal=\"verl_step\"}, cluster)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "run_id",
+        "label": "Run",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      },
+      {
+        "name": "node",
+        "label": "Resource node",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "record_id",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 0,
+        "label": "Step record ID"
+      },
+      {
+        "name": "trace_id",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 0,
+        "label": "Trace ID"
+      }
+    ]
+  },
+  "version": 1,
+  "uid": "xlayer-cross-layer-timeline",
+  "title": "05 · Cross-Layer Timeline",
+  "description": "Align exact spans, an estimated step window, and sampled resource metrics without inventing phase boundaries.",
+  "links": [
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
+    },
+    {
+      "title": "Step Detail",
+      "type": "link",
+      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Boundary precision",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Exact:** EventRecorder start/end spans. **Approximate:** VERL file logger step interval, inferred from observation time and reported duration. **Sampled:** Prometheus resource lines. Stage durations have no known order and are shown in Step Detail as values, never as invented bars. Shared service and node data are correlated by time only."
+      }
+    },
+    {
+      "id": 2,
+      "type": "state-timeline",
+      "title": "Exact workload spans",
+      "description": "Only exact EventRecorder spans are rendered as phase bars.",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 6
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\"",
+          "queryType": "range",
+          "maxLines": 5000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "start_time_ms",
+                "destinationType": "time"
+              },
+              {
+                "targetField": "end_time_ms",
+                "destinationType": "time"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "schema_version": true,
+              "record_type": true,
+              "run_id": true,
+              "producer": true,
+              "role": true,
+              "worker_id": true,
+              "node": true,
+              "rank": true,
+              "local_rank": true,
+              "gpu": true,
+              "name": true,
+              "step": true,
+              "start_time_unix_nano": true,
+              "end_time_unix_nano": true,
+              "event_time_unix_nano": true,
+              "duration_seconds": true,
+              "status": true,
+              "trace_id": true,
+              "span_id": true,
+              "attributes": true,
+              "boundary_accuracy": true
+            },
+            "indexByName": {
+              "start_time_ms": 0,
+              "end_time_ms": 1,
+              "phase": 2
+            },
+            "renameByName": {
+              "start_time_ms": "Start Time",
+              "end_time_ms": "End Time",
+              "phase": "Phase"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": false,
+        "showValue": "auto",
+        "rowHeight": 0.8,
+        "alignValue": "left",
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "state-timeline",
+      "title": "Approximate VERL step interval",
+      "description": "A single estimated step interval; stage durations are not ordered phases.",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_id=~\"$record_id\" | window_start_ms != \"\" | __error__=\"\"",
+          "queryType": "range",
+          "maxLines": 5000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "window_start_ms",
+                "destinationType": "time"
+              },
+              {
+                "targetField": "window_end_ms",
+                "destinationType": "time"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "schema_version": true,
+              "record_type": true,
+              "record_id": true,
+              "run_id": true,
+              "node": true,
+              "worker_id": true,
+              "execution_mode": true,
+              "boundary_scope": true,
+              "observed_at": true,
+              "step_duration_seconds": true,
+              "stage_summary": true,
+              "stage_durations_seconds": true,
+              "analysis_window": true,
+              "boundary_accuracy": true
+            },
+            "indexByName": {
+              "window_start_ms": 0,
+              "window_end_ms": 1,
+              "step": 2
+            },
+            "renameByName": {
+              "window_start_ms": "Start Time",
+              "window_end_ms": "End Time",
+              "step": "Step"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": false,
+        "showValue": "auto",
+        "rowHeight": 0.8,
+        "alignValue": "left",
+        "legend": {
+          "showLegend": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Exact spans: open step, logs, or diagnosis",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 6
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\"",
+          "queryType": "range",
+          "maxLines": 5000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "step": 0,
+              "phase": 1,
+              "name": 2,
+              "role": 3,
+              "worker_id": 4,
+              "node": 5,
+              "duration_seconds": 6,
+              "trace_id": 7,
+              "span_id": 8,
+              "boundary_accuracy": 9
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "span_id"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Step Detail: sampled metrics and logs",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}"
+                  },
+                  {
+                    "title": "Diagnosis candidates in this interval",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
+                  },
+                  {
+                    "title": "Related events and logs",
+                    "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
+                  },
+                  {
+                    "title": "Related EventRecorder events in this trace",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_type"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "producer"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_time_unix_nano"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "end_time_unix_nano"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "event_time_unix_nano"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start_time_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "end_time_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "attributes"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal_extracted"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "filename"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "GPU utilization",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "telemetry_gpu_utilization_percent{cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "vLLM waiting requests",
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "vllm:num_requests_waiting{node=~\"$node\"}",
+          "legendFormat": "{{node}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "RDMA bytes per second",
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_infiniband_port_data_received_bytes_total{instance=~\"$node\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{instance=~\"$node\"}[1m])",
+          "legendFormat": "{{device}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Device busy ratio",
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$node\"}[1m])",
+          "legendFormat": "{{device}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Related EventRecorder events",
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"event\" | trace_id=~\"$trace_id\" | __error__=\"\"",
+          "queryType": "range",
+          "maxLines": 5000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "step": 0,
+              "phase": 1,
+              "name": 2,
+              "attributes": 3,
+              "role": 4,
+              "worker_id": 5,
+              "node": 6,
+              "trace_id": 7
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_type"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "producer"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "timestamp_unix_nano"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "event_time_unix_nano"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal_extracted"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "filename"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "attributes"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "text",
+      "title": "Continue investigation",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam})"
+      }
+    }
+  ]
+}
