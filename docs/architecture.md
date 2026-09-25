@@ -31,7 +31,6 @@ XLayer는 이 수치를 workload interval과 측정 scope에 연결해 조사 �
 OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
 XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
 DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비할 수 있는 유용한 signal source이며, XLayer가 그 수집 stack을 다시 만들지는 않습니다.
-[eBPF 도입 검토](ebpf-integration-study.md)는 현재 process attribution의 공백과 RDMA·3FS USRBIO의 관측 한계를 기준으로 optional source의 선택 조건을 정리합니다.
 Coroot의 dependency map과 evidence 기반 investigation, Darshan/Drishti의 I/O pattern 진단은 UX와 rule 설계의 참고입니다.
 Nsight Systems, PyTorch Profiler, Pyroscope는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
@@ -40,6 +39,18 @@ DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 �
 `diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
 Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
 구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
+
+### When to Revisit eBPF
+
+현재 XLayer의 기본 수집·진단 경로에는 eBPF가 필요하지 않습니다.
+Node Exporter의 network·disk 값은 node 또는 device 전체이므로 process별 사용량이 필요할 수 있지만, PID별 CPU·memory·disk I/O 합계는 먼저 [OpenTelemetry Host Metrics의 process scraper](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/receiver/hostmetricsreceiver/README.md) 같은 기존 source로 확인할 수 있습니다.
+반면 [RDMA userspace fast path](https://docs.kernel.org/infiniband/user_verbs.html)와 [3FS USRBIO](https://github.com/deepseek-ai/3FS/blob/main/src/lib/api/UsrbIo.md)는 일반 socket·read/write probe만으로 run별 I/O를 자동 귀속할 수 없습니다.
+VERL의 run·step·phase 의미도 application 계측에서 계속 받아야 합니다.
+
+실제 느린 run에서 process별 file I/O 지연, network flow 또는 scheduler wait가 반복해서 진단의 missing evidence로 남을 때만 eBPF를 재검토합니다.
+그때는 한 사례에 기존 profiler나 eBPF 도구를 짧게 적용해 evidence가 채워지는지와 학습 성능 영향을 확인합니다.
+DeepFlow는 지속적인 flow·service 조사에, Beyla는 tool·reward·inference RPC 조사에 필요한 경우 optional source로 평가합니다.
+외부 PID를 run·worker와 연결하지 못하면 관측 scope를 process 또는 node로 유지하고 특정 run의 사용량으로 표시하지 않습니다.
 
 ## The Basic Path
 

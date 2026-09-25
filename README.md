@@ -87,7 +87,6 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
 | 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/dashboards.md#run-analysis) |
 | Rule catalog, baseline, scope와 Bottleneck Summary 사용 | [Cross-Layer Diagnosis](docs/diagnosis.md) |
-| eBPF로 채울 수 있는 증거와 도입 판단 | [eBPF Integration Feasibility Study](docs/ebpf-integration-study.md) |
 | Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |
 | Process·파일·시계열의 연결 원리와 설계 원칙 | [How XLayer Telemetry Works](docs/architecture.md) |
 
