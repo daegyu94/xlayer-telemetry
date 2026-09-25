@@ -126,8 +126,9 @@ fi
 command=("$@")
 if [[ "$execution_mode" == auto ]]; then
   execution_mode=sync
+  # VERL's async rollout server also serves synchronous trainer steps.
   for argument in "${command[@]}"; do
-    if [[ "$argument" == "verl.experimental.fully_async_policy.fully_async_main" || "$argument" == actor_rollout_ref.rollout.mode=async ]]; then
+    if [[ "$argument" == "verl.experimental.fully_async_policy.fully_async_main" || "$argument" == trainer.v1.trainer_mode=colocate_async || "$argument" == trainer.v1.trainer_mode=separate_async ]]; then
       execution_mode=async
     fi
   done

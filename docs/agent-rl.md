@@ -66,6 +66,10 @@ Ray는 수집 target과 diagnostics query가 준비되어 있지만 전용 Grafa
 ## Register Native Endpoints
 
 먼저 monitoring host에서 접근 가능한 Prometheus 형식의 endpoint를 준비합니다.
+VERL의 vLLM server에서 metric을 받으려면 VERL 명령에 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`를 함께 지정합니다.
+vLLM wheel을 다시 빌드할 필요는 없습니다.
+VERL은 기본적으로 `/tmp/ray/session_latest/metrics/prometheus/prometheus.yml`의 `rollout` job에 동적으로 정해진 `host:port`를 기록하므로, 실행 중 그 주소의 `/metrics`에서 `vllm:num_requests_waiting`과 `vllm:kv_cache_usage_perc`를 확인합니다.
+VERL은 자신의 Prometheus 설정 파일 전체를 다시 쓰므로 `actor_rollout_ref.rollout.prometheus.file`에 XLayer server의 `prometheus.yml`을 지정하지 않습니다.
 [예제 파일](../examples/verl/native-sources.json)을 복사한 뒤 실제 주소로 바꾸고 사용하지 않는 source는 제거합니다.
 다음은 rollout node 한 개를 등록하는 최소 형태입니다.
 
@@ -102,6 +106,17 @@ Monitoring Guide의 수동 경로를 사용했다면 `server.conf`에 같은 값
 설정 검증 성공이 endpoint 접속 성공을 의미하지는 않으므로 Prometheus Targets에서 상태를 확인합니다.
 `target`은 scheme과 path 없는 `host:port`이며 HTTPS라면 `scheme`을 `https`로 지정합니다.
 Source 파일을 고치면 생성된 target 파일이 저절로 바뀌지 않으므로 monitoring server를 다시 시작합니다.
+짧은 VERL 실행 중 server를 재시작하기 어렵다면, 이미 `TELEMETRY_SOURCES_FILE`로 `native` job을 켠 server에서 다음 명령으로 생성된 target 파일만 갱신합니다.
+
+```bash
+python -m xlayer_telemetry.source_discovery \
+  --input "$HOME/telemetry/config/native-sources.json" \
+  --output "$HOME/telemetry/state/server/native-targets.json"
+```
+
+Prometheus의 file discovery가 기본 30초 안에 새 target을 읽습니다.
+Server의 `OUTPUT_DIR`를 기본값에서 바꿨다면 `--output`도 해당 directory의 `native-targets.json`으로 바꿉니다.
+학습 종료 후 endpoint가 사라지면 Prometheus Targets의 현재 상태는 down으로 바뀌어도 과거 표본은 남습니다.
 
 `kind`는 수집된 metric의 `telemetry_source`, `name`은 `component` label이 됩니다.
 `labels.node`는 `TELEMETRY_TARGETS` 왼쪽 이름과 맞춰야 같은 node로 비교할 수 있습니다.
@@ -219,8 +234,12 @@ Grafana는 ClickHouse를 직접 query하지 않고 Loki에 전달된 diagnosis p
 
 ## Understand Asynchronous Runs
 
-Wrapper는 `actor_rollout_ref.rollout.mode=async`와 fully async entrypoint를 감지하며 필요하면 `--execution-mode async`로 지정할 수 있습니다.
-동기 실행은 `rl_step`, 비동기 실행은 `trainer_update` 완료 경계를 기록합니다.
+`actor_rollout_ref.rollout.mode`는 vLLM rollout server 방식이고 `trainer.v1.trainer_mode`는 training step의 scheduling 방식입니다.
+현재 VERL의 vLLM rollout은 `async` server를 쓰지만 `trainer.v1.trainer_mode=sync`인 학습도 가능합니다.
+이 환경의 VERL `0.10.0.dev`에서는 `actor_rollout_ref.rollout.mode=sync`가 제거됐으므로 synchronous trainer를 원해도 rollout mode는 `async`로 둡니다.
+XLayer wrapper는 직접 전달된 `trainer.v1.trainer_mode=colocate_async`·`separate_async` 또는 fully async entrypoint를 비동기 trainer로 감지하며, 기본 trainer mode는 `sync`로 처리합니다.
+별도 Bash launcher나 YAML config가 실제 trainer mode를 감추면 wrapper에 `--execution-mode sync` 또는 `--execution-mode async`를 명시합니다.
+동기 trainer는 `rl_step`, 비동기 trainer는 `trainer_update` 완료 경계를 기록합니다.
 
 비동기 rollout·Ray·storage activity는 trainer update와 별도로 계속될 수 있습니다.
 진단은 주기적인 시간 창을 비교하며 같은 창의 activity 전체를 특정 update에 귀속하지 않습니다.

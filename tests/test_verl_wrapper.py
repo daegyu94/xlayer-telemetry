@@ -160,7 +160,7 @@ printf '%s\n' '{"step":2,"data":{"timing_s/step":2.0,"timing_s/gen":1.0}}' > "$V
             str(fake_verl),
             "-m",
             "verl.trainer.main_ppo",
-            "actor_rollout_ref.rollout.mode=async",
+            "trainer.v1.trainer_mode=colocate_async",
         ],
         cwd=ROOT,
         env=os.environ | {"TELEMETRY_PYTHON": sys.executable},
@@ -191,3 +191,35 @@ printf '%s\n' '{"step":2,"data":{"timing_s/step":2.0,"timing_s/gen":1.0}}' > "$V
     )
     assert manifest["configuration"]["execution_mode"] == "async"
     assert manifest["artifacts"]["diagnostics"] == str(output / "diagnostics")
+
+
+def test_wrapper_keeps_sync_trainer_when_rollout_server_is_async(tmp_path: Path) -> None:
+    fake_verl = tmp_path / "fake-verl"
+    fake_verl.write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n' "
+        "'{\"step\":1,\"data\":{\"timing_s/step\":2.0}}' "
+        '> "$VERL_FILE_LOGGER_PATH"\n',
+        encoding="utf-8",
+    )
+    fake_verl.chmod(0o755)
+    output = tmp_path / "run"
+    result = subprocess.run(
+        [
+            "bash", str(ROOT / "scripts" / "run_verl_with_telemetry.sh"),
+            "--output", str(output), "--", str(fake_verl),
+            "-m", "verl.trainer.main_ppo",
+            "actor_rollout_ref.rollout.mode=async",
+        ],
+        cwd=ROOT,
+        env=os.environ | {"TELEMETRY_PYTHON": sys.executable},
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    history = json.loads(
+        (output / "telemetry-events" / "verl-steps.jsonl").read_text(encoding="utf-8")
+    )
+    assert history["execution_mode"] == "sync"
+    assert history["boundary_scope"] == "rl_step"

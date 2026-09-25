@@ -71,12 +71,16 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
   bash scripts/run_verl_with_telemetry.sh \
     --output "$RESULTS_DIR/telemetry" \
     --run-id "$(basename "$RESULTS_DIR")" \
-    --node gpu-local --execution-mode async \
+    --node gpu-local --execution-mode sync \
     -- bash "$LAB_ROOT/scripts/run-qwen3-4b-agentic.sh"
 ```
 
 명령은 xlayer-telemetry 저장소 루트에서 실행합니다.
 이 host에서는 처음 실행 때의 `ncclNetInit()` 충돌을 피하려고 위 NCCL socket 설정을 사용했습니다.
+현재 `agentic-rl-lab` recipe는 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`를 함께 전달합니다.
+다른 VERL recipe를 사용한다면 두 설정을 해당 학습 명령에 추가합니다.
+이 recipe의 `trainer.v1.trainer_mode`는 `sync`입니다.
+`actor_rollout_ref.rollout.mode=async`는 vLLM server 방식이며 XLayer의 trainer 경계 `--execution-mode`와 다른 설정입니다.
 동적으로 정해지는 vLLM `/metrics` 주소를 학습이 시작된 직후 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 Prometheus의 `native` job에 추가해야 offload·queue 패널을 기록할 수 있습니다.
 `VERL_SAVE_FREQ=-1`로 checkpoint 저장을 끄고 validation은 두 step마다 실행했습니다.
 실행 후 `python -m xlayer_telemetry.show_run "$RESULTS_DIR/telemetry"`로 step snapshot과 event를 확인할 수 있습니다.
