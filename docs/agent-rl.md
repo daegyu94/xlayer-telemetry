@@ -335,7 +335,7 @@ Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 
 서로 다른 node의 JSONL을 동일 run root의 `telemetry-events` 아래에 전달하거나 각 node의 Alloy가 읽는 run root를 설정해야 Grafana의 Timeline에서 함께 보입니다.
 
 veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter](../examples/sandbox/verl_lab_swebench_tools.py)입니다.
-XLayer 저장소 루트에서 아래 경로를 설정하고 기존 `verl-lab` 명령을 XLayer wrapper로 실행하면, 원본 tool·reward 코드를 바꾸지 않고 `read_source`·`test_patch`의 `tool.call`과 실제 Docker grader 호출의 `sandbox.exec`를 기록합니다.
+XLayer 저장소 루트에서 아래 경로를 설정하고 기존 `verl-lab` 명령을 XLayer wrapper로 실행하면, 원본 tool·reward 코드를 바꾸지 않고 `read_source`·`test_patch`·`edit_and_test`의 `tool.call`과 실제 Docker grader 호출의 `sandbox.exec`를 기록합니다.
 
 ```bash
 export VERL_LAB_ROOT="$HOME/workspace/verl-lab"
@@ -345,7 +345,27 @@ export CUSTOM_REWARD_FUNCTION_PATH="$FUNCTION_TOOL_PATH"
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 ```
 
-이 예제는 colocated Docker grader를 대상으로 하며 모델의 patch가 검증 단계에 도달했을 때만 `sandbox.exec` span이 생깁니다.
+기존 `verl-lab`의 SWE-Bench POC가 준비된 단일 GPU host라면 다음 smoke script가 데이터를 별도 경로에 복사하고 2-step veRL+vLLM 학습을 실행합니다.
+원본 dataset·도구 파일은 수정하지 않으며, Docker grader image는 미리 local cache에 있어야 합니다.
+
+```bash
+export VERL_LAB_ROOT="$HOME/workspace/verl-lab"
+export MODEL_PATH="/path/to/local/model-snapshot"
+export RUN_ROOT="$HOME/telemetry-runs/swebench-sandbox-smoke"
+bash examples/sandbox/run_verl_lab_smoke.sh
+```
+
+이 smoke dataset은 문제 문장에 이미 있는 `self.logger.error` 수정 방향을 prompt에 명시하므로 agent의 SWE-Bench 해결률 평가에는 사용하지 않습니다.
+`XLAYER_SWE_EDIT_ONLY=1`로 `test_patch`를 모델의 도구 목록에서 제외하되 원래 reward와 grader는 재사용합니다.
+출력의 `run/telemetry-events`에서 `tool.call`과 `sandbox.exec`의 trace를 확인하고, 두 번째 step부터 같은 tool의 duration baseline을 비교할 수 있습니다.
+
+`test_patch`는 완성된 unified diff를 받습니다.
+작은 모델이 `type`처럼 스키마에 없는 인자를 넣거나 유효하지 않은 diff 조각을 만들 수 있으므로, 이 예제는 기존 grader를 호출하는 `edit_and_test(path, old, new)`도 제공합니다.
+기존 실패에서는 veRL이 모델의 `{"patch": ..., "type": "add"}`를 함수에 그대로 전달해 `test_patch(patch: str)` 진입 전에 `TypeError`가 났고, 전달된 `patch`도 unified diff가 아니었습니다.
+스키마 밖의 인자는 `invalid_tool_arguments` 응답과 오류 `tool.call` span으로 남기며 Docker grader를 실행하지 않습니다.
+`old`는 원본 소스에서 정확히 한 번 나타나야 하며, adapter가 만든 patch에만 Docker grader를 실행합니다.
+실측용 prompt에서 `read_source` 다음에 `edit_and_test`를 호출하도록 안내할 수 있지만, 이것이 모델의 SWE-Bench 해결률을 증명하지는 않습니다.
+이 예제는 colocated Docker grader를 대상으로 하며 patch가 검증 단계에 도달했을 때만 `sandbox.exec` span이 생깁니다.
 `docker run --rm` 호출만 감싸므로 개별 container cgroup 경로를 자동 발견하거나 trajectory ID를 만들어 내지는 않습니다.
 그 정보가 있는 runtime은 위의 `SandboxRecorder.span(cgroup=...)`을 직접 호출해 개별 I/O event를 추가합니다.
 
@@ -389,11 +409,17 @@ Colocated에서 `node`를 생략하면 rollout/trainer record의 node를 사용�
 "sandbox": {
   "enabled": true,
   "node": "sandbox-0",
-  "device": "nvme0n1"
+  "device": "nvme0n1",
+  "events_dir": "/path/to/run/telemetry-events"
 }
 ```
 
-이 rule은 `agent_tool_call_duration_seconds`가 해당 run의 tool duration을 노출할 때만 평가됩니다.
+`events_dir`는 선택 사항입니다.
+지정하면 해당 run의 `agent-*.jsonl`에 기록된 정상 종료 `tool.call` span 중 분석 구간 안에 완전히 포함된 호출의 최대 duration을 사용하고, baseline에서도 같은 tool 이름만 비교합니다.
+선택한 run의 agent event 파일을 분석할 때마다 읽으므로 장시간·대규모 실행에서는 기존 Prometheus tool duration 지표를 우선 사용합니다.
+해당 span이 없거나 이 설정이 없으면 기존 `agent_tool_call_duration_seconds` Prometheus 지표를 사용합니다.
+첫 step에는 같은 run의 이전 baseline이 없어 tool slowdown을 판단하지 않습니다.
+VERL step window가 approximate이면 span 자체가 exact여도 step 귀속은 시간상 겹침에 근거한 correlation입니다.
 `sandbox_io_pressure_ratio`는 sandbox node의 cgroup, local device busy는 같은 node의 지정한 device에서 조회합니다.
 개별 sandbox와 trajectory의 높은 cardinality 문맥은 EventRecorder의 `trace_id`·`span_id`·attribute에서 확인합니다.
 

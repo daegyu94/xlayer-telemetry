@@ -242,7 +242,8 @@ def evaluate_rules(
             ("sandbox_io_pressure_ratio", high("sandbox_io_pressure_ratio", thresholds.get("sandbox_io_pressure_ratio", 0.2))),
             ("sandbox_device_busy_ratio", high("sandbox_device_busy_ratio", thresholds.get("sandbox_device_busy_ratio", 0.9))),
         ], scope="mixed", related={"nodes": [context["sandbox_node"]] if context.get("sandbox_node") else [],
-                            "devices": [context["sandbox_device"]] if context.get("sandbox_device") else []},
+                            "devices": [context["sandbox_device"]] if context.get("sandbox_device") else [],
+                            "spans": list(context.get("tool_related_spans", []))},
             cap_state="supporting_signal")
     peers = context.get("participant_durations_seconds", {})
     if isinstance(peers, Mapping) and len(peers) >= 3:

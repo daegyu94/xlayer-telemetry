@@ -203,8 +203,8 @@ def load_config(path: Path) -> dict[str, Any]:
         if not isinstance(sandbox, dict) or type(sandbox.get("enabled")) is not bool:
             raise ValueError("sandbox must be an object with boolean enabled")
         if any(not isinstance(sandbox.get(key), str) or not sandbox[key]
-               for key in ("node", "device") if key in sandbox):
-            raise ValueError("sandbox.node and sandbox.device must be nonempty strings")
+               for key in ("node", "device", "events_dir") if key in sandbox):
+            raise ValueError("sandbox.node, sandbox.device and sandbox.events_dir must be nonempty strings")
     return config
 
 
@@ -222,6 +222,60 @@ def load_history(path: Path) -> list[dict[str, Any]]:
     except FileNotFoundError:
         pass
     return records
+
+
+def tool_span_window(directory: Path, run_id: str, start: float, end: float,
+                     *, tool_name: str | None = None) -> dict[str, Any] | None:
+    """Use completed tool spans fully inside an analysis interval.
+
+    A VERL step interval can be approximate. Time overlap supplies correlation,
+    not proof that the trainer step owns the tool or its sandbox I/O.
+    """
+    longest: dict[str, Any] | None = None
+    max_duration: float | None = None
+    count = 0
+    try:
+        paths = list(directory.glob("agent-*.jsonl"))
+    except OSError:
+        return None
+    for path in paths:
+        try:
+            with path.open(encoding="utf-8", errors="replace") as stream:
+                for line in stream:
+                    try:
+                        item = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if (not isinstance(item, dict) or item.get("schema_version") != 1
+                            or item.get("record_type") != "span"
+                            or item.get("name") != "tool.call" or item.get("run_id") != run_id
+                            or item.get("status") != "ok"
+                            or not isinstance(item.get("trace_id"), str)
+                            or not isinstance(item.get("span_id"), str)):
+                        continue
+                    attributes = item.get("attributes")
+                    if not isinstance(attributes, dict) or not isinstance(attributes.get("tool"), str):
+                        continue
+                    if tool_name is not None and attributes["tool"] != tool_name:
+                        continue
+                    began = finite(item.get("start_time_unix_nano"))
+                    finished = finite(item.get("end_time_unix_nano"))
+                    duration = finite(item.get("duration_seconds"))
+                    if (began is not None and finished is not None and duration is not None
+                            and duration >= 0 and start <= began / 1e9
+                            and finished / 1e9 <= end):
+                        count += 1
+                        if max_duration is None or duration > max_duration:
+                            longest = item
+                            max_duration = duration
+        except OSError:
+            continue
+    if longest is None:
+        return None
+    return {"max": max_duration,
+            "sample_count": count,
+            "tool": longest["attributes"]["tool"],
+            "related_span": f"{longest['trace_id']}:{longest['span_id']}"}
 
 
 def _slow_stages(current: Mapping[str, Any], history: list[dict[str, Any]], thresholds: Mapping[str, float]) -> list[dict[str, float]]:
@@ -340,6 +394,26 @@ class DiagnosticEngine:
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"prometheus:{name}:{type(exc).__name__}")
 
+        tool_event_span = None
+        if sandbox_config.get("enabled") and sandbox_config.get("events_dir") and current:
+            directory = Path(sandbox_config["events_dir"])
+            tool_event = tool_span_window(directory, run_id, float(start), end)
+            if tool_event is not None:
+                evidence["tool_duration_seconds"] = tool_event
+                tool_event_span = tool_event["related_span"]
+                queries.pop("tool_duration_seconds", None)
+                missing = [item for item in missing
+                           if not item.startswith("prometheus:tool_duration_seconds")]
+                baseline_metrics.pop("tool_duration_seconds", None)
+            if baseline_record:
+                if tool_event is not None:
+                    previous_tool = tool_span_window(
+                        directory, run_id, float(baseline_window["start"]),
+                        float(baseline_window["end"]), tool_name=tool_event["tool"],
+                    )
+                    if previous_tool is not None:
+                        baseline_metrics["tool_duration_seconds"] = previous_tool
+
         threefs_rows: list[dict[str, Any]] = []
         threefs_baseline: list[dict[str, Any]] = []
         if self.threefs is not None:
@@ -422,6 +496,8 @@ class DiagnosticEngine:
         # An adjacent shared-service window remains useful in the legacy
         # findings, but is not presented as a same-run step baseline.
         sources = {name: "prometheus" for name in queries}
+        if tool_event_span is not None:
+            sources["tool_duration_seconds"] = "event_span_time_window"
         sources.update({
             "threefs_p99_latency": "3fs_clickhouse",
             "step_duration_seconds": "workload",
@@ -440,6 +516,7 @@ class DiagnosticEngine:
                      "sandbox_node": sandbox_node if sandbox_config.get("enabled") else None,
                      "sandbox_device": sandbox_device if sandbox_config.get("enabled") else None,
                      "related_spans": (current or {}).get("related_spans", []),
+                     "tool_related_spans": [tool_event_span] if tool_event_span else [],
                      "queries": queries,
                      "signal_labels": signal_labels,
                      "signal_scopes": signal_scopes,

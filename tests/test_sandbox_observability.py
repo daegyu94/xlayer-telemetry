@@ -7,7 +7,7 @@ import sys
 import pytest
 
 from xlayer_telemetry.diagnosis_analysis import evaluate_rules
-from xlayer_telemetry.diagnostics import DiagnosticEngine, load_config
+from xlayer_telemetry.diagnostics import DiagnosticEngine, load_config, tool_span_window
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
 from xlayer_telemetry.metrics.prometheus import format_gauges
 from xlayer_telemetry.sandbox import SandboxRecorder
@@ -181,3 +181,95 @@ def test_sandbox_config_requires_explicit_types(tmp_path):
                                 "sandbox": {"enabled": "yes"}}))
     with pytest.raises(ValueError, match="sandbox"):
         load_config(path)
+    path.write_text(json.dumps({"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+                                "sandbox": {"enabled": True, "events_dir": 42}}))
+    with pytest.raises(ValueError, match="sandbox.events_dir"):
+        load_config(path)
+
+
+def test_exact_tool_spans_supply_duration_when_prometheus_tool_metric_is_missing(tmp_path):
+    directory = tmp_path / "events"
+    for run_id, times in (("run-1", [1, 2, 21, 24]),
+                          ("other-run", [22, 23])):
+        ticks = iter(int(second * 1e9) for second in times)
+        recorder = EventRecorder(directory, CorrelationContext(
+            run_id=run_id, producer="agent", role="rollout",
+            worker_id=run_id, node="gpu-0"), clock_ns=lambda: next(ticks))
+        for _ in range(len(times) // 2):
+            with recorder.span("tool.call", phase="tool_interaction",
+                               attributes={"tool": "pytest"}):
+                pass
+    (directory / "agent-rollout-broken.jsonl").write_text("{not-json}\n")
+    assert tool_span_window(directory, "run-1", 0, 10)["max"] == 1
+    assert tool_span_window(directory, "run-1", 20, 30)["max"] == 3
+    assert tool_span_window(directory, "run-1", 2, 10) is None
+    assert tool_span_window(directory, "run-1", 0, 10, tool_name="different-tool") is None
+
+    class Prometheus:
+        def query_range(self, query, start, end, step):
+            if query.startswith("sandbox_io_pressure_ratio"):
+                return {"max": 0.4}
+            if query.startswith("rate(node_disk_io_time_seconds_total") and 'device="nvme0n1"' in query:
+                return {"max": 0.95}
+            return None
+
+    engine = DiagnosticEngine(
+        {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+         "sandbox": {"enabled": True, "events_dir": str(directory),
+                     "node": "sandbox-2", "device": "nvme0n1"}},
+        prometheus=Prometheus(), clock=lambda: 31,
+    )
+    baseline = {"run_id": "run-1", "worker_id": "driver", "boundary_scope": "rl_step",
+                "observed_at": 10, "step_duration_seconds": 10,
+                "analysis_window": {"start": 0, "end": 10}}
+    current = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver",
+               "boundary_scope": "rl_step", "observed_at": 30, "step_duration_seconds": 20,
+               "analysis_window": {"start": 20, "end": 30}}
+    report = engine.analyze(current, [baseline])
+    candidate = next(item for item in report["candidates"]
+                     if item["id"] == "sandbox_local_storage_pressure")
+    assert candidate["state"] == "supporting_signal"
+    assert candidate["related_spans"] == [tool_span_window(directory, "run-1", 20, 30)["related_span"]]
+    duration = next(item for item in candidate["evidence"]
+                    if item["signal"] == "tool_duration_seconds")
+    assert duration["source"] == "event_span_time_window"
+    assert duration["query"] is None
+    assert duration["value"] == 3
+    assert duration["baseline"] == 1
+    assert "prometheus:tool_duration_seconds" not in report["missing_sources"]
+
+
+def test_tool_span_baseline_does_not_compare_different_operations(tmp_path):
+    directory = tmp_path / "events"
+    ticks = iter(int(second * 1e9) for second in (1, 2, 21, 25))
+    events = EventRecorder(directory, CorrelationContext(
+        run_id="run-1", producer="agent", role="rollout",
+        worker_id="worker-0", node="gpu-0"), clock_ns=lambda: next(ticks))
+    for tool in ("read_source", "edit_and_test"):
+        with events.span("tool.call", phase="tool_interaction", attributes={"tool": tool}):
+            pass
+
+    class Prometheus:
+        def query_range(self, query, start, end, step):
+            if query.startswith("agent_tool_call_duration_seconds"):
+                return {"max": 1}
+            return None
+
+    engine = DiagnosticEngine(
+        {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+         "sandbox": {"enabled": True, "events_dir": str(directory)}},
+        prometheus=Prometheus(), clock=lambda: 30,
+    )
+    baseline = {"run_id": "run-1", "worker_id": "driver", "boundary_scope": "rl_step",
+                "observed_at": 10, "step_duration_seconds": 10,
+                "analysis_window": {"start": 0, "end": 10}}
+    current = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver",
+               "boundary_scope": "rl_step", "observed_at": 30, "step_duration_seconds": 20,
+               "analysis_window": {"start": 20, "end": 30}}
+    report = engine.analyze(current, [baseline])
+    duration = next(item for item in report["comparison"]["signals"]
+                    if item["signal"] == "tool_duration_seconds")
+    assert duration["current"] == 4
+    assert duration["baseline"] is None
+    assert not any(item["id"] == "sandbox_local_storage_pressure"
+                   for item in report["candidates"])
