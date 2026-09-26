@@ -258,6 +258,134 @@
       "policy": "agentic rl"
     },
     {
+      "name": "sandbox_active",
+      "category": "sandbox",
+      "unit": "sandboxes",
+      "scope": "worker",
+      "source": "optional sandbox runtime adapter",
+      "policy": "when available"
+    },
+    {
+      "name": "sandbox_queued",
+      "category": "sandbox",
+      "unit": "sandboxes",
+      "scope": "worker",
+      "source": "optional sandbox runtime adapter",
+      "policy": "when available"
+    },
+    {
+      "name": "sandbox_create_duration_seconds",
+      "category": "sandbox",
+      "unit": "s",
+      "scope": "operation",
+      "source": "optional sandbox runtime adapter",
+      "policy": "when available"
+    },
+    {
+      "name": "sandbox_reset_duration_seconds",
+      "category": "sandbox",
+      "unit": "s",
+      "scope": "operation",
+      "source": "optional sandbox runtime adapter",
+      "policy": "when available"
+    },
+    {
+      "name": "sandbox_failures_total",
+      "category": "sandbox",
+      "unit": "events",
+      "scope": "worker",
+      "source": "optional sandbox runtime adapter",
+      "policy": "when available"
+    },
+    {
+      "name": "sandbox_io_read_bytes_total",
+      "category": "sandbox",
+      "unit": "bytes",
+      "scope": "cgroup",
+      "source": "cgroup v2 io.stat",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_sample_timestamp_seconds",
+      "category": "sandbox",
+      "unit": "s",
+      "scope": "cgroup",
+      "source": "cgroup v2 sampler clock",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_io_write_bytes_total",
+      "category": "sandbox",
+      "unit": "bytes",
+      "scope": "cgroup",
+      "source": "cgroup v2 io.stat",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_io_read_ops_total",
+      "category": "sandbox",
+      "unit": "operations",
+      "scope": "cgroup",
+      "source": "cgroup v2 io.stat",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_io_write_ops_total",
+      "category": "sandbox",
+      "unit": "operations",
+      "scope": "cgroup",
+      "source": "cgroup v2 io.stat",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_io_pressure_ratio",
+      "category": "sandbox",
+      "unit": "ratio",
+      "scope": "cgroup",
+      "source": "cgroup v2 io.pressure",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_cpu_usage_seconds_total",
+      "category": "sandbox",
+      "unit": "s",
+      "scope": "cgroup",
+      "source": "cgroup v2 cpu.stat",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_cpu_pressure_ratio",
+      "category": "sandbox",
+      "unit": "ratio",
+      "scope": "cgroup",
+      "source": "cgroup v2 cpu.pressure",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_bytes",
+      "category": "sandbox",
+      "unit": "bytes",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.current",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_peak_bytes",
+      "category": "sandbox",
+      "unit": "bytes",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.peak",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_oom_total",
+      "category": "sandbox",
+      "unit": "events",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.events",
+      "policy": "optional"
+    },
+    {
       "name": "orchestration_tasks_pending",
       "category": "orchestration",
       "unit": "tasks",

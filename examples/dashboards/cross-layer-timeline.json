@@ -976,12 +976,52 @@
       }
     },
     {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Sandbox I/O pressure (sampled)",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 39
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+          "legendFormat": "cgroup I/O PSI"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "description": "Select the sandbox node. Exact sandbox.* lifecycle spans appear above when EventRecorder JSONL reaches Loki; this pressure series is sampled and is not per-trajectory attribution."
+    },
+    {
       "id": 8,
       "type": "text",
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 46,
         "w": 24,
         "h": 2
       },

@@ -31,12 +31,16 @@ SIGNAL_SCOPE = {
     "vllm_requests_waiting": "service",
     "vllm_kv_cache_usage": "service",
     "vllm_preemptions_delta": "service",
+    "tool_duration_seconds": "application",
+    "sandbox_io_pressure_ratio": "cgroup",
+    "sandbox_device_busy_ratio": "device",
 }
 BASELINE_REQUIRED = {
     "step_duration_seconds", "rollout_duration_seconds",
     "communication_duration_seconds", "gpu_utilization_percent",
     "rdma_bytes_per_second", "threefs_p99_latency",
     "threefs_throughput_bytes_per_second",
+    "tool_duration_seconds",
 }
 
 
@@ -127,7 +131,7 @@ def evaluate_rules(
         value, before = val(name), val(name, previous=True)
         return value is not None and before is not None and before - value >= amount
 
-    def add(identifier: str, component: str, summary: str, checks: list[tuple[str, bool]], *, scope: str, related: Mapping[str, Any] | None = None) -> None:
+    def add(identifier: str, component: str, summary: str, checks: list[tuple[str, bool]], *, scope: str, related: Mapping[str, Any] | None = None, cap_state: str | None = None) -> None:
         observed = [name for name, ok in checks if ok]
         if not observed:
             return
@@ -140,6 +144,8 @@ def evaluate_rules(
         state = "strong_signal" if len(observed) == len(required) and not missing else (
             "supporting_signal" if len(observed) >= 2 else "weak_signal"
         )
+        if cap_state == "supporting_signal" and state == "strong_signal":
+            state = "supporting_signal"
         if component == "storage" and finite(context.get("per_run_storage_bytes")) is None:
             missing.append("per_run_3fs_client_bytes")
         evidence = [{
@@ -228,6 +234,16 @@ def evaluate_rules(
         ("host_memory_available_ratio", low("host_memory_available_ratio", thresholds.get("memory_available_ratio", 0.1))),
         ("host_swap_activity", high("host_swap_activity", 1)),
         ], scope="node")
+    # A cgroup and a device can overlap the tool interval without proving
+    # ownership of that device's load. Never promote this candidate to strong.
+    if raised("tool_duration_seconds", thresholds.get("tool_slowdown_ratio", 1.5)):
+        add("sandbox_local_storage_pressure", "sandbox", "Slow tool execution overlaps sandbox I/O pressure and local device activity", [
+            ("tool_duration_seconds", True),
+            ("sandbox_io_pressure_ratio", high("sandbox_io_pressure_ratio", thresholds.get("sandbox_io_pressure_ratio", 0.2))),
+            ("sandbox_device_busy_ratio", high("sandbox_device_busy_ratio", thresholds.get("sandbox_device_busy_ratio", 0.9))),
+        ], scope="mixed", related={"nodes": [context["sandbox_node"]] if context.get("sandbox_node") else [],
+                            "devices": [context["sandbox_device"]] if context.get("sandbox_device") else []},
+            cap_state="supporting_signal")
     peers = context.get("participant_durations_seconds", {})
     if isinstance(peers, Mapping) and len(peers) >= 3:
         numbers = {str(key): finite(value) for key, value in peers.items()}

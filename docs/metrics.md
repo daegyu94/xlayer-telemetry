@@ -79,6 +79,9 @@ Shared service metric은 해당 서비스의 관측 범위를 유지하면서 �
 | vLLM·Ray native metric | 시간, source, node, replica | Run label이 자동 생성되지 않음 |
 | 3FS 서비스 | 시간 창, host·mount 등 filter | Shared storage activity를 특정 step에 귀속하지 않음 |
 | Tool event·trace | Run, worker, span 시간 | 별도 상세 증거이며 자동 Prometheus 시계열이 아님 |
+| Sandbox lifecycle | Run, step, trajectory ID, sandbox ID, trace/span | 높은 cardinality의 ID는 event JSONL에만 보관 |
+| Sandbox worker cgroup | Node, role, runtime, filesystem, deployment, 시간 | Worker subtree 집계이며 개별 sandbox나 tool의 I/O가 아님 |
+| Local NVMe | Node, device, 시간 | Device 전체 부하이며 3FS service metric과 별개 |
 
 서로 다른 scope의 값을 비교한 결과는 병목 후보입니다.
 인과관계가 필요한 경우 [Run Analysis](dashboards.md#run-analysis)에 따라 log·event·trace를 확인합니다.
@@ -99,6 +102,9 @@ Label 값의 조합마다 별도 시계열이 생깁니다.
 | 제한된 종류의 interface·tool 이름 | Prompt, request ID, trace ID, 개별 timestamp |
 
 실행 조건과 경로는 manifest에, 개별 요청의 상세 정보는 log·event·trace에 둡니다.
+Sandbox metric의 Prometheus label은 `node`, `role`, `runtime`, `filesystem`, `deployment`만 사용합니다.
+`sandbox_id`, `container_id`, `trajectory_id`, request ID, SWE-Bench instance ID는 label로 사용하지 않습니다.
+Node Exporter target의 `cluster`·`nodename` label은 별도로 추가될 수 있습니다.
 SDK에서 추가하는 label과 native exporter가 제공하는 label은 같다고 가정하지 않습니다.
 현재 dashboard의 filter와 query에 실제로 쓰이는 label을 확인합니다.
 

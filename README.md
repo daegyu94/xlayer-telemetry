@@ -53,6 +53,7 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Node 이름과 clock을 맞춰야 합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Grafana Step Explorer | File 경로와 Loki를 설정해야 합니다. Step Explorer의 경계는 VERL file logger를 바탕으로 추정합니다. |
 | Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
+| Agent sandbox | 선택적 lifecycle span, sandbox worker cgroup v2 I/O·CPU·memory, local SSD와의 진단 후보 | 외부 runtime 계측과 안정적인 worker cgroup이 필요합니다. 개별 sandbox의 SSD 사용량으로 자동 귀속하지 않습니다. |
 | 운영·분석 | 선택적 Grafana alert rule, `show_run`, diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
 | Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
 
@@ -85,6 +86,7 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
 | 기존 VERL 명령에 telemetry 추가 | [VERL 연결 가이드](docs/verl-quickstart.md) |
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
+| SWE-Bench·Terminal-Bench sandbox 관측 | [Agent Sandbox Guide](docs/agent-rl.md#observe-an-agent-sandbox) |
 | 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/dashboards.md#run-analysis) |
 | Rule catalog, baseline, scope와 Bottleneck Summary 사용 | [Cross-Layer Diagnosis](docs/diagnosis.md) |
 | Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |

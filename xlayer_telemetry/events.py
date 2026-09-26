@@ -151,6 +151,7 @@ class EventRecorder:
         step: int | None = None,
         attributes: Mapping[str, Any] | None = None,
         trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         self._validate(name=name, phase=phase, step=step)
         timestamp_ns = self.clock_ns()
@@ -165,6 +166,7 @@ class EventRecorder:
                 "timestamp_unix_nano": timestamp_ns,
                 "event_time_unix_nano": timestamp_ns,
                 "trace_id": trace_id,
+                **({"span_id": span_id} if span_id is not None else {}),
                 "attributes": dict(attributes or {}),
             }
         )
@@ -178,6 +180,7 @@ class EventRecorder:
         step: int | None = None,
         attributes: Mapping[str, Any] | None = None,
         trace_id: str | None = None,
+        parent_span_id: str | None = None,
     ) -> Iterator[SpanIdentity]:
         self._validate(name=name, phase=phase, step=step)
         identity = SpanIdentity(
@@ -213,6 +216,7 @@ class EventRecorder:
                     "status": status,
                     "trace_id": identity.trace_id,
                     "span_id": identity.span_id,
+                    **({"parent_span_id": parent_span_id} if parent_span_id is not None else {}),
                     "attributes": final_attributes,
                 }
             )

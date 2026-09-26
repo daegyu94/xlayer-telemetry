@@ -18,6 +18,7 @@ def test_metric_schema_covers_required_categories() -> None:
         "training",
         "rollout",
         "agent",
+        "sandbox",
         "orchestration",
         "gpu",
         "host",

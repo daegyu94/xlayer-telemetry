@@ -50,6 +50,9 @@ DEFAULT_THRESHOLDS = {
     "straggler_ratio": 1.5,
     "peer_spread_ratio": 0.2,
     "small_io_bytes": 4096,
+    "tool_slowdown_ratio": 1.5,
+    "sandbox_io_pressure_ratio": 0.2,
+    "sandbox_device_busy_ratio": 0.9,
 }
 _ALLOWED_3FS_FILTERS = {"host", "mount_name", "instance", "io", "uid", "pod", "method"}
 _DATABASE = re.compile(r"^[A-Za-z0-9_]+$")
@@ -195,6 +198,13 @@ def load_config(path: Path) -> dict[str, Any]:
         settle = threefs.get("settle_seconds", 30)
         if type(settle) not in (int, float) or not math.isfinite(settle) or settle < 0:
             raise ValueError("threefs.settle_seconds must be finite and nonnegative")
+    sandbox = config.get("sandbox")
+    if sandbox is not None:
+        if not isinstance(sandbox, dict) or type(sandbox.get("enabled")) is not bool:
+            raise ValueError("sandbox must be an object with boolean enabled")
+        if any(not isinstance(sandbox.get(key), str) or not sandbox[key]
+               for key in ("node", "device") if key in sandbox):
+            raise ValueError("sandbox.node and sandbox.device must be nonempty strings")
     return config
 
 
@@ -280,6 +290,20 @@ class DiagnosticEngine:
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
         queries = {**DEFAULT_QUERIES, **self.config["prometheus"].get("queries", {})}
+        sandbox_config = self.config.get("sandbox", {})
+        sandbox_node = str((current or {}).get("sandbox_node") or sandbox_config.get("node") or node)
+        sandbox_device = str(sandbox_config.get("device", ""))
+        if sandbox_config.get("enabled") and current:
+            queries.setdefault("tool_duration_seconds", (
+                'agent_tool_call_duration_seconds{run_id="{run_id}"}'
+            ))
+            queries.setdefault("sandbox_io_pressure_ratio", (
+                'sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}'
+            ))
+            if sandbox_device:
+                queries.setdefault("sandbox_device_busy_ratio", (
+                    'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
+                ))
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
         baseline_record = select_baseline(current, history) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
@@ -295,7 +319,10 @@ class DiagnosticEngine:
 
         for name, template in queries.items():
             try:
-                query = str(template).replace("{node}", _escape_prometheus(node)).replace("{run_id}", _escape_prometheus(run_id))
+                query = (str(template).replace("{node}", _escape_prometheus(node))
+                         .replace("{run_id}", _escape_prometheus(run_id))
+                         .replace("{sandbox_node}", _escape_prometheus(sandbox_node))
+                         .replace("{sandbox_device}", _escape_prometheus(sandbox_device)))
                 stats, series = query_with_detail(query, float(start), end)
                 if stats is None:
                     missing.append("prometheus:" + name)
@@ -410,6 +437,8 @@ class DiagnosticEngine:
             context={"sources": sources, "window": window,
                      "boundary_accuracy": window.get("accuracy", "unknown"),
                      "node": node,
+                     "sandbox_node": sandbox_node if sandbox_config.get("enabled") else None,
+                     "sandbox_device": sandbox_device if sandbox_config.get("enabled") else None,
                      "related_spans": (current or {}).get("related_spans", []),
                      "queries": queries,
                      "signal_labels": signal_labels,
@@ -490,6 +519,9 @@ class DiagnosticEngine:
             "host_memory_available_ratio": "min",
             "host_swap_activity": "max",
             "disk_busy_ratio": "max",
+            "tool_duration_seconds": "max",
+            "sandbox_io_pressure_ratio": "max",
+            "sandbox_device_busy_ratio": "max",
             "storage_device_busy_ratio": "max",
             "disk_read_bytes_per_second": "mean",
             "rdma_bytes_per_second": "mean",

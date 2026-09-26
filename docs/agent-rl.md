@@ -260,6 +260,8 @@ export TELEMETRY_EVENTS_DIR="$HOME/telemetry-runs/grpo-001/telemetry-events"
 `call_tool()`은 application의 실제 함수로 바꿉니다.
 
 ```python
+from pathlib import Path
+
 from xlayer_telemetry.events import EventRecorder
 
 events = EventRecorder.from_env(producer="agent", role="rollout")
@@ -274,6 +276,126 @@ else:
 같은 directory의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
 Event는 그 자체로 Prometheus metric이 되지 않습니다.
 Loki를 켜고 Alloy가 해당 run root를 읽으면 `xlayer_event` stream으로 전달되어 Cross-Layer Timeline의 exact span에 나타납니다.
+
+## Observe an Agent Sandbox
+
+SWE-Bench·Terminal-Bench·code execution에서는 tool 호출 시간이 sandbox 준비, 명령 실행, filesystem 작업을 포함할 수 있습니다.
+XLayer는 외부 Docker·containerd·SWE-ReX·custom runtime의 sandbox 생성과 배치를 맡지 않으며, 그 실행 지점에서 lifecycle span을 기록하고 sandbox worker cgroup을 읽습니다.
+기본 예시는 OverlayFS 위의 local SSD/NVMe이지만 `filesystem` 값은 `btrfs`, `zfs`, plain workspace, VM filesystem 등 실제 배포에 맞춥니다.
+
+```text
+Colocated
+GPU / rollout node
++-- AgentLoop > tool.call > sandbox worker > OverlayFS > local NVMe
++-- Node collector > Node Exporter > Prometheus
+
+Dedicated
+GPU / rollout node > sandbox RPC > sandbox node
+                                 +-- sandbox worker > OverlayFS > local NVMe
+                                 +-- Node collector > Node Exporter > Prometheus
+```
+
+두 배치는 `role=sandbox`와 같은 metric 이름을 사용합니다.
+`node`와 `deployment`만 실제 위치에 맞게 달라지고, dedicated 배치에서는 sandbox node에도 [node collector](monitoring.md)를 실행해 monitoring server의 target에 등록합니다.
+Manifest의 role mapping에도 `sandbox=sandbox-0`을 추가할 수 있지만 manifest만으로 collector가 시작되지는 않습니다.
+
+### Record lifecycle spans
+
+Sandbox runtime이 호출하는 코드에 아래처럼 계측을 넣습니다.
+`sandbox_id`·`trajectory_id`는 event attribute에만 저장되고 Prometheus label이 아닙니다.
+`parent_span_id`와 `trace_id`를 기존 `tool.call` span에서 넘기면 tool과 sandbox lifecycle을 같은 trace에서 찾을 수 있습니다.
+RPC로 dedicated node에 전달할 때도 두 ID를 sandbox worker에 전달합니다.
+
+```python
+from xlayer_telemetry.events import EventRecorder
+from xlayer_telemetry.sandbox import SandboxRecorder
+
+events = EventRecorder.from_env(producer="sandbox", role="sandbox", worker_id="worker-0")
+if events is None:
+    run_command_in_existing_sandbox()
+else:
+    sandbox = SandboxRecorder(
+        events, runtime="containerd", filesystem="overlayfs",
+        deployment="dedicated", sandbox_node="sandbox-0",
+    )
+    with sandbox.span(
+        "exec", step=127, trajectory_id="trajectory-17", sandbox_id="sandbox-17",
+        trace_id=tool_span.trace_id, parent_span_id=tool_span.span_id,
+        attributes={"tool": "pytest"},
+        cgroup=Path("/sys/fs/cgroup/your-sandbox-container"),
+    ):
+        run_command_in_existing_sandbox()
+```
+
+지원하는 operation은 `acquire`, `prepare`, `exec`, `reset`, `release`이며 runtime에서 실제 실행한 단계만 기록합니다.
+`tool_span`은 AgentLoop의 기존 `tool.call` span에서 받은 ID이며, dedicated 배치라면 RPC로 전달합니다.
+`cgroup`은 선택 사항이며, 개별 sandbox cgroup을 전달하면 span 전후의 I/O bytes·operations 차이와 PSI를 같은 trace의 `sandbox.resource_sample` event에 기록합니다.
+이 event의 `sandbox_id`·`trajectory_id`와 cgroup 범위 값은 Prometheus label이나 worker 전체 집계에 섞이지 않습니다.
+Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node여야 합니다.
+서로 다른 node의 JSONL을 동일 run root의 `telemetry-events` 아래에 전달하거나 각 node의 Alloy가 읽는 run root를 설정해야 Grafana의 Timeline에서 함께 보입니다.
+
+veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter](../examples/sandbox/verl_lab_swebench_tools.py)입니다.
+XLayer 저장소 루트에서 아래 경로를 설정하고 기존 `verl-lab` 명령을 XLayer wrapper로 실행하면, 원본 tool·reward 코드를 바꾸지 않고 `read_source`·`test_patch`의 `tool.call`과 실제 Docker grader 호출의 `sandbox.exec`를 기록합니다.
+
+```bash
+export VERL_LAB_ROOT="$HOME/workspace/verl-lab"
+export VERL_LAB_TOOLS_PATH="$VERL_LAB_ROOT/scripts/swebench_agent_tools.py"
+export FUNCTION_TOOL_PATH="$PWD/examples/sandbox/verl_lab_swebench_tools.py"
+export CUSTOM_REWARD_FUNCTION_PATH="$FUNCTION_TOOL_PATH"
+export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+```
+
+이 예제는 colocated Docker grader를 대상으로 하며 모델의 patch가 검증 단계에 도달했을 때만 `sandbox.exec` span이 생깁니다.
+`docker run --rm` 호출만 감싸므로 개별 container cgroup 경로를 자동 발견하거나 trajectory ID를 만들어 내지는 않습니다.
+그 정보가 있는 runtime은 위의 `SandboxRecorder.span(cgroup=...)`을 직접 호출해 개별 I/O event를 추가합니다.
+
+### Sample the sandbox worker cgroup
+
+Sandbox worker와 하위 container가 속한 **안정적인 cgroup v2 subtree**를 입력으로 지정합니다.
+`/proc/<worker-pid>/cgroup`의 `0::` 뒤 경로를 호스트의 `/sys/fs/cgroup` 아래에서 확인하고, runtime이 sandbox를 만들 때마다 새로 생성하는 개별 container cgroup을 Prometheus 대상으로 사용하지 않습니다.
+하나의 node·runtime·filesystem·deployment 조합에 textfile producer 하나를 두어 같은 시계열이 충돌하지 않게 합니다.
+한 node에 둘 이상을 수집한다면 `--textfile-name`을 서로 다른 `.prom` basename으로 설정합니다.
+
+```bash
+python -m xlayer_telemetry.sandbox_sampler \
+  --cgroup /sys/fs/cgroup/your-sandbox-worker \
+  --textfile-dir "$HOME/telemetry/state/node/textfile" \
+  --node sandbox-0 \
+  --runtime containerd \
+  --filesystem overlayfs \
+  --deployment dedicated
+```
+
+Colocated라면 `--node`를 GPU/rollout node 이름으로, `--deployment`를 `colocated`로 바꾸고 그 node collector의 `textfile` directory를 지정합니다.
+`io.stat`의 bytes·operations, `io.pressure`·`cpu.pressure`의 `some.total` 증가량, `cpu.stat`, `memory.current`·`memory.peak`·`memory.events`를 읽습니다.
+파일 형식과 누적 counter의 의미는 [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html), PSI의 `some.total` 의미는 [Linux PSI](https://docs.kernel.org/accounting/psi.html)를 따릅니다.
+PSI ratio는 직전 표본 이후 stall 시간 비율이므로 첫 표본에서는 비어 있으며, 읽을 수 없는 source도 0으로 위조하지 않고 생략합니다.
+Page cache hit처럼 block device에 도달하지 않은 작업은 `io.stat` bytes로 보이지 않을 수 있습니다.
+Counter는 worker cgroup이 유지되는 동안에만 단조 증가합니다.
+`sandbox_sample_timestamp_seconds`로 sampler의 마지막 갱신 시각을 확인하며, 오래된 textfile 표본은 현재 압력으로 해석하지 않습니다.
+
+Sandbox I/O는 cgroup 범위이고 local NVMe busy는 node/device 전체 범위입니다.
+3FS 서비스 latency나 공유 storage 지표와 local sandbox NVMe를 합산하지 않습니다.
+특정 tool이 느리고 cgroup pressure와 NVMe busy가 동시에 증가해도 다른 sandbox·process의 부하가 섞일 수 있으므로 [진단 후보](diagnosis.md#baseline-and-rule-state)로만 해석합니다.
+원인을 더 좁혀야 하면 해당 구간에서 VFS syscall, OverlayFS copy-up, fsync 등을 선택적으로 profile할 수 있으며 eBPF는 기본 의존성이 아닙니다.
+
+### Enable the optional diagnosis rule
+
+기존 [diagnostics 설정](#add-diagnostics)에 sandbox section을 추가합니다.
+`node`는 sandbox worker가 있는 node이고 `device`는 해당 local SSD의 Node Exporter device label입니다.
+Colocated에서 `node`를 생략하면 rollout/trainer record의 node를 사용하지만, dedicated 배치에서는 반드시 실제 sandbox node를 지정합니다.
+
+```json
+"sandbox": {
+  "enabled": true,
+  "node": "sandbox-0",
+  "device": "nvme0n1"
+}
+```
+
+이 rule은 `agent_tool_call_duration_seconds`가 해당 run의 tool duration을 노출할 때만 평가됩니다.
+`sandbox_io_pressure_ratio`는 sandbox node의 cgroup, local device busy는 같은 node의 지정한 device에서 조회합니다.
+개별 sandbox와 trajectory의 높은 cardinality 문맥은 EventRecorder의 `trace_id`·`span_id`·attribute에서 확인합니다.
 
 ## Optional Integrations
 

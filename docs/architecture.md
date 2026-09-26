@@ -13,6 +13,7 @@ XLayer는 generic APM platform이나 새로운 telemetry backend가 아니라 di
 Telemetry sources
   Application / framework   vLLM / Ray   GPU / host   network / RDMA
   filesystem / 3FS / SSD    logs         traces       profiles
+  optional sandbox worker cgroup v2 / local NVMe
   |
   +--> XLayer semantic correlation
        run > step/iteration > phase > span/event
@@ -37,6 +38,8 @@ DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 �
 
 이 분리는 코드에도 반영됩니다.
 `diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
+Sandbox runtime은 별도 구현하지 않고 `SandboxRecorder`가 외부 runtime의 lifecycle을 기존 EventRecorder span으로 남깁니다.
+`sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
 Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
 구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
 
@@ -51,6 +54,7 @@ VERL의 run·step·phase 의미도 application 계측에서 계속 받아야 합
 그때는 한 사례에 기존 profiler나 eBPF 도구를 짧게 적용해 evidence가 채워지는지와 학습 성능 영향을 확인합니다.
 DeepFlow는 지속적인 flow·service 조사에, Beyla는 tool·reward·inference RPC 조사에 필요한 경우 optional source로 평가합니다.
 외부 PID를 run·worker와 연결하지 못하면 관측 scope를 process 또는 node로 유지하고 특정 run의 사용량으로 표시하지 않습니다.
+Sandbox filesystem의 syscall·OverlayFS copy-up 원인이 계속 누락될 때에도 profiler를 해당 구간에만 선택적으로 붙입니다.
 
 ## The Basic Path
 

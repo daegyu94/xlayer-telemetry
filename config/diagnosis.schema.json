@@ -50,7 +50,7 @@
   },
   "$defs": {
     "observation_scope": {
-      "enum": ["application", "process", "worker", "device", "node", "network-interface", "service", "shared-service", "cluster", "mixed", "unknown"]
+      "enum": ["application", "process", "worker", "cgroup", "device", "node", "network-interface", "service", "shared-service", "cluster", "mixed", "unknown"]
     },
     "evidence": {
       "type": "object",
