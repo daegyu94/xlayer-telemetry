@@ -349,6 +349,8 @@ export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 
 기존 `verl-lab`의 SWE-Bench POC가 준비된 단일 GPU host라면 다음 smoke script가 데이터를 별도 경로에 복사하고 2-step veRL+vLLM 학습을 실행합니다.
 원본 dataset·도구 파일은 수정하지 않으며, Docker grader image는 미리 local cache에 있어야 합니다.
+이 4-sample smoke는 `DATALOADER_NUM_WORKERS=0`을 기본값으로 사용하므로 `verl-lab` benchmark runner가 해당 환경 변수를 `data.dataloader_num_workers`에 전달해야 합니다.
+이전 runner에서 환경 변수를 지원하지 않으면 DataLoader 기본 worker 8개가 유지될 수 있습니다.
 
 ```bash
 export VERL_LAB_ROOT="$HOME/workspace/verl-lab"
