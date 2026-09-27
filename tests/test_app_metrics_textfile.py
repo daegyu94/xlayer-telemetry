@@ -6,6 +6,7 @@ import pytest
 
 from xlayer_telemetry.metrics import textfile
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
+from xlayer_telemetry.metrics.prometheus import format_gauges
 
 
 SNAPSHOT = {
@@ -91,3 +92,14 @@ def test_iter_snapshots_ignores_malformed_and_old_schema(tmp_path: Path) -> None
     (tmp_path / "old.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
 
     assert _iter_snapshots(tmp_path) == [SNAPSHOT]
+
+
+def test_bad_worker_snapshot_does_not_hide_valid_workers() -> None:
+    invalid = SNAPSHOT | {"worker_id": "broken", "samples": [
+        {"name": "bad metric", "value": 2, "labels": None},
+        {"name": "bad metric", "value": 3, "labels": {}},
+    ]}
+    text = format_gauges(build_metrics([invalid, SNAPSHOT]))
+    assert 'worker_id="0"' in text
+    assert "training_loss{" in text
+    assert "bad metric" not in text

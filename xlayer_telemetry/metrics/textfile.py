@@ -4,27 +4,40 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import time
 from pathlib import Path
 
-from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
+from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges, write_gauges
 
 
 def _iter_snapshots(metrics_dir: Path) -> list[dict]:
-    snapshots = []
+    snapshots: dict[tuple[str, ...], dict] = {}
     for path in sorted(metrics_dir.glob("*.json")):
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
-            if value.get("schema_version") == 2:
-                snapshots.append(value)
+            if (isinstance(value, dict) and value.get("schema_version") == 2
+                    and all(isinstance(value.get(key), str) for key in
+                            ("run_id", "producer", "role", "worker_id", "node"))):
+                identity = tuple(str(value.get(key, "")) for key in
+                                 ("run_id", "producer", "role", "worker_id", "node"))
+                previous = snapshots.get(identity)
+                observed = value.get("observed_at")
+                previous_at = previous.get("observed_at") if previous else None
+                if previous is None or (type(observed) in (int, float) and math.isfinite(observed)
+                                        and (type(previous_at) not in (int, float)
+                                             or not math.isfinite(previous_at) or observed >= previous_at)):
+                    snapshots[identity] = value
         except (AttributeError, OSError, json.JSONDecodeError):
             continue
-    return snapshots
+    return list(snapshots.values())
 
 
 def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
     metrics = []
     for snapshot in snapshots:
+        if not isinstance(snapshot, dict) or not isinstance(snapshot.get("samples"), list):
+            continue
         labels = {
             "run_id": str(snapshot.get("run_id", "")),
             "producer": str(snapshot.get("producer", "")),
@@ -53,7 +66,7 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
                 labels,
             ))
         observed_at = snapshot.get("observed_at")
-        if isinstance(observed_at, (int, float)):
+        if type(observed_at) in (int, float) and math.isfinite(observed_at):
             metrics.append(GaugeSample(
                 "training_sample_timestamp_seconds",
                 "Application-reported sample timestamp.",
@@ -63,17 +76,36 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
         step = snapshot.get("step")
         if type(step) is int:
             metrics.append(GaugeSample("training_step", "Latest reported training step.", step, labels))
-        for sample in snapshot.get("samples", []):
-            if not isinstance(sample, dict):
+        for sample in snapshot["samples"]:
+            if (not isinstance(sample, dict) or not isinstance(sample.get("labels", {}), dict)
+                    or type(sample.get("value")) not in (int, float)
+                    or not math.isfinite(sample["value"])):
+                continue
+            if set(sample.get("labels", {})) & labels.keys():
                 continue
             metrics.append(GaugeSample(
                 str(sample.get("name", "")),
                 f"Application-reported {sample.get('name', '')}.",
                 sample.get("value", 0),
-                {**labels, **sample.get("labels", {})},
+                {**labels, **{str(key): str(value) for key, value in sample.get("labels", {}).items()}},
                 str(sample.get("kind", "gauge")),
             ))
-    return metrics
+    valid: list[GaugeSample] = []
+    definitions: dict[str, tuple[str, str]] = {}
+    identities: set[tuple[str, tuple[tuple[str, str], ...]]] = set()
+    for sample in metrics:
+        try:
+            format_gauges([sample])
+        except (TypeError, ValueError):
+            continue
+        definition = (sample.help, sample.kind)
+        identity = (sample.name, tuple(sorted(sample.labels.items())))
+        if (sample.name in definitions and definitions[sample.name] != definition) or identity in identities:
+            continue
+        definitions[sample.name] = definition
+        identities.add(identity)
+        valid.append(sample)
+    return valid
 
 
 def main() -> None:

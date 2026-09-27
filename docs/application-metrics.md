@@ -64,6 +64,7 @@ python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 
 출력에서 `demo/trainer`, `step 1`, `training_loss=1.25`를 찾습니다.
 `telemetry-metrics/demo-trainer-0.json`에는 최신 snapshot이 저장됩니다.
+식별자에 `-`가 포함되면 파일명에서는 `%2D`로 인코딩되며, snapshot 안의 원래 식별자는 유지됩니다.
 별도 summary나 manifest가 없다는 안내가 나와도 이 예제에서는 정상입니다.
 
 `show_run`에는 `telemetry-metrics` directory 자체가 아니라 그 부모 run directory를 전달합니다.

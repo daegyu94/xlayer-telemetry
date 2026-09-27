@@ -158,6 +158,8 @@ Log의 `Run`은 디렉터리 이름에서 추출하므로 telemetry `run_id`와 
 System metric과 shared vLLM·Ray·3FS service metric에는 특정 VERL `run_id`가 자동으로 붙지 않습니다.
 같은 시간대와 node·role·device를 선택해 비교하고, 여러 node에서는 clock을 동기화합니다.
 VERL file logger에는 원본 step 시작·종료 timestamp가 없어서 Step Explorer는 bridge가 관측한 완료 시각에서 보고된 step 시간을 빼 분석 구간을 추정합니다.
+Bridge 시작 전에 존재하던 기록이나 종료 후 재생한 기록은 원래 실행 시각을 복원할 수 없으므로 시간 구간을 `unknown`으로 남기고 외부 resource metric과 연결하지 않습니다.
+`ingested_at`은 파일을 읽은 시각이며 `source_event_time`을 대신하지 않습니다.
 Async mode에서는 이 구간이 trainer update를 나타내며, 동시에 실행된 rollout이나 storage I/O가 해당 update에 속한다고 보장하지 않습니다.
 구간 해석은 [Step Explorer](dashboards.md#read-a-step)에 자세히 설명합니다.
 

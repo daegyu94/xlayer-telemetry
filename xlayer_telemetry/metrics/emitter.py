@@ -13,6 +13,8 @@ import sys
 import time
 from typing import Callable, Iterable, Mapping
 
+from xlayer_telemetry.identity import producer_filename_stem
+
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _METRIC_NAME = re.compile(r"^[a-zA-Z_:][a-zA-Z0-9_:]*$")
@@ -146,7 +148,7 @@ class MetricEmitter:
                 "samples": encoded,
             }
             self.directory.mkdir(parents=True, exist_ok=True)
-            filename = f"{self.producer}-{self.role}-{self.worker_id}.json"
+            filename = producer_filename_stem(self.producer, self.role, self.worker_id) + ".json"
             destination = self.directory / filename
             temporary = self.directory / f".{filename}.{os.getpid()}.tmp"
             temporary.write_text(json.dumps(snapshot, separators=(",", ":")) + "\n", encoding="utf-8")

@@ -114,7 +114,7 @@ def test_smoke_validator_checks_parent_trace_and_optional_grader(tmp_path):
                                  parent_span_id=parent.span_id):
             pass
     assert validate_smoke(directory, require_sandbox=True)["linked_sandbox_execs"] == 1
-    (directory / "sandbox-sandbox-worker-1.jsonl").unlink()
+    sandbox_events.path.unlink()
     assert validate_smoke(directory) == {"tool_calls": 1, "sandbox_execs": 0,
                                          "linked_sandbox_execs": 0}
     with pytest.raises(ValueError, match="no sandbox.exec"):

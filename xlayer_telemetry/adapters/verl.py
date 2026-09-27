@@ -33,6 +33,14 @@ STAGE_PHASES = {
     "stop_profile": "profiling",
 }
 
+
+class FileRecord(dict):
+    """A logger record with ingestion provenance kept out of its content hash."""
+
+    def __init__(self, value: dict[str, Any], *, live: bool) -> None:
+        super().__init__(value)
+        self.live = live
+
 DIRECT_METRICS = {
     "perf/throughput": ("training_tokens_per_second_per_gpu", {}),
     "perf/total_num_tokens": ("training_tokens_processed", {}),
@@ -100,11 +108,13 @@ def iter_file_records(
     follow: bool,
     poll_interval: float,
 ) -> Iterator[dict[str, Any]]:
+    existed_at_start = path.is_file()
     while not path.is_file():
         if not follow:
             raise FileNotFoundError(path)
         time.sleep(poll_interval)
     with path.open(encoding="utf-8") as stream:
+        backlog_end = path.stat().st_size if existed_at_start or not follow else 0
         while True:
             position = stream.tell()
             line = stream.readline()
@@ -118,7 +128,7 @@ def iter_file_records(
                 except json.JSONDecodeError:
                     continue
                 if isinstance(record, dict):
-                    yield record
+                    yield FileRecord(record, live=follow and position >= backlog_end)
                 continue
             if not follow:
                 return
@@ -137,7 +147,7 @@ def bridge_records(
         if type(step) is not int or step < 0 or not isinstance(data, dict):
             continue
         if history is not None:
-            history.append(record)
+            history.append(record, live=getattr(record, "live", True))
         if adapter.emit(data, step=step) is not None:
             emitted += 1
     return emitted

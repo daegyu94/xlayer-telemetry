@@ -223,7 +223,15 @@ interrupt_workload() {
   local signal="$1" status="$2"
   trap '' INT TERM
   if [[ -n "$workload_pid" ]]; then
-    kill -s "$signal" "$workload_pid" 2>/dev/null || true
+    # The wrapper owns only this newly created session, never an existing Ray cluster.
+    kill -s "$signal" -- "-$workload_pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 50; attempt++)); do
+      kill -0 -- "-$workload_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    if kill -0 -- "-$workload_pid" 2>/dev/null; then
+      kill -s KILL -- "-$workload_pid" 2>/dev/null || true
+    fi
     wait "$workload_pid" 2>/dev/null || true
   fi
   exit "$status"
@@ -265,7 +273,7 @@ printf ' %q' "${command[@]}"
 printf '\n'
 
 set +e
-"${command[@]}" &
+setsid -- "${command[@]}" &
 workload_pid=$!
 wait "$workload_pid"
 workload_status=$?
@@ -297,7 +305,7 @@ if [[ -n "$diagnostics_config" ]]; then
     "$telemetry_python" -m xlayer_telemetry.diagnostics \
       --config "$diagnostics_config" --history "$step_history_path" \
       --output "$output_dir/diagnostics" --run-id "$run_id" \
-      --node "$node_name" --execution-mode "$execution_mode" --once --pending-only \
+      --node "$node_name" --execution-mode "$execution_mode" --once --pending-only --finalize-pending \
       >> "$output_dir/logs/telemetry-diagnostics.log" 2>&1 || echo "[telemetry] final diagnosis failed" >&2
 fi
 

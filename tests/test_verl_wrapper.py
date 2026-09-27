@@ -1,11 +1,54 @@
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+import time
 
 
 ROOT = Path(__file__).parents[1]
+
+
+def test_wrapper_terminates_owned_workload_children_only(tmp_path: Path) -> None:
+    launcher = tmp_path / "launcher.py"
+    launcher.write_text(
+        "import os, subprocess, time\n"
+        "child = subprocess.Popen(['sleep', '30'])\n"
+        "open(os.environ['CHILD_PID_FILE'], 'w').write(str(child.pid))\n"
+        "time.sleep(30)\n")
+    child_file = tmp_path / "child.pid"
+    unrelated = subprocess.Popen(["sleep", "30"])
+    wrapper = subprocess.Popen(
+        ["bash", str(ROOT / "scripts" / "run_verl_with_telemetry.sh"),
+         "--output", str(tmp_path / "run"), "--", sys.executable, str(launcher)],
+        cwd=ROOT, env=os.environ | {"TELEMETRY_PYTHON": sys.executable,
+                                    "CHILD_PID_FILE": str(child_file)},
+        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    try:
+        deadline = time.monotonic() + 8
+        while not child_file.exists() and time.monotonic() < deadline:
+            if wrapper.poll() is not None:
+                break
+            time.sleep(0.05)
+        assert child_file.exists(), wrapper.stderr.read() if wrapper.poll() is not None else ""
+        child_pid = int(child_file.read_text())
+        wrapper.send_signal(signal.SIGTERM)
+        assert wrapper.wait(timeout=10) == 143
+        state = Path(f"/proc/{child_pid}/stat")
+        assert not state.exists() or state.read_text().split()[2] == "Z"
+        assert unrelated.poll() is None
+    finally:
+        if wrapper.poll() is None:
+            wrapper.kill()
+            wrapper.wait()
+        if child_file.exists():
+            try:
+                os.kill(int(child_file.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        unrelated.terminate()
+        unrelated.wait()
 
 
 def test_wrapper_adds_non_invasive_verl_logger_and_collects_last_step(
@@ -176,10 +219,14 @@ printf '%s\n' '{"step":2,"data":{"timing_s/step":2.0,"timing_s/gen":1.0}}' > "$V
     )
     assert history["execution_mode"] == "async"
     assert history["boundary_scope"] == "trainer_update"
-    assert history["window_start_ms"] == int(history["analysis_window"]["start"] * 1000)
-    assert history["window_end_ms"] >= int(history["analysis_window"]["end"] * 1000)
+    if history["analysis_window"]["accuracy"] == "unknown":
+        assert history["window_start_ms"] is None
+        assert history["window_end_ms"] is None
+    else:
+        assert history["window_start_ms"] == int(history["analysis_window"]["start"] * 1000)
+        assert history["window_end_ms"] >= int(history["analysis_window"]["end"] * 1000)
     assert history["stage_summary"]
-    assert history["boundary_accuracy"] == "approximate"
+    assert history["boundary_accuracy"] in {"approximate", "unknown"}
     diagnosis = json.loads(
         (output / "diagnostics" / "latest.json").read_text(encoding="utf-8")
     )

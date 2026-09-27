@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
+from xlayer_telemetry.identity import producer_filename_stem
 
 
 def test_span_records_correlation_duration_and_error(tmp_path: Path) -> None:
@@ -77,3 +78,19 @@ def test_event_recorder_disables_after_unserializable_attribute(
     assert recorder.disabled
     assert capsys.readouterr().err.count("export disabled") == 1
     assert not recorder.path.exists()
+
+def test_producer_filename_encodes_component_boundaries() -> None:
+    first = producer_filename_stem("a-b", "c", "d")
+    second = producer_filename_stem("a", "b-c", "d")
+    assert first != second
+    assert producer_filename_stem("agent", "rollout", "0") == "agent-rollout-0"
+
+
+def test_distinct_hyphenated_event_producers_do_not_share_stream(tmp_path: Path) -> None:
+    recorders = [EventRecorder(tmp_path, CorrelationContext(
+        run_id="r", producer=producer, role=role, worker_id="d", node="n"))
+        for producer, role in (("a-b", "c"), ("a", "b-c"))]
+    for recorder in recorders:
+        recorder.event("tool.call", phase="tool")
+    assert recorders[0].path != recorders[1].path
+    assert [json.loads(recorder.path.read_text())["producer"] for recorder in recorders] == ["a-b", "a"]

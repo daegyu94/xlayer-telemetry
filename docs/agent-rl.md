@@ -272,7 +272,8 @@ else:
         result = call_tool()
 ```
 
-파일은 `<producer>-<role>-<worker>.jsonl`로 생성됩니다.
+파일은 기본적으로 `<producer>-<role>-<worker>.jsonl`로 생성됩니다.
+식별자 자체에 `-`가 있으면 파일명에서 해당 문자를 `%2D`로 인코딩해 서로 다른 producer tuple의 파일이 충돌하지 않도록 합니다.
 같은 directory의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
 Event는 그 자체로 Prometheus metric이 되지 않습니다.
 Loki를 켜고 Alloy가 해당 run root를 읽으면 `xlayer_event` stream으로 전달되어 Cross-Layer Timeline의 exact span에 나타납니다.

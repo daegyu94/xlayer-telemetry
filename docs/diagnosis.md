@@ -89,10 +89,17 @@ Inference request / prefill -------+         + topology / observation scope
 ## Baseline and Rule State
 
 진단은 같은 run, worker, boundary scope의 이전 유효 step 다섯 개 중 duration 중앙값에 가장 가까운 step을 baseline으로 고릅니다.
-3FS를 설정한 run은 ClickHouse ingest 지연을 고려해 step 종료 후 기본 30초(`threefs.settle_seconds`)가 지난 뒤 결과를 확정하고 wrapper도 마지막 step에 대해 이 시간을 기다립니다.
+3FS를 설정한 run은 ClickHouse ingest 지연을 고려해 step 종료 후 기본 30초(`threefs.settle_seconds`)가 지난 뒤 첫 조회를 수행하고 wrapper도 마지막 step에 대해 이 시간을 기다립니다.
+첫 조회에서 표본이 없거나 backend 오류가 발생하면 진단은 `analysis_status=provisional`로 남고 기본 10초 간격으로 최대 60초 동안 다시 조회합니다.
+`retry_interval_seconds`와 `retry_seconds`로 이 범위를 조정할 수 있으며, wrapper는 종료 시 남은 진단을 한 번 더 조회해 `final`로 확정합니다.
+재시도 중에는 `diagnostics.jsonl`에 같은 `trigger_record_id`의 revision이 누적되지만, Loki용 investigation 파일은 최종 결과에 대해서만 생성됩니다.
+따라서 잠시 비어 있는 Bottleneck Summary는 `diagnostics/latest.json`의 `analysis_status`와 `missing_sources`를 먼저 확인합니다.
+Source 자체가 없는 경우에도 재시도는 제한 시간에 끝나며, `step_event_time`이 없는 replay record는 재시도하지 않습니다.
 그 baseline의 시간 구간으로 Prometheus와 3FS를 다시 조회하고, `comparison.signals`에 current, baseline, delta, delta percent를 기록합니다.
 3FS latency는 양쪽 구간에 모두 있는 같은 `metricName`만 비교합니다.
 GPU utilization은 같은 `gpu` label의 양쪽 표본을 비교하며, device별 짝을 만들 수 없으면 node aggregate로 scope를 낮춥니다.
+vLLM의 KV usage·waiting·preemption은 Prometheus가 engine identity를 제공할 때 같은 engine의 series끼리 비교합니다.
+여러 engine이 있으나 공통 identity를 확인할 수 없으면 `vllm:shared_engine_identity`를 누락 근거로 남기고 이를 강한 후보로 조합하지 않습니다.
 동일한 이전 step이나 해당 표본이 없으면 baseline을 만들어 내지 않고 `missing_evidence`에 표시합니다.
 Delta가 크다는 사실은 원인 증명이 아닙니다.
 
@@ -125,7 +132,8 @@ Sandbox rule은 설정의 `sandbox.enabled=true`일 때만 sandbox node와 명�
 `sandbox_io_pressure_ratio`는 sandbox cgroup 안의 여러 block device를 합친 대기이며, `device` busy는 선택한 host block device 전체의 값입니다.
 실제 Docker container가 sampler cgroup 아래에 있는지, `io.stat`의 major:minor가 선택한 backing device와 맞는지 확인하지 않았다면 두 값의 일치를 근거로 귀속을 주장하지 않습니다.
 `sandbox.node`는 dedicated 배치의 node로 지정하고, colocated 배치에서는 생략해 trainer node를 사용합니다.
-Tool duration은 `agent_tool_call_duration_seconds`의 해당 run 표본을 사용하므로 adapter가 이 metric을 내지 않으면 rule은 실행되지 않습니다.
+Tool duration은 `agent_tool_call_duration_seconds`의 해당 run 표본을 사용합니다.
+이 metric이 없고 `sandbox.events_dir`를 설정했다면 같은 step 시간 구간의 정상 종료 `tool.call` span을 사용하며, baseline도 같은 tool 이름으로 비교합니다.
 이 query는 `run_id`로 tool metric을 고르므로 trainer·rollout node가 달라도 사용할 수 있지만, 여러 rollout worker의 표본이 같은 구간에 섞일 수 있습니다.
 두 scope가 겹쳐도 특정 trajectory의 SSD 사용량이라는 인과 주장은 하지 않습니다.
 
@@ -136,6 +144,10 @@ Tool duration은 `agent_tool_call_duration_seconds`의 해당 run 표본을 사�
 필드 계약은 [Diagnosis JSON Schema](../config/diagnosis.schema.json)에 있습니다.
 `candidates[].evidence`와 `counter_evidence`, `missing_evidence`가 판단 근거이고 `related_nodes`, `related_devices`, `related_spans`는 확인된 연결만 담습니다.
 Loki용 `diagnostics/investigation/*.jsonl`은 이 결과의 평면 projection이며 원본보다 정보가 적습니다.
+
+VERL file logger에 event timestamp가 없어서 bridge가 이미 존재하는 로그를 처음 읽거나 종료 후 남은 record를 replay하면, 해당 record의 `analysis_window`는 `unknown`으로 남습니다.
+이 경우 step duration과 stage 이름은 보존하지만 현재 시각의 GPU·network·storage 수치를 과거 step에 연결하지 않습니다.
+Bridge가 파일 끝을 따라가며 새 record를 읽은 경우에만 관측 시각에서 reported duration을 뺀 approximate window를 사용합니다.
 
 VERL file logger는 stage duration만 주고 stage별 실제 시작·끝은 주지 않습니다.
 Timeline은 file logger에서 추정한 전체 step band만 `approximate`로 표시하며 rollout·reward·update 순서를 추정해 그리지 않습니다.

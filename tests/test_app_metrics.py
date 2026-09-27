@@ -51,6 +51,15 @@ def test_emitter_replaces_worker_snapshot_atomically(tmp_path: Path) -> None:
     assert not list(tmp_path.glob(".*.tmp"))
 
 
+def test_distinct_hyphenated_producers_keep_distinct_snapshots(tmp_path: Path) -> None:
+    paths = [MetricEmitter(tmp_path, run_id="r", producer=producer, role=role,
+                           worker_id="d", node="n").emit(
+                               step=1, samples=[Metric("training_loss", value)])
+             for value, (producer, role) in enumerate((("a-b", "c"), ("a", "b-c")), 1)]
+    assert paths[0] != paths[1]
+    assert sorted(json.loads(path.read_text())["samples"][0]["value"] for path in paths) == [1, 2]
+
+
 def test_emitter_disables_after_invalid_sample(tmp_path: Path, capsys) -> None:
     emitter = MetricEmitter(
         tmp_path,

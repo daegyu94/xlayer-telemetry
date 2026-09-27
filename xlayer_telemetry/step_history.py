@@ -19,7 +19,7 @@ def _duration(data: Mapping[str, Any]) -> float | None:
     return None
 
 
-def dashboard_fields(start: float | None, end: float, stages: Mapping[str, float], accuracy: str) -> dict[str, Any]:
+def dashboard_fields(start: float | None, end: float | None, stages: Mapping[str, float], accuracy: str) -> dict[str, Any]:
     """Flatten a step window for Grafana's Loki table and data links."""
     return {
         "stage_summary": " · ".join(
@@ -28,7 +28,7 @@ def dashboard_fields(start: float | None, end: float, stages: Mapping[str, float
             if name != "step"
         ),
         "window_start_ms": math.floor(start * 1000) if start is not None else None,
-        "window_end_ms": math.ceil(end * 1000),
+        "window_end_ms": math.ceil(end * 1000) if end is not None else None,
         "boundary_accuracy": accuracy,
     }
 
@@ -72,7 +72,7 @@ class StepHistoryWriter:
             pass
         return seen
 
-    def append(self, record: Mapping[str, Any]) -> dict[str, Any] | None:
+    def append(self, record: Mapping[str, Any], *, live: bool = True) -> dict[str, Any] | None:
         step = record.get("step")
         data = record.get("data")
         if type(step) is not int or step < 0 or not isinstance(data, dict):
@@ -84,7 +84,8 @@ class StepHistoryWriter:
 
         observed_at = self.clock()
         duration = _duration(data)
-        start = max(0.0, observed_at - duration) if duration is not None else None
+        end = observed_at if live else None
+        start = max(0.0, end - duration) if end is not None and duration is not None else None
         stages = {
             key.removeprefix("timing_s/"): float(value)
             for key, value in data.items()
@@ -105,14 +106,16 @@ class StepHistoryWriter:
             "boundary_scope": scope,
             "step": step,
             "observed_at": observed_at,
+            "ingested_at": observed_at,
+            "source_event_time": None,
             "step_duration_seconds": duration,
             "stage_durations_seconds": stages,
-            **dashboard_fields(start, observed_at, stages, "approximate" if start is not None else "unknown"),
+            **dashboard_fields(start, end, stages, "approximate" if start is not None else "unknown"),
             "analysis_window": {
                 "start": start,
-                "end": observed_at,
+                "end": end,
                 "accuracy": "approximate" if start is not None else "unknown",
-                "source": "file_logger_observation_minus_reported_duration",
+                "source": "file_logger_observation_minus_reported_duration" if live else "replayed_file_logger_without_event_time",
             },
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)

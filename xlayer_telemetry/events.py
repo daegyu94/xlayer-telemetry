@@ -14,6 +14,8 @@ import time
 from typing import Any, Callable, Iterator, Mapping
 import uuid
 
+from .identity import producer_filename_stem
+
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _EVENT_NAME = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
@@ -108,9 +110,8 @@ class EventRecorder:
         self.context = context
         self.clock_ns = clock_ns
         self.disabled = False
-        self.path = directory / (
-            f"{context.producer}-{context.role}-{context.worker_id}.jsonl"
-        )
+        self.path = directory / (producer_filename_stem(
+            context.producer, context.role, context.worker_id) + ".jsonl")
 
     @classmethod
     def from_env(

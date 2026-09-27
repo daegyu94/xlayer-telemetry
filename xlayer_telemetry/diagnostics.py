@@ -68,7 +68,7 @@ def _escape_prometheus(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float] | None:
+def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None] | None:
     values: list[float] = []
     deltas: list[float] = []
     for item in series:
@@ -82,7 +82,8 @@ def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float] | Non
                 current.append(value)
                 values.append(value)
         if len(current) >= 2:
-            deltas.append(max(0.0, current[-1] - current[0]))
+            deltas.append(sum(right - left if right >= left else right
+                              for left, right in zip(current, current[1:])))
     if not values:
         return None
     return {
@@ -90,7 +91,7 @@ def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float] | Non
         "mean": statistics.fmean(values),
         "max": max(values),
         "last": values[-1],
-        "max_series_delta": max(deltas, default=0.0),
+        "max_series_delta": max(deltas) if deltas else None,
         "sample_count": float(len(values)),
     }
 
@@ -191,6 +192,10 @@ def load_config(path: Path) -> dict[str, Any]:
         for value in thresholds.values()
     ):
         raise ValueError("diagnostic thresholds must be finite nonnegative numbers")
+    for key, default in (("retry_seconds", 60), ("retry_interval_seconds", 10)):
+        value = config.get(key, default)
+        if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{key} must be a finite positive number")
     threefs = config.get("threefs")
     if threefs is not None:
         if not isinstance(threefs, dict):
@@ -235,7 +240,7 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
     max_duration: float | None = None
     count = 0
     try:
-        paths = list(directory.glob("agent-*.jsonl"))
+        paths = list(directory.glob("agent*.jsonl"))
     except OSError:
         return None
     for path in paths:
@@ -326,6 +331,27 @@ class DiagnosticEngine:
         now = self.clock()
         lookback = float(self.config.get("lookback_seconds", 60))
         window = dict((current or {}).get("analysis_window", {}))
+        if current and (finite(window.get("start")) is None or finite(window.get("end")) is None
+                        or float(window["start"]) >= float(window["end"])):
+            return {
+                "schema_version": 1, "record_type": "bottleneck_diagnosis",
+                "generated_at": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+                "run_id": current.get("run_id"), "node": current.get("node"),
+                "execution_mode": current.get("execution_mode", "sync"),
+                "data_origin": "observed", "trigger": "step_observed",
+                "trigger_record_id": current.get("record_id"), "step": current.get("step"),
+                "boundary_scope": current.get("boundary_scope"), "analysis_window": window,
+                "verdict": "insufficient_data", "findings": [], "evidence": {},
+                "missing_sources": ["step_event_time"],
+                "limitations": ["No trustworthy step event window is available; external telemetry cannot be correlated to this step."],
+                "diagnosis_schema_version": 1,
+                "symptom": {"step": current.get("step"),
+                            "step_duration_seconds": current.get("step_duration_seconds"),
+                            "slow_stages": [], "boundary_scope": current.get("boundary_scope")},
+                "comparison": {"current_interval": window, "baseline_interval": None,
+                               "baseline_record_id": None, "selection": "unavailable", "signals": []},
+                "candidates": [],
+            }
         end = float(window.get("end") or now)
         start = window.get("start")
         if type(start) not in (int, float) or start >= end:
@@ -361,6 +387,9 @@ class DiagnosticEngine:
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
         baseline_record = select_baseline(current, history) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
+        baseline_window_valid = (finite(baseline_window.get("start")) is not None
+                                 and finite(baseline_window.get("end")) is not None
+                                 and baseline_window["start"] < baseline_window["end"])
         baseline_metrics: dict[str, Any] = {}
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
@@ -383,7 +412,7 @@ class DiagnosticEngine:
                 else:
                     evidence[name] = stats
                     current_series[name] = series
-                if baseline_record:
+                if baseline_window_valid:
                     prior, prior_series = query_with_detail(
                         query, float(baseline_window["start"]),
                         float(baseline_window["end"]),
@@ -405,7 +434,7 @@ class DiagnosticEngine:
                 missing = [item for item in missing
                            if not item.startswith("prometheus:tool_duration_seconds")]
                 baseline_metrics.pop("tool_duration_seconds", None)
-            if baseline_record:
+            if baseline_window_valid:
                 if tool_event is not None:
                     previous_tool = tool_span_window(
                         directory, run_id, float(baseline_window["start"]),
@@ -420,8 +449,8 @@ class DiagnosticEngine:
             try:
                 duration = end - float(start)
                 threefs_rows = self.threefs.query_window(float(start), end)
-                baseline_start = float(baseline_window["start"]) if baseline_record else float(start) - duration
-                baseline_end = float(baseline_window["end"]) if baseline_record else float(start)
+                baseline_start = float(baseline_window["start"]) if baseline_window_valid else float(start) - duration
+                baseline_end = float(baseline_window["end"]) if baseline_window_valid else float(start)
                 threefs_baseline = self.threefs.query_window(baseline_start, baseline_end)
                 if threefs_rows:
                     evidence["threefs_distributions"] = threefs_rows
@@ -431,13 +460,64 @@ class DiagnosticEngine:
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"threefs:{type(exc).__name__}")
 
-        findings = self._findings(
-            evidence, threefs_rows, threefs_baseline, float(start), end, execution_mode
-        )
         current_signals = self._signals(current, evidence, threefs_rows)
         baseline_signals = self._signals(baseline_record, baseline_metrics, threefs_baseline) if baseline_record else {}
         signal_labels: dict[str, dict[str, str]] = {}
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
+        vllm_names = ("vllm_requests_waiting", "vllm_kv_cache_usage", "vllm_preemptions_total")
+        identity_keys = ("cluster", "node", "instance", "engine", "model_name", "model")
+        identity_fields = ("instance", "engine", "model_name", "model")
+        detailed = [current_series.get(name, []) for name in vllm_names]
+        selected_vllm_stats: dict[str, Any] = {}
+        if all(detailed):
+            def entity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+                labels = item.get("labels", {})
+                return tuple((key, str(labels[key])) for key in identity_keys if key in labels)
+
+            identities = [{entity(item) for item in items} for items in detailed]
+            ambiguous = any(len(items) != len(keys) for items, keys in zip(detailed, identities))
+            shared = set.intersection(*identities)
+            if not shared or ambiguous or (len(set.union(*identities)) > 1 and not any(
+                    any(key in identity_fields for key, _ in identity) for identity in shared)):
+                for name in vllm_names:
+                    current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
+                missing.append("vllm:shared_engine_identity")
+            else:
+                def score(identity: tuple[tuple[str, str], ...]) -> tuple[int, float]:
+                    stats = [next(item["stats"] for item in items if entity(item) == identity)
+                             for items in detailed]
+                    kv = stats[1].get("max") or 0
+                    kv = kv / 100 if kv > 1 else kv
+                    waiting = stats[0].get("max") or 0
+                    preemptions = stats[2].get("max_series_delta") or 0
+                    return (int(kv >= self.thresholds["vllm_kv_usage"])
+                            + int(waiting >= self.thresholds["vllm_waiting"])
+                            + int(preemptions >= 1), kv)
+
+                selected = max(sorted(shared), key=score)
+                for name, items in zip(vllm_names, detailed):
+                    stats = next(item["stats"] for item in items if entity(item) == selected)
+                    selected_vllm_stats[name] = stats
+                    signal = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
+                    value = stats.get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
+                    if value is None:
+                        current_signals.pop(signal, None)
+                    else:
+                        current_signals[signal] = value / 100 if name == "vllm_kv_cache_usage" and value > 1 else value
+                    signal_labels[signal] = dict(selected)
+        elif any(len(items) > 1 for items in detailed):
+            for name in vllm_names:
+                current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
+            missing.append("vllm:shared_engine_identity")
+        finding_evidence = dict(evidence)
+        if "vllm:shared_engine_identity" in missing:
+            for name in vllm_names:
+                finding_evidence.pop(name, None)
+        else:
+            finding_evidence.update(selected_vllm_stats)
+        findings = self._findings(
+            finding_evidence, threefs_rows, threefs_baseline, float(start), end, execution_mode
+        )
         before_by_gpu = {
             str(item.get("labels", {}).get("gpu")): item["stats"]
             for item in baseline_series.get("gpu_utilization_percent", [])
@@ -589,6 +669,8 @@ class DiagnosticEngine:
                 "communication_duration_seconds": ("weight_sync", "all_reduce", "collective"),
             }.items():
                 values = [finite(stages.get(name)) for name in names]
+                if signal == "communication_duration_seconds" and finite(stages.get("weight_sync")) is None:
+                    values.append(finite(stages.get("update_weights")))
                 if any(value is not None for value in values):
                     signals[signal] = sum(value or 0 for value in values)
         fields = {
@@ -606,7 +688,7 @@ class DiagnosticEngine:
             "vllm_kv_cache_usage": "max",
             "vllm_preemptions_total": "max_series_delta",
             "gpu_memory_usage_ratio": "max",
-            "gpu_evictions_delta": "max_series_delta",
+            "gpu_evictions_delta": "max",
             "network_utilization_ratio": "max",
             "threefs_throughput_bytes_per_second": "mean",
             "storage_request_bytes": "mean",
@@ -637,7 +719,7 @@ class DiagnosticEngine:
         waiting = evidence.get("vllm_requests_waiting", {}).get("max", 0)
         kv = evidence.get("vllm_kv_cache_usage", {}).get("max", 0)
         kv_ratio = kv / 100 if kv > 1 else kv
-        preemptions = evidence.get("vllm_preemptions_total", {}).get("max_series_delta", 0)
+        preemptions = evidence.get("vllm_preemptions_total", {}).get("max_series_delta") or 0
         if waiting >= self.thresholds["vllm_waiting"] or kv_ratio >= self.thresholds["vllm_kv_usage"] or preemptions > 0:
             finding = {"component": "vllm", "candidate": "rollout_capacity_or_kv_pressure", "signals": {"waiting_max": waiting, "kv_usage_max_ratio": kv_ratio, "preemptions_delta": preemptions}}
             if execution_mode == "async":
@@ -671,8 +753,8 @@ class DiagnosticEngine:
         return findings
 
 
-def _existing_ids(path: Path) -> set[str]:
-    ids: set[str] = set()
+def _existing_reports(path: Path) -> dict[str, dict[str, Any]]:
+    reports: dict[str, dict[str, Any]] = {}
     try:
         with path.open(encoding="utf-8") as stream:
             for line in stream:
@@ -680,12 +762,14 @@ def _existing_ids(path: Path) -> set[str]:
                     value = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if not isinstance(value, dict):
+                    continue
                 record_id = value.get("trigger_record_id")
                 if isinstance(record_id, str):
-                    ids.add(record_id)
+                    reports[record_id] = value
     except FileNotFoundError:
         pass
-    return ids
+    return reports
 
 
 def write_report(directory: Path, report: Mapping[str, Any]) -> None:
@@ -696,7 +780,7 @@ def write_report(directory: Path, report: Mapping[str, Any]) -> None:
     temporary = directory / f".latest.json.{os.getpid()}.tmp"
     temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(temporary, directory / "latest.json")
-    if report.get("trigger") != "step_observed":
+    if report.get("trigger") != "step_observed" or report.get("analysis_status") == "provisional":
         return
     # One immutable file per analysis lets Alloy/Loki tail without rereading
     # rewritten content. Flatten only presentation fields; latest.json stays
@@ -779,25 +863,45 @@ def run_once(
     *,
     periodic_when_idle: bool = True,
     max_records: int | None = None,
+    finalize_pending: bool = False,
 ) -> int:
     history = load_history(history_path)
-    seen = _existing_ids(output / "diagnostics.jsonl")
-    unseen = [record for record in history if record.get("record_id") not in seen]
+    reports = _existing_reports(output / "diagnostics.jsonl")
     settle = float(engine.config.get("threefs", {}).get("settle_seconds", 30)) if engine.threefs else 0.0
     now = engine.clock()
+    retry_seconds = float(engine.config.get("retry_seconds", 60))
+    retry_interval = float(engine.config.get("retry_interval_seconds", 10))
 
     def ready(record: Mapping[str, Any]) -> bool:
         window = record.get("analysis_window")
         end = finite(window.get("end")) if isinstance(window, Mapping) else None
-        return end is not None and now - end >= settle
+        return end is None or now - end >= settle
 
-    pending = [record for record in unseen if ready(record)]
+    unfinished = [record for record in history
+                  if reports.get(record.get("record_id"), {}).get("analysis_status") == "provisional"
+                  or record.get("record_id") not in reports]
+    pending = [record for record in unfinished if ready(record) and (
+        finalize_pending or now >= reports.get(record.get("record_id"), {}).get("retry_at", 0))]
     if pending:
         batch = pending[:max_records] if max_records is not None else pending
         for record in batch:
             prior = [item for item in history if item.get("observed_at", 0) < record.get("observed_at", 0)]
-            write_report(output, engine.analyze(record, prior))
-    elif periodic_when_idle and not unseen:
+            previous = reports.get(record.get("record_id"), {})
+            report = engine.analyze(record, prior)
+            first_attempt = previous.get("first_attempt_at", now)
+            query_failed = any(source.startswith("prometheus:") and source.count(":") >= 2
+                               or source.startswith("threefs:") and source != "threefs:no_data"
+                               for source in report["missing_sources"])
+            retryable = (report["verdict"] == "insufficient_data" or query_failed) and (
+                "step_event_time" not in report["missing_sources"])
+            provisional = (retryable and not finalize_pending and retry_seconds > 0
+                           and now < first_attempt + retry_seconds)
+            report.update({"analysis_status": "provisional" if provisional else "final",
+                           "revision": int(previous.get("revision", 0)) + 1,
+                           "first_attempt_at": first_attempt,
+                           "retry_at": min(now + retry_interval, first_attempt + retry_seconds) if provisional else None})
+            write_report(output, report)
+    elif periodic_when_idle and not unfinished:
         write_report(output, engine.analyze(None, history))
     return len(batch) if pending else 0
 
@@ -809,6 +913,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--pending-only", action="store_true")
+    parser.add_argument("--finalize-pending", action="store_true")
     parser.add_argument("--check-config", action="store_true")
     parser.add_argument("--run-id")
     parser.add_argument("--node")
@@ -836,6 +941,7 @@ def main() -> None:
             args.output,
             periodic_when_idle=not args.pending_only,
             max_records=None if args.once else 20,
+            finalize_pending=args.finalize_pending,
         )
         if args.once:
             return

@@ -11,6 +11,7 @@ from xlayer_telemetry.diagnostics import (
     run_once,
 )
 from xlayer_telemetry.step_history import StepHistoryWriter
+from xlayer_telemetry.adapters.verl import iter_file_records
 
 
 class FakePrometheus:
@@ -72,6 +73,140 @@ def test_step_history_deduplicates_and_marks_async_update(tmp_path: Path) -> Non
         "source": "file_logger_observation_minus_reported_duration",
     }
     assert loaded["stage_durations_seconds"] == {"gen": 8.0, "update_actor": 2.0}
+
+
+def test_replayed_steps_have_no_external_correlation_window(tmp_path: Path) -> None:
+    source = tmp_path / "verl.jsonl"
+    source.write_text(json.dumps({"step": 1, "data": {"timing_s/step": 10}}) + "\n")
+    writer = StepHistoryWriter(tmp_path / "steps.jsonl", run_id="r", node="n",
+                               worker_id="driver", clock=lambda: 1000)
+    item = writer.append(next(iter_file_records(source, follow=False, poll_interval=0.1)), live=False)
+    assert item["observed_at"] == 1000
+    assert item["analysis_window"] == {
+        "start": None, "end": None, "accuracy": "unknown",
+        "source": "replayed_file_logger_without_event_time"}
+    prom = FakePrometheus({"gpu_utilization": {"mean": 95}})
+    report = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"}},
+                              prometheus=prom, clock=lambda: 1000).analyze(item, [])
+    assert report["verdict"] == "insufficient_data"
+    assert report["evidence"] == {}
+    assert "step_event_time" in report["missing_sources"]
+
+
+def test_file_follower_distinguishes_backlog_from_new_records(tmp_path: Path) -> None:
+    source = tmp_path / "verl.jsonl"
+    source.write_text(json.dumps({"step": 1, "data": {}}) + "\n")
+    records = iter_file_records(source, follow=True, poll_interval=0.01)
+    assert next(records).live is False
+    with source.open("a") as stream:
+        stream.write(json.dumps({"step": 2, "data": {}}) + "\n")
+    assert next(records).live is True
+    records.close()
+
+
+def test_no_data_diagnosis_retries_and_finalizes_after_scrape(tmp_path: Path) -> None:
+    history = tmp_path / "steps.jsonl"
+    history.write_text(json.dumps({"schema_version": 1, "record_type": "verl_step_observation",
+                                   "record_id": "one", "run_id": "r", "node": "n",
+                                   "observed_at": 100, "analysis_window": {"start": 90, "end": 100}}) + "\n")
+    clock = [101.0]
+    prom = FakePrometheus({})
+    engine = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+                               "retry_interval_seconds": 5}, prometheus=prom, clock=lambda: clock[0])
+    output = tmp_path / "diagnostics"
+    assert run_once(engine, history, output, periodic_when_idle=False) == 1
+    assert json.loads((output / "latest.json").read_text())["analysis_status"] == "provisional"
+    assert not (output / "investigation").exists()
+    assert run_once(engine, history, output, periodic_when_idle=False) == 0
+    prom.values = {"gpu_utilization": {"mean": 50}}
+    clock[0] = 106.0
+    assert run_once(engine, history, output, periodic_when_idle=False) == 1
+    report = json.loads((output / "latest.json").read_text())
+    assert report["analysis_status"] == "final"
+    assert report["revision"] == 2
+    assert (output / "investigation" / "one.jsonl").is_file()
+    assert run_once(engine, history, output, periodic_when_idle=False) == 0
+
+
+def test_missing_backend_has_bounded_retry_and_replay_baseline_is_safe(tmp_path: Path) -> None:
+    history = tmp_path / "steps.jsonl"
+    records = [
+        {"schema_version": 1, "record_type": "verl_step_observation", "record_id": "old",
+         "run_id": "r", "node": "n", "worker_id": "driver", "boundary_scope": "rl_step",
+         "observed_at": 80, "step_duration_seconds": 10,
+         "analysis_window": {"start": None, "end": None, "accuracy": "unknown"}},
+        {"schema_version": 1, "record_type": "verl_step_observation", "record_id": "new",
+         "run_id": "r", "node": "n", "worker_id": "driver", "boundary_scope": "rl_step",
+         "observed_at": 100, "step_duration_seconds": 20,
+         "analysis_window": {"start": 90, "end": 100, "accuracy": "approximate"}},
+    ]
+    history.write_text("".join(json.dumps(record) + "\n" for record in records))
+    clock = [101.0]
+    engine = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+                               "retry_seconds": 10, "retry_interval_seconds": 5},
+                              prometheus=FakePrometheus({}), clock=lambda: clock[0])
+    output = tmp_path / "diagnostics"
+    assert run_once(engine, history, output, periodic_when_idle=False) == 2
+    clock[0] = 111.0
+    assert run_once(engine, history, output, periodic_when_idle=False) == 1
+    report = json.loads((output / "latest.json").read_text())
+    assert report["trigger_record_id"] == "new"
+    assert report["analysis_status"] == "final"
+    assert report["comparison"]["baseline_record_id"] is None
+    assert report["comparison"]["baseline_interval"] is None
+    assert run_once(engine, history, output, periodic_when_idle=False) == 0
+
+
+def test_counter_reset_and_single_sample_are_distinct() -> None:
+    reset = diagnostics._series_stats([{"values": [[0, "100"], [1, "0"], [2, "20"]]}])
+    assert reset["max_series_delta"] == 20
+    assert diagnostics._series_stats([{"values": [[0, "100"]]}])["max_series_delta"] is None
+    assert DiagnosticEngine._signals(None, {"gpu_evictions_delta": {"max": 3,
+                                     "max_series_delta": 0}}, [])["gpu_evictions_delta"] == 3
+
+
+def test_weight_update_alias_is_counted_once() -> None:
+    signals = DiagnosticEngine._signals({"stage_durations_seconds": {
+        "weight_sync": 5, "update_weights": 5, "all_reduce": 2}}, {}, [])
+    assert signals["communication_duration_seconds"] == 7
+    assert DiagnosticEngine._signals({"stage_durations_seconds": {
+        "update_weights": 5}}, {}, [])["communication_duration_seconds"] == 5
+
+
+def test_vllm_evidence_does_not_join_different_engines() -> None:
+    class DetailedPrometheus:
+        def __init__(self, kv_values):
+            self.kv_values = kv_values
+
+        def query_range_detail(self, query, start, end, step):
+            values = {
+                "num_requests_waiting": (0, 5),
+                "kv_cache_usage_perc": self.kv_values,
+                "num_preemptions_total": (0, 2),
+            }
+            for needle, pair in values.items():
+                if needle in query:
+                    field = "max_series_delta" if needle == "num_preemptions_total" else "max"
+                    return {"aggregate": {field: max(pair)}, "series": [
+                        {"labels": {"node": "n", "instance": name}, "stats": {field: value}}
+                        for name, value in zip(("engine-a", "engine-b"), pair)]}
+            return {"aggregate": None, "series": []}
+
+    engine = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"}},
+                              prometheus=DetailedPrometheus((0.99, 0.1)), clock=lambda: 101)
+    current = {"record_id": "one", "run_id": "r", "node": "n", "step": 1,
+               "analysis_window": {"start": 90, "end": 100}, "step_duration_seconds": 20}
+    report = engine.analyze(current, [])
+    assert not any(candidate["id"] == "kv_cache_pressure" and
+                   candidate["state"] == "strong_signal" for candidate in report["candidates"])
+    assert all(evidence["labels"].get("instance") in {None, "engine-a", "engine-b"}
+               for candidate in report["candidates"] for evidence in candidate["evidence"])
+    engine.prometheus = DetailedPrometheus((0.1, 0.99))
+    report = engine.analyze(current, [])
+    pressure = next(candidate for candidate in report["candidates"]
+                    if candidate["id"] == "kv_cache_pressure")
+    assert pressure["state"] == "strong_signal"
+    assert {item["labels"]["instance"] for item in pressure["evidence"]} == {"engine-b"}
 
 
 def test_async_diagnosis_correlates_external_signals_without_claiming_step_ownership() -> None:
