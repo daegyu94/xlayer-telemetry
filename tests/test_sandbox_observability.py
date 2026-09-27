@@ -14,6 +14,7 @@ from xlayer_telemetry.sandbox import SandboxRecorder
 from xlayer_telemetry.sandbox_sampler import (
     parse_io_stat, parse_pressure, pressure_ratio, read_cgroup, samples,
 )
+from examples.sandbox.validate_smoke import validate as validate_smoke
 
 
 def test_cgroup_v2_fixture_and_missing_sources(tmp_path):
@@ -30,6 +31,7 @@ def test_cgroup_v2_fixture_and_missing_sources(tmp_path):
     assert values["memory_current"] == 8192
     assert values["memory_peak"] == 16384
     assert values["memory_event_oom"] == 2
+    assert values["memory_event_oom_kill"] == 1
     assert "cpu_pressure_some_total_usec" not in values
     assert parse_io_stat("") == {"rbytes": 0, "wbytes": 0, "rios": 0, "wios": 0}
     assert parse_pressure("full avg10=0 total=9") == {}
@@ -41,13 +43,15 @@ def test_metric_output_pressure_delta_and_cardinality():
     before = {"io_some_total_usec": 100000}
     current = {"rbytes": 100, "wbytes": 200, "rios": 1, "wios": 2,
                "io_some_total_usec": 350000, "cpu_usage_usec": 3000000,
-               "memory_current": 1000, "memory_peak": 2000, "memory_event_oom": 1}
+               "memory_current": 1000, "memory_peak": 2000,
+               "memory_event_oom": 2, "memory_event_oom_kill": 1}
     exposed = samples(current, previous=before, elapsed_seconds=1, labels=labels)
     text = format_gauges(exposed)
     assert 'sandbox_io_pressure_ratio{deployment="dedicated"' in text
     assert text.endswith("\n")
     assert any(item.name == "sandbox_io_pressure_ratio" and item.value == 0.25 for item in exposed)
     assert any(item.name == "sandbox_cpu_usage_seconds_total" and item.value == 3 for item in exposed)
+    assert any(item.name == "sandbox_oom_kill_total" and item.value == 1 for item in exposed)
     assert all("sandbox_id" not in item.labels and "trajectory_id" not in item.labels for item in exposed)
     with pytest.raises(ValueError):
         samples(current, previous=before, elapsed_seconds=1,
@@ -80,17 +84,47 @@ def test_sandbox_lifecycle_reuses_trace_without_prometheus_ids(tmp_path, deploym
     sandbox = SandboxRecorder(events, runtime="containerd", filesystem="overlayfs",
                               deployment=deployment, sandbox_node=node)
     with events.span("tool.call", phase="tool_interaction", step=7) as tool:
+        with sandbox.span("queue", step=7, trajectory_id="traj-17",
+                          trace_id=tool.trace_id, parent_span_id=tool.span_id):
+            pass
         with sandbox.span("exec", step=7, sandbox_id="sb-17", trajectory_id="traj-17",
                           trace_id=tool.trace_id, parent_span_id=tool.span_id):
             pass
     records = [json.loads(line) for line in events.path.read_text().splitlines()]
-    child, parent = records
+    queue, child, parent = records
+    assert queue["name"] == "sandbox.queue"
+    assert queue["parent_span_id"] == parent["span_id"]
     assert child["trace_id"] == parent["trace_id"]
     assert child["parent_span_id"] == parent["span_id"]
     assert child["attributes"]["sandbox_id"] == "sb-17"
     assert child["attributes"]["deployment"] == deployment
     assert child["node"] == node
     assert child["role"] == "sandbox"
+
+
+def test_smoke_validator_checks_parent_trace_and_optional_grader(tmp_path):
+    directory = tmp_path / "events"
+    agent = EventRecorder(directory, CorrelationContext(
+        run_id="run-1", producer="agent", role="rollout", worker_id="worker-1", node="gpu-0"))
+    sandbox_events = EventRecorder(directory, CorrelationContext(
+        run_id="run-1", producer="sandbox", role="sandbox", worker_id="worker-1", node="gpu-0"))
+    with agent.span("tool.call", phase="tool_interaction") as parent:
+        with sandbox_events.span("sandbox.exec", phase="environment",
+                                 trace_id=parent.trace_id,
+                                 parent_span_id=parent.span_id):
+            pass
+    assert validate_smoke(directory, require_sandbox=True)["linked_sandbox_execs"] == 1
+    (directory / "sandbox-sandbox-worker-1.jsonl").unlink()
+    assert validate_smoke(directory) == {"tool_calls": 1, "sandbox_execs": 0,
+                                         "linked_sandbox_execs": 0}
+    with pytest.raises(ValueError, match="no sandbox.exec"):
+        validate_smoke(directory, require_sandbox=True)
+    (directory / "sandbox-sandbox-worker-1.jsonl").write_text(json.dumps({
+        "record_type": "span", "name": "sandbox.exec", "run_id": "run-1",
+        "trace_id": "unlinked", "parent_span_id": "missing",
+    }) + "\n")
+    with pytest.raises(ValueError, match="no matching tool.call"):
+        validate_smoke(directory, require_sandbox=True)
 
 
 def test_individual_sandbox_io_delta_stays_in_correlated_event(tmp_path):

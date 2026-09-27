@@ -544,7 +544,7 @@
     {
       "id": 12,
       "type": "timeseries",
-      "title": "Sandbox worker I/O pressure",
+      "title": "Sandbox worker and device pressure",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -564,7 +564,12 @@
         {
           "refId": "B",
           "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
-          "legendFormat": "local device busy"
+          "legendFormat": "local device busy {{device}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+          "legendFormat": "CPU PSI"
         }
       ],
       "fieldConfig": {
@@ -584,7 +589,7 @@
           ]
         }
       },
-      "description": "I/O PSI is sandbox-worker cgroup scope; device busy is node/device scope. Select the sandbox node and backing device before comparing."
+      "description": "I/O and CPU PSI are sandbox-worker cgroup scope; device busy is node/device scope. Select the sandbox node and verify the backing device before comparing."
     },
     {
       "id": 13,
@@ -719,7 +724,7 @@
           ]
         }
       },
-      "description": "Memory for the sandbox worker cgroup and descendants."
+      "description": "Current memory covers the worker cgroup and descendants. Peak is the high-water mark since this cgroup was created, not the peak of the selected time interval."
     },
     {
       "id": 16,
@@ -745,6 +750,11 @@
           "refId": "B",
           "expr": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
           "legendFormat": "OOM/s"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+          "legendFormat": "OOM kills/s"
         }
       ],
       "fieldConfig": {
@@ -764,7 +774,7 @@
           ]
         }
       },
-      "description": "CPU rate in cores; OOM events over the selected rate interval."
+      "description": "CPU rate in cores; OOM attempts and actual OOM kills per second over the selected rate interval."
     },
     {
       "id": 17,

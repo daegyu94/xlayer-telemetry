@@ -11,7 +11,7 @@ from .events import EventRecorder, SpanIdentity
 from .sandbox_sampler import pressure_ratio, read_cgroup
 
 
-LIFECYCLE_OPERATIONS = frozenset({"acquire", "prepare", "exec", "reset", "release"})
+LIFECYCLE_OPERATIONS = frozenset({"queue", "acquire", "prepare", "exec", "reset", "release"})
 DEPLOYMENTS = frozenset({"colocated", "dedicated"})
 
 
@@ -65,7 +65,8 @@ class SandboxRecorder:
                                               "io_some_total_usec")
                     if pressure is not None:
                         deltas["io_pressure_ratio"] = pressure
-                    for key in ("memory_current", "memory_peak", "memory_event_oom"):
+                    for key in ("memory_current", "memory_peak", "memory_event_oom",
+                                "memory_event_oom_kill"):
                         if key in after:
                             deltas[key] = after[key]
                     if deltas:

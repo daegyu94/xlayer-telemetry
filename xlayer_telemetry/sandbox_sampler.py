@@ -97,7 +97,8 @@ def samples(values: Mapping[str, int], *, previous: Mapping[str, int] | None,
     for key, name in (("cpu_usage_usec", "sandbox_cpu_usage_seconds_total"),
                       ("memory_current", "sandbox_memory_bytes"),
                       ("memory_peak", "sandbox_memory_peak_bytes"),
-                      ("memory_event_oom", "sandbox_oom_total")):
+                      ("memory_event_oom", "sandbox_oom_total"),
+                      ("memory_event_oom_kill", "sandbox_oom_kill_total")):
         value = values.get(key)
         add(name, value / 1_000_000 if key == "cpu_usage_usec" and value is not None else value,
             "counter" if name.endswith("_total") else "gauge")

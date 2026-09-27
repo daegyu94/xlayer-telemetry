@@ -386,6 +386,14 @@
       "policy": "optional"
     },
     {
+      "name": "sandbox_oom_kill_total",
+      "category": "sandbox",
+      "unit": "events",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.events",
+      "policy": "optional"
+    },
+    {
       "name": "orchestration_tasks_pending",
       "category": "orchestration",
       "unit": "tasks",

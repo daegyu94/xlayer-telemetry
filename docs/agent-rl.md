@@ -327,7 +327,9 @@ else:
         run_command_in_existing_sandbox()
 ```
 
-지원하는 operation은 `acquire`, `prepare`, `exec`, `reset`, `release`이며 runtime에서 실제 실행한 단계만 기록합니다.
+지원하는 operation은 `queue`, `acquire`, `prepare`, `exec`, `reset`, `release`이며 runtime에서 실제 실행한 단계만 기록합니다.
+`queue`는 pool에 빈 sandbox가 생기기를 기다리는 구간, `acquire`는 선택된 sandbox를 할당받는 구간입니다.
+Queue가 없는 runtime은 두 구간을 만들어 내지 않고 실제 `exec`만 기록해도 됩니다.
 `tool_span`은 AgentLoop의 기존 `tool.call` span에서 받은 ID이며, dedicated 배치라면 RPC로 전달합니다.
 `cgroup`은 선택 사항이며, 개별 sandbox cgroup을 전달하면 span 전후의 I/O bytes·operations 차이와 PSI를 같은 trace의 `sandbox.resource_sample` event에 기록합니다.
 이 event의 `sandbox_id`·`trajectory_id`와 cgroup 범위 값은 Prometheus label이나 worker 전체 집계에 섞이지 않습니다.
@@ -368,11 +370,27 @@ bash examples/sandbox/run_verl_lab_smoke.sh
 이 예제는 colocated Docker grader를 대상으로 하며 patch가 검증 단계에 도달했을 때만 `sandbox.exec` span이 생깁니다.
 `docker run --rm` 호출만 감싸므로 개별 container cgroup 경로를 자동 발견하거나 trajectory ID를 만들어 내지는 않습니다.
 그 정보가 있는 runtime은 위의 `SandboxRecorder.span(cgroup=...)`을 직접 호출해 개별 I/O event를 추가합니다.
+Docker CLI를 호출하는 veRL worker와 Docker daemon이 만드는 grader container가 같은 cgroup subtree에 들어간다는 보장은 없습니다.
+따라서 worker PID의 cgroup만 sampler에 주면 grader의 I/O·CPU·memory를 수집한다고 보장할 수 없습니다.
+Docker grader를 별도의 parent 아래에 배치하려면 smoke 실행 전에 `XLAYER_SANDBOX_CGROUP_PARENT`를 지정합니다.
+
+```bash
+export XLAYER_SANDBOX_CGROUP_PARENT=xlayer-sandbox-worker.slice
+bash examples/sandbox/run_verl_lab_smoke.sh
+python -m examples.sandbox.validate_smoke "$RUN_ROOT" --require-sandbox
+```
+
+이 옵션은 grader의 `docker run`에 `--cgroup-parent`를 전달합니다.
+호스트에서 실제 container PID의 `/proc/<pid>/cgroup`을 확인해 지정한 parent 아래에 생성됐는지 검증해야 합니다.
+`docker run --rm` grader는 매우 짧게 실행될 수 있으므로, container가 없을 때 parent가 유지되는지도 확인하고 sampler interval만으로 모든 grader 호출이 포착된다고 가정하지 않습니다.
+실제 Docker container 2개 이상의 parent I/O 합산을 별도로 검사하려면 로컬에 grader image가 있는 호스트에서 `python -m examples.sandbox.validate_docker_cgroup`을 실행합니다.
+이 검사는 임시 container를 만들고 종료하며, veRL smoke의 개별 trajectory 귀속까지 검증하지는 않습니다.
 
 ### Sample the sandbox worker cgroup
 
 Sandbox worker와 하위 container가 속한 **안정적인 cgroup v2 subtree**를 입력으로 지정합니다.
-`/proc/<worker-pid>/cgroup`의 `0::` 뒤 경로를 호스트의 `/sys/fs/cgroup` 아래에서 확인하고, runtime이 sandbox를 만들 때마다 새로 생성하는 개별 container cgroup을 Prometheus 대상으로 사용하지 않습니다.
+`/proc/<worker-pid>/cgroup`의 `0::` 뒤 경로를 호스트의 `/sys/fs/cgroup` 아래에서 확인하되, Docker daemon이 만든 container가 그 경로의 자손인지도 확인합니다.
+안정적으로 유지되는 sandbox parent를 Prometheus 대상으로 사용하고, runtime이 sandbox를 만들 때마다 새로 생성하는 개별 container cgroup은 사용하지 않습니다.
 하나의 node·runtime·filesystem·deployment 조합에 textfile producer 하나를 두어 같은 시계열이 충돌하지 않게 합니다.
 한 node에 둘 이상을 수집한다면 `--textfile-name`을 서로 다른 `.prom` basename으로 설정합니다.
 
@@ -392,9 +410,13 @@ Colocated라면 `--node`를 GPU/rollout node 이름으로, `--deployment`를 `co
 PSI ratio는 직전 표본 이후 stall 시간 비율이므로 첫 표본에서는 비어 있으며, 읽을 수 없는 source도 0으로 위조하지 않고 생략합니다.
 Page cache hit처럼 block device에 도달하지 않은 작업은 `io.stat` bytes로 보이지 않을 수 있습니다.
 Counter는 worker cgroup이 유지되는 동안에만 단조 증가합니다.
+`sandbox_oom_total`은 `memory.events`의 `oom`, `sandbox_oom_kill_total`은 실제 kill을 센 `oom_kill`입니다.
+`sandbox_memory_peak_bytes`는 cgroup 생성 이후의 high-water mark이므로 선택한 step이나 Grafana 시간 범위의 peak로 해석하지 않습니다.
 `sandbox_sample_timestamp_seconds`로 sampler의 마지막 갱신 시각을 확인하며, 오래된 textfile 표본은 현재 압력으로 해석하지 않습니다.
 
-Sandbox I/O는 cgroup 범위이고 local NVMe busy는 node/device 전체 범위입니다.
+Sandbox I/O는 cgroup에 속한 여러 block device의 합계이고 local NVMe busy는 선택한 node/device 전체 범위입니다.
+`sandbox.device`를 설정할 때는 container의 `io.stat`에 표시된 major:minor와 호스트의 backing device를 대조합니다.
+대조하지 못했다면 두 수치가 같은 device를 나타낸다고 가정하지 않습니다.
 3FS 서비스 latency나 공유 storage 지표와 local sandbox NVMe를 합산하지 않습니다.
 특정 tool이 느리고 cgroup pressure와 NVMe busy가 동시에 증가해도 다른 sandbox·process의 부하가 섞일 수 있으므로 [진단 후보](diagnosis.md#baseline-and-rule-state)로만 해석합니다.
 원인을 더 좁혀야 하면 해당 구간에서 VFS syscall, OverlayFS copy-up, fsync 등을 선택적으로 profile할 수 있으며 eBPF는 기본 의존성이 아닙니다.

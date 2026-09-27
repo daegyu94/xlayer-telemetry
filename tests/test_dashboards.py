@@ -103,6 +103,19 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
         if any(property_["id"] == "custom.hidden" for property_ in override["properties"])
     }
     assert {panel.get("datasource", {}).get("uid") for panel in step_detail["panels"]} == {None, "telemetry-loki", "telemetry-prometheus"}
+    timeline = json.loads((ROOT / "examples/dashboards/cross-layer-timeline.json").read_text())
+    node_variable = next(item for item in timeline["templating"]["list"]
+                         if item["name"] == "node")
+    assert "nodename" in node_variable["query"]
+    resource_panels = [panel for panel in timeline["panels"]
+                       if panel["title"] in {"GPU utilization", "RDMA bytes per second",
+                                             "Device busy ratio", "Sandbox I/O pressure (sampled)"}]
+    assert all('nodename=~"$node"' in target["expr"]
+               for panel in resource_panels for target in panel["targets"])
+    sandbox_panels = {panel["title"]: panel for panel in agent_rl["panels"]
+                      if panel["title"].startswith("Sandbox")}
+    assert "sandbox_cpu_pressure_ratio" in str(sandbox_panels["Sandbox worker and device pressure"])
+    assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox worker CPU and OOM"])
 
 
 def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:

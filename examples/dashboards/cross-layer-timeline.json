@@ -53,8 +53,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
         "includeAll": true,
         "allValue": ".*",
         "refresh": 1,
@@ -716,7 +716,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_infiniband_port_data_received_bytes_total{instance=~\"$node\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{instance=~\"$node\"}[1m])",
+          "expr": "rate(node_infiniband_port_data_received_bytes_total{nodename=~\"$node\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{nodename=~\"$node\"}[1m])",
           "legendFormat": "{{device}}"
         }
       ],
@@ -750,7 +750,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$node\"}[1m])",
+          "expr": "rate(node_disk_io_time_seconds_total{nodename=~\"$node\"}[1m])",
           "legendFormat": "{{device}}"
         }
       ],

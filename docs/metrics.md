@@ -104,6 +104,8 @@ Label 값의 조합마다 별도 시계열이 생깁니다.
 실행 조건과 경로는 manifest에, 개별 요청의 상세 정보는 log·event·trace에 둡니다.
 Sandbox metric의 Prometheus label은 `node`, `role`, `runtime`, `filesystem`, `deployment`만 사용합니다.
 `sandbox_id`, `container_id`, `trajectory_id`, request ID, SWE-Bench instance ID는 label로 사용하지 않습니다.
+`sandbox_active`·`sandbox_queued`·lifecycle latency·failure metric은 계약상 선택적 runtime-provided signal이며 현재 내장 Docker grader adapter는 생산하지 않습니다.
+내장 cgroup sampler가 생산하는 것은 worker subtree의 I/O·CPU·memory·PSI metric입니다.
 Node Exporter target의 `cluster`·`nodename` label은 별도로 추가될 수 있습니다.
 SDK에서 추가하는 label과 native exporter가 제공하는 label은 같다고 가정하지 않습니다.
 현재 dashboard의 filter와 query에 실제로 쓰이는 label을 확인합니다.

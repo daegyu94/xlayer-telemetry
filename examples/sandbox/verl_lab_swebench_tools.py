@@ -71,7 +71,14 @@ class _ObservedSubprocess:
         return getattr(subprocess, name)
 
     def run(self, command, *args, **kwargs):
-        if isinstance(command, (list, tuple)) and command and command[0] == "docker":
+        if (isinstance(command, (list, tuple))
+                and tuple(command[:2]) == ("docker", "run")):
+            parent_cgroup = os.environ.get("XLAYER_SANDBOX_CGROUP_PARENT", "").strip()
+            if parent_cgroup:
+                if any(part == "--cgroup-parent" or part.startswith("--cgroup-parent=")
+                       for part in command[2:]):
+                    raise ValueError("Docker grader already sets --cgroup-parent")
+                command = [*command[:2], "--cgroup-parent", parent_cgroup, *command[2:]]
             events = EventRecorder.from_env(
                 producer="sandbox", role="sandbox", worker_id=str(os.getpid()))
             if events is not None:
@@ -82,7 +89,8 @@ class _ObservedSubprocess:
                 with sandbox.span(
                     "exec", trace_id=parent.trace_id if parent else None,
                     parent_span_id=parent.span_id if parent else None,
-                    attributes={"tool": _ACTIVE_TOOL_NAME.get() or "reward_grader"},
+                    attributes={"tool": _ACTIVE_TOOL_NAME.get() or "reward_grader",
+                                **({"cgroup_parent": parent_cgroup} if parent_cgroup else {})},
                 ):
                     return subprocess.run(command, *args, **kwargs)
         return subprocess.run(command, *args, **kwargs)

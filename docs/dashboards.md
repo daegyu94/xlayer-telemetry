@@ -60,6 +60,9 @@ Ray endpoint를 등록했더라도 전용 panel은 제공하지 않으므로 Ray
 Sandbox worker sampler를 켰다면 아래의 pool occupancy, I/O pressure, throughput·operations, CPU·memory·OOM panel에서 sandbox node의 상태를 봅니다.
 `Sandbox sample age`가 증가하면 해당 cgroup 그래프는 오래된 textfile 값이므로 현재 상태로 해석하지 않습니다.
 Pool occupancy는 외부 runtime adapter가 `sandbox_active`·`sandbox_queued`를 낼 때만 채워집니다.
+`Sandbox worker and device pressure`의 CPU PSI는 cgroup 전체의 CPU 대기 비율이며, I/O PSI와 별도 원인 후보입니다.
+`Sandbox worker memory`의 peak는 cgroup 생성 이후의 high-water mark이므로 선택한 시간 구간의 peak가 아닙니다.
+`Sandbox worker CPU and OOM`은 OOM event와 실제 OOM kill을 구분하며, OOM kill은 해당 source가 있을 때만 표시됩니다.
 Dedicated 배치에서는 `Node`를 sandbox node로 선택해야 하며, 이 panel의 cgroup I/O와 local device busy는 서로 다른 scope입니다.
 Lifecycle latency는 Prometheus 집계가 아니라 정확한 `sandbox.*` EventRecorder span으로 [Cross-Layer Timeline](#bottleneck-summary-and-cross-layer-timeline)에서 확인합니다.
 
@@ -108,7 +111,7 @@ Step Explorer에서 느린 step을 선택한 뒤 Bottleneck Summary로 이동하
 각 행의 scope가 `shared-service`나 `node`라면 해당 수치는 그 run에 귀속된 사용량이 아닙니다.
 
 Cross-Layer Timeline은 EventRecorder의 실제 start/end span, VERL file logger에서 추정한 step band, Prometheus의 sampled resource line을 같은 시간축에 놓습니다.
-Sandbox adapter의 `sandbox.acquire`·`prepare`·`exec`·`reset`·`release` span은 같은 trace에 기록되면 exact span 행에 나타나고, sandbox I/O pressure는 sampled line으로 나타납니다.
+Sandbox adapter의 `sandbox.queue`·`acquire`·`prepare`·`exec`·`reset`·`release` span은 같은 trace에 기록되면 exact span 행에 나타나고, sandbox I/O pressure는 sampled line으로 나타납니다.
 `exact`, `approximate`, `sampled` 구분을 확인하고, stage duration을 시간 순서가 있는 phase bar로 읽지 않습니다.
 Loki가 없으면 `diagnostics/latest.json`과 `show_run`에서 후보를 읽을 수 있습니다.
 사용 순서와 rule 조건은 [Cross-Layer Diagnosis](diagnosis.md)를 따릅니다.
