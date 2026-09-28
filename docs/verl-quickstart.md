@@ -49,31 +49,15 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" ins
 
 ## 2. Start Server, Node, and VERL
 
-저장소 루트의 같은 terminal에서 monitoring server와 GPU node collector를 background로 실행합니다.
-두 process의 PID를 보관하므로 학습이 끝난 뒤에도 dashboard를 확인하고 같은 terminal에서 종료할 수 있습니다.
-아래 log 경로는 기본 `TELEMETRY_HOME=$HOME/telemetry` 기준이며, config에서 이를 바꿨다면 경로도 함께 바꿉니다.
+저장소 루트의 한 terminal에서 `up`을 실행합니다.
+Script가 monitoring server와 GPU node collector를 background로 시작하고 둘 다 준비됐는지 확인합니다.
+실패하면 시작한 process를 정리하고 `$HOME/telemetry/state/verl-local/`의 log 경로를 알려줍니다.
 
 ```bash
-mkdir -p "$HOME/telemetry/state"
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" server \
-  > "$HOME/telemetry/state/server-console.log" 2>&1 &
-server_pid=$!
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" node \
-  > "$HOME/telemetry/state/node-console.log" 2>&1 &
-node_pid=$!
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" up
 ```
 
-Server의 준비 메시지와 node의 metric endpoint를 확인합니다.
-첫 기동에는 시간이 걸릴 수 있으므로 아직 준비 중이면 잠시 뒤 두 명령을 다시 실행합니다.
-계속 실패하거나 process가 종료됐다면 학습을 시작하기 전에 위 log를 읽고 원인을 해결합니다.
-
-```bash
-kill -0 "$server_pid" "$node_pid"
-grep -F 'Monitoring server ready:' "$HOME/telemetry/state/server-console.log"
-curl -fsS http://127.0.0.1:19100/metrics >/dev/null
-```
-
-두 명령이 성공한 뒤 같은 terminal에서 기존 VERL 명령을 telemetry wrapper와 함께 실행합니다.
+`Monitoring ready`가 출력되면 같은 terminal에서 기존 VERL 명령을 telemetry wrapper와 함께 실행합니다.
 
 ```bash
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" run
@@ -84,6 +68,8 @@ Script가 server target, collector의 snapshot 경로, wrapper의 run ID·node �
 `run`은 VERL process가 끝나면 bridge의 마지막 기록을 반영하고 원래 VERL의 종료 코드를 반환합니다.
 이미 실행한 `RUN_ROOT`는 재사용할 수 없으므로 새 학습마다 `RUN_ID`를 바꾼 뒤 node collector를 새 설정으로 다시 시작합니다.
 학습이 끝나도 server와 node collector는 실행 중이므로 dashboard에서 결과를 확인할 수 있습니다.
+`up`은 `$HOME/telemetry/state/verl-local/`에 process 기록과 log를 보관하므로 새 terminal에서도 같은 config로 `down`을 실행할 수 있습니다.
+다음 run에서 `RUN_ID`를 바꿨다면 `down` 후 `up`으로 node collector의 snapshot 경로를 갱신합니다.
 
 ## 3. Check the First Completed Step
 
@@ -141,16 +127,17 @@ Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인�
 | 증상 | 먼저 확인할 곳 |
 | --- | --- |
 | Server가 시작되지 않음 | 설치 결과, `$HOME/telemetry/state/server/startup-summary.json`, 사용 중인 port |
-| GPU도 보이지 않음 | `nvidia-smi`, `node-console.log`, Prometheus `telemetry` target |
+| GPU도 보이지 않음 | `nvidia-smi`, `$HOME/telemetry/state/verl-local/node.log`, Prometheus `telemetry` target |
 | GPU는 보이지만 run이 없음 | Config의 `RUN_ID`, wrapper log, collector가 읽는 `telemetry-metrics` 경로 |
 | JSON은 있지만 panel이 비어 있음 | `application.prom`, Prometheus target, 시간·cluster·node·run filter |
 | Stage 값이 없음 | 첫 step 완료 여부, VERL `file` logger 지원, `telemetry-bridge.log` |
 | Step Explorer만 비어 있음 | `ENABLE_LOGS`, step event 파일, Alloy·Loki 수집과 보존 기간 |
 | vLLM·Ray·3FS panel이 `N/A` | 해당 source를 추가했는지와 배포의 실제 metric 이름 |
 
-관측을 마치면 server와 node를 시작했던 terminal에서 다음 명령으로 종료합니다.
+관측을 마치면 다음 명령으로 server와 node를 종료합니다.
 
 ```bash
-kill "$node_pid" "$server_pid"
-wait "$node_pid" "$server_pid" 2>/dev/null || true
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" down
 ```
+
+Server와 node를 따로 조사해야 할 때에는 기존 `server`·`node` 명령을 각각 foreground로 실행할 수도 있습니다.

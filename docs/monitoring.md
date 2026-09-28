@@ -149,7 +149,7 @@ Prometheus는 `127.0.0.1:19090`에서 실행되고 Grafana 기본 접근 권한�
 ## Enable Grafana Alerts
 
 Monitoring Guide의 수동 경로에서는 server 설정 파일의 `ENABLE_ALERTS=1`로 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_ALERTS=1`을 설정하고 `verl_local.sh server`를 다시 실행합니다.
+단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_ALERTS=1`을 설정하고 `verl_local.sh down` 후 `up`을 실행합니다.
 Node collector 연결 끊김, GPU 표본이 60초 넘게 갱신되지 않거나 사라짐, 지정한 filesystem의 여유 공간 부족을 node별로 평가합니다.
 기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다.
 기존 server terminal에서 `Ctrl+C`로 종료한 뒤 같은 설정 파일로 다시 시작합니다.
@@ -224,7 +224,7 @@ Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수�
 
 Monitoring Guide의 수동 단일 host 예제에서는 monitoring server를 종료하고 `server.conf`의 `ENABLE_LOGS=1`만 바꿔 다시 시작합니다.
 기본 `LOKI_LISTEN_ADDR='127.0.0.1'`은 같은 host에서 실행하는 collector가 접근할 수 있습니다.
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_LOGS=1`을 설정하고 `verl_local.sh server`와 `verl_local.sh node`를 각각 다시 실행합니다.
+단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `verl-local.conf`의 `ENABLE_LOGS=1`을 설정하고 `verl_local.sh down` 후 `up`을 실행합니다.
 이 경로는 log root와 metric snapshot 경로를 같은 `RUN_ID`에서 자동으로 계산하므로 아래의 수동 환경 변수 예제를 입력할 필요가 없습니다.
 
 ```bash

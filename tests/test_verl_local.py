@@ -161,3 +161,101 @@ def test_background_manager_owns_wrapper_pid(tmp_path: Path, action: str) -> Non
         if process.poll() is None:
             process.kill()
             process.wait(timeout=5)
+
+
+def _fake_local_stack(tmp_path: Path, *, node_fails: bool = False) -> tuple[Path, Path, dict[str, str]]:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy2(SCRIPT, scripts / "verl_local.sh")
+    manager = scripts / "run_telemetry.sh"
+    manager.write_text(
+        "#!/usr/bin/env bash\n"
+        "role=$1\n"
+        "if [[ $role == node && ${FAKE_NODE_FAIL:-0} == 1 ]]; then exit 1; fi\n"
+        "touch \"$MARKER_DIR/$role.ready\"\n"
+        "if [[ $role == server ]]; then echo 'Monitoring server ready:'; fi\n"
+        "trap 'touch \"$MARKER_DIR/$role.stopped\"; exit 0' TERM\n"
+        "while true; do sleep 0.1; done\n",
+        encoding="utf-8",
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    curl = fake_bin / "curl"
+    curl.write_text(
+        "#!/usr/bin/env bash\n"
+        "[[ -f \"$MARKER_DIR/node.ready\" ]]\n",
+        encoding="utf-8",
+    )
+    curl.chmod(0o755)
+    state = tmp_path / "telemetry"
+    config = tmp_path / "verl-local.conf"
+    config.write_text(
+        f"RUN_ID='background-test'\nTELEMETRY_HOME='{state}'\n",
+        encoding="utf-8",
+    )
+    env = os.environ | {
+        "TELEMETRY_PYTHON": sys.executable,
+        "MARKER_DIR": str(tmp_path),
+        "FAKE_NODE_FAIL": "1" if node_fails else "0",
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+    }
+    return scripts / "verl_local.sh", config, env
+
+
+def test_local_up_and_down_manage_only_the_started_stack(tmp_path: Path) -> None:
+    script, config, env = _fake_local_stack(tmp_path)
+    command = ["bash", str(script), "--config", str(config)]
+    stack_dir = tmp_path / "telemetry" / "state" / "verl-local"
+    try:
+        up = subprocess.run(command + ["up"], env=env, capture_output=True, text=True, timeout=10)
+        assert up.returncode == 0, up.stderr
+        assert "Monitoring ready" in up.stdout
+        assert (stack_dir / "server.pid").exists()
+        assert (stack_dir / "node.pid").exists()
+
+        duplicate = subprocess.run(command + ["up"], env=env, capture_output=True, text=True, timeout=5)
+        assert duplicate.returncode == 1
+        assert "already running" in duplicate.stderr
+        assert not (tmp_path / "server.stopped").exists()
+
+        down = subprocess.run(
+            command + ["down"],
+            env=env | {"TELEMETRY_PYTHON": "/missing/python"},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert down.returncode == 0, down.stderr
+        assert (tmp_path / "server.stopped").exists()
+        assert (tmp_path / "node.stopped").exists()
+        assert not (stack_dir / "server.pid").exists()
+        assert not (stack_dir / "node.pid").exists()
+    finally:
+        subprocess.run(command + ["down"], env=env, capture_output=True, timeout=15)
+
+
+def test_local_up_cleans_server_when_node_fails(tmp_path: Path) -> None:
+    script, config, env = _fake_local_stack(tmp_path, node_fails=True)
+    command = ["bash", str(script), "--config", str(config)]
+    up = subprocess.run(command + ["up"], env=env, capture_output=True, text=True, timeout=10)
+    assert up.returncode == 1
+    assert "Monitoring did not become ready" in up.stderr or "exited before" in up.stderr
+    assert (tmp_path / "server.stopped").exists()
+    stack_dir = tmp_path / "telemetry" / "state" / "verl-local"
+    assert not (stack_dir / "server.pid").exists()
+
+
+def test_local_down_ignores_reused_pid_record(tmp_path: Path) -> None:
+    script, config, env = _fake_local_stack(tmp_path)
+    stack_dir = tmp_path / "telemetry" / "state" / "verl-local"
+    stack_dir.mkdir(parents=True)
+    (stack_dir / "server.pid").write_text(f"{os.getpid()} 0\n", encoding="utf-8")
+    down = subprocess.run(
+        ["bash", str(script), "--config", str(config), "down"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert down.returncode == 0, down.stderr
+    assert not (stack_dir / "server.pid").exists()

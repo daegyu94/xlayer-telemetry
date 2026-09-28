@@ -5,10 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 usage() {
   cat <<'EOF'
-Usage: bash scripts/verl_local.sh --config FILE install|server|node|run
+Usage: bash scripts/verl_local.sh --config FILE install|up|run|down|server|node
 
-Use one trusted local Bash config for all four commands.
-Run server, node, and run in separate terminals from the checkout root.
+Use one trusted local Bash config for every command.
+Use up, run, and down in one terminal; server and node remain available for manual runs.
 EOF
 }
 
@@ -49,15 +49,123 @@ if [[ "$enable_logs" != 0 && "$enable_logs" != 1 ]]; then
   echo "ENABLE_LOGS must be 0 or 1" >&2
   exit 2
 fi
-if [[ "$action" != install && ! -x "$telemetry_python" ]]; then
+if [[ "$action" != install && "$action" != down && ! -x "$telemetry_python" ]]; then
   echo "Telemetry Python not found: $telemetry_python (run scripts/setup.sh)" >&2
   exit 2
 fi
+
+stack_dir="$telemetry_home/state/verl-local"
+process_start_time() {
+  local stat
+  local -a fields
+  IFS= read -r stat < "/proc/$1/stat" || return 1
+  read -r -a fields <<< "${stat##*) }"
+  [[ "${fields[0]:-}" != Z && "${fields[19]:-}" =~ ^[0-9]+$ ]] || return 1
+  printf '%s\n' "${fields[19]}"
+}
+
+role_running() {
+  local pid started current
+  [[ -f "$stack_dir/$1.pid" ]] || return 1
+  read -r pid started < "$stack_dir/$1.pid" || return 1
+  [[ "$pid" =~ ^[0-9]+$ && "$started" =~ ^[0-9]+$ ]] || return 1
+  current="$(process_start_time "$pid")" || return 1
+  [[ "$current" == "$started" ]]
+}
+
+stop_role() {
+  local role="$1" pid started attempt
+  [[ -f "$stack_dir/$role.pid" ]] || return 0
+  if role_running "$role"; then
+    read -r pid started < "$stack_dir/$role.pid"
+    kill -TERM "$pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 100; attempt++)); do
+      role_running "$role" || break
+      sleep 0.1
+    done
+    if role_running "$role"; then
+      echo "Could not stop $role (PID $pid); see $stack_dir/$role.log" >&2
+      return 1
+    fi
+  fi
+  rm -f "$stack_dir/$role.pid"
+}
+
+start_role() {
+  local role="$1" pid started
+  nohup bash "$repo_root/scripts/verl_local.sh" --config "$config_file" "$role" \
+    > "$stack_dir/$role.log" 2>&1 < /dev/null &
+  pid=$!
+  if ! started="$(process_start_time "$pid")"; then
+    echo "$role exited before its process could be recorded; see $stack_dir/$role.log" >&2
+    return 1
+  fi
+  if ! printf '%s %s\n' "$pid" "$started" > "$stack_dir/$role.pid"; then
+    kill -TERM "$pid" 2>/dev/null || true
+    return 1
+  fi
+}
 
 case "$action" in
   install)
     TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" node
     TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" server
+    ;;
+  up)
+    if ! command -v curl >/dev/null 2>&1; then
+      echo 'curl is required to check node collector readiness' >&2
+      exit 2
+    fi
+    mkdir -p "$stack_dir"
+    if role_running server || role_running node; then
+      echo "Monitoring is already running; use down before up" >&2
+      exit 1
+    fi
+    rm -f "$stack_dir/server.pid" "$stack_dir/node.pid"
+    up_complete=0
+    cleanup_up() {
+      if [[ "$up_complete" == 0 ]]; then
+        stop_role node || true
+        stop_role server || true
+      fi
+    }
+    trap cleanup_up EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    start_role server
+    start_role node
+    probe_addr="$node_addr"
+    [[ "$probe_addr" != 0.0.0.0 ]] || probe_addr=127.0.0.1
+    ready=0
+    for ((attempt = 0; attempt < 90; attempt++)); do
+      if ! role_running server || ! role_running node; then break; fi
+      if grep -Fq 'Monitoring server ready:' "$stack_dir/server.log" && \
+         curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:19100/metrics" >/dev/null 2>&1; then
+        ready=1
+        break
+      fi
+      sleep 1
+    done
+    if [[ "$ready" == 1 ]]; then
+      sleep 1
+      if ! role_running server || ! role_running node; then ready=0; fi
+    fi
+    if [[ "$ready" != 1 ]]; then
+      echo "Monitoring did not become ready; recent logs:" >&2
+      tail -n 20 "$stack_dir/server.log" "$stack_dir/node.log" >&2 || true
+      exit 1
+    fi
+    up_complete=1
+    trap - EXIT INT TERM
+    echo "Monitoring ready: Grafana=http://127.0.0.1:13000"
+    echo "Logs: $stack_dir/server.log and $stack_dir/node.log"
+    ;;
+  down)
+    status=0
+    stop_role node || status=1
+    stop_role server || status=1
+    if [[ "$status" == 0 ]]; then echo 'Monitoring stopped'; fi
+    exit "$status"
     ;;
   server)
     exec env TOOLS_DIR="$tools_dir" \
