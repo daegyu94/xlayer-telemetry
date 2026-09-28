@@ -2,6 +2,7 @@
 
 Distributed AI/HPC workload의 실행 단위를 GPU·host, rollout engine, network, storage 신호와 연결해 bottleneck candidate와 근거를 조사하는 cross-layer diagnosis 도구입니다.
 Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
+XLayer는 느린 run/step과 조사할 자원·시간 구간을 찾고, CPU/GPU kernel 수준의 실행 분석은 Nsight Systems·PyTorch Profiler 같은 전문 profiler로 이어 줍니다([설계 배경](docs/architecture.md#why-xlayer-exists)).
 처음 사용한다면 [Start Here](#start-here)에서 synthetic 화면을 확인한 뒤 실제 VERL 실행을 연결합니다.
 
 ## Why Cross-Layer Telemetry
