@@ -2,8 +2,12 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
+import time
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -115,3 +119,45 @@ def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> Non
     assert f"{run.parent}/*/telemetry-events/verl-steps*.jsonl" in alloy_config
     assert f"{run.parent}/*/logs/**/*.log" in alloy_config
     assert 'node = "gpu-local"' in alloy_config
+
+
+@pytest.mark.parametrize("action", ["server", "node"])
+def test_background_manager_owns_wrapper_pid(tmp_path: Path, action: str) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy2(SCRIPT, scripts / "verl_local.sh")
+    manager = scripts / "run_telemetry.sh"
+    manager.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' \"$$\" > \"$PID_MARKER\"\n"
+        "trap 'printf stopped > \"$STOP_MARKER\"; exit 0' TERM\n"
+        "while true; do sleep 0.1; done\n",
+        encoding="utf-8",
+    )
+    config = tmp_path / "verl-local.conf"
+    config.write_text("RUN_ID='background-test'\n", encoding="utf-8")
+    pid_marker = tmp_path / "manager.pid"
+    stop_marker = tmp_path / "stopped"
+    process = subprocess.Popen(
+        ["bash", str(scripts / "verl_local.sh"), "--config", str(config), action],
+        cwd=tmp_path,
+        env=os.environ
+        | {
+            "TELEMETRY_PYTHON": sys.executable,
+            "PID_MARKER": str(pid_marker),
+            "STOP_MARKER": str(stop_marker),
+        },
+    )
+    try:
+        deadline = time.monotonic() + 5
+        while not pid_marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert pid_marker.exists()
+        assert int(pid_marker.read_text()) == process.pid
+        process.terminate()
+        assert process.wait(timeout=5) == 0
+        assert stop_marker.exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)

@@ -60,7 +60,7 @@ case "$action" in
     TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" server
     ;;
   server)
-    TOOLS_DIR="$tools_dir" \
+    exec env TOOLS_DIR="$tools_dir" \
     OUTPUT_DIR="${SERVER_OUTPUT_DIR:-$telemetry_home/state/server}" \
     CLUSTER_NAME="$cluster_name" \
     TELEMETRY_TARGETS="$node_name=$node_addr" \
@@ -90,7 +90,7 @@ case "$action" in
       "LOKI_PUSH_URL=$loki_push_url"
       "TELEMETRY_LOG_ROOTS=$telemetry_log_roots"
     )
-    env "${node_args[@]}" bash "$repo_root/scripts/run_telemetry.sh" node
+    exec env "${node_args[@]}" bash "$repo_root/scripts/run_telemetry.sh" node
     ;;
   run)
     command_decl="$(declare -p VERL_COMMAND 2>/dev/null || true)"

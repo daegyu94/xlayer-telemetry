@@ -95,11 +95,8 @@ VERL은 자신의 Prometheus 설정 파일 전체를 다시 쓰므로 `actor_rol
 이를 monitoring host의 `$HOME/telemetry/config/native-sources.json`으로 저장했다고 가정합니다.
 주소는 실제 배포로 바꾸며 각 node collector는 먼저 실행되어 있어야 합니다.
 단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용했다면 `verl-local.conf`에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 추가합니다.
-기존 server terminal을 종료한 뒤 같은 config로 다시 시작합니다.
-
-```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" server
-```
+기존 server process를 종료한 뒤 같은 config로 다시 시작합니다.
+Background로 실행했다면 [VERL quickstart의 시작·종료 명령](verl-quickstart.md#2-start-server-node-and-verl)을 사용하고, 다시 시작한 server의 `server_pid`를 갱신합니다.
 
 Monitoring Guide의 수동 경로를 사용했다면 `server.conf`에 같은 값을 넣고 `bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"`로 다시 시작합니다.
 시작 시 설정 형식을 검증하고 Prometheus의 `native` job에 사용할 target 파일을 만듭니다.
