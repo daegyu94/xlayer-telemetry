@@ -1,0 +1,304 @@
+{
+  "date": "2026-09-29",
+  "status": "experimental; not an accuracy benchmark",
+  "runtime": "Ollama 0.34.4",
+  "model": "qwen3.5:27b",
+  "quantization": "Q4_K_M",
+  "model_digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+  "gpu": "One RTX PRO 4000 Blackwell, 24467 MiB; selected GPU memory observed at 17812 MiB; model fully GPU-resident",
+  "prompt_version": 4,
+  "seed": 42,
+  "context_tokens": 16384,
+  "maximum_generated_tokens": 6144,
+  "method": "Synthetic metric packets passed to the actual local model; case names and expectations excluded from model input. No injected hardware bottlenecks.",
+  "validation_note": "All saved final-prompt responses were rechecked with the final validator after adding the interval-presence guard. Earlier prompt development exposed inconsistent normal responses and speculative filler; those runs are not included in this final set.",
+  "counts": {
+    "synthetic_cases": 13,
+    "completed_model_responses": 12,
+    "accepted_by_final_validator": 11,
+    "primary_evidence_coverage_met": 6,
+    "primary_evidence_coverage_checked": 8
+  },
+  "synthetic_cases": [
+    {
+      "case": "normal",
+      "repeat": 1,
+      "expected_assessment": "no_issue_observed",
+      "actual_assessment": "no_issue_observed",
+      "assessment_match": true,
+      "primary_evidence_coverage": null,
+      "primary_title": null,
+      "latency_seconds": 102.129,
+      "input_sha256": "c5997cfb477bcd84f2152b0d1907feb3791631e13093406f320f257e33e2718f",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Expected observation pattern identified; candidate remains a hypothesis, not causal proof."
+    },
+    {
+      "case": "storage_device",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "Storage I/O Saturation Causing Compute Idle",
+      "latency_seconds": 96.427,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Useful storage hypothesis; causal wording remains stronger than the measurements prove."
+    },
+    {
+      "case": "storage_network",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "Shared Storage Service I/O Bottleneck Affecting Data Loading",
+      "latency_seconds": 152.032,
+      "input_sha256": "05aa2d1f1705ce4a08d8b87b78fa1eb43e8503483e678fd2e0c16ebc2d3d655d",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Connects service latency and network pressure; data-loading attribution still requires profiling."
+    },
+    {
+      "case": "rollout_queue",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "Inference Engine Request Queuing",
+      "latency_seconds": 158.133,
+      "input_sha256": "50c99bf8c5744ba31a1f9ab4d11b277953833e9cec918d8d3647b2e63b4f6fb1",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Expected observation pattern identified; candidate remains a hypothesis, not causal proof."
+    },
+    {
+      "case": "kv_pressure",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "vLLM Inference Saturation due to KV Cache Pressure",
+      "latency_seconds": 113.225,
+      "input_sha256": "badbc7f186a219b9998eebb24f40b993986ec58ce78606f1c8da305275a57f13",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Expected observation pattern identified; candidate remains a hypothesis, not causal proof."
+    },
+    {
+      "case": "host_memory",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "Host Memory Pressure Inducing Swap I/O Bottleneck",
+      "latency_seconds": 128.261,
+      "input_sha256": "4d1134c104f5ece8f16a45da288f924cdda1464802e3915afd70fb669f9cc584",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Expected observation pattern identified; candidate remains a hypothesis, not causal proof."
+    },
+    {
+      "case": "communication",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": false,
+      "primary_title": "Weight Synchronization Latency Increase",
+      "latency_seconds": 117.9,
+      "input_sha256": "b2a0b86fd1c507ed8a5a3ce636ff378bbfc97b625b2ee28482eb9af010183a9b",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Finds weight-sync delay but omits RDMA evidence from the primary evidence list."
+    },
+    {
+      "case": "sandbox_io",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "primary_title": "Sandbox Storage Saturation Blocking Tool RPC",
+      "latency_seconds": 133.029,
+      "input_sha256": "3f36acfd4605542d0afd68929643715e7545aba2f8886452d1a2612ca44ea642",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Expected observation pattern identified; candidate remains a hypothesis, not causal proof."
+    },
+    {
+      "case": "insufficient",
+      "repeat": 1,
+      "expected_assessment": null,
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": null,
+      "primary_evidence_coverage": null,
+      "primary_title": "External Dependency Latency Causing GPU Idle",
+      "latency_seconds": 106.273,
+      "input_sha256": "25140ca2f391b0bdcc73c6c05eb370ae830345155b58a67a838a1d54fa143d56",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Overreach: infers an external dependency from only step duration and GPU utilization. Not a conservative insufficient-evidence result."
+    },
+    {
+      "case": "mixed_engines",
+      "repeat": 1,
+      "expected_assessment": null,
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": null,
+      "primary_evidence_coverage": null,
+      "primary_title": "Inference Service Contention and Preemption Overhead",
+      "latency_seconds": 127.704,
+      "input_sha256": "091e373b51d45c09bf117ec8479247074d8386ce7d0f6498cb6e1f2c54b1cea9",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Names engines A and B separately, then combines them in a node-level hypothesis. Shared resource ownership is unproven."
+    },
+    {
+      "case": "unknown_time",
+      "repeat": 1,
+      "expected_assessment": "insufficient_evidence",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": false,
+      "primary_evidence_coverage": null,
+      "primary_title": "Shared Storage Subsystem Saturation Increasing Step Latency",
+      "latency_seconds": 181.832,
+      "input_sha256": "38520e49e84b21d04bf9b3d69ed58f860de3ecfe9419745449546ca82d79f369",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": false,
+      "validation_error": "candidate rejected: current interval timing is unavailable",
+      "manual_review": "Model violates temporal-correlation guidance. Final interval-presence guard rejects this candidate; verified against the saved model response."
+    },
+    {
+      "case": "straggler",
+      "repeat": 1,
+      "expected_assessment": "bottleneck_suspected",
+      "actual_assessment": "bottleneck_suspected",
+      "assessment_match": true,
+      "primary_evidence_coverage": false,
+      "primary_title": "Synchronous Training Straggler on Rank 2",
+      "latency_seconds": 161.172,
+      "input_sha256": "f0e745e43bad972363f2e4c5f37d7fb4ec432c4dbd928a354e7dc4c88db2be35",
+      "seed": 42,
+      "semantic_review_required": true,
+      "accepted_by_final_validator": true,
+      "manual_review": "Names rank 2 and discusses peers, but peer IDs are absent from the evidence list; synchronous-barrier semantics are inferred."
+    },
+    {
+      "case": "larger_workload",
+      "repeat": 1,
+      "error": "model reached output token limit; no diagnosis accepted",
+      "accepted_by_final_validator": false,
+      "manual_review": "Reached the 6144-token generation limit; no diagnosis accepted. No claim of correct workload normalization."
+    }
+  ],
+  "acceptance_checks": "JSON shape, existing evidence references, and interval presence only; accepting an output does not establish correctness.",
+  "observed_inputs": [
+    {
+      "name": "stored_verl",
+      "description": "Previously captured VERL step 3 metrics from 2026-09-26; this validation did not run new training.",
+      "assessment": "no_issue_observed",
+      "summary": "Application step duration increased by 1.6%, consistent with approximate measurement variance. Rollout latency, KV cache usage, request queue depth, and preemption counts remained stable relative to baseline.",
+      "limitations": [
+        "Saved comparisons may already aggregate/select entities; they are not raw telemetry.",
+        "Baseline workload comparability and per-run shared resource attribution are not established.",
+        "Critical hardware metrics (GPU utilization, memory, disk, network) required for root cause analysis are missing."
+      ],
+      "input_sha256": "c504e8ff236c2ebfec4860cab0177b295d01b4eb1458b282cd0caf699f0aeb34",
+      "latency_seconds": 180.173,
+      "inference_options": {
+        "num_ctx": 32768,
+        "num_predict": 16384,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 1.5,
+        "repeat_penalty": 1.0,
+        "think": true
+      }
+    },
+    {
+      "name": "live_host",
+      "description": "Fresh local Node Exporter/Prometheus CPU, memory and disk samples during model download; no training running.",
+      "assessment": "no_issue_observed",
+      "summary": "Observed host resources (CPU, memory, disk) show low utilization and high availability during the current interval with no signs of saturation or contention compared to baseline limits. The workload context mentions downloading, but provided metrics indicate the host is not resource-constrained.",
+      "limitations": [
+        "Statistics summarize query evaluations every 1s, not raw scrape samples.",
+        "PromQL range windows may include data outside the selected interval; source freshness is not independently checked.",
+        "Labels identify observed entities; shared metrics do not establish per-run ownership.",
+        "The preceding window is a temporal baseline, not proof of equivalent workload or a healthy reference.",
+        "Network throughput metrics are absent despite 'downloading' context, limiting visibility into data transfer constraints."
+      ],
+      "input_sha256": "a82a39637c9cba093594f2c8aea733d9e898879e4f37373451141a404d34e882",
+      "latency_seconds": 164.618,
+      "inference_options": {
+        "num_ctx": 16384,
+        "num_predict": 6144,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "presence_penalty": 1.5,
+        "repeat_penalty": 1.0,
+        "think": true
+      }
+    }
+  ],
+  "operational_checks": {
+    "cpu_tests": "166 passed with Ollama stopped",
+    "service_stop": "Selected GPU memory returned to 16 MiB from approximately 17.4 GiB",
+    "restart": "32K context server restarted successfully",
+    "optional": "Default telemetry tests require no Ollama service or model"
+  },
+  "extended_budget": {
+    "context_tokens": 32768,
+    "maximum_generated_tokens": 16384,
+    "gpu_peak_mib": 18710,
+    "processor": "100% GPU",
+    "reason": "Initial 6144-token cap was reached for a stored VERL packet and the larger-workload negative case. Final defaults increase context and generation budget. The full 13-case suite was not rerun at this new budget.",
+    "cases": [
+      {
+        "case": "real-verl",
+        "assessment": "no_issue_observed",
+        "summary": "Application step duration increased by 1.6%, consistent with approximate measurement variance. Rollout latency, KV cache usage, request queue depth, and preemption counts remained stable relative to baseline.",
+        "limitations": [
+          "Saved comparisons may already aggregate/select entities; they are not raw telemetry.",
+          "Baseline workload comparability and per-run shared resource attribution are not established.",
+          "Critical hardware metrics (GPU utilization, memory, disk, network) required for root cause analysis are missing."
+        ],
+        "generated_tokens": 5545,
+        "latency_seconds": 180.173,
+        "input_sha256": "c504e8ff236c2ebfec4860cab0177b295d01b4eb1458b282cd0caf699f0aeb34"
+      },
+      {
+        "case": "larger_workload",
+        "assessment": "no_issue_observed",
+        "summary": "Step duration and rollout time increased linearly with generated output tokens (m1, m2 vs m18), consistent with the context of twice as many tokens requested. GPU utilization remained high and stable at 90% (m3) without new queueing or saturation signals, indicating expected scaling behavior rather than a resource bottleneck anomaly.",
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution."
+        ],
+        "generated_tokens": 6894,
+        "latency_seconds": 218.335,
+        "input_sha256": "932c93f23bff6a22bcba54a3849322379fac5317614ff557396063b8616dc933"
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "prometheus_url": "http://127.0.0.1:19090",
+  "lookback_seconds": 60,
+  "query_step_seconds": 5,
+  "context": {
+    "node": "gpu-local",
+    "workload": "Specify the workload being investigated; this is a periodic window, not an identified training step."
+  },
+  "queries": [
+    {
+      "signal": "cpu_busy_ratio",
+      "query": "1 - avg by (cluster, job, nodename, instance) (rate(node_cpu_seconds_total{nodename=\"gpu-local\",mode=\"idle\"}[1m]))",
+      "unit": "ratio",
+      "scope": "node"
+    },
+    {
+      "signal": "memory_available_ratio",
+      "query": "node_memory_MemAvailable_bytes{nodename=\"gpu-local\"} / node_memory_MemTotal_bytes{nodename=\"gpu-local\"}",
+      "unit": "ratio",
+      "scope": "node"
+    },
+    {
+      "signal": "disk_busy_ratio",
+      "query": "rate(node_disk_io_time_seconds_total{nodename=\"gpu-local\",device=\"nvme0n1\"}[1m])",
+      "unit": "ratio",
+      "scope": "device"
+    }
+  ]
+}

@@ -3,6 +3,10 @@
 XLayer는 distributed AI/HPC workload의 느린 실행 구간을 여러 계층의 관측치와 연결해 검토 가능한 bottleneck candidate를 만듭니다.
 Grafana와 Prometheus가 이미 보여 주는 수치를 다시 저장하거나 profiler를 다시 만들지 않고, run·step·phase 문맥과 측정 범위를 결과에 붙입니다.
 
+이 문서는 기본 rule diagnosis를 설명합니다.
+수집된 메트릭을 local open-weight 모델이 직접 읽고 진단하도록 하려면 [Optional Local LLM Diagnosis](local-llm.md)를 사용합니다.
+LLM 경로는 rule catalog와 기존 판정을 입력에 넣지 않는 별도 선택 기능입니다.
+
 ## Investigation Workflow
 
 ```text

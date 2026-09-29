@@ -57,6 +57,7 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | Agent sandbox | 선택적 lifecycle span, sandbox worker cgroup v2 I/O·CPU·memory, local SSD와의 진단 후보 | 외부 runtime 계측과 안정적인 worker cgroup이 필요합니다. 개별 sandbox의 SSD 사용량으로 자동 귀속하지 않습니다. |
 | 운영·분석 | 선택적 Grafana alert rule, `show_run`, diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
 | Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
+| 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog를 입력하지 않으며, 자동 호출·Grafana 표시는 아직 없습니다. |
 
 기능별 수집 경로와 설계 이유는 [How XLayer Telemetry Works](docs/architecture.md)에, 실행 순서는 아래 [Start Here](#start-here)에 있습니다.
 
