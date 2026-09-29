@@ -19,6 +19,8 @@ Prometheus series + selected intervals + workload context
 
 현재 연결 방식은 CLI에서 선택한 구간을 분석하는 것입니다.
 모델이 진단을 생성하고 XLayer가 응답 형식, evidence 참조와 candidate의 관측 구간 존재 여부를 검사합니다.
+설명에 명시한 observation ID도 evidence 목록에 있는지 검사합니다.
+서로 다른 engine·worker·rank의 별개 signal을 한 candidate의 근거로 합치는 응답도 거부합니다.
 [Ollama structured output](https://docs.ollama.com/capabilities/structured-outputs)의 JSON schema를 API와 prompt 양쪽에 전달합니다.
 형식 검사가 통과해도 설명의 사실성이나 인과관계가 증명되는 것은 아닙니다.
 자동 step 호출, Grafana 표시, alert 변경과 명령 실행은 포함하지 않습니다.
@@ -107,10 +109,39 @@ python -m xlayer_telemetry.llm_diagnosis \
 ```
 
 결과에는 진단과 함께 model digest, Ollama version, inference 설정, input hash, prompt version이 기록됩니다.
-모델에 전달한 observation packet도 결과 파일에 포함하므로 evidence ID의 실제 수치와 scope를 확인할 수 있습니다.
+원본 observation packet도 결과 파일에 포함하므로 evidence ID의 실제 수치와 scope를 확인할 수 있습니다.
+`input_sha256`은 원본 packet의 hash이며 `model_input_sha256`과 `model_input_bytes`는 Ollama에 전달한 observation payload를 식별합니다.
+`prompt_tokens`는 system prompt와 schema를 포함한 전체 입력의 token 수이므로 payload 크기와 다릅니다.
 각 candidate는 자유롭게 생성한 제목·설명, evidence ID, 반대 근거, missing evidence, observation scope와 다음 확인 항목을 포함합니다.
 고정된 candidate catalog나 numeric confidence는 사용하지 않습니다.
 원래 observation과 기존 rule 결과는 덮어쓰지 않습니다.
+
+## How Metrics Reach Ollama
+
+XLayer는 원본 observation packet을 저장하고, 모델 호출 시 반복되는 JSON 필드를 표 형태로 정리합니다.
+`observation_columns`가 각 열의 의미를 지정하고, `observation_rows`의 같은 위치에 값이 들어갑니다.
+모든 series가 공유하는 `source`·`unit`·scope 등은 `common_observation_fields`에 한 번만 넣습니다.
+Metric 값, baseline, label, observation scope, sample 통계와 서로 다른 PromQL query는 유지합니다.
+안정된 metric이나 반대 근거가 될 수 있는 series를 자동으로 제거하거나 값의 해상도를 낮추지 않습니다.
+
+```json
+{
+  "representation": "observation_table_v1",
+  "common_observation_fields": {"source": "prometheus"},
+  "observation_columns": ["id", "signal", "unit", "observation_scope", "labels", "baseline", "current"],
+  "observation_rows": [
+    ["m1", "step_duration_seconds", "seconds", "application", {"node": "gpu-0"}, 10, 20],
+    ["m2", "gpu_utilization_percent", "percent", "device", {"node": "gpu-0", "gpu": "0"}, 90, 45]
+  ]
+}
+```
+
+실제 입력에는 이 표와 함께 current/baseline interval, run 문맥, topology, missing source와 관측 한계도 포함됩니다.
+모델 입력의 최상위 필드는 이 관측 문맥으로 제한하므로 임의로 추가된 rule 판정이나 verdict는 전달하지 않습니다.
+Ollama에 전달하는 observation payload는 최대 8KiB이고 원본 packet은 최대 32KiB, 64 series까지 허용합니다.
+범위를 넘으면 잘라서 전달하지 않고 query selector를 좁히도록 오류를 반환합니다.
+Ollama 응답의 `prompt_tokens`와 `generated_tokens`를 구분해 확인할 수 있습니다.
+이전 검증에서 과도하게 추론한 증거 부족 사례는 약 997 prompt token이었으므로 입력 길이만으로 그 오류를 설명할 수 없습니다.
 
 ## Reuse an Existing Run
 
@@ -175,14 +206,33 @@ Ollama 0.34.4와 `qwen3.5:27b` Q4_K_M을 24GB RTX PRO 4000 Blackwell 한 개에�
 새 VERL 학습이나 실제 병목 주입 검증으로 해석하면 안 됩니다.
 Ollama를 종료한 상태에서 기본 CPU 테스트 **166개**가 통과했고, 실제 종료 시 진단 GPU 메모리가 16MiB로 돌아오는 것도 확인했습니다.
 
+## Input and Evidence Validation (2026-09-30)
+
+같은 저장된 synthetic packet 다섯 개를 compact 입력과 prompt version 6으로 다시 실행했습니다.
+[검증 기록](../examples/local-llm/input-optimization-validation.json)에 원본·전송 payload 크기, 이전 version 4와 새 prompt token 수, 결과와 남은 한계를 보관합니다.
+한 사례당 한 번 실행한 결과이며 새 VERL 학습이나 일반적인 진단 정확도 측정은 아닙니다.
+
+| 사례 | 원본 packet -> Ollama payload | 실제 결과 |
+| --- | --- | --- |
+| 증거 부족 | 1,151 -> 1,005 bytes | `insufficient_evidence`, 후보 없음. 요약에는 외부 wait 가능성의 추정 표현이 남음. |
+| Storage device | 4,323 -> 2,408 bytes | Storage latency·device busy를 인용. 제목의 data-loading 인과 표현은 측정 이상으로 강함. |
+| 서로 다른 engine | 4,960 -> 2,688 bytes | Engine A/B의 별개 signal을 한 후보로 합쳐 validator가 거부. |
+| Straggler | 4,906 -> 2,640 bytes | Peer rank ID를 counter evidence에 포함. Rank와 node의 소속 관계는 입력에 없어 서술이 과도함. |
+| Communication | 4,322 -> 2,407 bytes | Weight-sync duration과 RDMA activity ID를 함께 인용. |
+
+여러 series가 있는 사례의 전체 prompt token 수는 이전 version 4 대비 약 24–27% 줄었습니다.
+이 수치에는 표 인코딩뿐 아니라 변경된 system prompt도 함께 반영됩니다.
+반대로 증거 부족 사례는 입력 payload가 작아 추가 지침 때문에 prompt token이 997개에서 1,059개로 늘었습니다.
+생성 token 수 역시 감소하지 않아 inference가 빨라졌다고 말할 수 없습니다.
+별도의 64-worker-series fixture는 11,867-byte 원본 packet을 3,750-byte payload로 전달하며 모든 series를 보존하는지 실제 호출 경로의 mocked test로 확인했습니다.
+
 ## Limits and Failure Handling
 
-입력은 최대 64개 series와 8KiB로 제한합니다.
-32K context에서 추론·출력 공간을 남기기 위해 입력 크기를 보수적으로 제한합니다.
-범위를 초과하면 조용히 자르지 않고 query selector를 좁히도록 오류를 반환합니다.
+32K context에서 추론·출력 공간을 남기기 위해 모델 입력 크기를 제한합니다.
 잘못된 응답, 존재하지 않는 evidence 참조, 출력 token 한도 초과, timeout은 선택적 진단 명령의 실패로 처리하며 정상 판정을 만들어 내지 않습니다.
+현재 구간의 측정값이 전혀 없으면 `no_issue_observed` 판정을 거부하고, `insufficient_evidence` 응답에는 candidate를 허용하지 않습니다.
 기존 rule 결과와 telemetry 수집에는 영향을 주지 않습니다.
 
-현재 validator는 자유 서술의 scope·인과 해석·조사 명령의 정확성까지 검증하지 못하므로 모델의 결론과 참조된 측정값을 함께 읽어야 합니다.
+현재 validator는 일부 entity 혼합과 evidence ID 누락을 막지만 자유 서술의 scope·인과 해석·조사 명령의 정확성까지 검증하지 못하므로 모델의 결론과 참조된 측정값을 함께 읽어야 합니다.
 모델에 tool 실행이나 자동 remediation 권한은 없습니다.
 이 PoC는 Ollama API의 structured JSON output과 thinking을 사용하며, 다른 backend·자동 호출·Grafana 표시·추가 evidence 조회는 실측 유용성과 실패 유형을 평가한 뒤 확장할 수 있습니다.

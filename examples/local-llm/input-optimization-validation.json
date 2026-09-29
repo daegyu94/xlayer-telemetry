@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-30",
+  "model": "qwen3.5:27b",
+  "model_digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+  "ollama_version": "0.34.4",
+  "prompt_version": 6,
+  "seed": 42,
+  "method": "One run per saved synthetic packet. Old prompt counts use version 4 with the same packet; version 6 uses the compact observation table and stricter instructions.",
+  "cases": [
+    {
+      "case": "insufficient",
+      "series": 2,
+      "original_packet_bytes": 1151,
+      "model_payload_bytes": 1005,
+      "prompt_tokens_v4": 997,
+      "prompt_tokens_v6": 1059,
+      "generated_tokens_v6": 4557,
+      "result": "insufficient_evidence; no candidates",
+      "limitation": "The summary still suggests a possible external wait without measuring its source."
+    },
+    {
+      "case": "storage_device",
+      "series": 17,
+      "original_packet_bytes": 4323,
+      "model_payload_bytes": 2408,
+      "prompt_tokens_v4": 2047,
+      "prompt_tokens_v6": 1556,
+      "generated_tokens_v6": 5583,
+      "result": "storage candidate with storage latency and device busy evidence",
+      "limitation": "The candidate title describes a causal data-loading path more strongly than the measurements establish."
+    },
+    {
+      "case": "mixed_engines",
+      "series": 20,
+      "original_packet_bytes": 4960,
+      "model_payload_bytes": 2688,
+      "prompt_tokens_v4": 2261,
+      "prompt_tokens_v6": 1656,
+      "generated_tokens_v6": 6419,
+      "result": "rejected: candidate combines different engine entities and signals"
+    },
+    {
+      "case": "straggler",
+      "series": 20,
+      "original_packet_bytes": 4906,
+      "model_payload_bytes": 2640,
+      "prompt_tokens_v4": 2228,
+      "prompt_tokens_v6": 1629,
+      "generated_tokens_v6": 6912,
+      "result": "straggler candidate; peer IDs appear in counter_evidence_ids",
+      "limitation": "The model associates rank 2 with gpu-0 without a rank-to-node mapping."
+    },
+    {
+      "case": "communication",
+      "series": 17,
+      "original_packet_bytes": 4322,
+      "model_payload_bytes": 2407,
+      "prompt_tokens_v4": 2046,
+      "prompt_tokens_v6": 1555,
+      "generated_tokens_v6": 4918,
+      "result": "communication candidate cites weight-sync duration and RDMA evidence"
+    }
+  ],
+  "notes": [
+    "All packet series and labels are preserved in the model-facing table; arbitrary top-level verdict fields are excluded.",
+    "Payload byte reduction does not imply total inference latency reduction; generation dominated these runs.",
+    "This is a small synthetic fixture evaluation, not a general accuracy benchmark or a new live VERL run."
+  ]
+}
