@@ -11,7 +11,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from xlayer_telemetry.llm_diagnosis import diagnose
+from xlayer_telemetry.llm_diagnosis import diagnose, failure_record, write_result
 
 
 # signal, baseline, unit, scope, labels
@@ -46,7 +46,7 @@ def scenarios():
         ("host_memory", {1: 22, 3: 40, 11: .03, 12: 200_000_000}, [11, 12], "bottleneck_suspected"),
         ("communication", {1: 20, 3: 40, 16: 8, 17: 3_000_000_000}, [16, 17], "bottleneck_suspected"),
         ("sandbox_io", {1: 25, 3: 40, 13: 20, 14: .6, 15: .99}, [13, 14, 15], "bottleneck_suspected"),
-        ("insufficient", {1: 20, 3: 40}, [], None),
+        ("insufficient", {1: 20, 3: 40}, [], "insufficient_evidence"),
         ("mixed_engines", {1: 20, 9: .99}, [], None),
         ("unknown_time", {1: 20, 4: .015, 5: .98}, [], "insufficient_evidence"),
         ("straggler", {1: 24}, [18, 19, 20], "bottleneck_suspected"),
@@ -109,6 +109,8 @@ def checks(result, expected):
         "primary_title": primary.get("title"),
         "latency_seconds": result["latency_seconds"],
         "input_sha256": result["input_sha256"], "seed": result["seed"],
+        "semantic_review_decision": result.get("semantic_review", {}).get("decision"),
+        "semantic_review_issues": result.get("semantic_review", {}).get("issues", []),
         "semantic_review_required": True,
     }
 
@@ -123,30 +125,40 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--generate-only", action="store_true")
     args = parser.parse_args()
+    cases = scenarios()
+    if args.repeats < 1:
+        parser.error("repeats must be at least 1")
+    if args.case and set(args.case) - {name for name, _, _ in cases}:
+        parser.error("unknown case; choose from: " + ", ".join(name for name, _, _ in cases))
     args.output.mkdir(parents=True, exist_ok=True)
     summary = []
-    for name, packet, expected in scenarios():
+    write_result(args.output / "summary.json", summary)
+    for name, packet, expected in cases:
         if args.case and name not in args.case:
             continue
         for repeat in range(args.repeats):
             directory = args.output / f"{name}-{repeat+1}"
             directory.mkdir(exist_ok=True)
-            (directory / "observations.json").write_text(json.dumps(packet, indent=2) + "\n")
+            for filename in ("diagnosis.json", "rejected-response.json"):
+                (directory / filename).unlink(missing_ok=True)
+            write_result(directory / "observations.json", packet)
             if args.generate_only:
                 continue
             print(f"Diagnosing {name} repetition {repeat+1}", flush=True)
             try:
                 result = diagnose(packet, model=args.model, endpoint=args.endpoint, seed=args.seed+repeat)
-                (directory / "diagnosis.json").write_text(json.dumps(result, indent=2) + "\n")
+                write_result(directory / "diagnosis.json", result)
                 row = {"case": name, "repeat": repeat+1, **checks(result, expected)}
             except Exception as error:
                 row = {"case": name, "repeat": repeat+1, "error": str(error)}
+                write_result(directory / "diagnosis.json", failure_record(error, model=args.model, packet=packet))
                 if hasattr(error, "response"):
-                    (directory / "rejected-response.json").write_text(json.dumps(error.response, indent=2) + "\n")
+                    write_result(directory / "rejected-response.json", error.response)
             summary.append(row)
-            (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
-            print(json.dumps(row), flush=True)
-    if any(row.get("error") for row in summary):
+            write_result(args.output / "summary.json", summary)
+            print(json.dumps(row, ensure_ascii=False), flush=True)
+    if any(row.get("error") or row.get("assessment_match") is False
+           or row.get("primary_evidence_coverage") is False for row in summary):
         raise SystemExit(1)
 
 

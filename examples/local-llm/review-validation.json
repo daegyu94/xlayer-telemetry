@@ -1,0 +1,511 @@
+{
+  "date": "2026-09-30",
+  "model": "qwen3.5:27b",
+  "model_digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+  "ollama_version": "0.34.4",
+  "data_origin": "synthetic",
+  "method": "Prompt versions 6 and 7 used one generation per case. Versions 8, 9 and 10 used generation plus evidence review in fresh contexts, at seeds 42 and 43. All observations are synthetic; no new VERL training or hardware bottleneck injection.",
+  "cases": [
+    {
+      "case": "storage_device",
+      "prompt_version": 6,
+      "seed": 42,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "model_input_sha256": "1e01db77049c13806bb12baff74e25c5f0763d32b106697951852c375cba52c7",
+      "model_input_bytes": 2408,
+      "prompt_tokens": 1556,
+      "generated_tokens": 3087,
+      "latency_seconds": 100.636,
+      "diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "Workload step duration doubled and GPU utilization halved on gpu-0, correlated with a significant spike in shared storage latency and underlying device saturation on storage-0.",
+        "candidates": [
+          {
+            "title": "Storage I/O Congestion causing Compute Idle",
+            "explanation": "Step duration (m1) doubled while GPU utilization (m3) dropped by 50%, indicating the compute node is waiting for resources. Concurrently, shared storage service p99 latency (m4) increased 7.5x and the backing storage device busy ratio (m5) saturated at 98%. The topology shows gpu-0 depends on storage-0 for training data.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m6",
+              "m17"
+            ],
+            "missing_evidence": [
+              "Per-request attribution of storage traffic to specific run_id fixture-01",
+              "I/O queue depth metrics on storage-0 to confirm queuing vs service time increase"
+            ],
+            "observation_scope": "gpu-0 application layer and storage-0 infrastructure layer",
+            "next_checks": [
+              "Check iostat or NVMe logs on storage-0 for queueing delays during the interval",
+              "Verify if other tenants on 3fs caused the contention or if this run increased I/O depth"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Cannot distinguish between storage service congestion from this run versus external noise without per-tenant isolation."
+        ]
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": true
+    },
+    {
+      "case": "insufficient",
+      "prompt_version": 6,
+      "seed": 42,
+      "input_sha256": "25140ca2f391b0bdcc73c6c05eb370ae830345155b58a67a838a1d54fa143d56",
+      "model_input_sha256": "85fe7ea7c47ef05f875bdca9057182f4351136f6b8817a86ede50f1ad3cf3078",
+      "model_input_bytes": 1005,
+      "prompt_tokens": 1059,
+      "generated_tokens": 4557,
+      "latency_seconds": 143.014,
+      "diagnosis": {
+        "assessment": "insufficient_evidence",
+        "summary": "Workload performance degraded with step duration doubling (m1) and GPU utilization dropping by half (m3), indicating compute underutilization likely due to waiting on external resources. However, specific dependency metrics for storage, network, and tool events are unavailable, preventing attribution of the wait state.",
+        "candidates": [],
+        "limitations": [
+          "Missing measurements for storage, network, vllm, host_memory, and tool_events prevent identifying the specific source of contention causing GPU stalls.",
+          "Synthetic scalar interval summaries do not provide per-run byte attribution for shared metrics."
+        ]
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": null
+    },
+    {
+      "case": "storage_device",
+      "prompt_version": 7,
+      "seed": 42,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "model_input_sha256": "1e01db77049c13806bb12baff74e25c5f0763d32b106697951852c375cba52c7",
+      "model_input_bytes": 2408,
+      "prompt_tokens": 1635,
+      "generated_tokens": 5116,
+      "latency_seconds": 161.013,
+      "diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "Workload step duration on gpu-0 doubled while GPU utilization halved, indicating compute stalls. Concurrent measurements show the shared storage service latency increased significantly and the backing device busy ratio spiked near saturation.",
+        "candidates": [
+          {
+            "title": "Storage I/O Contention Delaying Training Step Execution",
+            "explanation": "Application step duration on gpu-0 doubled (m1) while GPU utilization halved (m3), suggesting compute time is being lost to waits. This correlates temporally with a 7.5x increase in storage service p99 latency (m4) and the underlying storage device busy ratio rising from 0.2 to 0.98 (m5). Topology indicates gpu-0 depends on storage-0 for training data, making I/O contention a likely cause of the compute under-utilization.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m2",
+              "m6",
+              "m7"
+            ],
+            "missing_evidence": [
+              "Kernel io_wait percentage on gpu-0",
+              "Storage queue depth metrics",
+              "Per-request latency breakdown distinguishing I/O from compute phases"
+            ],
+            "observation_scope": "gpu-0 application metrics correlated with storage-0 service and device metrics",
+            "next_checks": [
+              "Verify io_wait percentage in OS statistics on gpu-0 during the interval",
+              "Inspect storage queue depth or iowait on storage-0 node",
+              "Check if other nodes are contending for the same storage service (3fs)"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Correlation between storage degradation and application slowdown is temporal but lacks direct tracing of specific read calls."
+        ]
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": true
+    },
+    {
+      "case": "insufficient",
+      "prompt_version": 7,
+      "seed": 42,
+      "input_sha256": "25140ca2f391b0bdcc73c6c05eb370ae830345155b58a67a838a1d54fa143d56",
+      "model_input_sha256": "85fe7ea7c47ef05f875bdca9057182f4351136f6b8817a86ede50f1ad3cf3078",
+      "model_input_bytes": 1005,
+      "prompt_tokens": 1138,
+      "generated_tokens": 4650,
+      "latency_seconds": 145.983,
+      "diagnosis": {
+        "assessment": "insufficient_evidence",
+        "summary": "Step duration increased from 10s to 20s (m1) on node gpu-0, while GPU utilization dropped from 90% to 40% (m3). These symptoms indicate a performance degradation and potential GPU idle time, but measurements for storage, network, and host memory are missing, preventing attribution of the delay to a specific contention source.",
+        "candidates": [],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Missing source data for storage, network, vllm, host_memory, tool_events prevents identifying specific subsystem bottlenecks."
+        ]
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": null
+    },
+    {
+      "case": "storage_device",
+      "prompt_version": 8,
+      "seed": 42,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "model_input_sha256": "1e01db77049c13806bb12baff74e25c5f0763d32b106697951852c375cba52c7",
+      "model_input_bytes": 2408,
+      "prompt_tokens": 1649,
+      "generated_tokens": 3736,
+      "latency_seconds": 406.622,
+      "diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "Workload step duration doubled and GPU utilization decreased from 90% to 45% in the current interval. Storage service latency increased significantly and the underlying device busy ratio reached 0.98 on the connected storage node, while network and memory metrics remained stable.",
+        "candidates": [
+          {
+            "title": "Possible storage device saturation",
+            "explanation": "Application step duration increased from 10s to 20s (m1) while GPU utilization decreased from 90% to 45% (m3). Concurrently, shared storage P99 latency increased (m4) and the storage device busy ratio reached 0.98 (m5) on node storage-0. Network utilization (m7) and host memory availability (m11) remained stable during this interval.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m7",
+              "m11"
+            ],
+            "missing_evidence": [
+              "Direct byte attribution to this run on the shared 3fs service"
+            ],
+            "observation_scope": "gpu-0 application and storage-0 device layers",
+            "next_checks": [
+              "Check I/O queue depth on nvme0n1 during the interval",
+              "Verify if other runs are competing for 3fs resources",
+              "Monitor specific file open/read counts from gpu-0 to storage-0"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "No direct measurement of specific I/O operations performed by this run on the storage device."
+        ]
+      },
+      "draft_diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "Workload step duration doubled and GPU utilization halved in the current interval. Storage service latency increased significantly and the underlying device busy ratio reached saturation on the connected storage node, while network and memory metrics remained stable.",
+        "candidates": [
+          {
+            "title": "Possible storage device saturation increasing I/O latency and GPU idle time",
+            "explanation": "Application step duration doubled from 10s to 20s (m1) and GPU utilization dropped from 90% to 45% (m3). Concurrently, shared storage P99 latency increased 7.5x (m4) and the storage device busy ratio rose to 0.98 (m5) on node storage-0, which provides training data to gpu-0. Stable network utilization (m7) and host memory availability (m11) suggest I/O contention is the primary source of delay rather than communication or memory pressure.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m7",
+              "m11"
+            ],
+            "missing_evidence": [
+              "Direct byte attribution to this run on the shared 3fs service"
+            ],
+            "observation_scope": "gpu-0 application and storage-0 device layers",
+            "next_checks": [
+              "Check I/O queue depth on nvme0n1 during the interval",
+              "Verify if other runs are competing for 3fs resources",
+              "Monitor specific file open/read counts from gpu-0 to storage-0"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "No direct measurement of specific I/O operations performed by this run on the storage device."
+        ]
+      },
+      "semantic_review": {
+        "decision": "revise",
+        "issues": [
+          "Title violates constraint against causal action verbs by including 'increasing' and references unmeasured quantity 'GPU idle time'.",
+          "Explanation declares causation ('is the primary source') rather than stating correlation or hypothesis.",
+          "Summary uses qualitative term 'saturation' instead of the measured value (0.98) for device busy ratio."
+        ],
+        "prompt_version": 1,
+        "model": "qwen3.5:27b",
+        "seed": 43,
+        "model_input_sha256": "b9bef8d39670325b9e480df63ad99f05b9cb309ab3effa654d343ef931f0a178",
+        "model_input_bytes": 3930,
+        "prompt_tokens": 1887,
+        "generated_tokens": 9018,
+        "latency_seconds": 285.81,
+        "limitation": "Model review can miss errors; it does not establish causality or factual correctness."
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": true
+    },
+    {
+      "case": "insufficient",
+      "prompt_version": 8,
+      "seed": 42,
+      "input_sha256": "25140ca2f391b0bdcc73c6c05eb370ae830345155b58a67a838a1d54fa143d56",
+      "model_input_sha256": "85fe7ea7c47ef05f875bdca9057182f4351136f6b8817a86ede50f1ad3cf3078",
+      "model_input_bytes": 1005,
+      "prompt_tokens": 1152,
+      "generated_tokens": 4149,
+      "latency_seconds": 344.141,
+      "diagnosis": {
+        "assessment": "insufficient_evidence",
+        "summary": "Step duration increased from 10s to 20s (m1) while GPU utilization decreased from 90% to 40% (m3). Stall or wait time was not measured.",
+        "candidates": [],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Missing observations for storage, network, vllm, host_memory, and tool_events."
+        ]
+      },
+      "draft_diagnosis": {
+        "assessment": "insufficient_evidence",
+        "summary": "Step duration doubled from 10s to 20s (m1) while GPU utilization dropped from 90% to 40% (m3). This indicates increased idle/wait time, but missing measurements for storage and network prevent attributing the delay to a specific bottleneck source.",
+        "candidates": [],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Missing observations for storage, network, vllm, host_memory, and tool_events."
+        ]
+      },
+      "semantic_review": {
+        "decision": "revise",
+        "issues": [
+          "Summary infers increased idle/wait time without measurement evidence.",
+          "Summary uses causal phrasing ('This indicates') for unmeasured states.",
+          "Summary includes limitation details that should be in the limitations array."
+        ],
+        "prompt_version": 1,
+        "model": "qwen3.5:27b",
+        "seed": 43,
+        "model_input_sha256": "dc2481230555c2ad7cc69fb8b216cdeaeb4baffe6bb0145734050dc1fb4e0fd3",
+        "model_input_bytes": 1530,
+        "prompt_tokens": 1164,
+        "generated_tokens": 6791,
+        "latency_seconds": 213.668,
+        "limitation": "Model review can miss errors; it does not establish causality or factual correctness."
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": null
+    },
+    {
+      "case": "storage_device",
+      "prompt_version": 9,
+      "seed": 42,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "model_input_sha256": "1e01db77049c13806bb12baff74e25c5f0763d32b106697951852c375cba52c7",
+      "model_input_bytes": 2408,
+      "prompt_tokens": 1715,
+      "generated_tokens": 4935,
+      "latency_seconds": 333.068,
+      "diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "gpu-0 노드에서 step_duration_seconds 가 10 초에서 20 초로 증가하고 gpu_utilization_percent 가 90% 에서 45% 로 하락하여 성능 저하 증상이 관찰됩니다. 동시에 storage 서비스의 storage_p99_latency_seconds 가 7 배 이상 증가하고 storage_device_busy_ratio 가 98% 에 도달했습니다. 이러한 지표 변화는 저장소 리소스 포화와 관련 있을 수 있으나, 인과관계는 입증되지 않았습니다.",
+        "candidates": [
+          {
+            "title": "Possible storage I/O saturation",
+            "explanation": "gpu-0 에서 step_duration_seconds(m1) 증가와 gpu_utilization_percent(m3) 감소가 관찰됩니다. GPU 사용률 감소는 계산 활동 감소를 나타내나, 대기 시간 (wait time) 은 측정되지 않았습니다. 동시에 storage-0 관련 서비스의 storage_p99_latency_seconds(m4) 증가와 storage_device_busy_ratio(m5) 상승이 확인되었습니다. 이러한 지표 변화의 동시성은 저장소 리소스 포화가 작업 수행에 영향을 미쳤을 가능성을 시사하지만, 현재 런에 대한 요청 수준 속성 부재로 인해 인과관계는 확정되지 않았습니다.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m2",
+              "m16",
+              "m17"
+            ],
+            "missing_evidence": [
+              "gpu-0 의 클라이언트 측 I/O 대기 시간 지표 (예: iostat, proc_diskstats)",
+              "Storage-0 공유 서비스에 대한 런별 요청 속성 증명 (Per-run request attribution on storage-0 shared service to confirm causation)",
+              "저장소 큐 깊이 또는 작업별 파일 읽기 지연 시간 (Storage queue depth or specific file read latency per operation)"
+            ],
+            "observation_scope": "gpu-0 의 애플리케이션 계층 및 storage-0 의 공유 저장소 서비스",
+            "next_checks": [
+              "gpu-0 컨테이너/cgroup 에서 I/O 대기 프로파일링 활성화 (Enable I/O wait profiling on gpu-0 container/cgroup)",
+              "run_id fixture-01 로 저장소 요청 로그 상관관계 검증 (Correlate storage request logs with run_id fixture-01 to verify attribution)",
+              "현재 구간 내 nvme0n1 큐잉 지표 확인 (/proc/diskstats for nvme0n1 queueing metrics during current interval)"
+            ]
+          }
+        ],
+        "limitations": [
+          "합성 스칼라 구간 요약; 공유 메트릭은 런별 바이트 속성이 없습니다.",
+          "공유 서비스 신호 (storage) 는 요청 수준 추적 없이 특정 런에 사용량을 속성화하지 않습니다.",
+          "계층 간 상관관계는 저장소 지연과 애플리케이션 단계 지속 시간 간의 인과관계를 입증하지 못합니다."
+        ]
+      },
+      "draft_diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "gpu-0 노드에서 step_duration_seconds 가 10 초에서 20 초로 증가하고 GPU utilization_percent 가 90% 에서 45% 로 하락하여 성능 저하 및 대기 증상이 관찰됩니다. 동시에 storage-0 의 storage_device_busy_ratio 가 98% 로 포화 상태에 도달하고 storage_p99_latency_seconds 가 7 배 이상 증가했습니다. 토폴로지에 정의된 데이터 경로와 측정 시점의 상관관계를 고려할 때 저장소 I/O 병목이 의심됩니다.",
+        "candidates": [
+          {
+            "title": "Possible Storage I/O saturation delaying training data access",
+            "explanation": "gpu-0 의 step_duration_seconds(m1) 증가와 GPU utilization_percent(m3) 감소는 작업이 계산보다 대기 상태에 있음을 시사합니다. storage-0 의 storage_device_busy_ratio(m5) 가 98% 로 상승하고 p99 latency(m4) 가 증가한 것은 저장소 리소스 경쟁을 나타내는 직접적인 측정치입니다. rollout_duration_seconds(m2) 와 weight_sync_duration_seconds(m16) 가 안정적이므로 병목이 데이터 로딩 단계로 국한됩니다.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m2",
+              "m16",
+              "m17"
+            ],
+            "missing_evidence": [
+              "gpu-0 client-side I/O wait time metrics (e.g., iostat, proc_diskstats)",
+              "Per-run request attribution on storage-0 shared service to confirm causation",
+              "Storage queue depth or specific file read latency per operation"
+            ],
+            "observation_scope": "application layer on gpu-0 and shared storage service on storage-0",
+            "next_checks": [
+              "Enable I/O wait profiling on gpu-0 container/cgroup",
+              "Correlate storage request logs with run_id fixture-01 to verify attribution",
+              "Check /proc/diskstats for nvme0n1 queueing metrics during current interval"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Shared-service signals (storage) do not attribute usage specifically to this run without request-level tracing.",
+          "Cross-layer correlation does not prove causation between storage latency and application step duration."
+        ]
+      },
+      "semantic_review": {
+        "decision": "revise",
+        "issues": [
+          "Candidate 제목인 'Possible Storage I/O saturation delaying training data access' 에 동사형 표현 ('delaying') 이 포함되어 있습니다. 명사구로만 구성된 영어 기술 용어로 수정해야 합니다.",
+          "설명에서 GPU utilization 감소를 '대기 상태' 로 해석했으나 대기 시간은 측정되지 않았습니다. 관측된 사실과 추론을 분리하고 미측정 사항을 명시해야 합니다.",
+          "저장소 지표 (m4, m5) 를 병목의 직접적인 원인으로 서술했지만, 해당 run_id 에 대한 요청 수준 속성 (attribution) 이 없으므로 상관관계임을 명시해야 합니다."
+        ],
+        "prompt_version": 2,
+        "model": "qwen3.5:27b",
+        "seed": 43,
+        "model_input_sha256": "8f7bcc3338da4998fe1a05347be3b34931928b9efc5353fd860d2fd57b44b318",
+        "model_input_bytes": 4505,
+        "prompt_tokens": 2108,
+        "generated_tokens": 5608,
+        "latency_seconds": 177.636,
+        "limitation": "Model review can miss errors; it does not establish causality or factual correctness."
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "requested_language": "ko"
+    },
+    {
+      "case": "storage_device",
+      "prompt_version": 10,
+      "seed": 42,
+      "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+      "model_input_sha256": "1e01db77049c13806bb12baff74e25c5f0763d32b106697951852c375cba52c7",
+      "model_input_bytes": 2408,
+      "prompt_tokens": 1909,
+      "generated_tokens": 3918,
+      "latency_seconds": 314.739,
+      "diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "gpu-0 에서 step_duration_seconds(m1) 가 10 초에서 20 초로 증가하고 gpu_utilization_percent(m3) 가 90% 에서 45% 로 감소했습니다. 이는 storage-0 의 storage_p99_latency_seconds(m4) 증가 (0.002 초 -> 0.015 초) 와 device_busy_ratio(m5) 상승 (0.2 -> 0.98) 과 시간상 일치합니다.",
+        "candidates": [
+          {
+            "title": "Possible storage I/O contention",
+            "explanation": "step_duration_seconds(m1) 증가와 gpu_utilization_percent(m3) 감소가 관찰되었습니다. shared-service(3fs) 의 latency(m4) 증가와 storage_device_busy_ratio(m5) 상승은 이를 설명하는 가능성이 있으나, 동시성만으로 인과 관계가 증명되지 않습니다.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [],
+            "missing_evidence": [
+              "storage 계층 metric 의 특정 run attribution 데이터 없음",
+              "GPU stall time 이 측정되지 않음"
+            ],
+            "observation_scope": "application, device, shared-service",
+            "next_checks": [
+              "gpu-0 cgroup I/O wait 시간 확인",
+              "storage-0 queue depth 모니터링"
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries 입니다.",
+          "Shared metrics 는 특정 run 에 대한 byte attribution 을 포함하지 않습니다."
+        ]
+      },
+      "draft_diagnosis": {
+        "assessment": "bottleneck_suspected",
+        "summary": "gpu-0 에서 step_duration_seconds 가 10 초에서 20 초로 증가하고 GPU utilization 이 90% 에서 45% 로 감소하는 성능 저하가 관찰되었습니다. 이는 storage-0 의 storage_p99_latency_seconds 급증과 device_busy_ratio 상승 (0.2 에서 0.98) 과 시간상 일치하여 I/O 병목 가능성이 있습니다.",
+        "candidates": [
+          {
+            "title": "Possible storage I/O contention limiting GPU throughput",
+            "explanation": "application 계층에서 step_duration_seconds(m1) 가 증가하고 device 계층의 gpu_utilization_percent(m3) 가 감소하여 GPU 가 대기 중임을 나타냅니다. 이는 topology 상 gpu-0 이 training data 를 위해 storage-0 에 의존한다는 사실과 일치하며, shared-service(3fs) 의 latency(m4) 증가와 storage_device_busy_ratio(m5) 급증이 저장소 contention 을 시사합니다.",
+            "evidence_ids": [
+              "m1",
+              "m3",
+              "m4",
+              "m5"
+            ],
+            "counter_evidence_ids": [
+              "m2",
+              "m6"
+            ],
+            "missing_evidence": [
+              "Per-run attribution for storage metrics is unavailable.",
+              "Evidence confirming this run caused the storage saturation versus suffering from shared load."
+            ],
+            "observation_scope": "application, device, shared-service",
+            "next_checks": [
+              "Check per-cgroup I/O wait times on gpu-0 to confirm application blocking.",
+              "Monitor storage queue depth and concurrency limits on storage-0."
+            ]
+          }
+        ],
+        "limitations": [
+          "Synthetic scalar interval summaries; shared metrics have no per-run byte attribution.",
+          "Correlation between storage latency spike and GPU idle time does not prove causation without per-workload I/O measurement."
+        ]
+      },
+      "semantic_review": {
+        "decision": "revise",
+        "issues": [
+          "제목 'Possible storage I/O contention limiting GPU throughput' 에 인과적 서술 ('limiting') 이 포함되어 있어 'Possible noun phrase' 규정을 위반합니다.",
+          "설명에서 gpu_utilization_percent 감소로 'GPU 대기 중임'을 단정했으나, 저 유틸리티는 측정되지 않은 stall time 을 증명하지 못합니다.",
+          "counter_evidence_ids 에 포함된 m2 와 m6 은 storage contention 가설과 모순되지 않으며 (stable throughput 는 queueing 과 공존 가능), 제거하거나 재정의해야 합니다.",
+          "limitations 와 missing_evidence 에서 'attribution' 용어는 영어로 유지되어야 하며, 한국어 번역 ('속성') 을 사용하지 않아야 합니다."
+        ],
+        "prompt_version": 3,
+        "model": "qwen3.5:27b",
+        "seed": 43,
+        "model_input_sha256": "99e2049a56bb7f4ee63925a1bcb70ae3ddd591900b01fab7a4767722736431e3",
+        "model_input_bytes": 4018,
+        "prompt_tokens": 2215,
+        "generated_tokens": 6044,
+        "latency_seconds": 191.335,
+        "limitation": "Model review can miss errors; it does not establish causality or factual correctness."
+      },
+      "assessment_match": true,
+      "primary_evidence_coverage": true,
+      "requested_language": "ko"
+    }
+  ],
+  "integration_checks": {
+    "cli_connection_failure": "Exit 1; previous successful output replaced by llm_diagnosis_failure.",
+    "prometheus_collection": "Backend unavailable; six query/window failures recorded in missing_sources, zero series. No fresh host measurements verified."
+  },
+  "manual_review": [
+    "Prompt 7 still overstates causality in the storage title and infers compute stalls from utilization in its summary. Structural checks do not validate these claims.",
+    "The insufficient case returns no candidate in both versions. Version 7 omits the prior external-resource wait claim but still mentions possible GPU idle time without a direct idle-time measurement.",
+    "The two cases satisfy their assessment and reference checks; this is not a general diagnosis accuracy benchmark.",
+    "Version 8 reviewed both drafts and removed unmeasured GPU idle/wait claims and causal attribution while retaining the expected assessments and required evidence references.",
+    "Version 9 returned Korean prose and revised causal claims, but translated attribution as object attributes; this output is not accepted by the final terminology guard.",
+    "Version 10 returned Korean prose with English technical terms, retained attribution in English, removed a causal title and GPU-wait assertion, and corrected counter-evidence misuse. Current reference, language, terminology and wording checks pass.",
+    "Some reviewer wording remains less natural than human editing (e.g. a utilization reference described as utility in a reviewer issue). Model review is not a guarantee of fluency, correct profiling advice, or semantic correctness.",
+    "Two model calls increase analysis latency. The final Korean storage case took 314.739 seconds; comparison across these single samples is not an inference speed benchmark."
+  ],
+  "initial_cpu_tests_passed": 226,
+  "initial_llm_tests_passed": 68,
+  "cpu_tests_passed": 255,
+  "llm_tests_passed": 97
+}
