@@ -36,6 +36,8 @@ def test_server_config_keeps_optional_features_on_restart(tmp_path: Path) -> Non
         rules = json.loads((output / "provisioning/alerting/operations.json").read_text())
         assert len(rules["groups"][0]["rules"]) == 3
         assert "uid: telemetry-loki" in (output / "provisioning/datasources/default.yaml").read_text()
+        assert "timeInterval: 2s" in (output / "provisioning/datasources/default.yaml").read_text()
+        assert "scrape_interval: 2s" in (output / "prometheus.yml").read_text()
         assert (output / "dashboards/run-logs.json").is_file()
 
 

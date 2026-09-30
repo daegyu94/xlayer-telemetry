@@ -121,7 +121,7 @@ def test_smoke_validator_checks_parent_trace_and_optional_grader(tmp_path):
         validate_smoke(directory, require_sandbox=True)
     (directory / "sandbox-sandbox-worker-1.jsonl").write_text(json.dumps({
         "record_type": "span", "name": "sandbox.exec", "run_id": "run-1",
-        "trace_id": "unlinked", "parent_span_id": "missing",
+        "trace_id": "unlinked", "span_id": "child", "parent_span_id": "missing",
     }) + "\n")
     with pytest.raises(ValueError, match="no matching tool.call"):
         validate_smoke(directory, require_sandbox=True)

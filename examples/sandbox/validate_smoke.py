@@ -18,8 +18,13 @@ def validate(events_dir: Path, *, require_sandbox: bool = False) -> dict[str, in
                     record = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if record.get("record_type") == "span":
+                if isinstance(record, dict) and record.get("record_type") == "span":
                     spans.append(record)
+    for span in spans:
+        if span.get("name") in {"tool.call", "sandbox.exec"} and any(
+                not isinstance(span.get(key), str) or not span[key].strip()
+                for key in ("run_id", "trace_id", "span_id")):
+            raise ValueError("tool/sandbox span has an invalid run/trace/span identity")
     tools = {(span.get("run_id"), span.get("trace_id"), span.get("span_id"))
              for span in spans if span.get("name") == "tool.call"}
     sandbox = [span for span in spans if span.get("name") == "sandbox.exec"]
@@ -38,10 +43,13 @@ def validate(events_dir: Path, *, require_sandbox: bool = False) -> dict[str, in
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("run_root", type=Path, help="Root containing run/telemetry-events")
+    parser.add_argument("run_root", type=Path, help="Root containing telemetry/telemetry-events (legacy run/ also supported)")
     parser.add_argument("--require-sandbox", action="store_true")
     args = parser.parse_args()
-    result = validate(args.run_root / "run" / "telemetry-events",
+    events_dir = args.run_root / "telemetry" / "telemetry-events"
+    if not events_dir.is_dir():
+        events_dir = args.run_root / "run" / "telemetry-events"
+    result = validate(events_dir,
                       require_sandbox=args.require_sandbox)
     print(json.dumps(result, sort_keys=True))
 

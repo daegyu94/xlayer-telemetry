@@ -128,11 +128,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "options": {
         "mode": "markdown",
-        "content": "**Exact:** EventRecorder가 기록한 span 경계 · **Approximate:** file logger로 추정한 step 구간 · **Sampled:** Prometheus resource metric\n\nStage duration의 실행 순서는 알 수 없습니다. Resource node·Trace ID를 맞추고 아래 clock 상태와 sample freshness도 확인합니다. Shared signal의 동시 변화만으로 원인을 확정하지 않습니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Exact:** EventRecorder가 기록한 span 경계 · **Approximate:** file logger로 추정한 step 구간 · **Sampled:** Prometheus resource metric</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Stage duration의 실행 순서는 알 수 없습니다. Resource node·Trace ID를 맞추고 아래 clock 상태와 sample freshness도 확인합니다. Shared signal의 동시 변화만으로 원인을 확정하지 않습니다.</span>"
       }
     },
     {
@@ -142,7 +142,7 @@
       "description": "Producer node의 wall clock으로 기록한 실제 span 경계입니다. Node 간 정렬에는 clock 동기화가 필요하며 wall-clock jump가 감지된 span은 제외합니다.",
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 6,
         "w": 24,
         "h": 6
       },
@@ -250,7 +250,7 @@
       "description": "관측 시각과 보고된 duration에서 추정한 step 구간입니다. Stage duration은 순서가 있는 phase 경계가 아닙니다.",
       "gridPos": {
         "x": 0,
-        "y": 11,
+        "y": 12,
         "w": 24,
         "h": 5
       },
@@ -350,7 +350,7 @@
       "title": "Exact spans: open step, logs, or diagnosis",
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 17,
         "w": 24,
         "h": 6
       },
@@ -656,7 +656,7 @@
       "description": "Span ID link로 실제 span 시간 구간의 Step Detail·diagnosis·log를 엽니다. Trace 관계와 시간 정렬의 정확도는 별도로 확인합니다.",
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       }
     },
@@ -666,7 +666,7 @@
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 23,
         "w": 12,
         "h": 7
       },
@@ -684,7 +684,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -701,7 +704,7 @@
       "title": "vLLM waiting requests",
       "gridPos": {
         "x": 12,
-        "y": 22,
+        "y": 23,
         "w": 12,
         "h": 7
       },
@@ -719,7 +722,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -736,7 +742,7 @@
       "title": "RDMA bytes per second",
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 30,
         "w": 12,
         "h": 7
       },
@@ -754,7 +760,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "Bps",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -771,7 +780,7 @@
       "title": "Device busy ratio",
       "gridPos": {
         "x": 12,
-        "y": 29,
+        "y": 30,
         "w": 12,
         "h": 7
       },
@@ -789,7 +798,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -806,9 +818,9 @@
       "title": "Related EventRecorder events",
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 37,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "datasource": {
         "type": "loki",
@@ -1017,7 +1029,7 @@
       "description": "선택한 Trace ID에 관련된 EventRecorder event입니다. Trace ID가 비어 있으면 선택 구간의 event를 함께 조회합니다.",
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       }
     },
@@ -1029,7 +1041,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 43
       },
       "datasource": {
         "type": "prometheus",
@@ -1045,7 +1057,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -1067,13 +1082,13 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 57,
         "w": 24,
-        "h": 2
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})\n\n같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다.</span>"
       }
     },
     {
@@ -1082,7 +1097,7 @@
       "title": "Node clock offset from scrape time",
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 50,
         "w": 12,
         "h": 7
       },
@@ -1100,7 +1115,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -1117,7 +1135,7 @@
       "title": "Node clock synchronization status",
       "gridPos": {
         "x": 12,
-        "y": 48,
+        "y": 50,
         "w": 12,
         "h": 7
       },
@@ -1135,7 +1153,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "none",
-          "links": []
+          "links": [],
+          "custom": {
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },

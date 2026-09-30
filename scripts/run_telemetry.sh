@@ -473,6 +473,8 @@ datasources:
     access: proxy
     url: http://127.0.0.1:19090
     isDefault: true
+    jsonData:
+      timeInterval: 2s
 EOF
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     loki_listen_addr="${LOKI_LISTEN_ADDR:-127.0.0.1}"

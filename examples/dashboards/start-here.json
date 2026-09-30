@@ -11,14 +11,14 @@
       "type": "text",
       "title": "VERL / Cross-Layer Investigation",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Collect → Correlate → Diagnose**\n\nRun Overview에서 수집 상태를 확인하고, Agent RL과 Step Explorer에서 느린 구간을 선택한 뒤 후보와 근거를 조사합니다. 각 화면에서 Cluster · Node · Run · 시간 범위를 맞춥니다. Shared resource는 Run별 사용량이 아닙니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Collect → Correlate → Diagnose**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Run Overview에서 수집 상태를 확인하고, Agent RL과 Step Explorer에서 느린 구간을 선택한 뒤 후보와 근거를 조사합니다. 각 화면에서 Cluster · Node · Run · 시간 범위를 맞춥니다. Shared resource는 Run별 사용량이 아닙니다.</span>"
       }
     },
     {
@@ -26,14 +26,14 @@
       "type": "text",
       "title": "1 · Collect / Run Health",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "options": {
         "mode": "markdown",
-        "content": "Exporter 상태와 sample freshness를 먼저 확인합니다. GPU utilization과 application metric으로 관측이 이어지는지 봅니다.\n\n[Run Overview 열기](/d/telemetry-overview?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">Exporter 상태와 sample freshness를 먼저 확인합니다. GPU utilization과 application metric으로 관측이 이어지는지 봅니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Run Overview 열기](/d/telemetry-overview?${__url_time_range})</span>"
       }
     },
     {
@@ -41,14 +41,14 @@
       "type": "text",
       "title": "2 · Correlate / Stage Signals",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 5
       },
       "options": {
         "mode": "markdown",
-        "content": "완료된 VERL stage duration을 rollout queue·KV cache·GPU activity와 비교해 느린 구간을 찾습니다.\n\n[Agent RL Stage Correlation 열기](/d/agent-rl-stage-correlation?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">완료된 VERL stage duration을 rollout queue·KV cache·GPU activity와 비교해 느린 구간을 찾습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Agent RL Stage Correlation 열기](/d/agent-rl-stage-correlation?${__url_time_range})</span>"
       }
     },
     {
@@ -56,14 +56,14 @@
       "type": "text",
       "title": "Select a Step",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 11
       },
       "options": {
         "mode": "markdown",
-        "content": "완료 step 번호를 눌러 자원·log를 함께 조사합니다. **Loki step-event 수집 필요:** 시간 경계는 추정치입니다.\n\n[Step Explorer 열기](/d/xlayer-step-explorer?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">완료 step 번호를 눌러 자원·log를 함께 조사합니다. **Loki step-event 수집 필요:** 시간 경계는 추정치입니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Step Explorer 열기](/d/xlayer-step-explorer?${__url_time_range})</span>"
       }
     },
     {
@@ -71,14 +71,14 @@
       "type": "text",
       "title": "3 · Diagnose / Candidate & Evidence",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 11
       },
       "options": {
         "mode": "markdown",
-        "content": "같은 run의 baseline과 supporting · counter · missing evidence를 확인합니다. **Diagnostics + Loki 필요.**\n\n[Bottleneck Summary 열기](/d/xlayer-bottleneck-summary?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">같은 run의 baseline과 supporting · counter · missing evidence를 확인합니다. **Diagnostics + Loki 필요.**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Bottleneck Summary 열기](/d/xlayer-bottleneck-summary?${__url_time_range})</span>"
       }
     },
     {
@@ -86,14 +86,14 @@
       "type": "text",
       "title": "Cross-Layer Timeline",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 17
       },
       "options": {
         "mode": "markdown",
-        "content": "Exact span · approximate step · sampled metric을 같은 시간축에서 비교합니다. **EventRecorder / step event + Loki 필요.**\n\n[Cross-Layer Timeline 열기](/d/xlayer-cross-layer-timeline?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">Exact span · approximate step · sampled metric을 같은 시간축에서 비교합니다. **EventRecorder / step event + Loki 필요.**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Cross-Layer Timeline 열기](/d/xlayer-cross-layer-timeline?${__url_time_range})</span>"
       }
     },
     {
@@ -101,14 +101,14 @@
       "type": "text",
       "title": "Logs / Supporting Evidence",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 17
       },
       "options": {
         "mode": "markdown",
-        "content": "선택한 구간의 workload log를 읽습니다. **Loki 필요:** Run은 log directory 이름이며 telemetry run_id와 다를 수 있습니다.\n\n[Run Logs 열기](/d/xlayer-run-logs?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">선택한 구간의 workload log를 읽습니다. **Loki 필요:** Run은 log directory 이름이며 telemetry run_id와 다를 수 있습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Run Logs 열기](/d/xlayer-run-logs?${__url_time_range})</span>"
       }
     },
     {
@@ -116,14 +116,14 @@
       "type": "text",
       "title": "Compute & Communication",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 23
       },
       "options": {
         "mode": "markdown",
-        "content": "GPU power·SM clock·process memory와 TCP/Ethernet·RDMA를 같은 node·시간 범위에서 비교합니다.\n\n[Compute & Communication 열기](/d/xlayer-compute-communication?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">GPU power·SM clock·process memory와 TCP/Ethernet·RDMA를 같은 node·시간 범위에서 비교합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Compute & Communication 열기](/d/xlayer-compute-communication?${__url_time_range})</span>"
       }
     },
     {
@@ -131,14 +131,14 @@
       "type": "text",
       "title": "Data & Storage",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 23
       },
       "options": {
         "mode": "markdown",
-        "content": "Local device I/O·filesystem을 비교하고 storage topology와 선택적 SSD SMART를 확인합니다.\n\n[Data & Storage 열기](/d/xlayer-data-storage?${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">Local device I/O·filesystem을 비교하고 storage topology와 선택적 SSD SMART를 확인합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Data & Storage 열기](/d/xlayer-data-storage?${__url_time_range})</span>"
       }
     }
   ],

@@ -368,7 +368,25 @@ bash examples/sandbox/run_verl_lab_smoke.sh
 
 이 smoke dataset은 문제 문장에 이미 있는 `self.logger.error` 수정 방향을 prompt에 명시하므로 agent의 SWE-Bench 해결률 평가에는 사용하지 않습니다.
 `XLAYER_SWE_EDIT_ONLY=1`로 `test_patch`를 모델의 도구 목록에서 제외하되 원래 reward와 grader는 재사용합니다.
-출력의 `run/telemetry-events`에서 `tool.call`과 `sandbox.exec`의 trace를 확인하고, 두 번째 step부터 같은 tool의 duration baseline을 비교할 수 있습니다.
+출력의 `telemetry/telemetry-events`에서 `tool.call`과 `sandbox.exec`의 trace를 확인하고, 두 번째 step부터 같은 tool의 duration baseline을 비교할 수 있습니다.
+Trainer log는 `logs/training.log`에 기록하므로 [Alloy의 기본 run 경로](monitoring.md#add-run-logs-with-loki)와 맞습니다.
+`validate_smoke`는 이전 `run/telemetry-events` 구조도 읽습니다.
+
+기본 trainer mode는 `sync`입니다.
+`TRAINER_MODE=colocate_async` 또는 `TRAINER_MODE=separate_async`로 기존 `verl-lab` launcher의 mode를 전달하며, XLayer wrapper에도 비동기 update 경계를 명시합니다.
+`separate_async`는 GPU 두 개가 필요하고, 기본 visible device는 `0,1`입니다.
+장치 배치가 다르면 `CUDA_VISIBLE_DEVICES`를 지정합니다.
+
+```bash
+RUN_ROOT="$HOME/telemetry-runs/swebench-separate-async" \
+  TRAINER_MODE=separate_async TOTAL_TRAINING_STEPS=3 \
+  bash examples/sandbox/run_verl_lab_smoke.sh
+```
+
+기본값은 2 step이며 `TOTAL_TRAINING_STEPS`로 바꿀 수 있습니다.
+진단까지 연결하려면 monitoring server를 먼저 실행하고 `DIAGNOSTICS_CONFIG`에 [진단 설정](#add-diagnostics)의 경로를 전달합니다.
+`VERL_PROMETHEUS_ENABLE=1`은 이를 지원하는 `verl-lab` launcher에서 vLLM native endpoint를 활성화하며, endpoint 등록은 별도로 필요합니다.
+이 옵션 자체가 XLayer collector에 endpoint를 자동 등록하지는 않습니다.
 
 `test_patch`는 완성된 unified diff를 받습니다.
 작은 모델이 `type`처럼 스키마에 없는 인자를 넣거나 유효하지 않은 diff 조각을 만들 수 있으므로, 이 예제는 기존 grader를 호출하는 `edit_and_test(path, old, new)`도 제공합니다.
@@ -394,6 +412,37 @@ python -m examples.sandbox.validate_smoke "$RUN_ROOT" --require-sandbox
 `docker run --rm` grader는 매우 짧게 실행될 수 있으므로, container가 없을 때 parent가 유지되는지도 확인하고 sampler interval만으로 모든 grader 호출이 포착된다고 가정하지 않습니다.
 실제 Docker container 2개 이상의 parent I/O 합산을 별도로 검사하려면 로컬에 grader image가 있는 호스트에서 `python -m examples.sandbox.validate_docker_cgroup`을 실행합니다.
 이 검사는 임시 container를 만들고 종료하며, veRL smoke의 개별 trajectory 귀속까지 검증하지는 않습니다.
+
+### Real validation coverage
+
+2026-09-30에는 Qwen2.5-1.5B-Instruct로 아래 6개 조합을 각각 3 step 실행했습니다.
+두 workload 모두 실제 veRL GRPO 학습·vLLM generation·외부 Docker tool 실행을 사용했습니다.
+버전·span 수·누락 source·검증 범위는 [검증 결과](../examples/sandbox/validation-20260930.json)에 기록했습니다.
+
+| Workload | `sync` | `colocate_async` | `separate_async` |
+| --- | --- | --- | --- |
+| SWE-Bench guided patch + Docker grader | 3 step 완료 | 3 update 완료 | 3 update 완료 |
+| GSM8K + Docker calculator | 3 step 완료 | 3 update 완료 | 3 update 완료 |
+
+GSM8K 검증에는 [calculator tool](../examples/sandbox/calculator_tools.py)을 `FUNCTION_TOOL_PATH`로 지정하고, 기존 math prompt에 `calculate` 사용을 안내했습니다.
+작은 integration fixture이며 SWE-Bench·GSM8K 해결률이나 학습 throughput 평가가 아닙니다.
+Calculator의 인자 오류와 실제 Docker nonzero exit도 별도로 실행해 오류 span이 남는지 확인했습니다.
+
+Prometheus에서 application·GPU·host·vLLM·Ray·sandbox cgroup 지표를, Loki에서 trainer log·step·span·diagnosis projection을 확인했습니다.
+Grafana Step Explorer의 step 메뉴가 실제 run·record·node·시간 범위를 전달하고, Step Detail·Bottleneck Summary·Timeline·Logs에서 해당 자료를 읽는지 브라우저로 검증했습니다.
+`policy_version_lag`와 RDMA source는 없었으므로 missing evidence로 남겼습니다.
+Optional Ollama 진단은 별도로 실제 관측 packet을 읽고 한국어 응답과 evidence validation을 통과했습니다.
+
+`separate_async` 학습은 한 물리 host의 GPU 두 개를 분리해 실행했습니다.
+별도로 Ubuntu 24.04 VM 두 개에서 기존 node collector·SDK·dedicated sandbox RPC의 context 전달을 검증했습니다.
+두 node에 같은 worker ID를 사용해도 run/node별 metric과 Loki event가 구분됐고, remote `tool.call → sandbox.exec`의 trace/parent 연결과 실제 cgroup resource event를 확인했습니다.
+Sandbox guest clock을 약 12초 이동하면 진단은 `unsafe`·`insufficient_data`로 보류됐으며, collector 중단·복구 시 clock evidence는 `unknown → aligned`로 변했습니다.
+
+VM 검증 workload는 HTTP/file-I/O probe이며 VM 내부에서 distributed VERL 학습을 실행한 것은 아닙니다.
+Guest는 독립 kernel·clock을 가지지만 물리 CPU·NIC·SSD를 공유하므로 독립 서버의 GPU·RDMA·storage contention 검증을 대신하지 않습니다.
+일반 clock screening은 이 검증에서 `require_sync=false`로 수행했으며, 실제 운영에서는 [NTP/chrony와 clock check](monitoring.md#check-clock-alignment-before-diagnosing)를 구성합니다.
+이번 matrix는 Terminal-Bench, 3FS KV offload, storage overload, full profiler capture를 재검증하지 않았습니다.
+Async trainer update 구간에 모든 rollout/tool span이 포함되는 것은 아니므로, span은 해당 trace의 실제 시간 범위에서도 별도로 조회했습니다.
 
 ### Sample the sandbox worker cgroup
 

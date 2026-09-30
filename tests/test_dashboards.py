@@ -599,3 +599,18 @@ def test_investigation_ui_distinguishes_missing_evidence_and_respects_trace_filt
     detail = json.loads((ROOT / 'examples/dashboards/step-detail.json').read_text())
     expr = detail['panels'][1]['targets'][0]['expr']
     assert 'run_id=~"$run_id"' in expr and 'record_id=~"$record_id"' in expr
+
+
+def test_readable_panels_and_short_step_samples():
+    for path in (ROOT / 'examples/dashboards').glob('*.json'):
+        dashboard = json.loads(path.read_text())
+        for panel in _panels(dashboard):
+            if panel['type'] == 'text':
+                assert 'font-size:16px;line-height:1.65' in panel['options']['content']
+            if panel['type'] == 'table':
+                assert panel['options']['cellHeight'] == 'lg'
+            if panel['type'] == 'stat':
+                assert panel['options']['text']['titleSize'] >= 18
+                assert panel['options']['text']['valueSize'] <= 40
+            if path.name in {'step-detail.json', 'cross-layer-timeline.json'} and panel['type'] == 'timeseries':
+                assert panel['fieldConfig']['defaults']['custom']['showPoints'] != 'never'

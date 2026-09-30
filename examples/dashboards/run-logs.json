@@ -29,7 +29,7 @@
         "h": 20,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "id": 1,
       "options": {
@@ -40,7 +40,7 @@
         "showLabels": false,
         "showTime": true,
         "sortOrder": "Descending",
-        "wrapLogMessage": false
+        "wrapLogMessage": true
       },
       "targets": [
         {
@@ -58,14 +58,14 @@
       "type": "text",
       "title": "Log source & context",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "Cluster · Node · Workload · Run · 시간 범위를 맞춥니다. Run은 Alloy가 log directory에서 읽은 이름이며 telemetry run_id와 다를 수 있습니다.\n\n목록이 비면 Loki·Alloy와 log 경로를 확인합니다. 한 줄의 error만으로 workload 결과를 단정하지 않고 exit code와 run artifact를 함께 봅니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">Cluster · Node · Workload · Run · 시간 범위를 맞춥니다. Run은 Alloy가 log directory에서 읽은 이름이며 telemetry run_id와 다를 수 있습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">목록이 비면 Loki·Alloy와 log 경로를 확인합니다. 한 줄의 error만으로 workload 결과를 단정하지 않고 exit code와 run artifact를 함께 봅니다.</span>"
       }
     }
   ],

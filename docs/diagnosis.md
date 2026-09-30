@@ -108,6 +108,9 @@ Source 자체가 없는 경우에도 재시도는 제한 시간에 끝나며, `s
 그 baseline의 시간 구간으로 Prometheus와 3FS를 다시 조회하고, `comparison.signals`에 current, baseline, delta, delta percent를 기록합니다.
 3FS latency는 양쪽 구간에 모두 있는 같은 `metricName`만 비교합니다.
 GPU utilization은 같은 `gpu` label의 양쪽 표본을 비교하며, device별 짝을 만들 수 없으면 node aggregate로 scope를 낮춥니다.
+비교 표의 device 값은 baseline 대비 utilization 감소가 가장 큰 GPU에서 선택합니다.
+이는 이상 구간 탐색을 위한 값이며, 해당 GPU가 선택한 run의 장치라고 귀속하거나 node 전체 GPU의 평균이라고 해석하지 않습니다.
+전체 device별 그래프는 Step Detail에서 확인합니다.
 vLLM의 KV usage·waiting·preemption은 Prometheus가 engine identity를 제공할 때 같은 engine의 series끼리 비교합니다.
 여러 engine이 있으나 공통 identity를 확인할 수 없으면 `vllm:shared_engine_identity`를 누락 근거로 남기고 이를 강한 후보로 조합하지 않습니다.
 동일한 이전 step이나 해당 표본이 없으면 baseline을 만들어 내지 않고 `missing_evidence`에 표시합니다.

@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "validated_on": "2026-09-30",
+  "data_origin": "observed",
+  "model": "Qwen2.5-1.5B-Instruct",
+  "verl_lab_commit": "ca9eced4153e89e23784e6dbc1a1d17256ab0b14",
+  "verl_commit": "896a9bba5c5ccd3f000d3d2f7c99d921cfd49236",
+  "deployment": {
+    "physical_nodes": 1,
+    "gpu_count": 2,
+    "rollout_n": 4,
+    "agent_workers": 2,
+    "dataloader_workers": 0,
+    "prometheus_scrape_seconds": 1,
+    "sandbox": "colocated Docker cgroup v2 parent"
+  },
+  "cases": [
+    {
+      "workload": "SWE-Bench guided patch",
+      "trainer_mode": "sync",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "rl_step",
+      "step_durations_seconds": [
+        15.736,
+        8.516,
+        8.009
+      ],
+      "tool_calls": 42,
+      "sandbox_execs": 8,
+      "linked_sandbox_execs": 8,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 1,
+        "ray": 266,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 31,
+        "xlayer_event": 50,
+        "trainer_log_lines": 138
+      }
+    },
+    {
+      "workload": "SWE-Bench guided patch",
+      "trainer_mode": "colocate_async",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "trainer_update",
+      "step_durations_seconds": [
+        10.585,
+        6.142,
+        6.332
+      ],
+      "tool_calls": 46,
+      "sandbox_execs": 7,
+      "linked_sandbox_execs": 7,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 1,
+        "ray": 261,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 31,
+        "xlayer_event": 53,
+        "trainer_log_lines": 139
+      }
+    },
+    {
+      "workload": "SWE-Bench guided patch",
+      "trainer_mode": "separate_async",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "trainer_update",
+      "step_durations_seconds": [
+        9.765,
+        4.235,
+        3.929
+      ],
+      "tool_calls": 52,
+      "sandbox_execs": 14,
+      "linked_sandbox_execs": 14,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 2,
+        "ray": 355,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 31,
+        "xlayer_event": 66,
+        "trainer_log_lines": 127
+      }
+    },
+    {
+      "workload": "GSM8K Docker calculator",
+      "trainer_mode": "sync",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "rl_step",
+      "step_durations_seconds": [
+        14.218,
+        7.077,
+        9.363
+      ],
+      "tool_calls": 11,
+      "sandbox_execs": 11,
+      "linked_sandbox_execs": 11,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 1,
+        "ray": 266,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 31,
+        "xlayer_event": 22,
+        "trainer_log_lines": 131
+      }
+    },
+    {
+      "workload": "GSM8K Docker calculator",
+      "trainer_mode": "colocate_async",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "trainer_update",
+      "step_durations_seconds": [
+        9.366,
+        5.062,
+        5.124
+      ],
+      "tool_calls": 12,
+      "sandbox_execs": 12,
+      "linked_sandbox_execs": 12,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 1,
+        "ray": 264,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 31,
+        "xlayer_event": 24,
+        "trainer_log_lines": 134
+      }
+    },
+    {
+      "workload": "GSM8K Docker calculator",
+      "trainer_mode": "separate_async",
+      "workload_exit_code": 0,
+      "steps": 3,
+      "boundary_scope": "trainer_update",
+      "step_durations_seconds": [
+        8.545,
+        6.969,
+        4.947
+      ],
+      "tool_calls": 6,
+      "sandbox_execs": 6,
+      "linked_sandbox_execs": 6,
+      "comparison_signals": 14,
+      "latest_verdict": "no_anomaly_observed",
+      "missing_sources": [
+        "prometheus:policy_version_lag",
+        "prometheus:rdma_bytes_per_second"
+      ],
+      "prometheus_series": {
+        "training": 1,
+        "gpu": 2,
+        "vllm": 2,
+        "ray": 347,
+        "sandbox": 1
+      },
+      "loki_records": {
+        "verl_step": 3,
+        "xlayer_diagnosis": 29,
+        "xlayer_event": 12,
+        "trainer_log_lines": 269
+      }
+    }
+  ],
+  "limitations": [
+    "Small integration fixtures; no SWE-Bench/GSM8K quality or throughput claim.",
+    "Separate async used two GPUs on one physical host; dedicated physical sandbox nodes and multi-node RDMA were not exercised.",
+    "Host NTP sync flag was 0. Single-host validation used clock.require_sync=false; scrape-relative offsets were checked. This is not proof of inter-node synchronization.",
+    "Policy version lag and RDMA signals were unavailable and remained missing evidence.",
+    "3FS KV offload, Terminal-Bench, full profiling and overload-induced storage diagnoses were not exercised in this matrix.",
+    "Docker parent cgroup metrics aggregate the graders plus a tiny container holding the parent alive; no per-trajectory resource attribution.",
+    "Async trainer-update windows do not enclose every rollout/tool span; exact spans were inspected in their own trace windows."
+  ],
+  "runtime_versions": {
+    "vllm": "0.24.0",
+    "torch": "2.11.0+cu130",
+    "ray": "2.55.1",
+    "verl": "0.10.0.dev0",
+    "grafana": "12.1.0",
+    "node_exporter": "1.9.1",
+    "prometheus": "3.5.0",
+    "loki": "3.5.0"
+  },
+  "vm_validation": {
+    "environment": "two Ubuntu 24.04.4 KVM guests, one physical host",
+    "kernel": "6.8.0-124-generic",
+    "python": "3.12.3",
+    "ram_mb_per_guest": 2048,
+    "disk_virtual_gb_per_guest": 20,
+    "checks": [
+      {
+        "phase": "normal",
+        "linked_remote_spans": 3,
+        "cgroup_resource_events": 3,
+        "clock_quality": "aligned",
+        "verdict": "no_anomaly_observed",
+        "same_worker_id_on_two_nodes": true,
+        "multiple_run_ids": true,
+        "scrape_relative_offset_range_seconds": [
+          -0.933,
+          -0.932
+        ]
+      },
+      {
+        "phase": "skewed",
+        "linked_remote_spans": 3,
+        "cgroup_resource_events": 3,
+        "clock_quality": "unsafe",
+        "verdict": "insufficient_data",
+        "same_worker_id_on_two_nodes": true,
+        "multiple_run_ids": true,
+        "scrape_relative_offset_range_seconds": [
+          11.708,
+          11.71
+        ]
+      }
+    ],
+    "backend_checks": [
+      {
+        "run_id": "vm-node-validation",
+        "prometheus_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_records": 24
+      },
+      {
+        "run_id": "vm-node-other",
+        "prometheus_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_records": 24
+      },
+      {
+        "run_id": "vm-node-skewed",
+        "prometheus_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_records": 12
+      },
+      {
+        "run_id": "vm-node-skew-other",
+        "prometheus_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_nodes": [
+          "agent-a",
+          "sandbox-b"
+        ],
+        "loki_records": 12
+      }
+    ],
+    "limitations": [
+      "RPC/file-I/O validation workload; VERL training was validated separately on the two host GPUs.",
+      "Both guests share the physical CPU/NIC/SSD; no GPU passthrough, RDMA or independent hardware isolation.",
+      "Guest wall clock was shifted by +12 seconds for the unsafe-clock test. Normal screening allowed unsynchronized clocks.",
+      "Per-worker cgroup aggregates the fixture worker and sampler; no per-trajectory resource attribution."
+    ],
+    "collector_loss_clock_quality": "unknown",
+    "collector_recovery_clock_quality": "aligned",
+    "approximate_disk_used_gb": 3
+  },
+  "grafana_ui_checks": [
+    "Grafana Step Explorer -> Step Detail preserves actual run/record/node/window",
+    "Step -> Bottleneck Summary reads observed actual diagnosis",
+    "Timeline trace filter displays actual tool.call and sandbox.exec",
+    "Run Logs displays real trainer timing_s messages in browser"
+  ],
+  "short_step_grafana_regression": {
+    "step_duration_seconds": 6.332,
+    "before_query_points_per_series": 1,
+    "after_query_points_per_series": 8,
+    "fix": "datasource scrape interval and visible single samples"
+  },
+  "optional_llm": {
+    "model": "qwen3.5:27b",
+    "runtime_version": "0.34.4",
+    "data_origin": "observed",
+    "language": "ko",
+    "assessment": "no_issue_observed",
+    "input_bytes": 5153,
+    "latency_seconds": 496.015,
+    "validation": "completed_response_structure_available_evidence_interval_entity_language_wording_and_model_review; free-text claims still require human review"
+  },
+  "additional_checks": {
+    "docker_cgroup_containers": 2,
+    "docker_cgroup_parent_write_bytes_delta": 49283072,
+    "real_docker_failure_and_invalid_argument_error_spans": true,
+    "cpu_pytest_passed": 335,
+    "native_metrics_required_source_build": false
+  }
+}

@@ -28,7 +28,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -69,7 +69,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -111,7 +111,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 13
       },
       "datasource": {
         "type": "prometheus",
@@ -147,7 +147,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 13
       },
       "datasource": {
         "type": "prometheus",
@@ -185,7 +185,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 21
       },
       "datasource": {
         "type": "prometheus",
@@ -218,14 +218,14 @@
       "type": "text",
       "title": "Data path and storage topology",
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 21
       },
       "options": {
         "mode": "markdown",
-        "content": "**Local device와 remote storage 구분**\n\n- Disk·filesystem 값은 선택한 node 전체이며 Run별로 분리되지 않습니다.\n- Dataset·checkpoint I/O attribution에는 workload 계측이 필요합니다.\n- Topology는 명시적으로 제공한 component·edge 관계입니다. 3FS service latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다.\n- SSD health는 아래 SMART 행을 펼칩니다. Exporter가 없으면 N/A입니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Local device와 remote storage 구분**</span>\n\n- <span style=\"font-size:16px;line-height:1.65\">Disk·filesystem 값은 선택한 node 전체이며 Run별로 분리되지 않습니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">Dataset·checkpoint I/O attribution에는 workload 계측이 필요합니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">Topology는 명시적으로 제공한 component·edge 관계입니다. 3FS service latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">SSD health는 아래 SMART 행을 펼칩니다. Exporter가 없으면 N/A입니다.</span>"
       }
     },
     {
@@ -236,7 +236,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -258,7 +258,7 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       },
       "description": "선택한 Cluster의 명시적으로 제공된 component입니다. Node·Run 필터와 독립적으로 표시합니다."
@@ -272,7 +272,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -294,7 +294,7 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       },
       "transformations": [
@@ -313,14 +313,14 @@
       "type": "text",
       "title": "Device / mount / SSD selection",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Local I/O:** Node · Device · Mount를 선택합니다. **SSD health:** 접힌 SMART 행에서 Storage node · SSD를 확인합니다.\n\nDisk busy는 latency p99가 아닙니다. 3FS service latency는 diagnostics의 ClickHouse evidence로 확인하며 local sandbox NVMe와 구분합니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Local I/O:** Node · Device · Mount를 선택합니다. **SSD health:** 접힌 SMART 행에서 Storage node · SSD를 확인합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Disk busy는 latency p99가 아닙니다. 3FS service latency는 diagnostics의 ClickHouse evidence로 확인하며 local sandbox NVMe와 구분합니다.</span>"
       }
     },
     {
@@ -333,7 +333,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 38
       },
       "panels": [
         {
@@ -344,7 +344,7 @@
             "h": 4,
             "w": 6,
             "x": 0,
-            "y": 37
+            "y": 39
           },
           "datasource": {
             "type": "prometheus",
@@ -396,8 +396,8 @@
               "values": false
             },
             "text": {
-              "titleSize": 16,
-              "valueSize": 40
+              "titleSize": 18,
+              "valueSize": 36
             }
           },
           "description": "선택한 SSD 중 NVMe critical-warning bitmask가 0이 아닌 device 수입니다. SMART exporter가 없으면 N/A입니다."
@@ -410,7 +410,7 @@
             "h": 4,
             "w": 6,
             "x": 6,
-            "y": 37
+            "y": 39
           },
           "datasource": {
             "type": "prometheus",
@@ -466,8 +466,8 @@
               "values": false
             },
             "text": {
-              "titleSize": 16,
-              "valueSize": 40
+              "titleSize": 18,
+              "valueSize": 36
             }
           },
           "description": "선택한 SSD의 최대 temperature입니다. Node 필터와 별도로 Storage node·SSD 선택을 확인합니다."
@@ -480,7 +480,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 37
+            "y": 39
           },
           "datasource": {
             "type": "prometheus",
@@ -536,8 +536,8 @@
               "values": false
             },
             "text": {
-              "titleSize": 16,
-              "valueSize": 40
+              "titleSize": 18,
+              "valueSize": 36
             }
           },
           "description": "Vendor가 추정한 NVMe endurance 사용량입니다. 값이 거칠고 power-on hour 기준으로 갱신될 수 있습니다."
@@ -550,7 +550,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 37
+            "y": 39
           },
           "datasource": {
             "type": "prometheus",
@@ -606,8 +606,8 @@
               "values": false
             },
             "text": {
-              "titleSize": 16,
-              "valueSize": 40
+              "titleSize": 18,
+              "valueSize": 36
             }
           },
           "description": "선택한 SSD의 최소 available spare입니다. SMART exporter가 제공하는 device health 값입니다."
@@ -620,7 +620,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 41
+            "y": 43
           },
           "datasource": {
             "type": "prometheus",
@@ -656,7 +656,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 41
+            "y": 43
           },
           "datasource": {
             "type": "prometheus",
@@ -699,7 +699,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 49
+            "y": 51
           },
           "datasource": {
             "type": "prometheus",
@@ -736,7 +736,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 49
+            "y": 51
           },
           "datasource": {
             "type": "prometheus",
@@ -772,7 +772,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 57
+            "y": 59
           },
           "datasource": {
             "type": "prometheus",
@@ -806,12 +806,13 @@
           },
           "options": {
             "showHeader": true,
-            "cellHeight": "md",
+            "cellHeight": "lg",
             "enablePagination": true
           },
           "description": "Serial number는 표시하지 않습니다. SMART status 1은 passed이며 smartctl exit status는 bitmask입니다. Non-zero는 수집 오류나 health 경고일 수 있으므로 각 bit와 exporter log를 확인합니다."
         }
-      ]
+      ],
+      "options": {}
     }
   ],
   "refresh": "5s",

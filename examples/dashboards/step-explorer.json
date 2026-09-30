@@ -36,11 +36,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "options": {
         "mode": "markdown",
-        "content": "**느린 step 선택 → Candidate + Evidence → Timeline / Deep dive**\n\nDuration이 긴 step부터 확인하고 **step 번호**의 메뉴에서 Step Detail · Bottleneck Summary · Cross-Layer Timeline을 엽니다. 선택한 run·step·observer node·시간 구간을 유지합니다.\n\n목록이 비면 step JSONL과 Alloy·Loki를 확인합니다. Boundary는 기록된 시간 품질이며 missing data를 0으로 해석하지 않습니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**느린 step 선택 → Candidate + Evidence → Timeline / Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Duration이 긴 step부터 확인하고 **step 번호**의 메뉴에서 Step Detail · Bottleneck Summary · Cross-Layer Timeline을 엽니다. 선택한 run·step·observer node·시간 구간을 유지합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">목록이 비면 step JSONL과 Alloy·Loki를 확인합니다. Boundary는 기록된 시간 품질이며 missing data를 0으로 해석하지 않습니다.</span>"
       }
     },
     {
@@ -49,7 +49,7 @@
       "title": "Completed VERL steps",
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 6,
         "w": 24,
         "h": 18
       },
@@ -375,7 +375,7 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "footer": {
           "show": false
         },

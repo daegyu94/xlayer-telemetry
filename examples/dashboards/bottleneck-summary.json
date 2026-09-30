@@ -116,11 +116,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "options": {
         "mode": "markdown",
-        "content": "**Step Explorer → Candidate + Evidence → Timeline → Deep dive**\n\n**Cluster:** ${cluster:text} · **Run:** ${run_id} · **Step record:** ${record_id}\n\nResource node는 deep dive 대상이며 diagnosis의 observer node와 다를 수 있습니다. `strong_signal`은 rule 조건을 만족한 후보입니다.\n\n`no_anomaly_observed`는 관측한 근거의 결과이고, `insufficient_data`·빈 panel은 정상 판정이 아닙니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Step Explorer → Candidate + Evidence → Timeline → Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id} · **Step record:** ${record_id}</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Resource node는 deep dive 대상이며 diagnosis의 observer node와 다를 수 있습니다. `strong_signal`은 rule 조건을 만족한 후보입니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">`no_anomaly_observed`는 관측한 근거의 결과이고, `insufficient_data`·빈 panel은 정상 판정이 아닙니다.</span>"
       }
     },
     {
@@ -129,9 +129,9 @@
       "title": "Selected symptom",
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 6,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "datasource": {
         "type": "loki",
@@ -767,7 +767,7 @@
       "description": "선택한 step의 증상과 baseline입니다. Step link로 같은 시간 구간의 상세 화면을 엽니다. Data origin과 missing sources도 확인합니다. Diagnosis row의 observer node와 선택한 Resource node는 별개입니다. no_anomaly_observed는 관측 범위의 결과이며 모든 subsystem의 정상 상태를 보장하지 않습니다.",
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true,
         "sortBy": [
           {
@@ -783,7 +783,7 @@
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 12,
         "w": 24,
         "h": 8
       },
@@ -1441,7 +1441,7 @@
       "description": "Rule 조건에서 나온 조사 후보입니다. strong_signal도 인과관계의 증명은 아닙니다. Supporting·counter·missing evidence와 observation scope를 함께 읽습니다. Step은 위 Selected symptom에서, component별 근거는 아래 Evidence details에서 확인합니다.",
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true,
         "sortBy": [
           {
@@ -1457,7 +1457,7 @@
       "title": "Measured changes versus same-run baseline",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 20,
         "w": 24,
         "h": 7
       },
@@ -2018,7 +2018,7 @@
       "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다.",
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       }
     },
@@ -2028,13 +2028,13 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 27,
         "w": 24,
-        "h": 4
+        "h": 5
       },
       "options": {
         "mode": "markdown",
-        "content": "[Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})\n\nProfile·NCCL artifact는 show_run에서 경로를 확인한 뒤 native profiler로 엽니다. 이 조사 화면의 후보·event에는 diagnostics와 Loki 수집이 필요합니다.\n\n[Topology / storage path 확인](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) — topology edge는 설정된 관계이며 측정된 per-run traffic이 아닙니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Profile·NCCL artifact는 show_run에서 경로를 확인한 뒤 native profiler로 엽니다. 이 조사 화면의 후보·event에는 diagnostics와 Loki 수집이 필요합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Topology / storage path 확인](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) — topology edge는 설정된 관계이며 측정된 per-run traffic이 아닙니다.</span>"
       }
     },
     {
@@ -2044,7 +2044,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 32,
         "w": 24,
         "h": 1
       },
@@ -2055,7 +2055,7 @@
           "title": "Evidence details: supporting, counter, and missing",
           "gridPos": {
             "x": 0,
-            "y": 30,
+            "y": 33,
             "w": 24,
             "h": 10
           },
@@ -2616,12 +2616,13 @@
           "description": "Signal별 current·baseline·scope·source와 누락 근거를 확인합니다. Signal link는 해당 evidence 시간 구간의 상세 화면으로 연결됩니다. Evidence type과 candidate ID의 column filter로 좁힙니다. Missing 값은 N/A이며 0이 아닙니다.",
           "options": {
             "showHeader": true,
-            "cellHeight": "md",
+            "cellHeight": "lg",
             "enablePagination": true
           }
         }
       ],
-      "description": "Supporting・counter・missing evidence를 조사할 때 펼칩니다. Candidate ID와 Evidence type의 column filter로 근거를 좁힙니다."
+      "description": "Supporting・counter・missing evidence를 조사할 때 펼칩니다. Candidate ID와 Evidence type의 column filter로 근거를 좁힙니다.",
+      "options": {}
     }
   ]
 }

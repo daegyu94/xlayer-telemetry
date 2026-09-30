@@ -63,7 +63,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 5
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -104,8 +104,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -119,7 +119,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 5
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -161,8 +161,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -176,7 +176,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 5
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -218,8 +218,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -233,7 +233,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 5
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -275,8 +275,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -291,7 +291,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -328,7 +328,7 @@
         "footer": {
           "show": false
         },
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "enablePagination": true
       },
       "transformations": [
@@ -350,7 +350,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 16
       },
       "datasource": {
         "type": "prometheus",
@@ -386,7 +386,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 16
       },
       "datasource": {
         "type": "prometheus",
@@ -422,7 +422,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 24
       },
       "datasource": {
         "type": "prometheus",
@@ -455,14 +455,14 @@
       "type": "text",
       "title": "Interpretation",
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 24
       },
       "options": {
         "mode": "markdown",
-        "content": "**Scope 확인**\n\n- GPU·host 값은 선택한 node 전체입니다. Worker allocation이 있어도 공유 자원의 전체 사용량을 특정 Run에 귀속하지 않습니다.\n- GPU 0%는 측정된 idle이고 빈 cell이나 N/A는 근거 없음입니다.\n- Unified-memory 환경에서 host memory와 GPU allocation을 더하지 않습니다. 미지원 GPU memory는 N/A로 남깁니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Scope 확인**</span>\n\n- <span style=\"font-size:16px;line-height:1.65\">GPU·host 값은 선택한 node 전체입니다. Worker allocation이 있어도 공유 자원의 전체 사용량을 특정 Run에 귀속하지 않습니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">GPU 0%는 측정된 idle이고 빈 cell이나 N/A는 근거 없음입니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">Unified-memory 환경에서 host memory와 GPU allocation을 더하지 않습니다. 미지원 GPU memory는 N/A로 남깁니다.</span>"
       }
     },
     {
@@ -473,7 +473,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 31
+        "y": 33
       },
       "datasource": {
         "type": "prometheus",
@@ -509,7 +509,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 31
+        "y": 33
       },
       "datasource": {
         "type": "prometheus",
@@ -542,14 +542,14 @@
       "type": "text",
       "title": "Collection & scope",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Collect:** Exporter targets up과 sample age부터 확인합니다. **Correlate:** Cluster · Node · Run · 시간 범위를 맞춥니다.\n\nN/A는 0이 아닙니다. Host/GPU는 node/device 전체이며 VERL per-GPU throughput과 stage·reward는 [Agent RL](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${__url_time_range})에서 확인합니다.\n\n[느린 step 선택](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&var-source_node=${node:percentencode}&${__url_time_range}) → [Candidate + Evidence 확인](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Collect:** Exporter targets up과 sample age부터 확인합니다. **Correlate:** Cluster · Node · Run · 시간 범위를 맞춥니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">N/A는 0이 아닙니다. Host/GPU는 node/device 전체이며 VERL per-GPU throughput과 stage·reward는 [Agent RL](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${__url_time_range})에서 확인합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[느린 step 선택](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&var-source_node=${node:percentencode}&${__url_time_range}) → [Candidate + Evidence 확인](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})</span>"
       }
     }
   ],

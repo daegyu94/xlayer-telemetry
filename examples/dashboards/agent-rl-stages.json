@@ -63,7 +63,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -104,8 +104,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -119,7 +119,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -161,8 +161,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -176,7 +176,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -218,8 +218,8 @@
           "values": false
         },
         "text": {
-          "titleSize": 16,
-          "valueSize": 40
+          "titleSize": 18,
+          "valueSize": 36
         },
         "colorMode": "none"
       },
@@ -234,7 +234,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -274,7 +274,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -355,7 +355,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -395,7 +395,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -440,7 +440,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -486,7 +486,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 34
       },
       "datasource": {
         "type": "prometheus",
@@ -577,7 +577,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 42
       },
       "datasource": {
         "type": "prometheus",
@@ -618,14 +618,14 @@
       "type": "text",
       "title": "Completed stages & live signals",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Completed:** step·stage·reward는 VERL logger 갱신 시점의 값입니다. **Live:** vLLM·GPU는 별도 주기로 수집합니다.\n\n느린 구간에서 [Step Explorer](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&${__url_time_range})로 이동합니다. N/A인 native panel은 endpoint 설정을, Sandbox 행은 sampler/runtime 연결 여부를 확인합니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Completed:** step·stage·reward는 VERL logger 갱신 시점의 값입니다. **Live:** vLLM·GPU는 별도 주기로 수집합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">느린 구간에서 [Step Explorer](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&${__url_time_range})로 이동합니다. N/A인 native panel은 endpoint 설정을, Sandbox 행은 sampler/runtime 연결 여부를 확인합니다.</span>"
       }
     },
     {
@@ -638,7 +638,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 50
       },
       "panels": [
         {
@@ -649,7 +649,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 50
+            "y": 51
           },
           "datasource": {
             "type": "prometheus",
@@ -694,7 +694,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 50
+            "y": 51
           },
           "datasource": {
             "type": "prometheus",
@@ -744,7 +744,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 58
+            "y": 59
           },
           "datasource": {
             "type": "prometheus",
@@ -789,7 +789,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 58
+            "y": 59
           },
           "datasource": {
             "type": "prometheus",
@@ -834,7 +834,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 66
+            "y": 67
           },
           "datasource": {
             "type": "prometheus",
@@ -879,7 +879,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 66
+            "y": 67
           },
           "datasource": {
             "type": "prometheus",
@@ -929,7 +929,7 @@
             "h": 4,
             "w": 24,
             "x": 0,
-            "y": 74
+            "y": 75
           },
           "datasource": {
             "type": "prometheus",
@@ -971,14 +971,15 @@
               "values": false
             },
             "text": {
-              "titleSize": 16,
-              "valueSize": 40
+              "titleSize": 18,
+              "valueSize": 36
             },
             "colorMode": "none"
           },
           "description": "마지막 sandbox cgroup sample 이후 지난 시간입니다. 오래된 textfile 값을 현재 pressure로 해석하지 않습니다."
         }
-      ]
+      ],
+      "options": {}
     }
   ],
   "refresh": "5s",

@@ -36,11 +36,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 5
+        "h": 6
       },
       "options": {
         "mode": "markdown",
-        "content": "**Approximate window:** file logger 관측 시각과 보고된 duration으로 추정한 구간입니다. Stage 값은 duration이며 실행 순서를 나타내지 않습니다.\n\nResource node와 Log directory를 확인합니다. 공유 자원에는 다른 workload가 포함될 수 있고, rate 그래프의 1분 lookback은 짧은 step 바깥까지 포함합니다."
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Approximate window:** file logger 관측 시각과 보고된 duration으로 추정한 구간입니다. Stage 값은 duration이며 실행 순서를 나타내지 않습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Resource node와 Log directory를 확인합니다. 공유 자원에는 다른 workload가 포함될 수 있고, rate 그래프의 1분 lookback은 짧은 step 바깥까지 포함합니다.</span>"
       }
     },
     {
@@ -49,9 +49,9 @@
       "title": "Selected step and reported stages",
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 6,
         "w": 24,
-        "h": 4
+        "h": 5
       },
       "datasource": {
         "type": "loki",
@@ -340,7 +340,7 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md",
+        "cellHeight": "lg",
         "footer": {
           "show": false
         },
@@ -354,7 +354,7 @@
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 11,
         "w": 12,
         "h": 8
       },
@@ -377,7 +377,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -400,7 +400,7 @@
       "title": "Compute-process GPU memory",
       "gridPos": {
         "x": 12,
-        "y": 9,
+        "y": 11,
         "w": 12,
         "h": 8
       },
@@ -423,7 +423,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -446,7 +446,7 @@
       "title": "Host CPU busy",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 19,
         "w": 12,
         "h": 8
       },
@@ -469,7 +469,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -492,7 +492,7 @@
       "title": "Host memory used",
       "gridPos": {
         "x": 12,
-        "y": 17,
+        "y": 19,
         "w": 12,
         "h": 8
       },
@@ -515,7 +515,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -538,7 +538,7 @@
       "title": "Network receive",
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 27,
         "w": 12,
         "h": 8
       },
@@ -561,7 +561,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -584,7 +584,7 @@
       "title": "Network transmit",
       "gridPos": {
         "x": 12,
-        "y": 25,
+        "y": 27,
         "w": 12,
         "h": 8
       },
@@ -607,7 +607,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -630,7 +630,7 @@
       "title": "Disk read",
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 35,
         "w": 12,
         "h": 8
       },
@@ -653,7 +653,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -676,7 +676,7 @@
       "title": "Disk write",
       "gridPos": {
         "x": 12,
-        "y": 33,
+        "y": 35,
         "w": 12,
         "h": 8
       },
@@ -699,7 +699,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -722,7 +722,7 @@
       "title": "vLLM waiting",
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 43,
         "w": 12,
         "h": 8
       },
@@ -745,7 +745,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -768,7 +768,7 @@
       "title": "KV offload store",
       "gridPos": {
         "x": 12,
-        "y": 41,
+        "y": 43,
         "w": 12,
         "h": 8
       },
@@ -791,7 +791,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never"
+            "showPoints": "auto"
           }
         },
         "overrides": []
@@ -814,7 +814,7 @@
       "title": "Run logs in this step window",
       "gridPos": {
         "x": 0,
-        "y": 49,
+        "y": 51,
         "w": 24,
         "h": 12
       },

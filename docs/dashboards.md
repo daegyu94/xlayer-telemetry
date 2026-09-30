@@ -12,12 +12,26 @@ Step Explorer는 Duration이 긴 step부터 표시하고, step 번호의 메뉴�
 Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
 추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
 
+### Readability
+
+안내 본문은 16px와 넉넉한 줄 간격으로 표시하고, Stat의 label은 18px, 값은 36px로 표시합니다.
+표는 큰 행 간격과 pagination을 사용하며, 안내 panel의 높이를 늘려 본문과 링크를 읽기 쉽게 배치했습니다.
+Panel 제목·축·legend·표 본문의 font는 Grafana 기본 UI를 따릅니다.
+이 글자도 작게 느껴진다면 브라우저 확대를 110–125%로 설정하고, 좁아진 화면에서는 sidebar를 접거나 panel 메뉴의 View로 확대합니다.
+
+Step Detail과 Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
+기본 monitoring server의 Prometheus datasource query 간격은 실제 scrape 간격인 2초로 설정합니다.
+외부 Prometheus를 연결했다면 datasource의 Scrape interval을 실제 수집 주기에 맞춥니다.
+Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback이 정밀한 step trace로 바뀌지는 않습니다.
+
 ## Start Here
 
 `00 · Start Here`는 조사할 질문에 맞는 화면을 고르는 진입점입니다.
 Collect / Run Health → Correlate / Stage Signals → Select a Step → Diagnose / Candidate & Evidence 순서로 이동하고, Cross-Layer Timeline과 Logs에서 근거를 더 확인합니다.
 `01`부터 `06`까지의 제목은 탐색 위치를 구분하며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
 Step Explorer와 Step Detail은 Loki를 활성화했을 때 Grafana에 추가됩니다.
+일반적인 monitoring 경로에는 별도 Step Explorer UI/server가 필요하지 않습니다.
+Grafana의 step 목록에서 기존 상세 dashboard로 이어지며, standalone explorer는 저장된 run 파일을 직접 읽어 조사하는 선택지입니다.
 완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](dashboards.md#open-in-grafana)에 있습니다.
 화면을 처음 열었다면 [필터와 시간 범위](#select-the-context)부터 확인하고, 느린 step을 찾은 뒤 [Step Explorer](#step-explorer)와 [Run Analysis](#run-analysis)로 이어갑니다.
 
@@ -187,10 +201,13 @@ python -m xlayer_telemetry.step_backfill "$RUN_ROOT"
 Prometheus의 기본 보존 기간은 1일이므로 오래된 step은 Loki 목록에 있어도 자원 그래프가 비어 있을 수 있습니다.
 Stage 시간과 step 경계는 아래 [Read a Step](#read-a-step)의 해석 범위를 따릅니다.
 
+![실제 SWE-Bench colocate_async 실행의 step 3을 Grafana Step Detail에서 확대한 화면](figures/grafana-step-detail-real.png)
+
 ### Legacy Standalone Explorer
 
-기존 로컬 UI는 두 step의 stage 시간과 자원 표본 평균 차이를 비교할 때 계속 사용할 수 있습니다.
-Grafana 상세 화면은 현재 한 step의 관측 구간을 다루며 두 step의 자원 평균 차이 계산은 제공하지 않습니다.
+기존 로컬 UI는 저장된 run 파일을 직접 읽거나 두 step을 수동으로 비교할 때 계속 사용할 수 있습니다.
+일반적인 monitoring에서는 Grafana Step Detail로 현재 구간을 확대하고 Bottleneck Summary의 current-vs-baseline 비교를 사용합니다.
+Standalone explorer의 수동 두-step 평균 비교와 진단 엔진이 선택한 같은 run의 baseline 비교는 baseline 선택 방법이 다릅니다.
 
 ![실제 VERL 실행의 step 8에서 stage, GPU·host·disk·vLLM 지표와 Loki log를 보여 주는 Step Explorer](figures/step-explorer-real.png)
 
