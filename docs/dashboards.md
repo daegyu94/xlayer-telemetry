@@ -1,16 +1,13 @@
 # Dashboard Guide
 
-이 문서는 Grafana의 시작 화면과 기본 dashboard를 읽고, 완료 step을 확대해 느린 구간을 조사하는 순서를 설명합니다.
-대시보드를 띄우는 절차는 [Monitoring Guide](monitoring.md#open-the-dashboards)에, 실제 값이 채워진 화면은 [Real VERL Agent RL Demo](real-verl-demo.md)에 있습니다.
-수집 process와 파일이 어떻게 이어지는지는 [구현 구조](architecture.md)를 먼저 읽으면 이해하기 쉽습니다.
+Start Here에서 수집 상태를 확인하고 완료 step → candidate → evidence → detail로 조사합니다.
+실행은 [Monitoring](monitoring.md#open-the-dashboards), 실제 화면은 [Real VERL Demo](real-verl-demo.md), 데이터 경로는 [Architecture](architecture.md)를 참고합니다.
 
-Dashboard·panel 제목, metric 이름, filter와 status 용어는 영어로 유지하고, 안내·tooltip·해석 범위는 한국어로 제공합니다.
-각 화면 상단의 안내를 읽고 panel 제목 옆 info 아이콘에서 측정 범위와 optional source 조건을 확인합니다.
-Stage 요약은 표 안에서 줄바꿈하며, 긴 evidence는 cell의 inspect 기능으로 읽고 pagination으로 다음 행을 확인할 수 있습니다.
-Run Overview의 Step Explorer 목록은 Duration이 긴 step부터 표시하고, Duration → Bottleneck Summary, Step·Stage → Cross-Layer Timeline으로 한 번에 이동합니다.
-행의 run·record·observer node·시간 구간을 전달하며 Resource node는 실제 trainer·rollout·sandbox·storage 배치에 맞게 바꿉니다.
-Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
-추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
+제목·metric·filter·status는 영어, 안내·tooltip은 한국어로 제공합니다.
+Panel의 info 아이콘에서 scope·optional source를 확인하고 긴 table cell은 inspect로 읽습니다.
+완료 step 목록은 Duration 내림차순이며 Duration → Bottleneck Summary, Step·Stage → Timeline으로 이동합니다.
+Run·record·observer·시간을 유지하고 Resource node는 실제 배치로 선택합니다.
+Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자 summary는 원문으로 표시됩니다.
 
 ## Dashboard Inventory
 
@@ -35,7 +32,7 @@ Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `st
 이전 두 UID는 redirect dashboard로 남기지 않으므로 bookmark를 갱신해야 합니다.
 
 `targets/*.json`은 Prometheus의 scrape target 목록이며 dashboard 개수에 포함되지 않습니다.
-[Docker Compose 예제](../examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 5개를 생성합니다.
+[Docker Compose 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 5개를 생성합니다.
 별도 legacy resource dashboard는 설치하지 않습니다.
 
 ### Readability
@@ -107,18 +104,14 @@ Browser를 새로고침하고 이전 URL bookmark의 추가 필터도 확인합�
 
 ## Select the Context
 
-먼저 Start Here 또는 Run Overview에서 `Cluster`, `Node`, `Run`과 시간 범위를 선택합니다.
-각 dashboard 상단에는 Start Here → Run Overview → Bottleneck Summary → Cross-Layer Timeline 순서의 공통 navigation이 있습니다.
-링크는 Cluster·Run·resource node·observer node·선택한 record·Trace ID·Method·시간 범위를 전달하며 GPU·vLLM engine·sandbox node 선택도 보존합니다.
-화면에서 사용하지 않는 context는 숨겨서 유지하므로 subsystem detail을 보고 돌아와도 선택한 step을 다시 찾을 필요가 없습니다.
-여러 Cluster를 함께 보더라도 Step·candidate·evidence 행의 data link는 Loki stream의 Cluster로 좁힙니다.
-JSON의 node와 collector node가 다르면 stream의 observer node를 별도로 사용합니다.
-Run Overview와 Timeline의 `Observer node`는 step/diagnosis를 기록한 collector이고, `Resource node`는 실제 조사할 GPU·sandbox·storage node입니다.
-두 node는 같을 필요가 없으며 dedicated sandbox를 보기 위해 step 기록의 출처를 바꾸지 않습니다.
-Application의 Run 선택·step·stage·sample age는 observer context로 조회하고 GPU·host·NIC·disk·native vLLM은 Resource node로 조회합니다.
-따라서 GPU detail에서 trainer와 다른 node를 선택해도 같은 run의 완료 step이 사라지지 않습니다.
-Device·Mount·SSD 같은 화면별 추가 필터는 별도로 확인합니다.
-`All`을 선택하면 여러 node나 run의 시계열이 함께 표시될 수 있습니다.
+Start Here/Run Overview에서 Cluster·Node·Run·시간을 고릅니다.
+공통 navigation은 record·trace·method와 resource/observer·GPU·engine·sandbox context를 유지합니다.
+
+행 링크는 Loki stream의 Cluster·observer로 좁힙니다.
+`Observer node`는 step/diagnosis의 수집 출처, `Resource node`는 조사할 GPU·host·service의 위치입니다.
+두 node는 같을 필요가 없습니다.
+Application step·stage·age는 observer로, GPU·NIC·disk·native vLLM은 resource로 조회하므로 다른 node의 detail을 봐도 step 문맥이 유지됩니다.
+Device·Mount·SSD 등 추가 filter는 별도로 확인하며 `All`은 여러 대상의 값을 함께 표시합니다.
 
 | 신호 | 주요 범위 | 읽을 때 주의할 점 |
 | --- | --- | --- |
@@ -137,10 +130,10 @@ GPU·host, native vLLM·Ray, 3FS 같은 공유 source는 같은 시간·node에�
 
 ## Run Overview
 
-이 화면은 수집이 살아 있는지와 학습·GPU의 최근 상태를 함께 확인하는 출발점입니다.
-`Collector availability`는 `telemetry` job의 target별 연결 상태이며 native vLLM이나 SMART target의 상태까지 나타내지는 않습니다.
-`Application sample age`와 `GPU sample age`를 먼저 보면 다른 숫자가 최신 표본인지 판단할 수 있습니다.
-두 age는 마지막으로 보고된 시각과 현재 시각의 차이이며, 숫자가 계속 커지면 exporter target이 up이어도 생산자가 새 값을 쓰지 않는 상태일 수 있습니다.
+Run Overview는 수집 상태와 마지막 완료 step을 보여 줍니다.
+`Collector availability`는 `telemetry` job만 검사하며 native·SMART는 포함하지 않습니다.
+`Application sample age`·`GPU sample age`는 마지막 보고 시각부터의 경과 시간입니다.
+계속 늘면 target이 Up이어도 producer가 새 값을 쓰지 않을 수 있습니다.
 
 기본 화면은 마지막 완료 step과 step duration 추이에 집중합니다.
 느린 시간대를 확대하고 같은 화면의 `Completed steps · select to investigate` 목록에서 Duration을 누릅니다.
@@ -154,10 +147,10 @@ Cluster·observer·record가 같은 이름을 사용해도 행의 Cluster를 전
 
 ## Agent RL Stage Correlation
 
-이 화면은 완료된 VERL step의 단계 시간과 rollout engine 상태를 같은 시간대에 비교합니다.
-`Latest completed RL step`이 증가하는지 확인하고, `Worker sample age`로 값의 신선도를 함께 판단합니다.
-`Completed RL stage duration`은 step 경계에서 기록된 phase별 소요 시간이며 현재 실행 중인 phase의 경과 시간이 아닙니다.
-Reward mean 역시 마지막으로 보고된 값으로, 값 하나만으로 모델 품질 변화를 판단하지 않습니다.
+Stage Correlation은 완료 step의 phase duration과 rollout engine을 비교합니다.
+`Latest completed RL step`·`Worker sample age`부터 확인합니다.
+`Completed RL stage duration`은 완료 시 보고한 phase 시간이며 진행 중 phase의 경과 시간이 아닙니다.
+Reward mean 하나도 모델 품질 추이를 증명하지 않습니다.
 
 처리량·response length·GPU 사용률을 단계 시간과 비교한 뒤, rollout이 느린 구간에서는 `Live rollout engine signals`의 waiting 요청·KV 사용률·preemption을 봅니다.
 이 native vLLM 패널은 [endpoint를 등록](agent-rl.md#register-native-endpoints)했을 때만 채워집니다.
@@ -216,12 +209,9 @@ Step·diagnosis·EventRecorder stream은 이 log panel에서 제외하고 각각
 
 ## Follow a Slow Interval
 
-Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 느려진 완료 stage와 시각을 고릅니다.
-같은 node·시간 범위의 Compute & Communication, Data & Storage, Run Logs를 순서대로 비교합니다.
-두 신호가 동시에 변해도 인과관계가 확정되지는 않으며, 공유 자원에는 다른 workload의 영향도 포함될 수 있습니다.
-완료된 step 하나를 확대하려면 Grafana의 [Step Explorer](dashboards.md#open-in-grafana)를 엽니다.
-같은 run의 이전 step 대비 주요 signal 변화와 후보는 [Bottleneck Summary](#bottleneck-summary-and-cross-layer-timeline)에서 봅니다.
-증상별 다음 조사 항목과 trace 연결은 [Run Analysis](dashboards.md#run-analysis)에서 다룹니다.
+Run Overview에서 freshness·느린 step을 찾고 Duration 링크로 [Bottleneck Summary](#bottleneck-summary-and-cross-layer-timeline)를 엽니다.
+같은 구간의 Timeline·Compute·Storage·Logs로 후보를 확인하며 공유 자원의 동시 변화는 인과 증명이 아닙니다.
+증상별 다음 조사는 [Run Analysis](#run-analysis)를 참고합니다.
 
 ## Bottleneck Summary and Cross-Layer Timeline
 
@@ -275,12 +265,9 @@ Evaluation count는 scrape 횟수가 아니며 source age가 비어 있으면 fr
 
 ## Step Explorer
 
-Step Explorer는 Run Overview에 통합된 완료 VERL step 목록입니다.
-별도 dashboard를 열지 않고 목록에서 선택한 구간의 Timeline이나 Bottleneck Summary로 이동합니다.
-[Agent RL Stage Correlation](dashboards.md#agent-rl-stage-correlation)에서 느린 구간을 찾은 뒤 사용합니다.
-Grafana 화면은 Loki에 step event가 수집된 run에서 동작합니다.
-Wrapper는 step event를 로컬 JSONL에 남기고, Alloy가 이를 Loki에 전송해야 Grafana가 완료 step 목록을 조회할 수 있습니다.
-자원 그래프는 별도로 Prometheus를 조회하므로 목록과 그래프가 각각 다른 이유로 비어 있을 수 있습니다.
+Step Explorer는 Run Overview의 완료 step 목록이며 별도 UI/server가 없습니다.
+선택한 step의 Bottleneck Summary·Timeline으로 이동합니다.
+목록은 Alloy가 Loki로 보낸 step event, 자원 그래프는 Prometheus를 사용하므로 두 경로를 각각 확인합니다.
 
 ### Open in Grafana
 
@@ -333,14 +320,13 @@ Timeline의 선택 record·step·시작/종료 시각과 경계 정확도를 먼
 Current-vs-baseline 비교는 Bottleneck Summary의 `Baseline comparison / sample quality`에서 확인하며, Signal 메뉴로 각 interval의 Timeline을 열 수 있습니다.
 Dashboard link는 `record_id`와 run·node·시간 범위를 전달하므로 선택한 context를 유지하며 조사합니다.
 
-현재 VERL file logger에는 원래 step 경계 시각이 없으므로 `approximate`는 bridge가 관측한 완료 시각에서 보고된 step 시간을 빼서 만든 구간입니다.
-Bridge가 시작 전의 backlog나 종료 후의 record를 재생하면 원래 시각을 복원할 수 없어 `unknown`으로 기록하고 시간 기반 Step Explorer 목록에서는 제외합니다.
-이 기록의 step·stage 값은 `telemetry-events/verl-steps.jsonl`에서 확인할 수 있지만, 외부 resource 그래프에 연결하면 안 됩니다.
-실시간 follow 중에도 logger 기록이 늦게 쓰이면 approximate 구간이 실제 실행보다 뒤로 밀릴 수 있습니다.
-해당 구간의 log가 비어 있어도 기록이 없었다는 뜻은 아니므로 앞뒤 시간을 넓힌 Run Logs에서 같은 실행의 log를 확인합니다.
-Stage 값은 완료된 step의 소요 시간이며 stage의 실제 시작·종료 순서를 나타내지 않습니다.
-`testing` 같은 추가 timing은 보고된 step duration에 포함되지 않을 수 있으므로 별도로 표시하며, 시간 범위 안에 있었다고 가정하지 않습니다.
-Async 실행에서는 이 구간이 `trainer_update` 경계이고 vLLM rollout이나 3FS I/O가 같은 step에 일대일로 속한다고 보장하지 않습니다.
+VERL logger의 `approximate` step은 bridge 관측 완료 시각에서 reported duration을 뺀 구간입니다.
+Backlog·종료 후 replay는 원래 시각을 복원할 수 없어 `unknown`이며 시간 기반 목록에서 제외합니다.
+JSONL의 step·stage 값은 읽을 수 있지만 외부 resource와 연결하지 않습니다.
+
+Live logging 지연도 구간을 밀 수 있으므로 log가 비면 앞뒤 창을 넓혀 확인합니다.
+Stage duration은 실제 실행 순서를 뜻하지 않고 `testing` 같은 추가 timing은 step 밖일 수 있습니다.
+Async에서는 `trainer_update` 경계이며 rollout·3FS I/O와 일대일 대응하지 않습니다.
 
 GPU·host·network·disk는 각 node 전체 또는 그 node의 process 합계이며, vLLM은 공유 engine 신호입니다.
 CPU·network·disk·offload rate는 1분 lookback으로 계산하므로 짧은 step의 값에 직전 활동이 포함될 수 있습니다.
@@ -352,10 +338,8 @@ CPU·network·disk·offload rate는 1분 lookback으로 계산하므로 짧은 s
 
 ## Run Analysis
 
-이 절은 VERL 실행이 느려졌을 때 원인 후보를 좁히는 순서를 설명합니다.
-먼저 [VERL 연결 가이드](verl-quickstart.md)로 application과 GPU·host 지표를 연결합니다.
-Trace와 통신 baseline은 상시 지표만으로 답하기 어려울 때 추가합니다.
-신호가 어느 process에서 나오는지 모르면 [구현 구조](architecture.md#add-one-source-at-a-time)를 먼저 확인합니다.
+느린 run의 후보를 좁힌 뒤 상시 지표로 부족한 구간에 trace·NCCL baseline을 추가합니다.
+기본 연결은 [VERL Quickstart](verl-quickstart.md), source 경로는 [Architecture](architecture.md#add-one-source-at-a-time)를 따릅니다.
 
 ### Start with One Slow Interval
 
@@ -389,7 +373,6 @@ Host나 shared storage의 metric에는 다른 workload도 포함될 수 있으�
 여러 machine의 clock가 맞지 않으면 시간상 비교도 틀어질 수 있습니다.
 
 `show_run`은 monitoring server 없이 run directory의 최신 기록을 보여 줍니다.
-Checkout의 Python 환경을 활성화한 뒤 실행합니다.
 
 ```bash
 PYTHONPATH=. python -m xlayer_telemetry.show_run \
@@ -408,10 +391,9 @@ PYTHONPATH=. python -m xlayer_telemetry.show_run \
 파일이 없으면 해당 요약이 생략되며, 이것만으로 실행 실패를 의미하지 않습니다.
 Node-local directory라면 파일이 있는 node에서 명령을 실행합니다.
 
-최신 snapshot만으로 과거 모든 step을 재구성할 수는 없습니다.
-VERL의 원본 이력은 `logs/verl-metrics.jsonl`을 확인하고 다른 application은 자체 log를 사용합니다.
-[자동 진단](agent-rl.md#add-diagnostics)을 켰다면 `missing_sources`와 판단 근거도 읽습니다.
-`show_run`은 로컬 증거 확인 도구이며 Prometheus·Loki에 저장된 과거 시계열 전체를 대신하지 않습니다.
+전체 step 이력은 VERL 원본 `logs/verl-metrics.jsonl`이나 application log를 확인합니다.
+자동 진단의 `missing_sources`·evidence도 함께 읽습니다.
+`show_run`은 로컬 증거 도구이며 Prometheus·Loki의 전체 시계열을 대신하지 않습니다.
 
 ### Follow the Storage Path
 
@@ -425,12 +407,11 @@ Device write bytes 역시 해당 run의 checkpoint bytes와 같다고 가정하�
 
 ### Capture a Short Trace
 
-원인 후보가 특정 stage나 rank로 좁혀지면 짧은 trace로 CPU 작업, GPU kernel, copy, collective가 겹치는 모습을 확인합니다.
-Trace는 수집 비용과 파일 크기가 있으므로 필요한 rank와 구간만 선택합니다.
-실제 VERL profiler 연결 참고는 [설정 예제](../examples/verl/torch-profiler.yaml)에 있으며 사용하는 VERL 환경에 맞춰 적용합니다.
-Profiler trace는 kernel·CPU 실행 순서를 자세히 보여 주지만 이 프로젝트의 Grafana 패널에 자동으로 표시되지는 않습니다.
+Stage·rank를 좁힌 뒤 짧은 trace로 CPU·GPU kernel·copy·collective의 관계를 확인합니다.
+수집 비용·파일 크기를 줄이도록 rank·구간을 선택하고 [VERL profiler 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/torch-profiler.yaml)를 실제 환경에 맞춥니다.
+Trace는 전문 profiler에서 열며 Grafana에 자동 표시되지는 않습니다.
 
-직접 작성한 PyTorch loop에는 [selected-rank helper](../examples/pytorch/selected_rank_profiler.py)를 넣을 수 있습니다.
+직접 작성한 PyTorch loop에는 [selected-rank helper](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/pytorch/selected_rank_profiler.py)를 넣을 수 있습니다.
 아래 `train_loader`와 `train_step`은 기존 application의 객체와 함수입니다.
 
 ```python
@@ -458,7 +439,7 @@ with selected_rank_profile(
 
 `run_profile.sh`는 실제 VERL run을 profile하는 명령이 아니라 작은 GPU workload로 수집 절차와 overhead를 확인하는 도구입니다.
 CUDA PyTorch 환경과 사용 가능한 GPU가 필요합니다.
-다음은 node 한 대에서 연습하는 예이며 Python 경로를 실제 CUDA 환경으로 바꿉니다.
+아래 예제는 단일 node용입니다.
 
 ```bash
 PROFILE_RUN_ID=profile-001 \

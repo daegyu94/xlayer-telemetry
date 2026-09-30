@@ -40,6 +40,7 @@ Config 준비와 VERL 명령 작성은 [VERL Quickstart](../docs/verl-quickstart
 | `local_llm.sh` | 선택적 Ollama 설치·시작·모델 다운로드·종료 | 명시적으로 local LLM 진단을 사용할 때; 기본 monitoring과 독립 |
 | `run_profile.sh` | 작은 PyTorch DDP profile·collective 예제 실행 | CUDA PyTorch와 할당한 GPU/node가 있는 profiling 검증 |
 | `run_nccl_baseline.sh` | 외부 nccl-tests binary를 MPI로 실행 | MPI·nccl-tests가 준비된 통신 baseline; PyTorch profile과 별개 |
+| `docs.sh` | 선택적 문서 환경 설치·strict build·local preview | Python 3.11 이상; telemetry 환경과 독립 |
 | `capture_dashboard_demo.py` | 지정한 Grafana run/step 화면을 GIF로 기록 | 선택적 Playwright·ffmpeg; workload나 측정값을 생성하지 않음 |
 
 `setup.sh`·`check_tools.sh`는 script 위치를 기준으로 checkout을 찾으므로 다른 directory에서도 절대 경로로 호출할 수 있습니다.
@@ -58,3 +59,23 @@ Ollama 설치 helper는 별도로 공식 release checksum을 대조합니다.
 - [Profiling / NCCL baseline](../docs/dashboards.md#practice-with-a-synthetic-profile)
 - [Grafana recording](../docs/real-verl-demo.md#refresh-the-recording)
 - [Examples 선택 안내](../examples/README.md)
+
+## Documentation Website
+
+문서는 [GitHub Pages](https://daegyu94.github.io/xlayer-telemetry/)에서 읽습니다.
+`docs/*.md`가 GitHub와 웹사이트의 공통 원본이며 Sphinx·MyST·Furo로 빌드합니다.
+문서 build 환경만 Python 3.11 이상이 필요하고 runtime SDK의 Python 3.10 지원은 유지합니다.
+
+```bash
+bash scripts/docs.sh install
+bash scripts/docs.sh serve
+```
+
+`http://127.0.0.1:18080`에서 확인하고 `Ctrl+C`로 종료합니다.
+수정 후 명령을 다시 실행하면 빌드하며 preview는 자동 reload하지 않습니다.
+`DOCS_PORT`로 port, `DOCS_ENV`로 가상환경 경로를 바꿀 수 있습니다.
+
+`bash scripts/docs.sh build`는 broken internal reference도 실패로 처리합니다.
+`.github/workflows/docs.yml`은 PR에서 빌드를 검사하고 main의 문서 변경을 GitHub Pages에 배포합니다.
+처음 배포할 때 저장소 `Settings > Pages > Source`를 `GitHub Actions`로 설정합니다.
+생성물은 `artifacts/docs-site/`에 두며 Git에 추가하지 않습니다.

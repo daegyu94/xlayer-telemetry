@@ -1,8 +1,8 @@
 # Connect an Existing VERL Run
 
-이 가이드는 이미 실행 가능한 VERL 학습 명령과 NVIDIA GPU가 있는 사용자를 위한 단일 host 연결 절차입니다.
-아직 VERL 명령이 없다면 [synthetic demo](monitoring.md#try-the-demo)로 화면과 수집 경로부터 확인합니다.
-Process와 파일의 역할은 [구현 구조와 설계 원칙](architecture.md)에, 여러 node·vLLM·Ray·3FS 확장은 [Cross-Layer Integration](agent-rl.md)에 있습니다.
+실행 가능한 VERL 명령·NVIDIA GPU가 있는 사용자를 위한 단일 host 연결입니다.
+아직 없다면 [synthetic demo](monitoring.md#try-the-demo)부터 확인합니다.
+Process·파일은 [Architecture](architecture.md), 추가 subsystem은 [Cross-Layer Integration](agent-rl.md)을 참고합니다.
 
 ## What This Adds
 
@@ -27,16 +27,14 @@ VERL bridge > step event JSONL > optional Alloy > Loki > Grafana Step Explorer
 | `up`의 node collector | GPU utilization·power·temperature와 host CPU·memory·network·disk·filesystem | Native vLLM/Ray endpoint, 3FS service latency |
 | 선택적 SDK / EventRecorder | 직접 기록한 worker metric·tool span | Application의 직접 계측과 실행 환경에 SDK 설치 |
 
-기본 wrapper는 VERL 환경에 SDK를 설치하지 않아도 file logger를 읽을 수 있습니다.
-Custom tool/worker 내부에서 SDK를 import하려면 그 process의 Python 환경에도 package를 설치해야 합니다.
-Source별 실제 metric 이름, 측정 범위와 producer는 [수집 목록](metrics.md#what-is-actually-collected)에 정리했습니다.
-GPU 없는 node에서 host·application 수집 경로만 확인하려면 config에 `ENABLE_GPU_METRICS=0`을 지정합니다.
-이 설정이 VERL training을 CPU workload로 바꾸지는 않습니다.
+File logger 연결은 VERL 환경에 SDK를 설치하지 않아도 됩니다.
+Custom worker·tool에서 SDK를 import하면 해당 환경에도 설치합니다.
+실제 producer·scope는 [수집 목록](metrics.md#what-is-actually-collected)을 확인합니다.
+GPU 없는 collector는 `ENABLE_GPU_METRICS=0`을 사용하며 이 값이 VERL training 방식을 바꾸지는 않습니다.
 
 ## 1. Prepare One Config File
 
-[README의 checkout 준비](../README.md#prepare-a-checkout)를 마친 뒤 저장소 루트에서 시작합니다.
-Telemetry용 `.venv`에는 VERL이나 CUDA PyTorch가 설치되지 않으므로 이미 동작하는 VERL 환경의 Python을 따로 사용합니다.
+[Telemetry 환경](index.md#prepare-a-checkout)의 `.venv`에는 VERL이나 CUDA PyTorch가 설치되지 않으므로 이미 동작하는 VERL 환경의 Python을 따로 사용합니다.
 아래 예제는 server·node collector·VERL이 같은 machine에서 실행되는 경우입니다.
 
 ```bash
@@ -44,15 +42,15 @@ mkdir -p "$HOME/telemetry/config"
 cp -n examples/verl-local.conf "$HOME/telemetry/config/verl-local.conf"
 ```
 
-복사한 파일에서 `RUN_ID`와 `VERL_COMMAND`만 자신의 실행에 맞게 수정합니다.
-`VERL_COMMAND`는 Bash 배열이며, 첫 값은 VERL이 설치된 Python 또는 기존 launcher이고 나머지는 평소 사용하던 model·data·batch·GPU 설정입니다.
-예제의 `/path/to/verl-env/bin/python`을 실제 경로로 바꾸고 실행 가능한 VERL recipe의 인자를 모두 넣습니다.
-이 파일은 Bash로 읽히므로 자신이 관리하는 파일만 사용합니다.
-Wrapper가 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 명령 인자에서 찾으면 `trainer.logger=["console","file"]`을 추가합니다.
-별도 Bash launcher 뒤에 VERL 명령을 숨기는 경우에는 launcher가 `VERL_FILE_LOGGER_PATH`를 VERL process에 전달하고 `trainer.logger`에 `file`을 포함하도록 설정해야 합니다.
-직접 `trainer.logger`를 지정한 경우에도 `file`이 빠지면 wrapper가 실행을 거부합니다.
-Async trainer가 Bash launcher 안에 숨겨져 있다면 config에 `EXECUTION_MODE=async`를 지정합니다.
-일반 명령은 기본 `auto`가 trainer mode를 감지하지만 `actor_rollout_ref.rollout.mode=async`만으로 trainer를 async로 분류하지는 않습니다.
+`RUN_ID`와 `VERL_COMMAND`를 수정합니다.
+`VERL_COMMAND`는 Bash 배열로 VERL Python 또는 기존 launcher 뒤에 평소 model·data·batch·GPU 인자를 넣습니다.
+Config는 Bash로 실행하므로 자신이 관리하는 파일을 사용합니다.
+
+Wrapper가 명령에서 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 찾으면 `trainer.logger=["console","file"]`을 추가합니다.
+Bash launcher는 `VERL_FILE_LOGGER_PATH` 전달과 `trainer.logger`의 `file` 설정을 담당하며 `file`이 빠진 명시적 logger는 거부됩니다.
+Trainer mode를 숨긴 launcher는 `EXECUTION_MODE=async`로 지정합니다.
+
+기본 `auto`는 trainer mode를 감지하고 rollout server의 `mode=async`만으로 판정하지 않습니다.
 
 ```bash
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" install
@@ -63,7 +61,6 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" ins
 
 ## 2. Start Server, Node, and VERL
 
-저장소 루트의 한 terminal에서 `up`을 실행합니다.
 Script가 monitoring server와 GPU node collector를 background로 시작하고 둘 다 준비됐는지 확인합니다.
 실패하면 시작한 process를 정리하고 `$HOME/telemetry/state/verl-local/`의 log 경로를 알려줍니다.
 
@@ -77,16 +74,17 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" up
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" run
 ```
 
-Config의 기본값은 `NODE_NAME=gpu-local`, `CLUSTER_NAME=training-cluster`, `RUN_ROOT=$HOME/telemetry-runs/<RUN_ID>`입니다.
-Script가 server target, collector의 snapshot 경로, wrapper의 run ID·node 이름을 같은 값으로 맞춥니다.
-`run`은 VERL process가 끝나면 bridge의 마지막 기록을 반영하고 원래 VERL의 종료 코드를 반환합니다.
-이미 실행한 `RUN_ROOT`는 재사용할 수 없으므로 새 학습마다 `RUN_ID`를 바꿉니다.
-기본 collector는 같은 run parent directory의 새 run을 자동으로 발견하므로 `RUN_ID`만 바뀌었다면 재시작하지 않아도 됩니다.
-학습이 끝나도 server와 node collector는 실행 중이므로 dashboard에서 결과를 확인할 수 있습니다.
-`up`은 `$HOME/telemetry/state/verl-local/`에 process 기록과 log를 보관하므로 새 terminal에서도 같은 config로 `down`을 실행할 수 있습니다.
-`RUN_ROOT`의 parent directory나 명시적인 collector 입력 경로를 바꿨다면 `down` 후 `up`으로 경로를 갱신합니다.
+기본값은 `NODE_NAME=gpu-local`, `CLUSTER_NAME=training-cluster`, `RUN_ROOT=$HOME/telemetry-runs/<RUN_ID>`입니다.
+Script가 target·snapshot 경로·run/node 이름을 맞춥니다.
+`run`은 마지막 telemetry export 후 원래 VERL exit code를 반환합니다.
 
-새 terminal에서 managed process의 실행 상태를 확인할 수 있습니다.
+Run 경로는 재사용할 수 없어 매 학습의 `RUN_ID`를 바꿉니다.
+Collector는 같은 parent의 새 run을 발견하므로 ID만 바뀌면 재시작할 필요가 없습니다.
+Server·collector는 학습 종료 후에도 유지되고 새 terminal에서도 같은 config로 `down`할 수 있습니다.
+
+Process 기록·log는 `$HOME/telemetry/state/verl-local/`에 있습니다.
+Run parent나 collector 입력을 바꿨다면 `down` → `up`으로 갱신합니다.
+
 `status`는 process 생존만 확인하며 telemetry freshness는 Grafana에서 별도로 확인합니다.
 
 ```bash
@@ -98,13 +96,10 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sta
 
 ## 3. Check the First Completed Step
 
-같은 host의 browser에서 `http://127.0.0.1:13000`을 엽니다.
-원격 browser라면 [SSH tunnel](monitoring.md#open-the-dashboards)을 사용합니다.
-Run Overview의 target 상태를 보고 Agent RL Stage Correlation에서 `cluster=training-cluster`, `node=gpu-local`, `run_id=grpo-001`을 선택합니다.
-`grpo-001`은 예제 값이므로 config의 `RUN_ID`를 바꿨다면 그 값을 선택합니다.
-Stage 시간과 VERL이 기록한 reward·throughput은 step이 완료된 뒤 갱신되고, GPU·host는 별도 주기로 갱신됩니다.
+`http://127.0.0.1:13000`을 열고 원격 접속은 [SSH tunnel](monitoring.md#open-the-dashboards)을 사용합니다.
+Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluster·Node·Run을 고릅니다(예제: `training-cluster`·`gpu-local`·`grpo-001`).
+Stage·reward·throughput은 step 완료 시, GPU·host는 별도 주기로 갱신됩니다.
 
-Dashboard 없이도 run 파일을 확인할 수 있습니다.
 `inspect`는 같은 config의 run 경로와 등록 설정을 보여 주고 저장된 metric·event·진단 결과를 읽습니다.
 Native endpoint의 실시간 접속 상태는 조회하지 않으므로 Prometheus Targets에서 별도로 확인합니다.
 
@@ -126,11 +121,11 @@ $HOME/telemetry/state/node/        collector state
   node-exporter.log                exporter errors
 ```
 
-값이 보이지 않으면 위 순서대로 파일을 확인하고, `application.prom`까지 값이 있다면 Prometheus Targets와 Grafana의 시간·cluster·node·run 선택을 확인합니다.
-Snapshot은 최신 step 하나를 덮어쓰고, 원본 file logger와 event JSONL은 이력을 보관합니다.
-이미 존재하던 logger record를 처음 replay한 경우 step 값은 보존하지만 원래 시각을 복원할 수 없어 시간 범위가 `unknown`입니다.
-이 기록은 Grafana의 시간 기반 step 목록에 나타나지 않으므로, 다음 step이 완료될 때까지 live bridge가 실행 중인지 확인합니다.
-긴 step 동안 완료된 값이 유지되는 것은 정상일 수 있으므로 [Dashboard Guide](dashboards.md#agent-rl-stage-correlation)의 sample age를 함께 봅니다.
+위 파일 순서로 확인하고 `application.prom`에 값이 있으면 target·시간·Cluster/Node/Run filter를 봅니다.
+Snapshot은 최신 step, logger·event JSONL은 이력을 보존합니다.
+원래 시각 없는 replay는 `unknown`으로 남아 시간 기반 목록에서 제외됩니다.
+새 step이 완료될 때까지 live bridge가 유지되는지 확인합니다.
+긴 step 동안 이전 값이 보일 수 있으므로 [sample age](dashboards.md#agent-rl-stage-correlation)를 함께 봅니다.
 
 ### Check Telemetry Completeness
 
@@ -138,11 +133,10 @@ Wrapper는 workload의 exit code와 별도로 `telemetry-health.json`을 기록�
 Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결과와 진단의 missing source를 `show_run`에서 함께 확인합니다.
 `complete`는 연결한 telemetry 처리의 완료 상태이며 모든 subsystem의 관측이나 workload correctness를 보증하지 않습니다.
 
-`pending`은 아직 첫 output이 없고, `delayed`는 마지막 output이 오래되었다는 뜻입니다.
-긴 step에서도 output 간격은 늘 수 있으므로 `delayed`를 workload stall로 단정하지 않습니다.
-기본 age 기준은 300초이고 wrapper 환경의 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 변경할 수 있습니다.
-`partial`은 sidecar 종료, 최종 export 누락·실패, 또는 진단 evidence 부족을 나타냅니다.
-Telemetry failure가 workload의 성공·실패 exit code를 덮어쓰지 않습니다.
+`pending`은 첫 output 이전, `delayed`는 오래된 output입니다.
+긴 step도 간격이 늘 수 있어 workload stall로 단정하지 않습니다.
+기본 age 기준 300초는 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 바꿉니다.
+`partial`은 sidecar 종료·최종 export 실패/누락·evidence 부족이며 workload exit code는 유지합니다.
 
 ## Add Sources When Needed
 
@@ -172,8 +166,6 @@ Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인�
 | Stage 값이 없음 | 첫 step 완료 여부, VERL `file` logger 지원, `telemetry-bridge.log` |
 | Step Explorer만 비어 있음 | `ENABLE_LOGS`, step event 파일, Alloy·Loki 수집과 보존 기간 |
 | vLLM panel이나 Ray·3FS 진단 근거가 없음 | vLLM·Ray의 native target과 실제 metric 이름; 3FS는 ClickHouse 설정·데이터 |
-
-관측을 마치면 다음 명령으로 server와 node를 종료합니다.
 
 ```bash
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" down

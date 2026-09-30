@@ -33,8 +33,6 @@ Phase vocabulary도 권장 어휘입니다.
 
 ## Validate Changes
 
-Checkout의 telemetry Python 환경에서 실행합니다.
-
 ```bash
 python -m xlayer_telemetry.schema config/metrics.json
 python -m pytest -q tests/test_schema.py tests/test_config_contracts.py tests/test_diagnosis_analysis.py

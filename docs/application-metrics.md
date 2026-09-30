@@ -1,10 +1,9 @@
 # Application Metrics Guide
 
-VERL 사용자는 먼저 [VERL 연결 가이드](verl-quickstart.md)의 file logger wrapper를 사용합니다.
-이 문서는 VERL의 custom worker·tool 또는 다른 application에 loss·step·처리량 계측을 직접 추가할 때 사용하는 SDK 가이드입니다.
-이 값에 run과 worker 문맥을 붙이면 같은 시간·node의 GPU·network·storage 지표와 비교할 수 있습니다.
-Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로 Prometheus와 직접 통신할 필요가 없습니다.
-공통 수집 경로와 snapshot이 전체 step 이력이 아닌 이유는 [구현 구조](architecture.md#the-basic-path)에 설명합니다.
+VERL의 기본 trainer 연결은 [file logger wrapper](verl-quickstart.md)를 사용합니다.
+이 가이드는 custom worker·tool·다른 application에 metric을 직접 추가하는 SDK 경로입니다.
+Run·worker snapshot을 collector가 읽으므로 application이 Prometheus와 직접 통신하지 않습니다.
+[데이터 경로](architecture.md#the-basic-path)에서 snapshot과 전체 step 이력의 차이를 확인합니다.
 
 ## Choose Your Path
 
@@ -17,18 +16,18 @@ Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로
 
 아래 절차는 SDK로 JSON snapshot을 만드는 application용입니다.
 먼저 CPU에서 metric 하나를 기록하고 확인한 뒤 실제 학습에 연결합니다.
-복사 없이 실행할 수 있는 [CPU SDK 예제](../examples/README.md#cpu-sdk-quickstart)는 metric과 `tool.call → sandbox.exec`의 trace/parent 연결을 함께 보여 줍니다.
+복사 없이 실행할 수 있는 [CPU SDK 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/README.md#cpu-sdk-quickstart)는 metric과 `tool.call → sandbox.exec`의 trace/parent 연결을 함께 보여 줍니다.
 
 ## 1. Prepare the Python Environment
 
-Application이 실행되는 Python 환경에서 [package 설치](../README.md#python-package-usage)를 마칩니다.
-다음 명령이 성공하면 SDK를 사용할 수 있습니다.
+Application의 Python 환경에 checkout의 SDK를 설치합니다.
+Source 개발 중에는 `-e`를 추가하며 script·dashboard는 checkout에서 실행합니다.
 
 ```bash
+python -m pip install /path/to/xlayer-telemetry
 python -c "from xlayer_telemetry.metrics import MetricEmitter"
 ```
 
-같은 terminal에서 실행 식별자와 출력 위치를 정합니다.
 각 run에 새로운 directory를 사용하면 이전 snapshot과 섞이지 않습니다.
 
 ```bash
@@ -41,14 +40,11 @@ export TELEMETRY_NODE='gpu-local'
 Monitoring server의 `TELEMETRY_TARGETS`에 `gpu-local=주소`로 등록하면 node 이름이 맞습니다.
 생략하면 hostname을 사용합니다.
 
-`TELEMETRY_RUN_ID`와 `TELEMETRY_METRICS_DIR`는 함께 설정해야 합니다.
-둘 다 없으면 emitter가 비활성화되며, 하나만 있으면 경고 후 비활성화됩니다.
-환경변수는 다른 terminal이나 remote worker로 자동 전달되지 않습니다.
-Emitter가 비활성화되어도 예제의 application 동작은 계속되므로 JSON이 없으면 먼저 이 두 환경변수와 `emit()` 호출을 확인합니다.
+`TELEMETRY_RUN_ID`와 `TELEMETRY_METRICS_DIR`를 함께 설정합니다.
+없거나 하나만 있으면 emitter가 비활성화되며 application은 계속 실행됩니다.
+Remote worker에는 별도로 전달하고, JSON이 없으면 두 변수와 `emit()` 호출부터 확인합니다.
 
 ## 2. Write and Inspect One Snapshot
-
-다음 예제는 GPU나 training framework 없이 실행되며 예시 loss 한 개를 기록합니다.
 
 ```bash
 python - <<'PY'
@@ -68,10 +64,9 @@ python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 식별자에 `-`가 포함되면 파일명에서는 `%2D`로 인코딩되며, snapshot 안의 원래 식별자는 유지됩니다.
 별도 summary나 manifest가 없다는 안내가 나와도 이 예제에서는 정상입니다.
 
-`show_run`에는 `telemetry-metrics` directory 자체가 아니라 그 부모 run directory를 전달합니다.
-다음 `emit()`은 같은 worker의 snapshot을 교체하므로 전체 step history를 저장하지 않습니다.
-Prometheus도 scrape 사이에 교체된 모든 snapshot을 보존하지는 않으며, 모든 step이 필요하면 application log를 함께 남깁니다.
-이 구조는 값의 최신 상태를 낮은 비용으로 보여 주는 경로이며, 개별 호출의 시작·종료는 [event span](agent-rl.md#record-a-custom-tool-span)으로 기록합니다.
+`show_run`에는 snapshot directory의 부모 run 경로를 전달합니다.
+`emit()`은 같은 worker의 최신 snapshot을 교체하므로 scrape 사이의 모든 step을 보존하지 않습니다.
+전체 이력은 application log에, 호출 start/end는 [event span](agent-rl.md#record-a-custom-tool-span)에 기록합니다.
 
 ## 3. Connect Your Workload
 
@@ -92,14 +87,13 @@ if emitter is not None:
     )
 ```
 
-`worker_id`를 생략하면 `RANK`를 사용하고, `RANK`도 없으면 `0`을 사용합니다.
-같은 directory의 동일 producer·role을 여러 process가 기록한다면 서로 다른 worker ID를 지정합니다.
-Run마다 directory를 분리하고, 각 node의 application과 collector는 같은 node-local directory를 사용합니다.
-SDK 파일명은 producer·role·worker prefix 뒤에 `@NODE@RUN`을 붙여 서로 다른 node의 local worker 번호나 run이 충돌하지 않도록 합니다.
-공유 snapshot directory를 사용하는 경우에도 collector의 `NODE_NAME`과 snapshot의 `node`를 일치시킵니다.
-Textfile CLI의 `--node`는 해당 node만 선택하며 launcher는 이 필터를 자동 전달합니다.
-기존 snapshot 파일도 계속 읽을 수 있고 같은 identity가 여러 파일에 있으면 최신 `observed_at`을 선택합니다.
-고정 basename을 직접 읽는 외부 script는 emitter가 반환한 경로나 snapshot의 identity를 사용해야 합니다.
+기본 worker ID는 `RANK`, 없으면 `0`이며 같은 producer·role의 process마다 다르게 지정합니다.
+Run별 directory를 나누고 application·collector의 논리 node 이름을 맞춥니다.
+Application snapshot은 해당 node의 collector가 읽는 directory에 기록합니다.
+파일명의 `@NODE@RUN`은 node별 worker 번호 충돌을 막고 collector의 `--node`는 자기 node만 고릅니다.
+
+기존 snapshot도 읽으며 identity가 중복되면 최신 `observed_at`을 선택합니다.
+외부 script는 고정 basename 대신 반환 경로나 JSON identity를 사용합니다.
 
 ### Use a Trainer Callback
 
@@ -146,7 +140,7 @@ Snapshot 기록 중 처리되는 파일·값 오류는 경고 후 emitter를 비
 SDK가 설치된 것만으로 Node Exporter가 설치되지는 않습니다.
 이미 실행 중인 `node` role이 있으면 종료한 뒤 아래 옵션을 포함해 다시 실행합니다.
 
-Application과 같은 node의 별도 terminal에서 실행하며, 경로를 앞에서 만든 실제 directory로 바꿉니다.
+Collector는 application과 같은 node에서 실행합니다.
 
 ```bash
 TOOLS_DIR="$HOME/telemetry/tools" \

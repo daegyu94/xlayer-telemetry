@@ -1,19 +1,16 @@
 # Real VERL Agent RL Demo
 
-이 GIF는 실제 VERL Agent RL 실행에서 저장한 Prometheus·Loki 데이터를 **현재 Grafana dashboard 8개**로 다시 연 화면입니다.
-학습은 2026-09-30에 실행했고 화면은 2026-10-01에 캡처했습니다.
-새로운 학습이나 성능 측정을 한 것이 아니라, 기록된 SWE-Bench guided patch 실행의 step·resource·tool/sandbox span·log를 최신 investigation workflow로 재생합니다.
-처음 연결하는 사용자는 [VERL 연결 가이드](verl-quickstart.md)를 먼저 따라야 합니다.
+실제 VERL Agent RL의 저장 데이터를 **현재 Grafana dashboard 8개**로 재생한 GIF입니다.
+학습은 2026-09-30, 캡처는 2026-10-01이며 새로운 학습·측정은 아닙니다.
+처음 연결한다면 [VERL Quickstart](verl-quickstart.md)를 따릅니다.
 
 ![현재 Grafana의 실제 VERL Agent RL investigation: Run Overview, Bottleneck Summary, Timeline, vLLM, Sandbox, GPU, Storage, Logs](figures/verl-agent-rl-investigation.gif)
 
 ## Watch the Recording
 
-GIF는 약 95초이며 각 화면을 5–7초 유지합니다.
-Start Here → Run Overview의 완료 step 목록 → Bottleneck Summary의 diagnosis·evidence·baseline → Cross-Layer Timeline의 경계·span·host resource를 보여 줍니다.
-이어서 Agent RL Stage Correlation의 vLLM·sandbox 행, Compute & Communication, Data & Storage, Run Logs로 이동합니다.
-Step Explorer의 step 선택은 Run Overview에, 기존 Step Detail의 자원 상세는 Timeline에 통합되어 있습니다.
-접혀 있는 상세 행을 펼쳐 보는 동작도 녹화했습니다.
+약 95초 GIF에서 화면마다 5–7초 유지합니다.
+Start Here → 완료 step → candidate/evidence/baseline → Timeline → vLLM·sandbox·Compute·Storage·Logs로 이동하고 접힌 detail을 펼칩니다.
+Step 선택은 Run Overview, 기존 Step Detail은 Timeline에 통합됐습니다.
 
 Overview와 resource 화면의 시간 범위는 2026-09-30 12:00:02–12:01:10(KST), 선택한 trainer update 3의 구간은 12:01:03–12:01:10입니다.
 화면 전환은 investigation 순서이며 학습 phase의 실행 순서가 아닙니다.
@@ -43,10 +40,9 @@ GIF의 캡처 정보와 파일 checksum은 [Recording manifest](validation/dashb
 
 ## Read the Result
 
-Bottleneck Summary의 `no_anomaly_observed`는 수집된 evidence에서 rule candidate가 만들어지지 않았다는 뜻입니다.
-이 경우 candidate/evidence 패널이 비어 있는 것은 정상이며, 모든 자원에 병목이 없다는 보장은 아닙니다.
-병목 후보와 supporting/counter/missing evidence가 채워진 예제는 [synthetic investigation GIF](monitoring.md#demo-details)에서 볼 수 있습니다.
-실제 GIF에서는 RDMA·policy version lag와 활성화하지 않은 KV offload 등의 source를 N/A 또는 missing evidence로 유지했습니다.
+`no_anomaly_observed`는 수집 evidence에서 rule candidate를 찾지 못했다는 뜻으로 모든 병목의 부재를 보증하지 않습니다.
+빈 candidate panel은 정상이며 후보·counter/missing evidence 예시는 [synthetic GIF](monitoring.md#demo-details)를 봅니다.
+RDMA·policy lag·비활성 KV offload는 N/A/missing으로 남겼습니다.
 
 Timeline은 exact EventRecorder span, approximate trainer update 경계, sampled resource metric을 구분합니다.
 일부 tool/sandbox span의 `step`은 명시적으로 전달되지 않아 비어 있습니다.
@@ -64,11 +60,9 @@ Run Logs의 `Log directory`는 `swe-colocate_async`, `Run context`는 `agent-e2e
 
 ## Reproduce an Agent RL Validation
 
-이미 실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab) 환경에서 [Sandbox integration example](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
-Smoke launcher는 [run_verl_lab_smoke.sh](../examples/sandbox/run_verl_lab_smoke.sh)이며 dataset·Docker grader image·VERL 환경이 필요합니다.
-현재 checkout의 준비 절차와 cgroup 설정을 먼저 확인합니다.
-Collector·native endpoint·Loki를 연결한 뒤 `show_run`과 [smoke validator](../examples/sandbox/validate_smoke.py)로 step과 sandbox trace를 확인합니다.
-동일한 모델이나 명령만 실행한다고 GIF와 같은 성능이 보장되는 것은 아닙니다.
+실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab)·dataset·Docker image에서 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
+[Smoke launcher](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/run_verl_lab_smoke.sh)의 cgroup 설정을 확인하고 collector·native·Loki를 켭니다.
+`show_run`·[validator](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/validate_smoke.py)로 step·trace를 검사하며 같은 명령도 동일 성능을 보장하지는 않습니다.
 
 ## 3FS POSIX Experiment Record (2026-09-23)
 
@@ -133,7 +127,6 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
     -- bash "$LAB_ROOT/scripts/run-qwen3-4b-agentic.sh"
 ```
 
-명령은 xlayer-telemetry 저장소 루트에서 실행합니다.
 이 host에서는 처음 실행 때의 `ncclNetInit()` 충돌을 피하려고 위 NCCL socket 설정을 사용했습니다.
 기록된 실행에서는 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`로 native metrics를 활성화했습니다.
 현재 lab launcher가 이 두 값을 모두 전달한다고 가정하지 말고 사용하는 VERL의 지원 설정을 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 확인합니다.
@@ -145,7 +138,7 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
 
 ## Refresh the Recording
 
-[Capture script](../scripts/capture_dashboard_demo.py)는 실행 중인 Grafana에서 지정한 run·step·시간 구간을 열고 동일한 investigation 순서를 GIF로 저장합니다.
+[Capture script](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/capture_dashboard_demo.py)는 실행 중인 Grafana에서 지정한 run·step·시간 구간을 열고 동일한 investigation 순서를 GIF로 저장합니다.
 별도의 학습이나 telemetry 생성은 하지 않으므로 Prometheus와 Loki에 해당 시간의 데이터가 보존되어 있어야 합니다.
 Playwright와 Chromium, `ffmpeg`·`ffprobe`는 녹화할 때만 필요한 optional dependency입니다.
 인증이 필요한 Grafana에서는 먼저 해당 환경에 맞는 browser 접근 방식을 구성해야 합니다.
@@ -174,7 +167,7 @@ Context JSON에는 자신의 Grafana 주소와 실제 label·step record·시간
 }
 ```
 
-위 내용을 `capture-context.json`으로 저장하고 녹화 dependency가 있는 Python 환경에서 실행합니다.
+Context 파일을 `--context`로 지정합니다.
 
 ```bash
 python scripts/capture_dashboard_demo.py \

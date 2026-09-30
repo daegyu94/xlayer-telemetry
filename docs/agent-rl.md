@@ -1,10 +1,7 @@
 # Cross-Layer Integration for VERL
 
-XLayer는 VERL의 서브시스템에서 생성하는 telemetry를 Collect하고, workload 문맥에서 Correlate한 뒤 Diagnose합니다.
-[VERL 연결 가이드](verl-quickstart.md)에서 trainer와 GPU 지표를 확인했다면 이 문서의 절차로 필요한 계층을 하나씩 추가합니다.
-이 문서는 vLLM·Ray endpoint, 여러 node의 배치 정보, 3FS 진단, custom tool event를 연결하는 방법을 설명합니다.
-모든 기능을 켤 필요는 없으며 조사하려는 질문에 필요한 source부터 연결합니다.
-기본 경로와 source별 저장 위치는 [구현 구조](architecture.md)에 있습니다.
+[VERL Quickstart](verl-quickstart.md)에서 trainer·GPU 연결을 확인한 뒤 vLLM·Ray·multi-node·3FS·tool event를 추가합니다.
+조사에 필요한 source부터 하나씩 연결하며 공통 데이터 경로는 [Architecture](architecture.md)에 있습니다.
 
 ## How the Signals Flow
 
@@ -58,12 +55,10 @@ VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 
 | Workload log | Alloy와 Loki | 선택적인 Logs dashboard |
 | Custom tool 호출의 대기 시간 | `EventRecorder`로 기록한 span | JSONL event와 `show_run` |
 
-이 저장소는 VERL, vLLM, Ray, 3FS 자체를 설치하거나 endpoint를 자동으로 찾지 않습니다.
-Native metric은 배포에서 제공하는 이름과 label에 따라 dashboard query를 맞춰야 할 수 있습니다.
-자동 변환되는 VERL key와 별도 producer가 필요한 signal은 [실제 수집 범위](metrics.md#what-is-actually-collected)에 정리했습니다.
-System resource와 shared service metric에는 application의 `run_id`가 자동으로 붙지 않습니다.
-처음에는 vLLM·Ray·3FS를 한꺼번에 등록하지 말고, endpoint 하나의 target이 up인지 확인한 뒤 다음 source를 추가합니다.
-Ray는 수집 target과 diagnostics query가 준비되어 있지만 전용 Grafana panel은 제공하지 않으므로 Prometheus query 화면 또는 Grafana Explore에서 실제 metric 이름을 먼저 확인합니다.
+VERL·vLLM·Ray·3FS 설치와 endpoint discovery는 외부 배포가 담당합니다.
+Native metric 이름·label은 실제 exporter와 맞추고 [수집 범위](metrics.md#what-is-actually-collected)를 확인합니다.
+System·shared-service metric에 `run_id`가 자동으로 붙지는 않습니다.
+Endpoint 하나의 target부터 확인하며 Ray는 전용 panel 대신 Prometheus/Grafana Explore·diagnostics를 사용합니다.
 
 ## Register Native Endpoints
 
@@ -72,8 +67,7 @@ VERL의 vLLM server에서 metric을 받으려면 VERL 명령에 `actor_rollout_r
 vLLM wheel을 다시 빌드할 필요는 없습니다.
 VERL은 기본적으로 `/tmp/ray/session_latest/metrics/prometheus/prometheus.yml`의 `rollout` job에 동적으로 정해진 `host:port`를 기록하므로, 실행 중 그 주소의 `/metrics`에서 `vllm:num_requests_waiting`과 `vllm:kv_cache_usage_perc`를 확인합니다.
 VERL은 자신의 Prometheus 설정 파일 전체를 다시 쓰므로 `actor_rollout_ref.rollout.prometheus.file`에 XLayer server의 `prometheus.yml`을 지정하지 않습니다.
-[예제 파일](../examples/verl/native-sources.json)을 복사한 뒤 실제 주소로 바꾸고 사용하지 않는 source는 제거합니다.
-다음은 rollout node 한 개를 등록하는 최소 형태입니다.
+[예제 파일](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/native-sources.json)을 복사한 뒤 실제 주소로 바꾸고 사용하지 않는 source는 제거합니다.
 
 ```json
 {
@@ -94,11 +88,9 @@ VERL은 자신의 Prometheus 설정 파일 전체를 다시 쓰므로 `actor_rol
 }
 ```
 
-이를 monitoring host의 `$HOME/telemetry/config/native-sources.json`으로 저장했다고 가정합니다.
-주소는 실제 배포로 바꾸며 각 node collector는 먼저 실행되어 있어야 합니다.
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용했다면 `verl-local.conf`에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 추가합니다.
-기존 server process를 종료한 뒤 같은 config로 다시 시작합니다.
-[VERL quickstart의 `up` 경로](verl-quickstart.md#2-start-server-node-and-verl)를 사용했다면 `down` 후 `up`을 실행합니다.
+Source 파일 경로는 `$HOME/telemetry/config/native-sources.json`을 사용합니다.
+Node collector도 실행되어 있어야 합니다.
+`verl-local.conf`에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 지정한 뒤 `down` → `up`으로 재시작합니다.
 
 Monitoring Guide의 수동 경로를 사용했다면 `server.conf`에 같은 값을 넣고 `bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"`로 다시 시작합니다.
 시작 시 설정 형식을 검증하고 Prometheus의 `native` job에 사용할 target 파일을 만듭니다.
@@ -128,17 +120,16 @@ ClickHouse에 저장하는 3FS metric은 다음 진단 경로를 사용합니다
 
 ## Map Multiple Nodes to a Run
 
-Wrapper의 기본 manifest는 driver node에서 시작하는 단순한 배치를 기록합니다.
-실제 trainer·rollout이 다른 node에 있다면 role 배치를 별도 manifest에 기록해 분석 시 참조합니다.
-먼저 각 node에서 `node` role을 실행하고 monitoring server의 `TELEMETRY_TARGETS`에 모든 node를 등록합니다.
-Native vLLM·Ray endpoint는 별도 source 파일에 등록하며, 역할 manifest는 이 두 설정을 대체하지 않습니다.
+기본 manifest는 driver node의 단순 배치입니다.
+분리된 trainer·rollout의 role 배치는 별도 manifest로 기록합니다.
+각 node collector와 `TELEMETRY_TARGETS`, native source 파일은 각각 설정하며 role manifest로 대체되지 않습니다.
 
 ```text
 trainer-0 > node exporter :19100 --------+
 rollout-0 > node exporter :19100 --------+--> Prometheus > Grafana
 rollout-0 > vLLM /metrics ---------------+
              | labels.node=rollout-0
-driver run > topology manifest -----------> local Step Explorer
+driver run > topology manifest -----------> declared role / node placement
 ```
 
 아래 명령은 기존 wrapper manifest를 보존하면서 topology 참고 파일을 만듭니다.
@@ -152,11 +143,11 @@ PYTHONPATH=. python -m xlayer_telemetry.manifest \
   --role rollout=rollout-0
 ```
 
-Manifest는 실행 조건과 위치를 기록하는 파일입니다.
-같은 역할의 node가 여러 대면 `--role`을 반복하고, 선택적 endpoint·profile 경로는 `--source`·`--artifact`로 기록할 수 있습니다.
-`--source`를 기록하는 것만으로 Prometheus 수집이 활성화되지는 않으며 `show_run`은 기본적으로 `telemetry-manifest.json`을 읽습니다.
-기본 manifest의 role 정보를 갱신하려면 기존 settings·sources·artifacts를 보존하면서 실제 배치에 맞게 수정합니다.
-Grafana Step Explorer의 `Resource node` 선택은 Prometheus에 등록된 node를 기반으로 하므로 manifest 파일만 만들어도 새로운 node의 그래프가 생기지 않습니다.
+Manifest는 실행 조건·위치의 기록입니다.
+여러 node의 같은 role은 `--role` 반복, endpoint·profile 경로는 `--source`·`--artifact`로 남깁니다.
+`--source`는 수집을 켜지 않으며 `show_run`은 기본 `telemetry-manifest.json`을 읽습니다.
+기본 manifest를 수정할 때 settings·sources·artifacts를 보존합니다.
+Grafana의 Resource node는 Prometheus target 목록을 사용하므로 manifest만으로 그래프가 생기지는 않습니다.
 
 기본 file logger bridge는 driver에서 동작합니다.
 Remote worker에서 SDK나 `EventRecorder`를 직접 호출할 때만 해당 worker가 package를 import할 수 있도록 설치하고 다음 환경을 전달합니다.
@@ -176,14 +167,10 @@ Remote worker의 snapshot을 Grafana에 표시하려면 그 worker node에도 co
 
 ## Add Diagnostics
 
-진단 process는 완료 step, Prometheus signal과 선택적인 3FS ClickHouse 조회를 조합해 병목 후보를 기록합니다.
-이 process는 wrapper의 선택적 sidecar입니다.
-`ENABLE_LOGS=1`과 Alloy/Loki도 연결하면 결과를 Bottleneck Summary와 Cross-Layer Timeline에서 볼 수 있습니다.
-[diagnostics.json](../examples/verl/diagnostics.json)을 별도 파일로 복사하고 Prometheus 주소를 실제 주소로 수정합니다.
-3FS를 사용하지 않으면 `threefs` object를 제거합니다.
-단일 host에서는 `verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 추가하고 새 `RUN_ID`를 지정합니다.
-같은 config로 `down` → `up` → `run`을 실행해 collector가 새 run의 snapshot directory를 읽도록 갱신합니다.
-처음부터 diagnostics를 설정한 경우에는 [기본 시작 절차](verl-quickstart.md#2-start-server-node-and-verl)를 그대로 따릅니다.
+진단은 wrapper의 선택적 sidecar로 step·Prometheus·3FS ClickHouse를 비교합니다.
+[diagnostics.json](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/diagnostics.json)을 복사해 endpoint를 바꾸고 사용하지 않는 `threefs`는 제거합니다.
+`verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 지정하고 새 `RUN_ID`로 실행합니다.
+`ENABLE_LOGS=1`과 Alloy·Loki를 연결하면 Bottleneck Summary와 Timeline에서도 결과를 확인할 수 있습니다.
 
 3FS를 연결하려면 ClickHouse에 `distributions` 데이터가 있어야 합니다.
 Database와 `mount_name` 등 filter를 실제 배포에 맞추고, 인증이 필요하면 `THREEFS_CLICKHOUSE_USER`와 `THREEFS_CLICKHOUSE_PASSWORD` 환경 변수로 전달합니다.
@@ -254,9 +241,6 @@ export TELEMETRY_NODE='rollout-0'
 export TELEMETRY_EVENTS_DIR="$HOME/telemetry-runs/grpo-001/telemetry-events"
 ```
 
-다음 코드는 기존 tool 호출 위치에 넣는 형태입니다.
-`call_tool()`은 application의 실제 함수로 바꿉니다.
-
 ```python
 from xlayer_telemetry.events import EventRecorder
 
@@ -271,20 +255,18 @@ else:
         result = call_tool()
 ```
 
-파일명은 `<producer>-<role>-<worker>@NODE@RUN.jsonl`이며 node·run을 포함해 다른 node의 같은 worker 번호와 구분합니다.
-실제 경로는 `events.path`에서 확인하고, 후속 script에서 고정 basename을 가정하지 않습니다.
-식별자 자체에 `-`가 있으면 파일명에서 해당 문자를 `%2D`로 인코딩해 서로 다른 producer tuple의 파일이 충돌하지 않도록 합니다.
-같은 node·run·producer·role의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
-`attributes.tool`은 실제 tool 이름으로 지정해야 sandbox 진단의 같은-tool baseline 비교에 사용할 수 있습니다.
-`as tool_span`으로 받은 `trace_id`·`span_id`를 하위 sandbox span에 넘기면 호출 관계를 보존합니다.
-Event는 그 자체로 Prometheus metric이 되지 않습니다.
-Loki를 켜고 Alloy가 해당 run root를 읽으면 `xlayer_event` stream으로 전달되어 Cross-Layer Timeline의 exact span에 나타납니다.
+Event 경로는 `events.path`에서 확인합니다.
+파일명은 `<producer>-<role>-<worker>@NODE@RUN.jsonl`이며 식별자의 `-`는 `%2D`로 인코딩해 충돌을 피합니다.
+같은 run·node·producer·role의 worker는 서로 다른 ID를 사용합니다(기본 `RANK`, 없으면 `0`).
+`attributes.tool`에 실제 이름을 기록해야 같은-tool baseline을 비교할 수 있습니다.
+하위 sandbox에 `tool_span`의 trace/span ID를 전달하면 parent 관계가 연결됩니다.
+Event는 Prometheus metric이 아니며 Alloy·Loki로 보내면 Timeline에 exact span으로 표시됩니다.
 
 ## Observe an Agent Sandbox
 
-SWE-Bench·Terminal-Bench·code execution에서는 tool 호출 시간이 sandbox 준비, 명령 실행, filesystem 작업을 포함할 수 있습니다.
-XLayer는 외부 Docker·containerd·SWE-ReX·custom runtime의 sandbox 생성과 배치를 맡지 않으며, 그 실행 지점에서 lifecycle span을 기록하고 sandbox worker cgroup을 읽습니다.
-기본 예시는 OverlayFS 위의 local SSD/NVMe이지만 `filesystem` 값은 `btrfs`, `zfs`, plain workspace, VM filesystem 등 실제 배포에 맞춥니다.
+Agent tool latency에는 sandbox 준비·실행·filesystem 작업이 포함될 수 있습니다.
+XLayer는 외부 runtime의 lifecycle을 기록하고 cgroup을 읽으며 생성·배치는 담당하지 않습니다.
+기본 예시는 OverlayFS + local SSD/NVMe이고 `filesystem`은 btrfs·zfs·plain workspace·VM 등 실제 배포로 지정합니다.
 
 ```text
 Colocated
@@ -304,7 +286,6 @@ Manifest의 role mapping에도 `sandbox=sandbox-0`을 추가할 수 있지만 ma
 
 ### Record lifecycle spans
 
-Sandbox runtime이 호출하는 코드에 아래처럼 계측을 넣습니다.
 `sandbox_id`·`trajectory_id`는 event attribute에만 저장되고 Prometheus label이 아닙니다.
 `parent_span_id`와 `trace_id`를 기존 `tool.call` span에서 넘기면 tool과 sandbox lifecycle을 같은 trace에서 찾을 수 있습니다.
 RPC로 dedicated node에 전달할 때도 두 ID를 sandbox worker에 전달합니다.
@@ -332,18 +313,17 @@ else:
         run_command_in_existing_sandbox()
 ```
 
-지원하는 operation은 `queue`, `acquire`, `prepare`, `exec`, `reset`, `release`이며 runtime에서 실제 실행한 단계만 기록합니다.
-`queue`는 pool에 빈 sandbox가 생기기를 기다리는 구간, `acquire`는 선택된 sandbox를 할당받는 구간입니다.
-Queue가 없는 runtime은 두 구간을 만들어 내지 않고 실제 `exec`만 기록해도 됩니다.
-`tool_span`은 위 tool 예제의 span identity입니다.
-Colocated 호출은 해당 객체를 전달하고, dedicated 호출은 RPC request에 `trace_id`·`parent_span_id` 값과 `run_id`를 넣어 worker에서 사용합니다.
-실제 RPC 전송과 worker의 환경 설정은 외부 runtime이 담당하며 XLayer가 자동 전파하지 않습니다.
-`cgroup`은 선택 사항이며, 개별 sandbox cgroup을 전달하면 span 전후의 I/O bytes·operations 차이와 PSI를 같은 trace의 `sandbox.resource_sample` event에 기록합니다.
-이 event의 `sandbox_id`·`trajectory_id`와 cgroup 범위 값은 Prometheus label이나 worker 전체 집계에 섞이지 않습니다.
-Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node여야 합니다.
-서로 다른 node의 JSONL을 동일 run root의 `telemetry-events` 아래에 전달하거나 각 node의 Alloy가 읽는 run root를 설정해야 Grafana의 Timeline에서 함께 보입니다.
+Operation은 `queue`, `acquire`, `prepare`, `exec`, `reset`, `release`이며 실제 단계만 기록합니다.
+`queue`는 pool 대기, `acquire`는 선택된 sandbox 할당입니다.
 
-veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter](../examples/sandbox/verl_lab_swebench_tools.py)입니다.
+Colocated는 `tool_span`을 전달하고 dedicated는 RPC로 `run_id`·trace/parent ID를 넘깁니다.
+RPC 전파·worker 환경 설정은 외부 runtime이 담당합니다.
+
+선택적 `cgroup`은 span 전후 I/O·PSI를 같은 trace의 `sandbox.resource_sample`에 기록하며 worker Prometheus 집계와 분리합니다.
+Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node입니다.
+각 node의 JSONL을 Alloy가 읽는 run root에 두어야 Timeline에서 함께 볼 수 있습니다.
+
+veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/verl_lab_swebench_tools.py)입니다.
 XLayer 저장소 루트에서 아래 경로를 설정하고 기존 `verl-lab` 명령을 XLayer wrapper로 실행하면, 원본 tool·reward 코드를 바꾸지 않고 `read_source`·`test_patch`·`edit_and_test`의 `tool.call`과 실제 Docker grader 호출의 `sandbox.exec`를 기록합니다.
 
 ```bash
@@ -389,17 +369,15 @@ RUN_ROOT="$HOME/telemetry-runs/swebench-separate-async" \
 이 옵션 자체가 XLayer collector에 endpoint를 자동 등록하지는 않습니다.
 
 `test_patch`는 완성된 unified diff를 받습니다.
-작은 모델이 `type`처럼 스키마에 없는 인자를 넣거나 유효하지 않은 diff 조각을 만들 수 있으므로, 이 예제는 기존 grader를 호출하는 `edit_and_test(path, old, new)`도 제공합니다.
-기존 실패에서는 veRL이 모델의 `{"patch": ..., "type": "add"}`를 함수에 그대로 전달해 `test_patch(patch: str)` 진입 전에 `TypeError`가 났고, 전달된 `patch`도 unified diff가 아니었습니다.
-스키마 밖의 인자는 `invalid_tool_arguments` 응답과 오류 `tool.call` span으로 남기며 Docker grader를 실행하지 않습니다.
-`old`는 원본 소스에서 정확히 한 번 나타나야 하며, adapter가 만든 patch에만 Docker grader를 실행합니다.
-실측용 prompt에서 `read_source` 다음에 `edit_and_test`를 호출하도록 안내할 수 있지만, 이것이 모델의 SWE-Bench 해결률을 증명하지는 않습니다.
-이 예제는 colocated Docker grader를 대상으로 하며 patch가 검증 단계에 도달했을 때만 `sandbox.exec` span이 생깁니다.
-`docker run --rm` 호출만 감싸므로 개별 container cgroup 경로를 자동 발견하거나 trajectory ID를 만들어 내지는 않습니다.
-그 정보가 있는 runtime은 위의 `SandboxRecorder.span(cgroup=...)`을 직접 호출해 개별 I/O event를 추가합니다.
-Docker CLI를 호출하는 veRL worker와 Docker daemon이 만드는 grader container가 같은 cgroup subtree에 들어간다는 보장은 없습니다.
-따라서 worker PID의 cgroup만 sampler에 주면 grader의 I/O·CPU·memory를 수집한다고 보장할 수 없습니다.
-Docker grader를 별도의 parent 아래에 배치하려면 smoke 실행 전에 `XLAYER_SANDBOX_CGROUP_PARENT`를 지정합니다.
+스키마 밖 인자는 `invalid_tool_arguments`·오류 span으로 남기고 grader를 실행하지 않습니다.
+유효하지 않은 diff는 원래 tool의 patch 검증 결과로 반환되며 인자 오류와 구분합니다.
+예제의 `edit_and_test(path, old, new)`는 원본에서 `old`가 한 번만 일치할 때 patch를 만들어 grader로 보냅니다.
+Guided prompt는 integration 검증용이며 해결률을 증명하지 않습니다.
+
+실제 Docker grader에 도달해야 `sandbox.exec`가 생기고, 개별 cgroup·trajectory는 자동 발견하지 않습니다.
+해당 정보가 있으면 `SandboxRecorder.span(cgroup=...)`으로 기록합니다.
+Docker daemon이 만든 container는 worker PID의 cgroup 아래에 있다고 보장할 수 없습니다.
+Sampler가 grader resource를 보려면 전용 parent를 설정하고 실제 container 위치를 확인합니다.
 
 ```bash
 export XLAYER_SANDBOX_CGROUP_PARENT=xlayer-sandbox-worker.slice
@@ -424,7 +402,7 @@ python -m examples.sandbox.validate_smoke "$RUN_ROOT" --require-sandbox
 | SWE-Bench guided patch + Docker grader | 3 step 완료 | 3 update 완료 | 3 update 완료 |
 | GSM8K + Docker calculator | 3 step 완료 | 3 update 완료 | 3 update 완료 |
 
-GSM8K 검증에는 [calculator tool](../examples/sandbox/calculator_tools.py)을 `FUNCTION_TOOL_PATH`로 지정하고, 기존 math prompt에 `calculate` 사용을 안내했습니다.
+GSM8K 검증에는 [calculator tool](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/calculator_tools.py)을 `FUNCTION_TOOL_PATH`로 지정하고, 기존 math prompt에 `calculate` 사용을 안내했습니다.
 작은 integration fixture이며 SWE-Bench·GSM8K 해결률이나 학습 throughput 평가가 아닙니다.
 Calculator의 인자 오류와 실제 Docker nonzero exit도 별도로 실행해 오류 span이 남는지 확인했습니다.
 
@@ -447,12 +425,11 @@ Async trainer update 구간에 모든 rollout/tool span이 포함되는 것은 �
 
 ### Sample the sandbox worker cgroup
 
-Sandbox worker와 하위 container가 속한 **안정적인 cgroup v2 subtree**를 입력으로 지정합니다.
-`/proc/<worker-pid>/cgroup`의 `0::` 뒤 경로를 호스트의 `/sys/fs/cgroup` 아래에서 확인하되, Docker daemon이 만든 container가 그 경로의 자손인지도 확인합니다.
-안정적으로 유지되는 sandbox parent를 Prometheus 대상으로 사용하고, runtime이 sandbox를 만들 때마다 새로 생성하는 개별 container cgroup은 사용하지 않습니다.
-하나의 node·runtime·filesystem·deployment 조합에 textfile producer 하나를 두어 같은 시계열이 충돌하지 않게 합니다.
-서로 다른 label 조합의 producer를 같은 textfile directory에 두는 경우 `--textfile-name`도 서로 다른 `.prom` basename으로 지정합니다.
-파일명만 바꾸고 label 조합을 같게 두면 중복 시계열이 되므로, 같은 node·runtime·filesystem·deployment의 여러 container는 공통 parent cgroup 하나로 집계합니다.
+Worker와 하위 container를 포함하는 **안정적인 cgroup v2 subtree**를 지정합니다.
+`/proc/<pid>/cgroup`의 `0::` 경로를 `/sys/fs/cgroup` 아래에서 확인하고 Docker container가 실제 자손인지 검사합니다.
+매번 바뀌는 container cgroup 대신 공통 parent를 Prometheus 대상으로 사용합니다.
+Node·runtime·filesystem·deployment 조합당 producer 하나로 집계합니다.
+서로 다른 label 조합은 `--textfile-name`도 나누되 파일명만 달리해 같은 시계열을 중복 노출하지 않습니다.
 
 ```bash
 python -m xlayer_telemetry.collectors.sandbox_sampler \
@@ -513,15 +490,13 @@ Colocated에서 `node`를 생략하면 rollout/trainer record의 node를 사용�
 }
 ```
 
-`events_dir`는 선택 사항이며 진단 process가 읽을 수 있는 경로여야 합니다.
-이 fallback은 파일명이 `agent`로 시작하는 producer의 span만 읽으므로 위 예제처럼 `producer="agent"`를 사용합니다.
-지정하면 해당 run의 `agent*.jsonl`에 기록된 정상 종료 `tool.call` span 중 분석 구간 안에 완전히 포함된 호출의 최대 duration을 사용하고, baseline에서도 같은 tool 이름만 비교합니다.
-선택한 run의 agent event 파일을 분석할 때마다 읽으므로 장시간·대규모 실행에서는 기존 Prometheus tool duration 지표를 우선 사용합니다.
-해당 span이 없거나 이 설정이 없으면 기존 `agent_tool_call_duration_seconds` Prometheus 지표를 사용합니다.
-첫 step에는 같은 run의 이전 baseline이 없어 tool slowdown을 판단하지 않습니다.
-VERL step window가 approximate이면 span 자체가 exact여도 step 귀속은 시간상 겹침에 근거한 correlation입니다.
-`sandbox_io_pressure_ratio`는 sandbox node의 cgroup, local device busy는 같은 node의 지정한 device에서 조회합니다.
-개별 sandbox와 trajectory의 높은 cardinality 문맥은 EventRecorder의 `trace_id`·`span_id`·attribute에서 확인합니다.
+`events_dir`는 진단 process가 읽을 수 있는 선택적 경로입니다.
+Producer는 `agent`로 시작해야 이 fallback의 파일 검색에 포함됩니다.
+`agent*.jsonl`의 정상 종료 `tool.call` 중 해당 run·구간에 완전히 포함된 최대 duration을 사용하며 baseline은 같은 tool끼리 비교합니다.
+Span이 없으면 `agent_tool_call_duration_seconds`를 사용하고 첫 step은 이전 baseline이 없어 slowdown을 판단하지 않습니다.
+Event scan은 매 분석마다 파일을 읽으므로 장시간·대규모 run은 Prometheus duration을 우선합니다.
+Exact span도 approximate step 귀속은 correlation이며, cgroup PSI와 지정 local device busy는 별도 scope입니다.
+개별 sandbox·trajectory 문맥은 trace/span attribute에서 확인합니다.
 
 ## Optional Integrations
 
@@ -530,4 +505,4 @@ Wrapper는 `rl_insight` logger를 추가하며 실제 logger 지원과 서비스
 이 저장소가 RL-Insight server를 설치하지는 않습니다.
 
 상세 실행 구간이 필요하면 [Run Analysis](dashboards.md#run-analysis)의 선택적 profiling을 사용합니다.
-[CUDA smoke example](../examples/verl/gpu_smoke.py)은 telemetry 경로를 확인하는 작은 workload이며 실제 VERL 학습 성능을 측정하는 도구가 아닙니다.
+[CUDA smoke example](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/gpu_smoke.py)은 telemetry 경로를 확인하는 작은 workload이며 실제 VERL 학습 성능을 측정하는 도구가 아닙니다.

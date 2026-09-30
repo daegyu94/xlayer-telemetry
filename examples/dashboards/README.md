@@ -9,7 +9,6 @@ Grafana 화면은 상위 directory의 공통 JSON template에서 `scripts/provis
 
 ## Configure Targets
 
-저장소 루트에서 target 파일을 개인 directory로 복사합니다.
 `nodes.json`의 `.example` 주소는 실행 가능한 주소가 아니므로 실제 collector 주소로 바꿉니다.
 
 ```bash

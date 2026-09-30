@@ -1,14 +1,13 @@
 # How XLayer Telemetry Works
 
-이 문서는 [README의 순서](../README.md#start-here)를 따라 VERL을 연결할 때 각 process가 왜 필요한지 설명합니다.
-먼저 한 node의 기본 경로를 이해한 뒤 vLLM·Ray·3FS·Loki를 추가하면, 화면의 빈 값이 설정 문제인지 아직 연결하지 않은 source인지 구분할 수 있습니다.
-실행 명령은 [VERL 연결 가이드](verl-quickstart.md)에, 추가 source 설정은 [Cross-Layer Integration](agent-rl.md)에 있습니다.
+[Start Here](index.md#start-here)의 연결 순서에 따라 process·파일·source의 역할을 설명합니다.
+실행 명령은 [VERL Quickstart](verl-quickstart.md), 추가 source 설정은 [Cross-Layer Integration](agent-rl.md)을 따릅니다.
 
 ## Why XLayer Exists
 
-XLayer의 주된 역할은 VERL과 함께 동작하는 여러 서브시스템의 telemetry를 **Collect → Correlate → Diagnose**하는 것입니다.
-VERL trainer·vLLM·Ray·tool/sandbox와 GPU·host·network·storage source를 기존 관측 도구로 연결하고, run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 누락된 근거를 제시합니다.
-Prometheus·Grafana·Loki는 저장·query·시각화를 담당하고 XLayer는 workload 문맥, baseline 비교, evidence 기반 investigation을 담당합니다.
+XLayer는 VERL과 서브시스템의 telemetry를 **Collect → Correlate → Diagnose**합니다.
+Run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 missing evidence를 제시합니다.
+Prometheus·Grafana·Loki는 저장·query·시각화를, XLayer는 workload 문맥·baseline·investigation을 담당합니다.
 
 ```text
 1. Collect: VERL and its subsystem telemetry
@@ -26,21 +25,20 @@ Prometheus·Grafana·Loki는 저장·query·시각화를 담당하고 XLayer는 
             +--> Existing detail tools: Grafana / Loki / PyTorch Profiler / Nsight / NCCL
 ```
 
-**Collect**는 연결한 source에서 신호를 수집하거나 조회하는 단계입니다.
-VERL wrapper는 file logger bridge를 시작하며 native endpoint, node collector, log 경로와 ClickHouse는 각각 설정해야 합니다.
-XLayer가 VERL의 모든 서브시스템을 자동으로 발견하거나 설치하는 것은 아닙니다.
+**Collect**는 설정한 source를 수집·조회합니다.
+Wrapper는 file logger bridge를 시작하며 native endpoint·node collector·log·ClickHouse는 별도로 연결합니다.
 
-**Correlate**는 같은 workload interval에 속하는 신호의 시간·identity·측정 범위를 맞추는 단계입니다.
-계측된 event/span에는 `trace_id`와 parent span 관계를 보존하고, system·shared-service metric에는 node·device·topology와 observation scope를 유지합니다.
-Step 경계의 정확도와 multi-node clock 상태도 확인하며, 시간상 동시 변화만으로 특정 run의 자원 사용량을 단정하지 않습니다.
+**Correlate**는 workload interval의 시간·identity·scope를 맞춥니다.
+Span의 trace/parent 관계와 resource의 node·device·topology를 보존하고 step 경계·clock을 확인합니다.
+동시 변화만으로 run별 사용량을 단정하지 않습니다.
 
-**Diagnose**는 current/baseline 비교와 관측 근거에서 조사할 후보를 만드는 단계입니다.
-기본 rule diagnosis와 선택적 local LLM diagnosis는 각각 검토 가능한 evidence와 missing evidence를 남깁니다.
-Logs와 profile은 관련 상세 증거로 탐색하며, 모든 log·profile 내용이 자동으로 diagnosis engine에 입력되는 것은 아닙니다.
+**Diagnose**는 current/baseline과 evidence에서 조사 후보를 만듭니다.
+Rule·선택적 LLM 경로는 근거와 누락 정보를 남기며, log·profile은 상세 증거로 탐색합니다.
+모든 log·profile을 자동 진단 입력으로 넣지는 않습니다.
 
-Grafana·Prometheus는 시계열 저장·query·시각화에 쓰지만 training step, rollout, weight sync, worker, rank, KV offload, storage path를 자동으로 같은 실행 단위로 해석하지 않습니다.
-GPU utilization 40%, 3FS p99 15 ms, RDMA 250 Gbps가 같은 시간에 보여도 어느 run의 어느 phase가 왜 느려졌는지는 사용자가 별도로 조사해야 합니다.
-XLayer는 이 수치를 workload interval과 측정 scope에 연결해 조사 가설을 만들고, 공유 자원 사용량을 특정 run에 자동 귀속하지 않습니다.
+Grafana·Prometheus는 step·rollout·weight sync·worker·KV offload를 같은 실행 단위로 해석하지 않습니다.
+GPU utilization 40%, 3FS p99 15 ms, RDMA 250 Gbps가 동시에 보여도 어느 run의 phase와 관련됐는지는 별도 조사해야 합니다.
+XLayer는 workload interval·scope로 연결해 가설을 만들며 공유 사용량을 자동 귀속하지 않습니다.
 
 OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
 XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
@@ -48,15 +46,14 @@ DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비
 Nsight Systems·PyTorch Profiler 같은 전문 profiler는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
 
-이 분리는 코드에도 반영됩니다.
-`analysis/diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `analysis/diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
-[공통 Prometheus client](../xlayer_telemetry/prometheus.py)는 rule diagnosis·LLM input·clock check·recorded step 조회가 같은 방식으로 series label과 유효 sample을 읽도록 합니다.
-`analysis.diagnostics`도 이 client를 사용하며, backend 파싱은 diagnosis rule과 분리합니다.
-Sandbox runtime은 별도 구현하지 않고 `SandboxRecorder`가 외부 runtime의 lifecycle을 기존 EventRecorder span으로 남깁니다.
-`collectors/sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
-Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
-구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
-현재 integration과 사용 가이드는 VERL을 중심으로 제공하지만 SDK와 core의 run·phase·resource·evidence 모델은 다른 framework의 adapter에도 사용할 수 있습니다.
+`analysis/diagnosis_analysis.py`는 framework와 독립적인 signal·scope·baseline·participant로 rule을 평가하고, `analysis/diagnostics.py`는 VERL 이력과 Prometheus·3FS를 연결합니다.
+[공통 Prometheus client](https://github.com/daegyu94/xlayer-telemetry/blob/main/xlayer_telemetry/prometheus.py)는 rule·LLM·clock 검사에서 같은 series parser를 사용합니다.
+
+`SandboxRecorder`는 외부 runtime lifecycle을 기존 span으로 기록하고, `collectors/sandbox_sampler.py`는 안정적인 cgroup v2 subtree를 Node Exporter textfile로 노출합니다.
+Cgroup과 local NVMe의 node/device metric은 별도 scope입니다.
+
+Grafana/Loki projection 없이도 원본 진단 JSON을 읽을 수 있으며 [schema·rule·조사 순서](diagnosis.md)는 한곳에서 관리합니다.
+Integration은 VERL 중심이지만 SDK·core 모델은 다른 framework adapter에도 사용할 수 있습니다.
 
 ### Package Responsibilities
 
@@ -90,9 +87,8 @@ Analysis의 source 조회는 기존 Prometheus와 ClickHouse를 사용하며 새
 Synthetic demo는 `demos`에 모아 실제 수집·분석 구현과 구분합니다.
 Shell launcher·example·test도 같은 module 경로를 사용하며, 루트에 중복 entrypoint를 두지 않습니다.
 
-Checkout의 `scripts/`는 실행 helper, `examples/`는 사용 가능한 recipe·fixture, `config/`는 공통 계약, `docs/`는 사용·설계 안내입니다.
-이 directory는 이미 역할별로 나뉘어 있어 유지하고, 테스트도 기존 `test_<module>.py` 구조를 유지합니다.
-공개 API와 짧은 공통 helper까지 각각 directory로 나누거나 한 module만 있는 계층을 추가하지 않습니다.
+Checkout의 `scripts/`는 실행 helper, `examples/`는 recipe·fixture, `config/`는 계약, `docs/`는 안내를 담당합니다.
+공개 API·작은 공통 helper와 `test_<module>.py` 구조는 유지합니다.
 
 ### Python Module Paths
 
@@ -182,19 +178,17 @@ VERL record: step=7, timing_s/gen=2.4, perf/time_per_step=8.0
        +> verl-steps.jsonl > Alloy > Loki > Grafana Step Explorer
 ```
 
-Bridge는 `timing_s/gen`을 `rl_stage_duration_seconds`의 `phase="rollout"` 값으로 바꾸고, `perf/time_per_step`을 `training_step_time_seconds`로 바꿉니다.
-Node collector가 새 snapshot을 읽은 뒤 Prometheus가 scrape해야 Grafana의 metric panel이 바뀝니다.
-다음 step이 완료되기 전까지 panel이 step 7의 마지막 값을 유지하는 것은 이 구조에서 정상입니다.
-Step event는 별도로 JSONL에 쌓이며, Alloy·Loki를 켠 경우에만 Run Overview에 통합된 Step Explorer 목록에 나타납니다.
-VERL logger가 보고한 stage 소요 시간은 실제 stage의 시작·종료 timestamp가 아니므로 Step Explorer의 시간 구간은 추정치입니다.
+Bridge가 변환한 step 7 snapshot을 collector가 읽고 Prometheus가 scrape하면 panel이 갱신됩니다.
+다음 step 완료 전까지 이전 값이 유지됩니다.
+Step event는 JSONL에 쌓이고 Alloy·Loki를 켜면 Run Overview의 Step Explorer 목록에 나타납니다.
+Logger의 stage duration에는 start/end timestamp가 없어 시간 구간은 추정치입니다.
 
 ## What Each File Is For
 
-`RUN_ROOT`는 한 VERL 실행의 증거이고 `OUTPUT_DIR`은 collector 한 instance의 상태입니다.
-두 경로가 달라도 되지만 node collector의 `TELEMETRY_METRICS_DIR`은 wrapper의 `$RUN_ROOT/telemetry-metrics`를 가리켜야 합니다.
-`verl_local.sh node`는 기본적으로 `RUN_ROOT`의 부모 아래 `*/telemetry-metrics`를 찾아 run이 바뀌어도 collector를 유지합니다.
-직접 시작하는 collector는 기존 `TELEMETRY_METRICS_DIR` 또는 새 `TELEMETRY_RUNS_ROOT`를 선택할 수 있습니다.
-여러 run을 발견할 때는 기본 300초 freshness와 `telemetry-health.json`의 종료 상태를 확인하며, 원본 파일은 삭제하지 않습니다.
+`RUN_ROOT`는 한 run의 증거, `OUTPUT_DIR`은 collector 상태입니다.
+단일 run은 `TELEMETRY_METRICS_DIR=$RUN_ROOT/telemetry-metrics`로 연결합니다.
+`verl_local.sh node`는 기본적으로 `RUN_ROOT` 부모의 `*/telemetry-metrics`를 발견하며, 직접 실행 시 `TELEMETRY_RUNS_ROOT`로 선택합니다.
+발견 모드는 기본 300초 freshness·run 종료 상태를 확인하되 원본 파일은 보존합니다.
 
 ```text
 $RUN_ROOT/                              $OUTPUT_DIR/
@@ -242,9 +236,9 @@ vLLM KV offload rate도 vLLM endpoint의 지표이며 filesystem tier나 특정 
 ## Match Identity and Time
 
 Application snapshot에는 `run_id`·worker·node가 들어갑니다.
-Prometheus의 node target 이름은 server 설정의 `TELEMETRY_TARGETS` 왼쪽 값이고, native source의 node는 `labels.node`, Loki의 node는 collector의 `NODE_NAME`입니다.
-같은 machine을 가리키는 값은 동일한 논리 이름으로 맞춥니다.
-Log의 `Run`은 디렉터리 이름에서 추출하므로 telemetry `run_id`와 다를 수 있습니다.
+같은 machine의 논리 node 이름을 source마다 동일하게 사용합니다.
+Node target은 `TELEMETRY_TARGETS` 왼쪽 이름, native source는 `labels.node`, Loki는 collector의 `NODE_NAME`을 사용합니다.
+Log의 Run은 directory 이름이므로 telemetry `run_id`와 다를 수 있습니다.
 
 System metric과 shared vLLM·Ray·3FS service metric에는 특정 VERL `run_id`가 자동으로 붙지 않습니다.
 같은 시간대와 node·role·device를 선택해 비교하고, 여러 node에서는 clock을 동기화합니다.
@@ -278,7 +272,7 @@ Clock 검사를 통과해도 polling 오차, 1분 rate window, shared-service at
 
 1. **Workload와 수집기를 분리합니다.** Wrapper는 기존 VERL 명령을 실행하고 file logger와 bridge를 붙이며 VERL source를 고치지 않습니다.
    수집기나 선택적 diagnostics 오류를 조사할 수 있도록 별도 log를 남기고 workload의 종료 코드를 보존합니다.
-2. **신호의 생산자와 측정 범위를 유지합니다.** Trainer duration은 application 값이고 GPU·disk는 node 값이며 3FS latency는 shared service 값입니다.
+2. **신호의 생산자와 측정 범위를 유지합니다.** Trainer duration은 application 값이고 GPU·disk는 device/node 값이며 3FS latency는 shared service 값입니다.
    같은 시각의 변화는 병목 후보이지 run별 정확한 사용량이나 인과관계가 아닙니다.
 3. **작은 연결부터 검증합니다.** Synthetic 화면, 실제 node target, 첫 완료 VERL step, native endpoint, Loki·3FS 순서로 확인합니다.
    각 단계에서 `show_run`, exporter `/metrics`, Prometheus Targets, Grafana를 순서대로 점검할 수 있습니다.

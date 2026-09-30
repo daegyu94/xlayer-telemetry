@@ -1,16 +1,16 @@
 # XLayer Telemetry
 
-VERL과 함께 동작하는 여러 서브시스템의 metric·log·event 등 telemetry를 **Collect → Correlate → Diagnose**하는 cross-layer performance diagnosis 프레임워크입니다.
-VERL trainer, vLLM, Ray, tool·sandbox와 GPU·host·network·storage의 관측치를 run·step·phase 문맥에서 연결해, 느린 실행 구간의 bottleneck candidate와 근거를 조사합니다.
-Wrapper, collector, application SDK와 Grafana investigation 화면을 제공하며 사용자가 운영하는 VERL 환경과 관측 도구에 연결해서 사용합니다.
-XLayer는 느린 run/step과 조사할 자원·시간 구간을 찾고, CPU/GPU kernel 수준의 실행 분석은 Nsight Systems·PyTorch Profiler 같은 전문 profiler로 이어 줍니다([설계 배경](docs/architecture.md#why-xlayer-exists)).
-처음 사용한다면 [Start Here](#start-here)에서 synthetic 화면을 확인한 뒤 실제 VERL 실행을 연결합니다.
+VERL trainer·vLLM·Ray·tool/sandbox와 GPU·host·network·storage의 telemetry를 **Collect → Correlate → Diagnose**하는 cross-layer performance diagnosis 프레임워크입니다.
+Run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 evidence를 조사합니다.
+Wrapper·collector·SDK로 기존 VERL 환경을 연결하고 Grafana에서 탐색합니다.
+CPU/GPU kernel 상세 분석은 Nsight Systems·PyTorch Profiler로 이어집니다([설계 배경](docs/architecture.md#why-xlayer-exists)).
+[문서 웹사이트](https://daegyu94.github.io/xlayer-telemetry/)에서 검색과 단계별 안내를 이용하거나, 아래 [Start Here](#start-here)부터 시작합니다.
 
 ## Why Cross-Layer Telemetry
 
-학습 step이 느려졌다는 사실만으로는 GPU 연산, rollout queue, network 전송, storage 대기 중 어디를 확인해야 할지 알기 어렵습니다.
-이 프로젝트는 application의 실행 단계와 같은 시간·node의 자원 지표를 연결해 조사할 범위를 좁힙니다.
-예를 들어 VERL rollout 지연을 vLLM queue 및 GPU 사용률과 비교하고, checkpoint 지연을 3FS latency 및 SSD 상태와 비교할 수 있습니다.
+느린 step의 원인은 GPU 연산, rollout queue, network 전송, storage 대기 등 여러 계층에 있을 수 있습니다.
+XLayer는 실행 단계와 같은 시간·node의 자원 지표를 연결해 조사 범위를 좁힙니다.
+예를 들어 rollout 지연은 vLLM queue·GPU 사용률과, checkpoint 지연은 3FS latency·SSD 상태와 비교합니다.
 
 | 단계 | XLayer가 하는 일 | 사용자에게 남는 결과 |
 | --- | --- | --- |
@@ -21,9 +21,9 @@ XLayer는 느린 run/step과 조사할 자원·시간 구간을 찾고, CPU/GPU 
 Logs와 profiler artifact는 관련 증거를 확인하는 경로이며 모든 log·profile을 자동으로 진단 입력에 넣는 것은 아닙니다.
 서브시스템 간 호출 관계도 계측된 span에 한해 연결하며, endpoint 등록만으로 전체 함수 호출 체인이 생성되지는 않습니다.
 
-다음은 VERL·vLLM과 3FS를 함께 사용하는 배치의 예입니다.
-주된 사용 경로는 기존 VERL 실행에 telemetry를 붙이는 것이며, 3FS와 multi-node 배치는 필요에 따라 추가합니다.
-SDK와 adapter로 다른 framework나 custom loop에도 이식할 수 있지만, 주된 integration과 문서 흐름은 VERL을 기준으로 합니다.
+아래는 VERL·vLLM과 3FS를 사용하는 배치 예입니다.
+기존 VERL 실행부터 연결하고 필요할 때 3FS·multi-node를 추가합니다.
+SDK·adapter는 다른 framework에도 이식할 수 있으며, 주된 integration은 VERL입니다.
 
 ```text
 +------------------------------------+         +--------------------------------+
@@ -46,13 +46,11 @@ SDK와 adapter로 다른 framework나 custom loop에도 이식할 수 있지만,
                                  +----> Grafana investigation / show_run / profiler
 ```
 
-Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
-공유 GPU·network·storage의 사용량 전체가 특정 run의 사용량이라는 뜻은 아니며, 동시 변화는 원인 후보를 찾는 근거입니다.
-자원을 단독 사용하거나 경쟁 workload를 통제한 실험에서 run과 system signal의 관계를 가장 명확하게 해석할 수 있습니다.
-공유 환경에서도 수집은 가능하지만 사용량 귀속에는 process·cgroup·client 등 추가 근거가 필요합니다.
-3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, Loki를 연결하면 Bottleneck Summary의 후보 근거로도 볼 수 있습니다.
-3FS 서비스 전용 실시간 Grafana panel은 제공하지 않습니다.
-Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-the-signals-flow)에 정리했습니다.
+Application은 `run_id`로, system·shared service는 시간·node·topology로 비교합니다.
+동시 변화는 원인 후보이며 공유 자원의 run별 사용량을 뜻하지 않습니다.
+단독 자원 또는 경쟁 부하를 통제한 실험에서 관계를 가장 명확히 해석할 수 있고, 공유 환경의 attribution에는 process·cgroup·client 등 추가 근거가 필요합니다.
+3FS ClickHouse 결과는 진단 파일·`show_run`·선택적 Bottleneck Summary에서 보며 전용 실시간 service panel은 없습니다.
+[신호 흐름](docs/agent-rl.md#how-the-signals-flow)에서 source별 경로를 확인합니다.
 
 ## What Works Today
 
@@ -70,15 +68,14 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | Agent sandbox | 선택적 lifecycle span, sandbox worker cgroup v2 I/O·CPU·memory, local SSD와의 진단 후보 | 외부 runtime 계측과 안정적인 worker cgroup이 필요합니다. 개별 sandbox의 SSD 사용량으로 자동 귀속하지 않습니다. |
 | 운영·분석 | 선택적 Grafana alert rule, `show_run`, diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
 | Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
-| 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog를 입력하지 않으며, 자동 호출·Grafana 표시는 아직 없습니다. |
+| 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog 없이 명시적으로 호출하며, 선택한 step의 검토된 결과는 Loki를 통해 Grafana에 표시할 수 있습니다. 자동 호출은 하지 않습니다. |
 
-기능별 수집 경로와 설계 이유는 [How XLayer Telemetry Works](docs/architecture.md)에, 실행 순서는 아래 [Start Here](#start-here)에 있습니다.
-자동 수집·native endpoint·SDK 직접 계측의 차이와 실제 metric 이름은 [수집 범위 표](docs/metrics.md#what-is-actually-collected)에서 확인합니다.
+동작 원리는 [Architecture](docs/architecture.md), 실제 producer·metric·scope는 [수집 범위](docs/metrics.md#what-is-actually-collected)에 정리했습니다.
 
 ## Start Here
 
-VERL에 여러 계층을 연결하려면 아래 순서로 읽고, 각 단계의 확인 결과를 얻은 뒤 다음 단계로 이동합니다.
-이미 운영 중인 Prometheus·Grafana가 있더라도 처음에는 이 저장소의 단일 node 예제로 경로와 label을 확인하는 편이 이해하기 쉽습니다.
+아래 순서로 연결하고 각 단계의 결과를 확인합니다.
+기존 Prometheus·Grafana가 있어도 단일 node 예제로 경로·label을 먼저 확인하는 편이 쉽습니다.
 
 | 순서 | 읽을 문서와 할 일 | 완료 확인 |
 | --- | --- | --- |
@@ -131,7 +128,6 @@ Loki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.
 ## Prepare a Checkout
 
 Shell script와 dashboard를 사용하려면 이 저장소를 직접 checkout합니다.
-아래 명령은 clone할 상위 directory에서 실행합니다.
 
 ```bash
 git clone https://github.com/daegyu94/xlayer-telemetry.git
@@ -140,13 +136,11 @@ bash scripts/setup.sh
 . .venv/bin/activate
 ```
 
-Python 3.10 이상과 `venv` 지원이 필요합니다.
-`setup.sh`는 checkout의 telemetry 가상환경에 SDK를 editable 설치하고 pytest를 준비합니다.
-GPU driver, CUDA PyTorch, VERL, Prometheus·Grafana는 설치하지 않습니다.
-Monitoring binary 설치는 [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어집니다.
+Python 3.10 이상과 `venv`가 필요합니다.
+`setup.sh`는 telemetry SDK를 editable 설치하고 CPU test 환경을 준비합니다.
+GPU driver·VERL·CUDA와 monitoring 도구는 별도이며, [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어갑니다.
 
 문서의 shell 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
-`<...>`와 `/path/to/...`는 자신의 주소나 경로로 바꾸고, 새 terminal에서도 working directory와 Python 환경을 준비합니다.
 
 ## Python Package Usage
 
@@ -185,8 +179,6 @@ Python import와 `python -m` 명령은 책임별 package 경로를 사용합니�
 Metric·event SDK와 저장된 run 데이터의 형식은 그대로입니다.
 
 ## Local Validation
-
-Checkout의 Python 환경을 활성화한 뒤 실행합니다.
 
 ```bash
 python -m pytest -q

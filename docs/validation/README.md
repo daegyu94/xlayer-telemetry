@@ -1,7 +1,7 @@
 # Validation Records
 
 이 디렉터리는 검증 당시의 입력·환경·결과와 실행하지 않은 범위를 보존합니다.
-실행 코드와 설정은 [examples](../../examples/README.md)에 있습니다.
+실행 코드와 설정은 [examples](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/README.md)에 있습니다.
 기록된 `passed`는 현재 checkout이나 사용자의 host에서 모든 backend·hardware 조합을 다시 검증했다는 뜻이 아닙니다.
 
 | 기록 | 검증 범위 |

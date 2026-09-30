@@ -6,7 +6,6 @@
 
 ## Choose an Example
 
-저장소 루트에서 Python package를 설치한 환경으로 실행합니다.
 Optional dependency는 해당 예제를 사용할 때만 필요합니다.
 
 | 목적 | 예제 | 필요한 환경 / 확인 결과 |

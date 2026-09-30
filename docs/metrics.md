@@ -1,9 +1,8 @@
 # Metrics Contract
 
-Metric을 여러 계층에서 함께 해석하려면 이름뿐 아니라 단위와 측정 범위도 일치해야 합니다.
-이 문서는 새로운 collector·adapter·dashboard를 추가할 때 사용할 공통 기준을 설명합니다.
-기존 dashboard를 사용하기만 한다면 [Monitoring Guide](monitoring.md)와 [VERL 연결 가이드](verl-quickstart.md)부터 시작합니다.
-왜 application과 shared resource의 scope를 구분하는지는 [설계 원칙](architecture.md#design-principles)에 설명합니다.
+계층 간 비교에는 이름·단위·scope가 함께 필요합니다.
+이 문서는 collector·adapter·query를 추가할 때의 기준이며, 기본 사용은 [Monitoring](monitoring.md)·[VERL Quickstart](verl-quickstart.md)를 따릅니다.
+Scope를 분리하는 이유는 [설계 원칙](architecture.md#design-principles)에 있습니다.
 
 ## What Is Actually Collected
 
@@ -73,11 +72,9 @@ SDK counter를 기록할 때는 application이 누적값을 관리합니다.
 
 ## Read the Contract File
 
-기준 파일은 [config/metrics.json](../config/metrics.json)입니다.
-계약 파일의 역할과 검증 명령은 [config 안내](../config/README.md)에 정리했습니다.
-이 파일은 공통 어휘와 구현 기준이며 metric을 자동 수집하거나 exporter 이름을 자동 변환하는 registry는 아닙니다.
-실제 수집에는 collector·adapter가, 화면 표시에는 해당 metric을 읽는 query가 필요합니다.
-따라서 계약에 이름을 추가한 것만으로 Prometheus 시계열이나 Grafana panel이 생기지는 않습니다.
+[config/metrics.json](https://github.com/daegyu94/xlayer-telemetry/blob/main/config/metrics.json)은 공통 어휘·구현 기준입니다.
+수집은 collector·adapter, 표시는 query가 담당하며 이름을 추가해도 시계열이나 panel이 자동 생성되지는 않습니다.
+[Config 안내](https://github.com/daegyu94/xlayer-telemetry/blob/main/config/README.md)에 파일 역할·검증 명령을 정리했습니다.
 
 | 최상위 field | 내용 |
 | --- | --- |
@@ -132,10 +129,8 @@ Shared service metric은 해당 서비스의 관측 범위를 유지하면서 �
 | Sandbox worker cgroup | Node, role, runtime, filesystem, deployment, 시간 | Worker subtree 집계이며 개별 sandbox나 tool의 I/O가 아님 |
 | Local NVMe | Node, device, 시간 | Device 전체 부하이며 3FS service metric과 별개 |
 
-서로 다른 scope의 값을 비교한 결과는 병목 후보입니다.
-인과관계가 필요한 경우 [Run Analysis](dashboards.md#run-analysis)에 따라 log·event·trace를 확인합니다.
-Derived metric에는 원본, 계산식과 시간 창을 함께 기록합니다.
-특히 `run_id`가 없는 node·native service 시계열을 run별 사용량으로 표시하는 query를 만들지 않습니다.
+Scope 간 비교는 병목 후보이며 인과 확인은 [log·event·trace 조사](dashboards.md#run-analysis)로 이어갑니다.
+Derived metric은 원본·계산식·시간 창을 남기고 run ID 없는 시계열을 run별 사용량으로 표시하지 않습니다.
 
 ## Choose Labels Carefully
 
@@ -150,16 +145,11 @@ Label 값의 조합마다 별도 시계열이 생깁니다.
 | Phase, operation, replica | Batch·sequence·precision, 전체 rank map |
 | 제한된 종류의 interface·tool 이름 | Prompt, request ID, trace ID, 개별 timestamp |
 
-실행 조건과 경로는 manifest에, 개별 요청의 상세 정보는 log·event·trace에 둡니다.
-Sandbox metric의 Prometheus label은 `node`, `role`, `runtime`, `filesystem`, `deployment`만 사용합니다.
-`sandbox_id`, `container_id`, `trajectory_id`, request ID, SWE-Bench instance ID는 label로 사용하지 않습니다.
-`sandbox_active`·`sandbox_queued`·lifecycle latency·failure metric은 계약상 선택적 runtime-provided signal이며 현재 내장 Docker grader adapter는 생산하지 않습니다.
-내장 cgroup sampler가 생산하는 것은 worker subtree의 I/O·CPU·memory·PSI metric입니다.
-같은 label 조합의 worker subtree를 여러 sampler가 내보내면 중복 시계열이 되므로 하나의 공통 parent로 집계합니다.
-서로 다른 `.prom` 파일명만 지정해도 label 충돌이 해결되는 것은 아닙니다.
-Node Exporter target의 `cluster`·`nodename` label은 별도로 추가될 수 있습니다.
-SDK에서 추가하는 label과 native exporter가 제공하는 label은 같다고 가정하지 않습니다.
-현재 dashboard의 filter와 query에 실제로 쓰이는 label을 확인합니다.
+실행 조건·경로는 manifest, 개별 요청은 log·event·trace에 둡니다.
+Sandbox Prometheus label은 `node`·`role`·`runtime`·`filesystem`·`deployment`를 사용하며 sandbox/container/trajectory/request ID와 SWE-Bench instance ID는 제외합니다.
+Pool·lifecycle·failure metric은 선택적 runtime-provided 계약이고 내장 sampler는 cgroup I/O·CPU·memory·PSI를 생산합니다.
+같은 label의 subtree는 공통 parent 하나로 집계하며 `.prom` 파일명만 나눠도 label 충돌은 해결되지 않습니다.
+Target의 `cluster`·`nodename`은 별도로 붙을 수 있으므로 SDK·native exporter·dashboard의 실제 label을 확인합니다.
 
 ## Name Phases by the Work
 
@@ -186,12 +176,10 @@ VERL bridge가 완료 시 기록하는 stage duration과 직접 계측한 span�
 3. Collector 또는 adapter를 구현하고 필요한 dashboard query·분석 코드를 연결합니다.
 4. 계약 검사와 해당 구현의 검증을 실행합니다.
 
-Checkout의 [Python 환경](../README.md#prepare-a-checkout)을 준비한 뒤 다음 검사를 실행합니다.
-
 ```bash
 python -m pytest -q tests/test_schema.py
 ```
 
-[Schema validator](../xlayer_telemetry/schema.py)는 필수 field, 허용된 이름·분류, 중복 등을 확인합니다.
+[Schema validator](https://github.com/daegyu94/xlayer-telemetry/blob/main/xlayer_telemetry/schema.py)는 필수 field, 허용된 이름·분류, 중복 등을 확인합니다.
 검사 통과가 실제 endpoint의 가용성이나 값의 의미까지 보증하지는 않습니다.
 기존 metric의 단위·의미를 바꾸면 consumer에 영향을 주므로 adapter와 query를 함께 검토합니다.

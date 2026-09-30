@@ -1,14 +1,10 @@
 # Optional Local LLM Diagnosis
 
-수집한 메트릭과 실행 문맥을 local open-weight 모델에 전달해 병목을 직접 진단할 수 있습니다.
-모델은 current/baseline 관측값, entity label, observation scope를 읽고 스스로 bottleneck hypothesis를 만듭니다.
-Rule catalog, threshold, 사전 정의된 후보명이나 기존 rule 판정은 모델 입력에 포함하지 않습니다.
-이 기능은 명시적으로 실행하는 experimental 선택 기능이며 기존 rule diagnosis와 독립적으로 동작합니다.
-진단 요약·설명·missing evidence·다음 확인 항목·관측 한계와 검토 사유는 한국어를 기본으로 작성합니다.
-GPU utilization, KV cache, rollout, cgroup, I/O pressure 같은 technical term과 metric 이름·ID·unit은 영어로 유지하며 어색한 번역은 요구하지 않습니다.
-후보 제목은 `Possible storage device saturation`처럼 English technical noun phrase를 사용합니다.
-특히 `attribution`은 특정 workload에 관측된 사용량을 연결하는 의미이므로 `속성`·`속성화`로 번역하지 않습니다.
-같은 설명을 한국어와 영어 문장으로 중복 나열하지 않고, 필요한 term만 영어로 둡니다.
+Local open-weight 모델이 current/baseline·entity·scope를 읽고 bottleneck hypothesis를 만듭니다.
+Rule catalog·threshold·기존 판정은 입력하지 않으며 명시적으로 실행하는 experimental 옵션입니다.
+설명·검토 사유는 한국어, metric·ID·unit·technical term은 영어로 유지합니다.
+후보 제목은 `Possible storage device saturation` 같은 English noun phrase입니다.
+`attribution`도 영어로 쓰고 문장을 두 언어로 반복하지 않습니다.
 
 ```text
 Prometheus series + selected intervals + workload context
@@ -24,26 +20,19 @@ Prometheus series + selected intervals + workload context
                               +--> Accepted or revised LLM diagnosis JSON
 ```
 
-현재 연결 방식은 CLI에서 선택한 구간을 분석하는 것입니다.
-모델이 진단을 생성하고 XLayer가 응답 형식, evidence 참조와 candidate의 관측 구간 존재 여부를 검사합니다.
-제목·설명에 명시한 observation ID도 evidence 목록에 있는지 검사하고, 요약·제목·설명의 존재하지 않는 `m<number>` ID를 거부합니다.
-인용된 observation은 현재 구간의 실제 값이 있어야 하며, 같은 ID를 supporting evidence와 counter evidence 양쪽에 넣을 수 없습니다.
-서로 다른 engine·worker·rank의 별개 signal을 한 candidate의 근거로 합치는 응답도 거부합니다.
-Entity 비교에서는 label에 있는 cluster·node를 함께 사용하고 worker·rank에는 role·producer도 포함하므로, 이름이 같아도 node나 cluster가 다른 대상을 합치지 않습니다.
-이 검사는 label로 확인할 수 있는 일부 혼합을 막는 것이며, label이 생략된 entity의 동일성이나 shared-resource 관계를 증명하지 않습니다.
-[Ollama structured output](https://docs.ollama.com/capabilities/structured-outputs)의 JSON schema를 API와 prompt 양쪽에 전달합니다.
-형식 검사가 통과해도 설명의 사실성이나 인과관계가 증명되는 것은 아닙니다.
-초안이 형식 검사를 통과하면 같은 모델을 새 대화 문맥으로 호출해 관측값과 초안을 대조합니다.
-검토는 근거 없는 사실·원인 단정을 수정하거나 결과를 거부하며, 실패한 검토의 초안을 최종 결과로 채택하지 않습니다.
-자동 step 호출, Grafana 표시, alert 변경과 명령 실행은 포함하지 않습니다.
+CLI로 선택한 구간을 분석한 뒤 [structured JSON schema](https://docs.ollama.com/capabilities/structured-outputs)·evidence ID·관측 구간을 검사합니다.
+없는 ID, 현재 값 없는 evidence, 같은 ID의 supporting/counter 중복과 label로 확인되는 engine·worker·rank 혼합을 거부합니다.
+Entity는 cluster·node 및 role·producer까지 구분하되 누락된 label의 동일성은 입증하지 못합니다.
 
-실행 backend는 Ollama를 선택했습니다.
-한 monitoring host에서 모델 다운로드·GPU 적재·structured JSON API를 관리하기 쉽고, XLayer는 HTTP 요청만으로 연결할 수 있습니다.
-현재 workflow에 필요한 권한은 전달받은 관측값을 분석하는 것뿐이므로 agent의 tool 실행 기능은 사용하지 않습니다.
+초안은 새 대화 문맥의 evidence review를 거쳐야 하며 실패한 검토를 최종 진단으로 채택하지 않습니다.
+검증 통과도 설명의 사실성·인과관계를 보증하지 않습니다.
+선택한 step의 검토된 결과는 Grafana에 표시할 수 있고 자동 호출·alert 변경·명령 실행은 하지 않습니다.
+
+Ollama는 모델 다운로드·GPU 적재·structured JSON API를 관리하고 XLayer는 HTTP로 연결합니다.
+모델은 전달된 관측값만 분석하며 agent tool을 실행하지 않습니다.
 
 ## Install and Start the Optional Model
 
-[Checkout 준비](../README.md#prepare-a-checkout)를 마친 환경에서 저장소 루트로 이동합니다.
 Helper는 고정된 Ollama release를 `$HOME/telemetry/tools`에 설치하고 공식 release checksum을 대조합니다.
 모델 weight는 `$HOME/telemetry/models/ollama`에 저장하며 system service나 VERL Python 환경을 변경하지 않습니다.
 Linux, `curl`, `tar`, `zstd`, `sha256sum`, `setsid`, `flock`과 GPU에 맞는 NVIDIA driver가 필요합니다.
@@ -88,7 +77,7 @@ Inference를 실행한 뒤 `status`에서 모델이 실제로 GPU에 적재됐�
 
 ## Diagnose Collected Metrics Directly
 
-[Prometheus source 예제](../examples/local-llm/prometheus.json)를 복사하고 endpoint, node label과 device 이름을 실제 배포에 맞춥니다.
+[Prometheus source 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/local-llm/prometheus.json)를 복사하고 endpoint, node label과 device 이름을 실제 배포에 맞춥니다.
 조사할 application·vLLM·network·storage query를 추가하면서 각 query의 unit과 scope를 명시합니다.
 이 설정은 무엇을 측정하는지 설명하며 병목 판정 조건을 정의하지 않습니다.
 Host metric만 있는 최소 예제로는 workload 정보가 필요한 학습 병목을 충분히 설명할 수 없습니다.
@@ -123,29 +112,26 @@ python -m xlayer_telemetry.analysis.llm_diagnosis \
   --output "$HOME/telemetry/llm-diagnosis.json"
 ```
 
-결과에는 진단과 함께 model digest, Ollama version, inference 설정, input hash, prompt version이 기록됩니다.
-`diagnosis`는 검토를 마친 결과이고 `draft_diagnosis`는 감사용 초안입니다.
-`semantic_review`에는 `accept`·`revise` 판정, 수정 사유, 검토 prompt version·seed·input hash·token·latency가 기록됩니다.
-`requested_language: "ko"`는 기본 출력 언어를 나타내며 schema key와 assessment 값은 기존 식별자를 사용합니다.
-원본 observation packet도 결과 파일에 포함하므로 evidence ID의 실제 수치와 scope를 확인할 수 있습니다.
-`input_sha256`은 원본 packet의 hash이며 `model_input_sha256`과 `model_input_bytes`는 Ollama에 전달한 observation payload를 식별합니다.
-`prompt_tokens`는 system prompt와 schema를 포함한 전체 입력의 token 수이므로 payload 크기와 다릅니다.
-최상위 token 수는 첫 생성 호출의 값이며 검토 호출의 token 수는 `semantic_review`에서 별도로 확인합니다.
-최상위 `latency_seconds`는 생성과 검토를 합한 시간이므로 이전 한 번의 호출과 같은 조건의 속도 비교가 아닙니다.
-각 candidate는 자유롭게 생성한 제목·설명, evidence ID, 반대 근거, missing evidence, observation scope와 다음 확인 항목을 포함합니다.
-고정된 candidate catalog나 numeric confidence는 사용하지 않습니다.
-원래 observation과 기존 rule 결과는 덮어쓰지 않습니다.
+결과에는 원본 observation과 model digest·Ollama version·inference 설정·input hash·prompt version을 보존합니다.
+`diagnosis`는 검토된 결과, `draft_diagnosis`는 초안, `semantic_review`는 판정·사유·호출 metadata입니다.
+`requested_language=ko`이며 schema key·assessment는 기존 식별자를 사용합니다.
+
+`input_sha256`은 원본, `model_input_sha256`·`model_input_bytes`는 전송 payload를 가리킵니다.
+`prompt_tokens`는 system prompt·schema까지 포함합니다.
+최상위는 생성 호출, `semantic_review`는 검토 호출의 token 수입니다.
+`latency_seconds`는 두 호출의 합입니다.
+
+Candidate는 제목·설명·evidence·counter/missing evidence·scope·다음 조사를 담고 고정 catalog·numeric confidence는 사용하지 않습니다.
+원본 observation·rule 결과는 덮어쓰지 않습니다.
 
 ## How Metrics Reach Ollama
 
-XLayer는 원본 observation packet을 저장하고, 모델 호출 시 반복되는 JSON 필드를 표 형태로 정리합니다.
-`observation_columns`가 각 열의 의미를 지정하고, `observation_rows`의 같은 위치에 값이 들어갑니다.
-모든 series가 공유하는 `source`·`unit`·scope 등은 `common_observation_fields`에 한 번만 넣습니다.
-Metric 값, baseline, label, observation scope, sample 통계와 서로 다른 PromQL query는 유지합니다.
-안정된 metric이나 반대 근거가 될 수 있는 series를 자동으로 제거하거나 값의 해상도를 낮추지 않습니다.
-`current`와 `baseline`은 유한한 숫자, `null`, 또는 `min`·`mean`·`max`·`last`·`sample_count`·`sampled_increase`·`max_series_delta`로 구성한 numeric statistics를 받습니다.
-빈 statistics, 값이 없는 statistics, `sample_count=0`은 측정값 부재로 취급하며 숫자 `0`은 유효한 관측값입니다.
-숫자 문자열, boolean, `NaN`·무한대와 observation 내부의 임의 필드는 입력 오류로 처리합니다.
+원본 packet은 보존하고 모델에는 반복 필드를 줄인 표로 전달합니다.
+`observation_columns`와 `observation_rows`는 같은 열 순서이며 공통 source·unit·scope는 한 번 기록합니다.
+값·baseline·label·sample 통계·query를 보존하고 안정된 signal이나 counter evidence도 제거하지 않습니다.
+`current`·`baseline`은 유한한 숫자·`null` 또는 numeric statistics입니다(`min`, `mean`, `max`, `last`, `sample_count`, `sampled_increase`, `max_series_delta`).
+빈 통계·값이 없는 통계·`sample_count=0`은 누락이며 측정값 `0`과 다릅니다.
+숫자 문자열·boolean·NaN/무한대·허용하지 않은 field는 거부합니다.
 
 ```json
 {
@@ -159,22 +145,17 @@ Metric 값, baseline, label, observation scope, sample 통계와 서로 다른 P
 }
 ```
 
-실제 입력에는 이 표와 함께 current/baseline interval, run 문맥, topology, missing source와 관측 한계도 포함됩니다.
-모델 입력의 최상위 필드는 이 관측 문맥으로 제한하므로 임의로 추가된 rule 판정이나 verdict는 전달하지 않습니다.
-Ollama에 전달하는 observation payload는 최대 8KiB이고 원본 packet은 최대 32KiB, 64 series까지 허용합니다.
-범위를 넘으면 잘라서 전달하지 않고 query selector를 좁히도록 오류를 반환합니다.
-검토 입력은 같은 관측 표에 초안을 추가하며 최대 16KiB로 제한합니다.
-검토 입력이 한도를 넘으면 검토하지 않은 진단을 저장하는 대신 오류로 처리합니다.
-Ollama 응답의 `prompt_tokens`와 `generated_tokens`를 구분해 확인할 수 있습니다.
-이전 검증에서 과도하게 추론한 증거 부족 사례는 약 997 prompt token이었으므로 입력 길이만으로 그 오류를 설명할 수 없습니다.
+표와 함께 interval·run·topology·missing source·관측 한계를 전달하며 rule 판정은 제외합니다.
+원본은 최대 32KiB·64 series, 전송 observation은 8KiB, 초안을 포함한 review 입력은 16KiB입니다.
+초과하면 잘라내거나 review를 생략하지 않고 selector를 좁히도록 오류를 반환합니다.
+`prompt_tokens`·`generated_tokens`는 별도로 확인합니다.
+과도한 추론 사례는 약 997 prompt token에서도 발생해 입력 길이만으로 설명되지 않습니다.
 
 ## Reuse an Existing Run
 
-저장된 `diagnostics/latest.json`도 측정값의 입력으로 활용할 수 있습니다.
-Adapter는 `comparison.signals`와 필요한 문맥만 선택하고 `verdict`, `findings`, rule `candidates`, threshold를 제외합니다.
-다만 저장된 comparison은 이미 series를 집계하거나 특정 entity를 선택했을 수 있으므로 모든 engine/device 구분이 중요하면 직접 수집 경로를 사용합니다.
-시간 구간이 없거나 `unknown`이면 step과 자원의 시간적 상관을 확정할 수 없습니다.
-이 경우 모델이 생성한 candidate는 거부하고, 후보가 없는 관측 요약·증거 부족 응답만 조사 결과로 활용합니다.
+`diagnostics/latest.json`의 `comparison.signals`·문맥도 입력으로 쓸 수 있으며 `verdict`·`findings`·rule `candidates`·threshold는 제외합니다.
+Comparison에 이미 집계·entity 선택이 적용됐을 수 있어 모든 engine/device가 필요하면 직접 수집합니다.
+시간 구간이 없거나 `unknown`이면 candidate를 거부하고 관측 요약·증거 부족 결과만 허용합니다.
 
 ```bash
 python -m xlayer_telemetry.analysis.llm_diagnosis \
@@ -239,15 +220,11 @@ Step duration 증가와 storage busy 증가가 동시에 측정돼도 storage가
 | `GPU utilization fell, indicating compute stalls` | Utilization 감소를 관측 사실로 기록하고 stall time은 미측정으로 구분 |
 | `Storage caused the slowdown` | 동시에 변한 근거를 제시하고 storage가 기여했을 가능성과 확인에 필요한 증거를 설명 |
 
-검토가 `accept`이면 초안을 그대로 유지해야 하며, `revise`이면 수정 사유와 실제 변경이 있어야 합니다.
-수정 결과에도 기존 evidence·시간 구간·entity 검증을 다시 적용합니다.
-후보 제목은 `Possible `로 시작해야 하고 일부 causal action verb는 제목에서 거부합니다.
-요약의 직접적인 원인 설명과 candidate 설명의 조건 없는 causal 표현에도 보수적인 English 문자열 검사를 적용합니다.
-한국어의 `때문에`, `원인입니다`, `유발` 등의 일부 표현도 검사하고 가능성·가설·부정 표현과 구분합니다.
-가설·가능성·부정 표현은 구분하지만 이 문자열 검사는 표현 형식의 보호 장치이며 자연어 인과관계를 완전히 판별하는 도구는 아닙니다.
-한국어 조사 뒤에 붙은 `m1은`·`m999가` 형태의 observation ID도 evidence 검사 대상입니다.
-최종 summary·explanation과 검토 사유에는 한국어 문장이 있어야 하며 technical term만 필요한 목록과 후보 제목은 영어로 둘 수 있습니다.
-검토가 거부되거나 완료되지 않거나 수정 결과가 검증을 실패하면 진단 명령도 실패합니다.
+Review의 `accept`는 초안 유지, `revise`는 사유·실제 수정이 필요하며 최종 evidence·interval·entity를 다시 검사합니다.
+제목의 `Possible ` 접두사와 일부 English/Korean causal 표현을 보수적으로 검사합니다.
+한국어 조사에 붙은 observation ID도 검증하고 설명·검토 사유는 한국어 문장을 요구합니다.
+이 문자열 검사는 자연어 인과관계를 완전히 판별하지 못합니다.
+검토 거부·미완료·최종 검증 실패는 진단 실패입니다.
 
 생성과 검토는 기본 600초 budget을 공유하며 검토를 건너뛰는 성공 경로는 없습니다.
 같은 모델의 두 번째 검토도 오류를 놓칠 수 있으므로 검토 통과를 사실성이나 causality의 증명으로 해석하지 않습니다.
@@ -263,15 +240,14 @@ Tag를 생략한 model 이름과 `:latest`는 같은 이름으로 처리합니�
 현재 구간의 측정값이 전혀 없으면 `no_issue_observed` 판정을 거부하고, `insufficient_evidence` 응답에는 candidate를 허용하지 않습니다.
 기존 rule 결과와 telemetry 수집에는 영향을 주지 않습니다.
 
-진단 CLI는 성공·실패 결과를 임시 파일에서 atomic replacement로 기록합니다.
-실패하면 종료 코드 `1`을 반환하고 지정한 output을 `record_type=llm_diagnosis_failure`인 기록으로 교체하므로 이전 성공 결과가 최신 진단으로 남지 않습니다.
-실패 기록에는 reason·요청 model과 검증된 입력이 있으며, 모델 응답을 거부한 경우 final output도 보관하되 thinking text는 저장하지 않습니다.
-결과를 읽는 도구는 `record_type=llm_diagnosis`를 확인한 뒤 `diagnosis`를 읽어야 합니다.
-Input과 output을 같은 경로로 지정하는 명령은 입력 보존을 위해 실행 전에 거부합니다.
+CLI는 atomic replacement로 성공·실패 파일을 기록합니다.
+실패 시 exit code 1과 `record_type=llm_diagnosis_failure`로 이전 성공 결과를 교체합니다.
+실패 reason·model·입력과 거부된 final output은 보관하고 thinking text는 저장하지 않습니다.
+Consumer는 `record_type=llm_diagnosis`를 확인해 읽으며 input/output 동일 경로는 거부합니다.
 
 현재 validator는 일부 entity 혼합과 evidence ID 누락을 막지만 자유 서술의 scope·인과 해석·조사 명령의 정확성까지 검증하지 못하므로 모델의 결론과 참조된 측정값을 함께 읽어야 합니다.
 모델에 tool 실행이나 자동 remediation 권한은 없습니다.
-이 PoC는 Ollama API의 structured JSON output과 thinking을 사용하며, 다른 backend·자동 호출·Grafana 표시·추가 evidence 조회는 실측 유용성과 실패 유형을 평가한 뒤 확장할 수 있습니다.
+이 PoC는 Ollama API의 structured JSON output과 thinking을 사용하며, 다른 backend·자동 호출·추가 evidence 조회는 실측 유용성과 실패 유형을 평가한 뒤 확장할 수 있습니다.
 
 ## Multi-node Clock Evidence
 

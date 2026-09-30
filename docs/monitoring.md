@@ -1,9 +1,7 @@
 # Monitoring Guide
 
-이 문서는 VERL GPU node와 sandbox·storage host의 자원을 관측하고 Grafana에서 확인하는 방법을 설명합니다.
-먼저 demo 화면을 확인하고, 실제 node 하나를 연결한 뒤 여러 node·log·storage 관측으로 확장합니다.
-VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 이어집니다.
-전체 데이터 흐름과 경로의 역할은 [구현 구조](architecture.md#the-basic-path)에 설명합니다.
+Demo → 실제 node → multi-node·log·storage 순서로 자원 수집을 연결합니다.
+Trainer는 [VERL Quickstart](verl-quickstart.md), 데이터 경로는 [Architecture](architecture.md#the-basic-path)를 참고합니다.
 
 ## Know the Roles
 
@@ -14,30 +12,24 @@ VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 
 | `storage` role | SMART exporter로 SSD 건강 상태 노출 | 전용 storage node |
 | Alloy / Loki | File log 전송 / 저장; 선택 기능 | Log를 읽는 node / monitoring host |
 
-Monitoring host는 monitoring process를 실행하는 machine을 뜻합니다.
-처음에는 GPU node와 같은 machine을 사용해도 되며 별도 cluster 제어기는 필요하지 않습니다.
-Prometheus가 exporter를 주기적으로 조회하는 것을 scrape라고 부릅니다.
-Node collector는 metric을 노출하고 monitoring server가 이를 가져가는 구조이므로, 여러 node에서는 server에서 각 node의 `:19100` 주소에 접근할 수 있어야 합니다.
+Monitoring host는 Prometheus·Grafana 등을 실행하는 machine이며 처음에는 GPU node와 같아도 됩니다.
+Prometheus가 exporter를 주기적으로 조회하는 동작을 scrape라고 합니다.
+Multi-node에서는 monitoring host에서 각 node의 `:19100`에 접근할 수 있어야 합니다.
 
 ## Prepare the Host
 
-[Checkout 준비](../README.md#prepare-a-checkout)를 마치고 저장소 루트에서 실행합니다.
 Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`을 사용합니다.
 기본 `node` role은 GPU도 수집하므로 NVIDIA driver와 동작하는 `nvidia-smi`가 필요합니다.
 GPU 없는 sandbox·storage host는 `ENABLE_GPU_METRICS=0`으로 host metric만 수집할 수 있으며, 실제 자원 없이 화면을 익힐 때는 demo를 사용합니다.
 
-아래 예제는 `$HOME/telemetry` 아래에 설치 도구(`tools`), 실행 상태(`state`), server 설정(`config`)을 나누어 저장합니다.
-`state` 아래에서는 역할과 demo별로 `OUTPUT_DIR`을 분리합니다.
-`run_telemetry.sh`에서 경로를 생략하면 `tools`와 `state/<role>-<hostname>`을 기본값으로 사용합니다.
-자신의 경로로 바꿔도 되지만 설치 때와 실행 때 같은 `TOOLS_DIR`을 전달해야 합니다.
-새 terminal에서도 저장소 루트로 이동하고 Python 환경을 활성화합니다.
-서버의 `server.conf`는 monitoring host에서만 읽고, `node`·`storage` 역할의 값은 해당 machine의 실행 환경 변수로 전달합니다.
-같은 이름의 `OUTPUT_DIR`을 모든 역할에 쓰면 상태 파일이 섞이므로 역할별 directory를 유지합니다.
+설치 도구·상태·설정은 `$HOME/telemetry/{tools,state,config}`에 모읍니다.
+설치와 실행에 같은 `TOOLS_DIR`을 사용하고, `OUTPUT_DIR`은 role·demo별로 나눕니다.
+경로를 생략하면 `tools`와 `state/<role>-<hostname>`을 사용합니다.
+`server.conf`는 monitoring host만 읽으며 node·storage 값은 각 machine의 환경 변수로 전달합니다.
 
 ## Try the Demo
 
 GPU나 VERL 없이 synthetic metric으로 화면을 확인합니다.
-먼저 [checkout과 Python 환경 준비](../README.md#prepare-a-checkout)를 마치고 저장소 루트에서 다음 명령을 실행합니다.
 
 ```bash
 . .venv/bin/activate
@@ -48,14 +40,11 @@ DEMO_LIVE=1 \
   bash scripts/run_telemetry.sh server
 ```
 
-이 명령은 foreground에서 계속 실행되므로 terminal을 열어 둡니다.
-[Start Here](http://127.0.0.1:13000/d/xlayer-start-here)를 열고 Run Overview로 이동해 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
-`Collector availability`의 해당 target이 Up이고 application/GPU sample age가 fresh이면 수집과 Grafana 연결을 확인한 것입니다.
-GPU별 값은 Compute & Communication의 GPU matrix에서 확인합니다.
-Agent RL Stage Correlation에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택하면 완료 step 값이 증가하는 것도 확인할 수 있습니다.
-화면이 비어 있으면 먼저 실행 terminal의 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
-실제 학습 성능이 아닌 화면·수집 경로 확인용 값입니다.
-이 demo의 target은 합성 exporter이며 실제 GPU driver, VERL 실행, 3FS 서비스가 연결되었다는 뜻은 아닙니다.
+[Start Here](http://127.0.0.1:13000/d/xlayer-start-here) → Run Overview에서 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
+`Collector availability=Up`과 fresh sample age로 연결을 확인하고 GPU별 값은 Compute의 matrix에서 봅니다.
+Stage Correlation의 `verl-agent-demo`·`gpu-node-0`에서는 완료 step이 증가합니다.
+화면이 비면 terminal 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
+합성 exporter이므로 실제 GPU·VERL·3FS 연결이나 학습 성능을 검증하는 값은 아닙니다.
 
 실제 node를 연결하기 전 `Ctrl+C`로 demo를 종료해 동일한 service port를 비웁니다.
 상세한 가상 구성과 화면 예시는 [Demo Details](#demo-details)에 있습니다.
@@ -80,8 +69,6 @@ Driver, `smartmontools`, training framework는 별도입니다.
 
 ### 2. Start the Collector
 
-첫 terminal에서 실행합니다.
-
 ```bash
 . .venv/bin/activate
 TOOLS_DIR="$HOME/telemetry/tools" \
@@ -98,7 +85,6 @@ GPU snapshot JSONL은 계속 누적되므로 장기 운영에서는 출력 direc
 
 ### 3. Start the Server
 
-두 번째 terminal에서 실행합니다.
 처음 한 번만 예제 설정을 개인 경로로 복사하고 `TELEMETRY_TARGETS`를 실제 collector 주소로 수정합니다.
 이후 server를 재시작할 때도 같은 설정 파일을 사용합니다.
 
@@ -112,11 +98,9 @@ bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.con
 ```
 
 `TELEMETRY_TARGETS`는 `logical-node-name=address` 형식입니다.
-이름은 dashboard에서 사용하고 주소는 exporter 접속에 사용합니다.
-예제의 `gpu-local=127.0.0.1`은 node와 server가 같은 machine에 있을 때만 유효합니다.
-다른 host에 server를 두면 node의 `NODE_ADDR`와 target 주소를 monitoring host에서 도달 가능한 주소로 함께 바꿉니다.
-시작 시 HTTP 상태와 query를 검사하고 `OUTPUT_DIR/startup-summary.json`을 기록합니다.
-설정 파일은 로컬 Bash 파일이므로 `$HOME`을 사용할 수 있으며, 파일에 적힌 값이 현재 terminal의 같은 이름 환경 변수보다 우선합니다.
+Loopback 예제는 같은 host에서만 유효하며 remote server는 `NODE_ADDR`·target에 도달 가능한 node 주소를 사용합니다.
+시작 시 HTTP·query 검사 결과를 `OUTPUT_DIR/startup-summary.json`에 저장합니다.
+Bash config는 `$HOME`을 지원하고 같은 이름의 terminal 환경 변수보다 우선합니다.
 
 ## Monitor GPU and Storage Nodes Together
 
@@ -196,11 +180,10 @@ python -m xlayer_telemetry.analysis.clock_quality \
   --node gpu-a --node gpu-b --node storage-a
 ```
 
-기본 검사 구간은 최근 60초이며 허용 scrape-relative 차이는 1초, clock sample age는 30초입니다.
-`node_time_seconds - timestamp(node_time_seconds)`는 exporter wall clock과 Prometheus scrape clock의 차이를 봅니다.
-Network/collection delay도 포함하므로 정밀 NTP offset이나 event timestamp 보정값으로 해석하지 않습니다.
-Prometheus는 exporter가 별도 timestamp를 보내지 않는 metric에 scrape timestamp를 사용하지만 event·log·application timestamp는 producer clock에서 만들어집니다.
-근거는 [Prometheus configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/), [Node Exporter time collector](https://github.com/prometheus/node_exporter/blob/master/collector/time.go), [timex collector](https://github.com/prometheus/node_exporter/blob/master/collector/timex.go)에 있습니다.
+기본 검사 창은 최근 60초, 허용 scrape-relative 차이는 1초, sample age는 30초입니다.
+`node_time_seconds - timestamp(node_time_seconds)`에는 network/collection delay가 포함되므로 정밀 NTP offset이나 timestamp 보정값이 아닙니다.
+Prometheus는 기본적으로 scrape 시각을, event·log·application은 producer clock을 사용합니다.
+근거: [Prometheus 설정](https://prometheus.io/docs/prometheus/latest/configuration/configuration/), [time collector](https://github.com/prometheus/node_exporter/blob/master/collector/time.go), [timex collector](https://github.com/prometheus/node_exporter/blob/master/collector/timex.go).
 
 `--allow-unsynchronized`는 kernel sync status 요구만 제외하는 조사 옵션입니다.
 이 옵션으로 같은 host의 offset 검사가 통과해도 NTP나 물리 multi-node 동기화가 검증된 것은 아닙니다.
@@ -236,7 +219,6 @@ Host와 kernel이 NTP unsynchronized를 보고하여 strict check는 `unsafe`였
 
 같은 host의 browser에서 `http://127.0.0.1:13000`을 엽니다.
 원격 host를 사용하면 자신의 PC에서 다음 SSH tunnel을 열고 `http://localhost:13000`으로 접속합니다.
-`user@monitoring-host`는 실제 SSH 접속 대상으로 바꿉니다.
 
 ```bash
 ssh -NT -L 13000:127.0.0.1:13000 user@monitoring-host
@@ -284,11 +266,10 @@ Node collector와 GPU 규칙은 30초마다 평가하고 조건이 1분 지속�
 Prometheus 조회 오류는 `Error` 상태로 표시하고, 해당 지표가 아직 없는 `No Data`는 정상 상태로 처리합니다.
 따라서 설정에서 target 자체를 제거하거나 감시할 filesystem이 없으면 이 세 규칙만으로는 누락을 감지하지 못합니다.
 
-규칙 상태는 Grafana에서 보이지만 외부로 받으려면 관리자 계정으로 `Alerting > Contact points`에서 수신처를 설정하고 notification policy에 연결해야 합니다.
-프로젝트는 수신처를 자동 설정하지 않으며 `service=xlayer-telemetry` label로 별도 notification policy를 만들 수 있습니다.
-관리자 비밀번호와 webhook URL 등은 저장소에 넣지 않습니다.
-규칙 파일은 `OUTPUT_DIR/provisioning/alerting/operations.json`에 생성되고 Grafana를 다시 시작할 때 적용됩니다.
-파일에서 관리하는 규칙은 Grafana UI에서 직접 편집할 수 없으며 설정 파일을 `ENABLE_ALERTS=0`으로 바꿔 다시 시작하면 세 규칙을 삭제합니다.
+외부 알림은 관리자 계정의 `Alerting > Contact points`와 notification policy에 수신처를 설정합니다.
+`service=xlayer-telemetry`로 분리할 수 있으며 비밀번호·webhook URL은 저장소에 넣지 않습니다.
+파일 관리 규칙은 `OUTPUT_DIR/provisioning/alerting/operations.json`에서 재시작 시 적용되며 UI에서는 직접 편집할 수 없습니다.
+`ENABLE_ALERTS=0`으로 재시작하면 세 규칙을 삭제합니다.
 
 이 규칙은 운영 중인 수집 경로만 검사합니다.
 완료된 step의 metric은 학습 종료 후에도 마지막 값이 남을 수 있으므로 학습 정지 알림은 활성 run 상태를 따로 계측하기 전까지 포함하지 않습니다.
@@ -342,7 +323,7 @@ python -m xlayer_telemetry.metrics.textfile \
 각 GPU node에는 node 도구와 collector를, monitoring host에는 server 도구를 설치합니다.
 Node의 `NODE_ADDR`는 loopback 대신 monitoring host에서 접근할 수 있는 주소로 바꿉니다.
 Server 설정 파일의 `TELEMETRY_TARGETS`에 모든 관측 node를 쉼표로 나열하고 기존 server를 종료한 뒤 다시 시작합니다.
-예를 들어 `TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11'`처럼 적고 주소는 실제 배치에 맞게 바꿉니다.
+예: `TELEMETRY_TARGETS='trainer-0=10.0.0.10,rollout-0=10.0.0.11'`.
 
 ```bash
 bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
@@ -404,15 +385,12 @@ Alloy의 읽기 offset은 `OUTPUT_DIR/alloy-data`에 저장되며 기본적으�
 `ALLOY_IGNORE_OLDER_THAN`으로 이 기준을 바꾸고 Alloy state와 Loki data는 각각 host-local 경로에 둡니다.
 
 Run Logs에서 cluster·node·workload·run을 선택합니다.
-`run_id`와 file 경로는 log record에 저장되고 `cluster`·`node`·`workload`가 index label로 사용됩니다.
-`run_id`는 여기서 경로의 run directory 이름이며 wrapper에 전달한 `--run-id`와 다를 수 있습니다.
-Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
-Run Overview에 통합된 Step Explorer 목록은 step event에서 `run_id`와 시간 범위를 읽습니다.
-VERL wrapper가 만든 `telemetry/telemetry-events/verl-steps.jsonl`도 수집하며, 기존 기록의 backfill 파일도 같은 패턴으로 읽습니다.
-두 경로가 모두 없다면 step 목록은 비어 있습니다.
-Grafana Step Explorer는 event를 Loki에서, 자원 그래프를 Prometheus에서 읽으므로 두 datasource의 보존 기간과 선택한 시간 범위를 함께 확인합니다.
-`04 · Bottleneck Summary`는 diagnostics projection, `05 · Cross-Layer Timeline`은 EventRecorder span·step event·Prometheus sample을 읽습니다.
-진단과 EventRecorder를 쓰지 않은 run에서는 해당 panel이 비어 있으며, 설정 경로는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
+`cluster`·`node`·`workload`는 index label이고 `run_id`·file 경로는 record에 저장합니다.
+Log의 `run_id`는 directory 이름이므로 wrapper의 ID와 다를 수 있습니다.
+Step Explorer는 event의 ID·시간을 읽고 Prometheus의 자원 그래프와 연결하므로 두 저장소의 보존 기간을 확인합니다.
+Alloy는 `<run>/telemetry-events/`와 `<run>/telemetry/telemetry-events/`의 step·backfill 파일을 수집합니다.
+`03 · Bottleneck Summary`는 diagnosis projection, `04 · Cross-Layer Timeline`은 span·step·sample을 사용합니다.
+연결하지 않은 source의 panel은 비어 있으며 [진단 설정](diagnosis.md)에서 추가합니다.
 
 ## SSD Health
 
@@ -479,7 +457,7 @@ PYTHONPATH=. python -m xlayer_telemetry.stack validate-stack \
 
 Loki를 활성화했다면 `--loki-url http://<monitoring-host-address>:13100`을 추가합니다.
 `SERVER_CONFIG_ONLY=1`은 server 실행 없이 설정을 생성합니다.
-별도 Docker Compose 배치는 [Compose 예제 안내](../examples/dashboards/README.md)를 따릅니다.
+별도 Docker Compose 배치는 [Compose 예제 안내](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)를 따릅니다.
 기존 node collector에 연결하며 현재 공통 metrics dashboard를 생성해서 사용합니다.
 
 ## Demo Details
@@ -489,10 +467,8 @@ Interactive demo는 GPU node 4개·node당 GPU 8개, storage node 8개·node당 
 Agent RL 예시는 약 6초마다 완료 step 지표를 생성합니다.
 Fixture는 `examples/live-demo/`에 있으며 `DEMO_TOPOLOGY_DIR`·`DEMO_ADDR`·`DEMO_PORT`로 설정할 수 있습니다.
 
-아래 synthetic GIF는 현재 dashboard 8개에서 step 선택 → candidate → evidence → Timeline → subsystem detail로 조사하는 예제입니다.
-위 interactive exporter와는 별도의 작은 UI fixture로, trainer·GPU·sandbox node 세 문맥과 GPU 두 개를 표현합니다.
-Step 127의 duration 18.4 s와 baseline 11.2 s를 비교하고 `storage_queue_saturation` 등의 후보, counter/missing evidence를 확인합니다.
-이 값은 실제 hardware나 VERL 성능 측정 결과가 아닙니다.
+Synthetic GIF는 step 127의 18.4 s와 baseline 11.2 s에서 candidate → evidence → Timeline → detail로 이동합니다.
+Trainer·GPU·sandbox 세 node 문맥과 GPU 두 개를 표현하는 UI fixture이며 실제 성능 측정값이 아닙니다.
 
 ![현재 Grafana의 synthetic investigation: step 선택, storage candidate, evidence, Timeline, subsystem detail](figures/xlayer-investigation-synthetic.gif)
 

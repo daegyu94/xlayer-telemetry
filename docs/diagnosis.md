@@ -28,7 +28,7 @@ Run Overview
                  +> targeted PyTorch Profiler / Nsight or NCCL baseline
 ```
 
-`ENABLE_LOGS=1`인 monitoring server에 `04 · Bottleneck Summary`와 `05 · Cross-Layer Timeline`이 provision됩니다.
+`ENABLE_LOGS=1`인 monitoring server에 `03 · Bottleneck Summary`와 `04 · Cross-Layer Timeline`이 provision됩니다.
 Node collector의 Alloy가 run root의 `diagnostics/investigation/*.jsonl`과 `telemetry-events/*.jsonl`을 Loki에 보내야 후보와 span 행이 채워집니다.
 Loki 없이도 완전한 진단은 `diagnostics/latest.json`과 `python -m xlayer_telemetry.show_run "$RUN_ROOT"`에서 읽을 수 있습니다.
 [진단 설정](agent-rl.md#add-diagnostics)을 붙이지 않았다면 새 화면의 후보 표는 비어 있습니다.
@@ -46,7 +46,7 @@ python -m xlayer_telemetry.demos.diagnosis \
 
 Loki가 파일을 받은 뒤 Grafana의 Bottleneck Summary에서 Run을 `diagnosis-demo-001`로 선택합니다.
 이 결과의 `data_origin=synthetic`과 `synthetic-node`는 설명용 수치이고 Prometheus의 현재 resource 그래프와 같은 실측값이 아닙니다.
-실제 GPU·3FS source를 확인하려면 뒤의 진단 설정으로 VERL run을 실행합니다.
+실제 run에는 [진단 설정](agent-rl.md#add-diagnostics)을 연결하고 GPU·3FS 등 필요한 source를 등록합니다.
 
 1. Run Overview에서 target과 sample freshness를 확인하고 느린 step의 시간을 찾습니다.
 2. Run Overview의 완료 step 목록에서 step을 선택해 `record_id`와 추정 시간 범위를 확인합니다.
@@ -75,10 +75,8 @@ GPU·host·disk 지표를 특정 run의 병목 근거로 해석하는 실험은 
 같은 시간에 관측됐다는 이유만으로 3FS 전체 latency나 NIC traffic을 특정 run에 귀속하지 않습니다.
 Candidate의 각 evidence는 `source`, `observation_scope`, `window`, `boundary_accuracy`, current/baseline 값을 보존합니다.
 
-Baseline은 같은 run·node·worker·boundary scope에서 관측 시각이 이전인 유효 구간만 사용합니다.
-파일 기록 순서와 무관하게 최근 5개를 고른 뒤 duration median에 가장 가까운 구간을 비교 대상으로 삼습니다.
-`gen`과 canonical phase `rollout`이 함께 있으면 `rollout`을 한 번만 사용하며, 없을 때만 `gen`으로 대체합니다.
-vLLM source 하나가 빠져도 나머지 신호의 engine identity를 대조하고, 다른 engine의 queue·KV 신호를 한 후보에 섞지 않습니다.
+Baseline은 같은 run·node·worker·boundary scope의 이전 유효 구간에서 고릅니다(세부 조건은 아래).
+Phase alias는 canonical을 우선해 중복 사용하지 않고, vLLM은 같은 engine의 signal끼리 비교합니다.
 
 ## Semantic Model and Adapter Boundary
 
@@ -98,23 +96,23 @@ Primary integration: VERL                 XLayer core
 
 ## Baseline and Rule State
 
-진단은 같은 run, worker, boundary scope의 이전 유효 step 다섯 개 중 duration 중앙값에 가장 가까운 step을 baseline으로 고릅니다.
-3FS를 설정한 run은 ClickHouse ingest 지연을 고려해 step 종료 후 기본 30초(`threefs.settle_seconds`)가 지난 뒤 첫 조회를 수행하고 wrapper도 마지막 step에 대해 이 시간을 기다립니다.
-첫 조회에서 표본이 없거나 backend 오류가 발생하면 진단은 `analysis_status=provisional`로 남고 기본 10초 간격으로 최대 60초 동안 다시 조회합니다.
-`retry_interval_seconds`와 `retry_seconds`로 이 범위를 조정할 수 있으며, wrapper는 종료 시 남은 진단을 한 번 더 조회해 `final`로 확정합니다.
-재시도 중에는 `diagnostics.jsonl`에 같은 `trigger_record_id`의 revision이 누적되지만, Loki용 investigation 파일은 최종 결과에 대해서만 생성됩니다.
-따라서 잠시 비어 있는 Bottleneck Summary는 `diagnostics/latest.json`의 `analysis_status`와 `missing_sources`를 먼저 확인합니다.
-Source 자체가 없는 경우에도 재시도는 제한 시간에 끝나며, `step_event_time`이 없는 replay record는 재시도하지 않습니다.
-그 baseline의 시간 구간으로 Prometheus와 3FS를 다시 조회하고, `comparison.signals`에 current, baseline, delta, delta percent를 기록합니다.
-3FS latency는 양쪽 구간에 모두 있는 같은 `metricName`만 비교합니다.
-GPU utilization은 같은 `gpu` label의 양쪽 표본을 비교하며, device별 짝을 만들 수 없으면 node aggregate로 scope를 낮춥니다.
-비교 표의 device 값은 baseline 대비 utilization 감소가 가장 큰 GPU에서 선택합니다.
-이는 이상 구간 탐색을 위한 값이며, 해당 GPU가 선택한 run의 장치라고 귀속하거나 node 전체 GPU의 평균이라고 해석하지 않습니다.
-전체 device별 그래프는 Compute에서, 선택한 step과의 시간 비교는 Timeline에서 확인합니다.
-vLLM의 KV usage·waiting·preemption은 Prometheus가 engine identity를 제공할 때 같은 engine의 series끼리 비교합니다.
-여러 engine이 있으나 공통 identity를 확인할 수 없으면 `vllm:shared_engine_identity`를 누락 근거로 남기고 이를 강한 후보로 조합하지 않습니다.
-동일한 이전 step이나 해당 표본이 없으면 baseline을 만들어 내지 않고 `missing_evidence`에 표시합니다.
-Delta가 크다는 사실은 원인 증명이 아닙니다.
+기본 baseline은 같은 run·node·worker·boundary scope의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다.
+파일 기록 순서가 아닌 관측 시각을 사용합니다.
+
+3FS는 ingest 지연을 고려해 기본 30초(`threefs.settle_seconds`) 후 조회하며 wrapper도 마지막 step을 기다립니다.
+표본 부재·backend 오류는 `analysis_status=provisional`로 남기고 기본 10초 간격·최대 60초 재시도합니다(`retry_interval_seconds`, `retry_seconds`).
+종료 시 wrapper는 한 번 더 조회해 `final`로 확정합니다.
+`diagnostics.jsonl`은 같은 `trigger_record_id`의 revision을 보존하고 Loki projection은 final 결과만 생성합니다.
+빈 후보 표는 `diagnostics/latest.json`의 `analysis_status`·`missing_sources`부터 확인합니다.
+영구 누락도 제한 시간에 끝나며 `step_event_time` 없는 replay는 재시도하지 않습니다.
+
+Baseline 창의 Prometheus·3FS를 조회해 `comparison.signals`에 current·baseline·delta·delta percent를 기록합니다.
+3FS는 같은 `metricName`, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다.
+GPU 짝이 없으면 node aggregate로 scope를 낮추고, 비교 표는 utilization 감소가 가장 큰 GPU를 선택합니다.
+이는 run별 장치 귀속이나 node 평균이 아닙니다.
+
+여러 engine의 공통 identity가 없으면 `vllm:shared_engine_identity`를 missing evidence로 남기고 강한 후보로 합치지 않습니다.
+표본·baseline은 만들어내지 않으며 큰 delta도 원인 증명이 아닙니다.
 
 `weak_signal`은 rule의 주요 증상만 관측한 상태, `supporting_signal`은 둘 이상의 독립 조건을 관측했지만 필수 조건이 없거나 반대 근거가 있는 상태, `strong_signal`은 모든 필수 조건이 실제 측정으로 충족된 상태입니다.
 Storage rule의 필수 조건이 모두 있어도 run별 3FS client bytes가 없으면 attribution에 필요한 자료를 별도 `missing_evidence`로 남깁니다.
@@ -186,22 +184,21 @@ Source freshness를 확인하려면 diagnostics 또는 LLM source config에 다�
 "sampling": {"check_source_freshness": true}
 ```
 
-선택적 검사는 한 source selector로 해석 가능한 query의 원본 `timestamp(metric{...})`를 추가 조회합니다.
-Computed rate 자체의 timestamp를 원본 freshness로 사용하지 않습니다.
-이 timestamp는 Prometheus가 보존한 raw metric sample의 시각이며 application 내부 event나 snapshot 생성 시각은 아닙니다.
-Collector가 같은 snapshot을 반복 노출할 수 있으므로 application 진행 상태는 `training_sample_timestamp_seconds`와 telemetry health도 함께 확인합니다.
-`source_age_seconds`와 조회 시점에 발견한 고유 source timestamp 수를 기록하지만, 이 수는 전체 scrape 횟수가 아닙니다.
-여러 source가 섞인 query, backend 오류, 검사 비활성화에서는 freshness가 `unknown`입니다.
-`observed`는 timestamp를 확인했다는 뜻이며 age·clock·missing source를 함께 읽어야 합니다.
-검사는 metric query당 current/baseline에 최대 한 번 추가되어 backend query 비용이 늘므로 기본은 비활성화입니다.
+Freshness 검사는 단일 source query에 원본 `timestamp(metric{...})` 조회를 추가합니다.
+Computed rate의 timestamp나 application event 시각과는 다릅니다.
+반복 노출한 snapshot의 진행 여부는 `training_sample_timestamp_seconds`·telemetry health도 확인합니다.
+`source_age_seconds`와 조회에서 발견한 고유 timestamp 수를 기록하지만 전체 scrape 횟수는 아닙니다.
+복합 query·오류·비활성 검사는 `unknown`; `observed`도 age·clock·missing source와 함께 해석합니다.
+Current/baseline마다 query당 최대 한 번 비용이 추가되므로 기본은 비활성화입니다.
 
 ## Clock and Node Selection
 
-Multi-node diagnosis에서는 [설정 예제](../examples/multinode/diagnostics.json)를 복사하여 실제 cluster·node·storage device를 지정합니다.
+Multi-node diagnosis에서는 [설정 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/multinode/diagnostics.json)를 복사하여 실제 cluster·node·storage device를 지정합니다.
 `compute_node`는 GPU source, `rollout_node`는 native vLLM/Ray source, `storage_node`와 `storage_device`는 storage host의 특정 block device를 선택합니다.
 생략한 node는 현재 step observer의 node를 사용합니다.
 한 설정이 cluster의 모든 GPU를 자동 집계하는 것은 아니며, 다른 compute/rollout node 조합을 조사하려면 해당 node를 선택한 설정을 사용합니다.
-Step Explorer의 manifest 기반 조회는 여러 node를 각각 보여줍니다.
+Grafana Timeline의 `Resource node`로 조사할 node를 바꿉니다.
+Manifest만으로 target이나 metric을 등록하지는 않습니다.
 
 `cluster`를 지정하면 기본 query는 cluster/job으로 제한되고 clock check도 기본 활성화됩니다.
 사용자가 제공한 `prometheus.queries`는 그대로 사용하므로 각 selector에 `cluster="{cluster}"`와 source·node/device 조건을 명시해야 합니다.
@@ -228,7 +225,7 @@ ClickHouse endpoint의 server clock만 확인해서 3FS distribution timestamp�
 
 `diagnostics/latest.json`의 `schema_version=1`, `findings`, `evidence`, `missing_sources`는 기존 소비자를 위해 유지합니다.
 새 `diagnosis_schema_version=1`, `symptom`, `comparison`, `candidates`는 추가 필드입니다.
-필드 계약은 [Diagnosis JSON Schema](../config/diagnosis.schema.json)에 있습니다.
+필드 계약은 [Diagnosis JSON Schema](https://github.com/daegyu94/xlayer-telemetry/blob/main/config/diagnosis.schema.json)에 있습니다.
 `candidates[].evidence`와 `counter_evidence`, `missing_evidence`가 판단 근거이고 `related_nodes`, `related_devices`, `related_spans`는 확인된 연결만 담습니다.
 Loki용 `diagnostics/investigation/*.jsonl`은 이 결과의 평면 projection이며 원본보다 정보가 적습니다.
 
