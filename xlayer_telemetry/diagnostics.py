@@ -6,6 +6,7 @@ import argparse
 import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import heapq
 import json
 import math
 import os
@@ -19,6 +20,7 @@ from urllib.request import Request, urlopen
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline
 from .clock_quality import assess_clocks
+from .fileio import atomic_write_text, json_objects
 
 
 DEFAULT_QUERIES = {
@@ -109,9 +111,17 @@ class PrometheusClient:
         params = urlencode({"query": query, "start": start, "end": end, "step": step})
         request = Request(self.url.rstrip("/") + "/api/v1/query_range?" + params)
         payload = _read_json(request, self.timeout)
+        if not isinstance(payload, dict):
+            raise RuntimeError("Prometheus response must be an object")
         if payload.get("status") != "success":
             raise RuntimeError(f"Prometheus query failed: {payload.get('error', 'unknown error')}")
-        matrix = payload.get("data", {}).get("result", [])
+        data = payload.get("data")
+        if not isinstance(data, dict) or not isinstance(data.get("result"), list):
+            raise RuntimeError("Prometheus response is missing a range-query matrix")
+        matrix = data["result"]
+        if any(not isinstance(item, dict) or not isinstance(item.get("metric", {}), dict)
+               or not isinstance(item.get("values", []), list) for item in matrix):
+            raise RuntimeError("Prometheus response contains an invalid series")
         return {
             "aggregate": _series_stats(matrix),
             "series": [
@@ -181,6 +191,8 @@ class ThreeFSClient:
 
 def load_config(path: Path) -> dict[str, Any]:
     config = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("diagnostics config must be an object")
     if config.get("schema_version") != 1:
         raise ValueError("diagnostics config schema_version must be 1")
     if not isinstance(config.get("prometheus"), dict):
@@ -236,14 +248,10 @@ def load_config(path: Path) -> dict[str, Any]:
 def load_history(path: Path) -> list[dict[str, Any]]:
     records = []
     try:
-        with path.open(encoding="utf-8") as stream:
-            for line in stream:
-                try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if record.get("schema_version") == 1 and record.get("record_type") == "verl_step_observation":
-                    records.append(record)
+        for record in json_objects(path):
+            if (record.get("schema_version") == 1 and record.get("record_type") == "verl_step_observation"
+                    and isinstance(record.get("record_id"), str)):
+                records.append(record)
     except FileNotFoundError:
         pass
     return records
@@ -306,14 +314,19 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
 
 def _slow_stages(current: Mapping[str, Any], history: list[dict[str, Any]], thresholds: Mapping[str, float]) -> list[dict[str, float]]:
     previous: dict[str, list[float]] = {}
-    for record in history[-5:]:
-        for name, value in record.get("stage_durations_seconds", {}).items():
-            if type(value) in (int, float):
+    recent = heapq.nlargest(5, history, key=lambda record: finite(record.get("observed_at")) or 0)
+    for record in recent:
+        stages = record.get("stage_durations_seconds", {})
+        if not isinstance(stages, Mapping):
+            continue
+        for name, value in stages.items():
+            if finite(value) is not None and value >= 0:
                 previous.setdefault(name, []).append(float(value))
     slow = []
-    for name, value in current.get("stage_durations_seconds", {}).items():
+    stages = current.get("stage_durations_seconds", {})
+    for name, value in (stages.items() if isinstance(stages, Mapping) else []):
         baseline = previous.get(name, [])
-        if type(value) not in (int, float) or not baseline:
+        if finite(value) is None or value < 0 or not baseline:
             continue
         median = statistics.median(baseline)
         ratio = float(value) / median if median > 0 else 0.0
@@ -351,7 +364,8 @@ class DiagnosticEngine:
     def analyze(self, current: Mapping[str, Any] | None, history: list[dict[str, Any]]) -> dict[str, Any]:
         now = self.clock()
         lookback = float(self.config.get("lookback_seconds", 60))
-        window = dict((current or {}).get("analysis_window", {}))
+        raw_window = (current or {}).get("analysis_window", {})
+        window = dict(raw_window) if isinstance(raw_window, Mapping) else {}
         if current and (finite(window.get("start")) is None or finite(window.get("end")) is None
                         or float(window["start"]) >= float(window["end"])):
             return {
@@ -539,17 +553,18 @@ class DiagnosticEngine:
         }
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
         vllm_names = ("vllm_requests_waiting", "vllm_kv_cache_usage", "vllm_preemptions_total")
-        identity_keys = ("cluster", "node", "instance", "engine", "model_name", "model")
-        identity_fields = ("instance", "engine", "model_name", "model")
+        identity_keys = ("cluster", "node", "instance", "component", "engine", "engine_id", "model_name", "model")
+        identity_fields = ("instance", "component", "engine", "engine_id", "model_name", "model")
         detailed = [current_series.get(name, []) for name in vllm_names]
         selected_vllm_stats: dict[str, Any] = {}
-        if all(detailed):
+        available = {name: items for name, items in zip(vllm_names, detailed) if items}
+        if available:
             def entity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
                 labels = item.get("labels", {})
                 return tuple((key, str(labels[key])) for key in identity_keys if key in labels)
 
-            identities = [{entity(item) for item in items} for items in detailed]
-            ambiguous = any(len(items) != len(keys) for items, keys in zip(detailed, identities))
+            identities = [{entity(item) for item in items} for items in available.values()]
+            ambiguous = any(len(items) != len(keys) for items, keys in zip(available.values(), identities))
             shared = set.intersection(*identities)
             if not shared or ambiguous or (len(set.union(*identities)) > 1 and not any(
                     any(key in identity_fields for key, _ in identity) for identity in shared)):
@@ -558,18 +573,18 @@ class DiagnosticEngine:
                 missing.append("vllm:shared_engine_identity")
             else:
                 def score(identity: tuple[tuple[str, str], ...]) -> tuple[int, float]:
-                    stats = [next(item["stats"] for item in items if entity(item) == identity)
-                             for items in detailed]
-                    kv = stats[1].get("max") or 0
+                    stats = {name: next(item["stats"] for item in items if entity(item) == identity)
+                             for name, items in available.items()}
+                    kv = stats.get("vllm_kv_cache_usage", {}).get("max") or 0
                     kv = kv / 100 if kv > 1 else kv
-                    waiting = stats[0].get("max") or 0
-                    preemptions = stats[2].get("max_series_delta") or 0
+                    waiting = stats.get("vllm_requests_waiting", {}).get("max") or 0
+                    preemptions = stats.get("vllm_preemptions_total", {}).get("max_series_delta") or 0
                     return (int(kv >= self.thresholds["vllm_kv_usage"])
                             + int(waiting >= self.thresholds["vllm_waiting"])
                             + int(preemptions >= 1), kv)
 
                 selected = max(sorted(shared), key=score)
-                for name, items in zip(vllm_names, detailed):
+                for name, items in available.items():
                     stats = next(item["stats"] for item in items if entity(item) == selected)
                     selected_vllm_stats[name] = stats
                     signal = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
@@ -585,10 +600,6 @@ class DiagnosticEngine:
                         prior_value = matching_prior[0]["stats"].get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
                         if prior_value is not None:
                             baseline_signals[signal] = prior_value / 100 if name == "vllm_kv_cache_usage" and prior_value > 1 else prior_value
-        elif any(len(items) > 1 for items in detailed):
-            for name in vllm_names:
-                current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
-            missing.append("vllm:shared_engine_identity")
         finding_evidence = dict(evidence)
         if "vllm:shared_engine_identity" in missing:
             for name in vllm_names:
@@ -774,10 +785,12 @@ class DiagnosticEngine:
         stages = record.get("stage_durations_seconds", {})
         if isinstance(stages, Mapping):
             for signal, names in {
-                "rollout_duration_seconds": ("gen", "rollout"),
+                "rollout_duration_seconds": ("rollout",),
                 "communication_duration_seconds": ("weight_sync", "all_reduce", "collective"),
             }.items():
                 values = [finite(stages.get(name)) for name in names]
+                if signal == "rollout_duration_seconds" and values[0] is None:
+                    values.append(finite(stages.get("gen")))
                 if signal == "communication_duration_seconds" and finite(stages.get("weight_sync")) is None:
                     values.append(finite(stages.get("update_weights")))
                 if any(value is not None for value in values):
@@ -865,17 +878,10 @@ class DiagnosticEngine:
 def _existing_reports(path: Path) -> dict[str, dict[str, Any]]:
     reports: dict[str, dict[str, Any]] = {}
     try:
-        with path.open(encoding="utf-8") as stream:
-            for line in stream:
-                try:
-                    value = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if not isinstance(value, dict):
-                    continue
-                record_id = value.get("trigger_record_id")
-                if isinstance(record_id, str):
-                    reports[record_id] = value
+        for value in json_objects(path):
+            record_id = value.get("trigger_record_id")
+            if isinstance(record_id, str):
+                reports[record_id] = value
     except FileNotFoundError:
         pass
     return reports
@@ -886,9 +892,7 @@ def write_report(directory: Path, report: Mapping[str, Any]) -> None:
     encoded = json.dumps(report, separators=(",", ":"), sort_keys=True) + "\n"
     with (directory / "diagnostics.jsonl").open("a", encoding="utf-8") as stream:
         stream.write(encoded)
-    temporary = directory / f".latest.json.{os.getpid()}.tmp"
-    temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, directory / "latest.json")
+    atomic_write_text(directory / "latest.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
     if report.get("trigger") != "step_observed" or report.get("analysis_status") == "provisional":
         return
     # One immutable file per analysis lets Alloy/Loki tail without rereading
@@ -898,9 +902,8 @@ def write_report(directory: Path, report: Mapping[str, Any]) -> None:
     investigation.mkdir(exist_ok=True)
     key = re.sub(r"[^A-Za-z0-9_.-]", "_", str(report.get("trigger_record_id") or report.get("generated_at")))
     rows = _investigation_rows(report)
-    temporary_rows = investigation / f".{key}.{os.getpid()}.tmp"
-    temporary_rows.write_text("".join(json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in rows), encoding="utf-8")
-    os.replace(temporary_rows, investigation / f"{key}.jsonl")
+    atomic_write_text(investigation / f"{key}.jsonl", "".join(
+        json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in rows))
 
 
 def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -994,7 +997,9 @@ def run_once(
     if pending:
         batch = pending[:max_records] if max_records is not None else pending
         for record in batch:
-            prior = [item for item in history if item.get("observed_at", 0) < record.get("observed_at", 0)]
+            observed = finite(record.get("observed_at"))
+            prior = [item for item in history if observed is not None
+                     and finite(item.get("observed_at")) is not None and item["observed_at"] < observed]
             previous = reports.get(record.get("record_id"), {})
             report = engine.analyze(record, prior)
             first_attempt = previous.get("first_attempt_at", now)

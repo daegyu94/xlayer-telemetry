@@ -10,6 +10,8 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping
 
+from .fileio import atomic_write_text
+
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 CORRELATION_KEYS = [
@@ -98,13 +100,7 @@ def make_agent_rl_manifest(
 
 
 def write_manifest(path: Path, manifest: Mapping[str, Any]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
+    atomic_write_text(path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return path
 
 

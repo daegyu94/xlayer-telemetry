@@ -15,6 +15,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
 from .clock_quality import assess_clocks
 from .diagnostics import _series_stats
+from .fileio import json_objects
+from .measurements import finite_number
 
 
 ASSET = Path(__file__).with_name("step_explorer.html")
@@ -28,25 +30,22 @@ def _label(value: str) -> str:
 def load_steps(run_root: Path) -> list[dict[str, Any]]:
     path = run_root / "telemetry-events" / "verl-steps.jsonl"
     steps: list[dict[str, Any]] = []
-    with path.open(encoding="utf-8") as stream:
-        for line in stream:
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            window = record.get("analysis_window") or {}
-            if (
-                record.get("record_type") != "verl_step_observation"
-                or not isinstance(record.get("record_id"), str)
-                or type(record.get("step")) is not int
-                or not isinstance(window.get("start"), (int, float))
-                or not isinstance(window.get("end"), (int, float))
-                or not math.isfinite(window["start"])
-                or not math.isfinite(window["end"])
-                or window["start"] >= window["end"]
-            ):
-                continue
-            steps.append(record)
+    for record in json_objects(path):
+        window = record.get("analysis_window")
+        if (
+            record.get("record_type") != "verl_step_observation"
+            or not isinstance(record.get("record_id"), str)
+            or type(record.get("step")) is not int
+            or record["step"] < 0
+            or not all(isinstance(record.get(key), str) and record[key] for key in ("run_id", "worker_id", "node"))
+            or finite_number(record.get("observed_at")) is None
+            or not isinstance(window, dict)
+            or finite_number(window.get("start")) is None
+            or finite_number(window.get("end")) is None
+            or window["start"] >= window["end"]
+        ):
+            continue
+        steps.append(record)
     return sorted(steps, key=lambda item: (item["observed_at"], item["step"]))
 
 
@@ -60,9 +59,14 @@ def load_nodes(run_root: Path, run_id: str, observed_node: str, topology_manifes
     assignments: dict[str, set[str]] = {}
     if path.is_file():
         manifest = json.loads(path.read_text(encoding="utf-8"))
-        if manifest.get("schema_version") != 1 or manifest.get("run_id") != run_id:
+        if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("run_id") != run_id:
             raise ValueError(f"manifest schema or run_id does not match the selected step: {path}")
-        for item in manifest.get("deployment", {}).get("roles", []):
+        deployment = manifest.get("deployment", {})
+        if not isinstance(deployment, dict) or not isinstance(deployment.get("roles", []), list):
+            raise ValueError(f"invalid deployment roles in {path}")
+        for item in deployment.get("roles", []):
+            if not isinstance(item, dict):
+                raise ValueError(f"invalid role assignment in {path}")
             role, node = item.get("role"), item.get("node")
             if not isinstance(role, str) or not role or not isinstance(node, str) or not node:
                 raise ValueError(f"invalid role assignment in {path}")
@@ -135,16 +139,17 @@ class StepExplorer:
         self.topology_manifest = topology_manifest
 
     def steps(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "id": item["record_id"], "step": item["step"], "worker": item["worker_id"],
-                "node": item["node"], "run_id": item["run_id"], "scope": item["boundary_scope"],
-                "start": item["analysis_window"]["start"], "end": item["analysis_window"]["end"],
-                "accuracy": item["analysis_window"].get("accuracy", "unknown"),
-                "duration": item.get("step_duration_seconds"),
-            }
-            for item in load_steps(self.run_root)
-        ]
+        return [self._step(item) for item in load_steps(self.run_root)]
+
+    @staticmethod
+    def _step(item: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": item["record_id"], "step": item["step"], "worker": item["worker_id"],
+            "node": item["node"], "run_id": item["run_id"], "scope": item.get("boundary_scope", "unknown"),
+            "start": item["analysis_window"]["start"], "end": item["analysis_window"]["end"],
+            "accuracy": item["analysis_window"].get("accuracy", "unknown"),
+            "duration": item.get("step_duration_seconds"),
+        }
 
     def detail(self, record_id: str) -> dict[str, Any]:
         record = next((item for item in load_steps(self.run_root) if item["record_id"] == record_id), None)
@@ -154,7 +159,7 @@ class StepExplorer:
         start, end = window["start"], window["end"]
         nodes = load_nodes(self.run_root, record["run_id"], record["node"], self.topology_manifest)
         output: dict[str, Any] = {
-            "step": next(item for item in self.steps() if item["id"] == record_id),
+            "step": self._step(record),
             "stages": record.get("stage_durations_seconds", {}),
             "nodes": nodes,
             "node_data": {node["name"]: {"signals": {}, "logs": [], "errors": {}} for node in nodes},

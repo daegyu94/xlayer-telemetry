@@ -30,14 +30,16 @@ SNAKE_CASE = re.compile(r"^[a-z][a-z0-9_]*$")
 def _validate_vocabulary(name: str, value: Any) -> None:
     if not isinstance(value, list) or not value:
         raise ValueError(f"{name} must be a non-empty list")
-    if len(value) != len(set(value)):
-        raise ValueError(f"{name} must contain unique values")
     if not all(isinstance(item, str) and SNAKE_CASE.fullmatch(item) for item in value):
         raise ValueError(f"{name} must contain snake_case strings")
+    if len(value) != len(set(value)):
+        raise ValueError(f"{name} must contain unique values")
 
 
 def load_schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("metric contract must be an object")
     if value.get("$schema") != "./metrics.schema.json":
         raise ValueError("$schema must reference ./metrics.schema.json")
     if value.get("schema_version") != 1:
@@ -63,7 +65,7 @@ def load_schema(path: Path) -> dict[str, Any]:
             raise ValueError(f"Metric has unsupported fields: {sorted(extra)}")
         if not isinstance(metric["name"], str) or not SNAKE_CASE.fullmatch(metric["name"]):
             raise ValueError(f"Invalid metric name: {metric['name']!r}")
-        if metric["category"] not in ALLOWED_CATEGORIES:
+        if not isinstance(metric["category"], str) or metric["category"] not in ALLOWED_CATEGORIES:
             raise ValueError(f"Unsupported metric category: {metric['category']}")
         for field in REQUIRED_FIELDS - {"name", "category"}:
             if not isinstance(metric[field], str) or not metric[field].strip():

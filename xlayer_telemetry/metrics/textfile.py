@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import time
 from pathlib import Path
 
-from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges, write_gauges
+from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, write_gauges
+from xlayer_telemetry.measurements import finite_number
 
 
 def _iter_snapshots(metrics_dir: Path) -> list[dict]:
@@ -24,11 +24,10 @@ def _iter_snapshots(metrics_dir: Path) -> list[dict]:
                 previous = snapshots.get(identity)
                 observed = value.get("observed_at")
                 previous_at = previous.get("observed_at") if previous else None
-                if previous is None or (type(observed) in (int, float) and math.isfinite(observed)
-                                        and (type(previous_at) not in (int, float)
-                                             or not math.isfinite(previous_at) or observed >= previous_at)):
+                if previous is None or (finite_number(observed) is not None
+                                        and (finite_number(previous_at) is None or observed >= previous_at)):
                     snapshots[identity] = value
-        except (AttributeError, OSError, json.JSONDecodeError):
+        except (AttributeError, OSError, ValueError):
             continue
     return list(snapshots.values())
 
@@ -66,7 +65,7 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
                 labels,
             ))
         observed_at = snapshot.get("observed_at")
-        if type(observed_at) in (int, float) and math.isfinite(observed_at):
+        if finite_number(observed_at) is not None:
             metrics.append(GaugeSample(
                 "training_sample_timestamp_seconds",
                 "Application-reported sample timestamp.",
@@ -78,8 +77,7 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
             metrics.append(GaugeSample("training_step", "Latest reported training step.", step, labels))
         for sample in snapshot["samples"]:
             if (not isinstance(sample, dict) or not isinstance(sample.get("labels", {}), dict)
-                    or type(sample.get("value")) not in (int, float)
-                    or not math.isfinite(sample["value"])):
+                    or finite_number(sample.get("value")) is None):
                 continue
             if set(sample.get("labels", {})) & labels.keys():
                 continue
@@ -95,7 +93,7 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
     identities: set[tuple[str, tuple[tuple[str, str], ...]]] = set()
     for sample in metrics:
         try:
-            format_gauges([sample])
+            validate_sample(sample)
         except (TypeError, ValueError):
             continue
         definition = (sample.help, sample.kind)

@@ -89,6 +89,11 @@ Node collector의 변환 process는 기본 2초마다 snapshot을 읽어 `applic
 GPU sampler가 만드는 `gpu.prom`과 host 지표도 Node Exporter의 `:19100/metrics`에서 함께 노출되며, Prometheus는 기본 2초마다 이를 조회합니다.
 Grafana는 Prometheus에 저장된 시계열을 query하므로 JSON 파일을 직접 읽지 않습니다.
 
+Application snapshot과 topology collector는 손상된 파일·sample을 건너뛰고 정상 producer의 지표를 계속 내보냅니다.
+JSONL 조회도 malformed JSON, UTF-8 오류와 object가 아닌 행을 건너뜁니다.
+누락된 값을 0으로 채우지는 않으므로 source와 freshness를 함께 확인합니다.
+Snapshot 교체에는 쓰기마다 별도의 임시 파일을 사용해 같은 process의 동시 export도 파일을 충돌 없이 교체합니다.
+
 ## Follow One Completed Step
 
 예를 들어 VERL file logger가 step 7의 `timing_s/gen=2.4`와 `perf/time_per_step=8.0`을 기록했다고 가정합니다.

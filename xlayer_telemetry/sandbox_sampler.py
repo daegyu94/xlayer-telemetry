@@ -66,7 +66,7 @@ def read_cgroup(directory: Path) -> dict[str, int]:
     for filename, (parser, prefix) in sources.items():
         try:
             parsed = parser((directory / filename).read_text(encoding="utf-8"))
-        except (FileNotFoundError, PermissionError, ValueError):
+        except (OSError, ValueError):
             continue
         values.update({prefix + key: value for key, value in parsed.items()})
     return values

@@ -10,7 +10,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -98,7 +97,7 @@ def _wait_until_ready(url: str, timeout: float) -> None:
         try:
             _request(url)
             return
-        except (HTTPError, URLError, TimeoutError) as error:
+        except OSError as error:
             last_error = error
             time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
     raise RuntimeError(f"endpoint did not become ready: {url}: {last_error}")
@@ -124,7 +123,7 @@ def validate_stack(args: argparse.Namespace) -> int:
             args.timeout,
         )
         prometheus_ready = True
-    except (RuntimeError, ValueError) as error:
+    except (RuntimeError, ValueError, OSError) as error:
         errors.append(str(error))
 
     try:
@@ -136,7 +135,7 @@ def validate_stack(args: argparse.Namespace) -> int:
         )
         if not grafana_database_ok:
             errors.append("Grafana database health is not ok")
-    except (RuntimeError, ValueError, HTTPError, URLError) as error:
+    except (RuntimeError, ValueError, OSError) as error:
         errors.append(str(error))
 
     if loki_url:
@@ -149,7 +148,7 @@ def validate_stack(args: argparse.Namespace) -> int:
             )
             if not loki_query_ok:
                 errors.append("Loki test query did not report success")
-        except (RuntimeError, ValueError, HTTPError, URLError) as error:
+        except (RuntimeError, ValueError, OSError) as error:
             errors.append(str(error))
 
     if prometheus_ready:
@@ -166,7 +165,7 @@ def validate_stack(args: argparse.Namespace) -> int:
             prometheus_query_ok = query_result.get("status") == "success"
             if not prometheus_query_ok:
                 errors.append("Prometheus test query did not report success")
-        except (ValueError, HTTPError, URLError) as error:
+        except (ValueError, OSError) as error:
             errors.append(str(error))
 
     targets_acceptable = not args.require_targets_up or (

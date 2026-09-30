@@ -36,7 +36,7 @@ cleanup() {
   trap - EXIT INT TERM
   for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done
   for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null || true; done
-  if [[ "$role" == node ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom"; fi
+  if [[ "$role" == node ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom"; fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -290,17 +290,18 @@ EOF
     "$alloy" validate "$output_dir/alloy.alloy"
     if [[ "${NODE_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   fi
+  if [[ "${ENABLE_GPU_METRICS:-1}" != 0 && "${ENABLE_GPU_METRICS:-1}" != 1 ]]; then
+    echo "ENABLE_GPU_METRICS must be 0 or 1" >&2
+    exit 2
+  fi
   mkdir -p "$output_dir/textfile"
+  printf '# HELP telemetry_gpu_collection_enabled Whether this collector is configured to sample GPUs.\n# TYPE telemetry_gpu_collection_enabled gauge\ntelemetry_gpu_collection_enabled %s\n' "${ENABLE_GPU_METRICS:-1}" > "$output_dir/textfile/collector.prom"
   "$tools_dir/node_exporter-1.9.1.linux-$release_arch/node_exporter" \
     --web.listen-address="$NODE_ADDR:19100" \
     --collector.textfile.directory="$output_dir/textfile" > "$output_dir/node-exporter.log" 2>&1 &
   pids+=("$!")
   if [[ "${ENABLE_SSD_HEALTH:-0}" == 1 ]]; then
     start_smartctl_exporter
-  fi
-  if [[ "${ENABLE_GPU_METRICS:-1}" != 0 && "${ENABLE_GPU_METRICS:-1}" != 1 ]]; then
-    echo "ENABLE_GPU_METRICS must be 0 or 1" >&2
-    exit 2
   fi
   if [[ "${ENABLE_GPU_METRICS:-1}" == 1 ]]; then
     gpu_sampler_args=(

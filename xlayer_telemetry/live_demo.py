@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges
+from xlayer_telemetry.measurements import finite_number
 
 
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -31,16 +32,16 @@ def load_topology(directory: Path) -> tuple[dict, dict]:
         ("GPU", gpu, "gpu_nodes", "gpus_per_node"),
         ("storage", storage, "storage_nodes", "ssds_per_node"),
     ):
-        if (not isinstance(payload.get(nodes), list) or not payload[nodes]
+        if (not isinstance(payload, dict) or not isinstance(payload.get(nodes), list) or not payload[nodes]
                 or not all(isinstance(node, str) and _NAME.fullmatch(node) for node in payload[nodes])
-                or not isinstance(payload.get(count), int) or payload[count] <= 0):
+                or type(payload.get(count)) is not int or payload[count] <= 0):
             raise ValueError(f"invalid {key} topology")
     if not isinstance(gpu.get("gpu_model"), str) or not isinstance(gpu.get("intra_node_interconnect"), str):
         raise ValueError("invalid GPU topology")
     for payload in (gpu, storage):
         network = payload.get("network")
         if (not isinstance(network, dict) or not isinstance(network.get("transport"), str)
-                or not isinstance(network.get("bandwidth_gbps"), (int, float))
+                or finite_number(network.get("bandwidth_gbps")) is None
                 or network["bandwidth_gbps"] <= 0):
             raise ValueError("invalid network topology")
     return gpu, storage

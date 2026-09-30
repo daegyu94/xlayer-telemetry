@@ -1,7 +1,17 @@
-"""Small numeric summaries shared by the runnable profiling exercises."""
+"""Numeric validation and summaries for telemetry and profiling."""
 
 import math
 import statistics
+
+
+def finite_number(value: object) -> float | None:
+    """Accept finite numeric measurements without overflowing on JSON integers."""
+    if type(value) not in (int, float):
+        return None
+    try:
+        return float(value) if math.isfinite(value) else None
+    except OverflowError:
+        return None
 
 
 def summarize_steps(seconds: list[float], warmup: int) -> dict[str, float | int]:

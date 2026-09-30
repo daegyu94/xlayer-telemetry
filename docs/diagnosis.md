@@ -75,6 +75,11 @@ GPU·host·disk 지표를 특정 run의 병목 근거로 해석하는 실험은 
 같은 시간에 관측됐다는 이유만으로 3FS 전체 latency나 NIC traffic을 특정 run에 귀속하지 않습니다.
 Candidate의 각 evidence는 `source`, `observation_scope`, `window`, `boundary_accuracy`, current/baseline 값을 보존합니다.
 
+Baseline은 같은 run·node·worker·boundary scope에서 관측 시각이 이전인 유효 구간만 사용합니다.
+파일 기록 순서와 무관하게 최근 5개를 고른 뒤 duration median에 가장 가까운 구간을 비교 대상으로 삼습니다.
+`gen`과 canonical phase `rollout`이 함께 있으면 `rollout`을 한 번만 사용하며, 없을 때만 `gen`으로 대체합니다.
+vLLM source 하나가 빠져도 나머지 신호의 engine identity를 대조하고, 다른 engine의 queue·KV 신호를 한 후보에 섞지 않습니다.
+
 ## Semantic Model and Adapter Boundary
 
 ```text

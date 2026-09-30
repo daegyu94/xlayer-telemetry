@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Mapping
+
+from xlayer_telemetry.fileio import atomic_write_text
+from xlayer_telemetry.measurements import finite_number
 
 
 _METRIC_NAME = re.compile(r"^[a-zA-Z_:][a-zA-Z0-9_:]*$")
@@ -30,22 +32,32 @@ def _escape_label(value: str) -> str:
     return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
+def validate_sample(sample: GaugeSample) -> None:
+    """Validate one sample without formatting an entire exposition."""
+    if not isinstance(sample.name, str) or not _METRIC_NAME.fullmatch(sample.name):
+        raise ValueError(f"invalid metric name: {sample.name}")
+    if sample.kind not in {"gauge", "counter"}:
+        raise ValueError(f"invalid metric kind: {sample.kind}")
+    if not isinstance(sample.help, str) or finite_number(sample.value) is None:
+        raise ValueError(f"invalid measurement for metric: {sample.name}")
+    if sample.kind == "counter" and sample.value < 0:
+        raise ValueError(f"negative counter: {sample.name}")
+    for label in sample.labels:
+        if not isinstance(label, str) or not _LABEL_NAME.fullmatch(label):
+            raise ValueError(f"invalid label name: {label}")
+        str(sample.labels[label]).encode("utf-8")
+
+
 def format_gauges(samples: Iterable[GaugeSample]) -> str:
     """Return Prometheus text exposition for metric samples."""
     definitions: dict[str, tuple[str, str]] = {}
     materialized = list(samples)
     for sample in materialized:
-        if not _METRIC_NAME.fullmatch(sample.name):
-            raise ValueError(f"invalid metric name: {sample.name}")
-        if sample.kind not in {"gauge", "counter"}:
-            raise ValueError(f"invalid metric kind: {sample.kind}")
+        validate_sample(sample)
         definition = (sample.help, sample.kind)
         if sample.name in definitions and definitions[sample.name] != definition:
             raise ValueError(f"inconsistent definition for metric: {sample.name}")
         definitions[sample.name] = definition
-        for label in sample.labels:
-            if not _LABEL_NAME.fullmatch(label):
-                raise ValueError(f"invalid label name: {label}")
 
     lines: list[str] = []
     emitted: set[str] = set()
@@ -67,9 +79,6 @@ def write_gauges(directory: Path, filename: str, samples: Iterable[GaugeSample])
     """Atomically replace one producer-owned ``.prom`` file."""
     if Path(filename).name != filename or not filename.endswith(".prom"):
         raise ValueError("filename must be a basename ending in .prom")
-    directory.mkdir(parents=True, exist_ok=True)
     destination = directory / filename
-    temporary = directory / f".{filename}.{os.getpid()}.tmp"
-    temporary.write_text(format_gauges(samples), encoding="utf-8")
-    os.replace(temporary, destination)
+    atomic_write_text(destination, format_gauges(samples))
     return destination

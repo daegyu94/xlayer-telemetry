@@ -30,6 +30,20 @@ def test_validate_target_files_counts_valid_groups(tmp_path: Path) -> None:
     }
 
 
+def test_backend_query_timeouts_still_write_failure_summary(tmp_path, monkeypatch):
+    monkeypatch.setattr(stack, "_wait_until_ready", lambda *_: None)
+    def timed_out(url):
+        raise TimeoutError("backend query timed out")
+    monkeypatch.setattr(stack, "_read_json", timed_out)
+    output = tmp_path / "summary.json"
+    args = Namespace(target_dir=None, prometheus_url="http://prom", grafana_url="http://grafana",
+                     loki_url="http://loki", output=output, timeout=.01, require_targets_up=False)
+    assert stack.validate_stack(args) == 1
+    summary = json.loads(output.read_text())["validation"]
+    assert not summary["stack_valid"]
+    assert len(summary["errors"]) == 3
+
+
 def test_validate_target_files_rejects_non_string_labels(tmp_path: Path) -> None:
     write_targets(tmp_path)
     (tmp_path / "nodes.json").write_text(

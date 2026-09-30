@@ -9,6 +9,8 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
+from .fileio import atomic_write_text
+
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 _TARGET = re.compile(r"^(?:[A-Za-z0-9_.-]+|\[[0-9A-Fa-f:]+\]):[0-9]{1,5}$")
@@ -23,6 +25,8 @@ _RESERVED_LABELS = {
 
 
 def build_file_discovery(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(config, Mapping):
+        raise ValueError("source config must be an object")
     if config.get("schema_version") != 1:
         raise ValueError("Unsupported schema_version")
     sources = config.get("sources")
@@ -81,13 +85,7 @@ def build_file_discovery(config: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def write_file_discovery(path: Path, groups: list[dict[str, Any]]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(
-        json.dumps(groups, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
+    atomic_write_text(path, json.dumps(groups, indent=2, sort_keys=True) + "\n")
     return path
 
 

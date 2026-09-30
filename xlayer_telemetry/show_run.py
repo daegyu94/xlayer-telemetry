@@ -14,11 +14,14 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
+from .fileio import json_objects
+
 
 def _load(path: Path) -> dict[str, Any] | None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else None
+    except (OSError, ValueError):
         return None
 
 
@@ -52,23 +55,15 @@ def _recent_events(paths: Iterable[Path], limit: int = 20) -> list[dict[str, Any
     sequence = 0
     for path in paths:
         try:
-            with path.open(encoding="utf-8") as stream:
-                for line in stream:
-                    try:
-                        record = json.loads(line)
-                    except json.JSONDecodeError:
+            for record in json_objects(path):
+                if record.get("schema_version") == 1:
+                    timestamp = record.get("start_time_unix_nano", record.get("timestamp_unix_nano", 0))
+                    if type(timestamp) is not int:
                         continue
-                    if isinstance(record, dict) and record.get("schema_version") == 1:
-                        timestamp = record.get(
-                            "start_time_unix_nano",
-                            record.get("timestamp_unix_nano", 0),
-                        )
-                        if type(timestamp) is not int:
-                            continue
-                        sequence += 1
-                        heapq.heappush(recent, (timestamp, sequence, record))
-                        if len(recent) > limit:
-                            heapq.heappop(recent)
+                    sequence += 1
+                    heapq.heappush(recent, (timestamp, sequence, record))
+                    if len(recent) > limit:
+                        heapq.heappop(recent)
         except OSError:
             continue
     return [record for _, _, record in sorted(recent)]
@@ -112,7 +107,8 @@ def summarize(output_dir: Path) -> str:
         lines.append("\n(no telemetry-metrics snapshots found; check the logger/SDK producer and its output path)")
     for path in metrics_files:
         snapshot = _load(path)
-        if snapshot is None or snapshot.get("schema_version") != 2:
+        if (snapshot is None or snapshot.get("schema_version") != 2
+                or not isinstance(snapshot.get("samples"), list)):
             continue
         metrics = " ".join(
             _format_sample(sample)

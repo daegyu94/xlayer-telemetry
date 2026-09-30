@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+role="${1:-node}"
+if [[ $# -gt 1 || ( "$role" != node && "$role" != server ) ]]; then
+  echo "Use node or server" >&2
+  exit 2
+fi
 system="$(uname -s)"
 [[ "$system" == Linux ]] || { echo "Unsupported operating system: $system (expected Linux)" >&2; exit 2; }
 machine="$(uname -m)"
@@ -10,7 +15,6 @@ case "$machine" in
 esac
 : "${TOOLS_DIR:?Set TOOLS_DIR to a local telemetry tools directory}"
 tools_dir="$TOOLS_DIR"
-role="${1:-node}"
 mkdir -p "$tools_dir"
 cd "$tools_dir"
 download() {

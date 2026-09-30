@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -14,6 +13,8 @@ import time
 from typing import Callable, Iterable, Mapping
 
 from xlayer_telemetry.identity import producer_filename_stem
+from xlayer_telemetry.fileio import atomic_write_text
+from xlayer_telemetry.measurements import finite_number
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -153,11 +154,9 @@ class MetricEmitter:
             filename = producer_filename_stem(self.producer, self.role, self.worker_id,
                                               node=self.node, run_id=self.run_id) + ".json"
             destination = self.directory / filename
-            temporary = self.directory / f".{filename}.{os.getpid()}.tmp"
-            temporary.write_text(json.dumps(snapshot, separators=(",", ":")) + "\n", encoding="utf-8")
-            os.replace(temporary, destination)
+            atomic_write_text(destination, json.dumps(snapshot, separators=(",", ":"), allow_nan=False) + "\n")
             return destination
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
             print(f"[metrics] export disabled: {exc}", file=sys.stderr)
             self.disabled = True
             return None
@@ -168,7 +167,7 @@ class MetricEmitter:
             raise ValueError(f"invalid metric name: {metric.name!r}")
         if metric.kind not in {"gauge", "counter"}:
             raise ValueError(f"invalid metric kind: {metric.kind!r}")
-        if type(metric.value) not in (int, float) or not math.isfinite(metric.value):
+        if finite_number(metric.value) is None:
             raise ValueError(f"metric {metric.name!r} must be finite")
         if metric.kind == "counter" and metric.value < 0:
             raise ValueError(f"counter {metric.name!r} must be nonnegative")

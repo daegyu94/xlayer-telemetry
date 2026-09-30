@@ -1,4 +1,5 @@
 import sys
+import subprocess
 
 import pytest
 
@@ -12,6 +13,19 @@ def test_unavailable_is_null(value):
 
 def test_zero_is_still_a_measurement():
     assert gpu_sampler.optional_number("0") == 0
+
+
+@pytest.mark.parametrize("failure", [subprocess.TimeoutExpired("nvidia-smi", 10), OSError("unavailable")])
+def test_optional_process_query_failure_preserves_device_samples(monkeypatch, failure):
+    def query(kind, fields):
+        if kind == "gpu":
+            return [["0", "47", "100", "45", "900", "[N/A]", "[N/A]", "GPU-example"]]
+        raise failure
+    monkeypatch.setattr(gpu_sampler, "query", query)
+    value = gpu_sampler.snapshot()
+    assert value["gpus"][0]["utilization.gpu"] == 47
+    assert value["compute_processes"] == []
+    assert value["compute_processes_error"] == type(failure).__name__
 
 
 def test_device_and_process_memory_are_independent(monkeypatch):

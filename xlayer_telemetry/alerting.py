@@ -108,6 +108,7 @@ def build_rules(mountpoint: str = "/", free_percent: int = 10) -> dict:
         f'((time() - {gpu_sample} > bool 60) or on(cluster, instance) '
         f'(up{{job="telemetry"}} == 1 unless on(cluster, instance) {gpu_sample})) '
         'and on(cluster, instance) (up{job="telemetry"} == 1)'
+        ' unless on(cluster, instance) (telemetry_gpu_collection_enabled{job="telemetry"} == 0)'
     )
     filesystem = f'{{job="telemetry",mountpoint="{mountpoint}",fstype!~"tmpfs|overlay"}}'
     free_fraction = (

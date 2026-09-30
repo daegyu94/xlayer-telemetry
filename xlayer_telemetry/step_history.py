@@ -10,11 +10,14 @@ from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
 
+from .fileio import json_objects
+from .measurements import finite_number
+
 
 def _duration(data: Mapping[str, Any]) -> float | None:
     for key in ("perf/time_per_step", "timing_s/step"):
         value = data.get(key)
-        if type(value) in (int, float) and math.isfinite(value) and value >= 0:
+        if finite_number(value) is not None and value >= 0:
             return float(value)
     return None
 
@@ -59,16 +62,11 @@ class StepHistoryWriter:
     def _load_seen(self) -> set[str]:
         seen: set[str] = set()
         try:
-            with self.path.open(encoding="utf-8") as stream:
-                for line in stream:
-                    try:
-                        record = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    record_id = record.get("record_id")
-                    if (isinstance(record_id, str) and record.get("run_id") == self.run_id
-                            and record.get("node") == self.node and record.get("worker_id") == self.worker_id):
-                        seen.add(record_id)
+            for record in json_objects(self.path):
+                record_id = record.get("record_id")
+                if (isinstance(record_id, str) and record.get("run_id") == self.run_id
+                        and record.get("node") == self.node and record.get("worker_id") == self.worker_id):
+                    seen.add(record_id)
         except FileNotFoundError:
             pass
         return seen
@@ -93,8 +91,7 @@ class StepHistoryWriter:
             key.removeprefix("timing_s/"): float(value)
             for key, value in data.items()
             if key.startswith("timing_s/")
-            and type(value) in (int, float)
-            and math.isfinite(value)
+            and finite_number(value) is not None
             and value >= 0
         }
         scope = "trainer_update" if self.execution_mode == "async" else "rl_step"

@@ -37,9 +37,17 @@ def snapshot() -> dict:
         gpu["uuid"] = row[len(fields)] if len(row) > len(fields) else None
         gpus.append(gpu)
     processes = []
-    for row in query("compute-apps", ["gpu_uuid", "pid", "process_name", "used_gpu_memory"]):
-        processes.append({"gpu_uuid": row[0], "pid": int(row[1]), "process_name": row[2],
-                          "used_gpu_memory_mib": optional_number(row[3])})
+    process_error = None
+    try:
+        rows = query("compute-apps", ["gpu_uuid", "pid", "process_name", "used_gpu_memory"])
+        for row in rows:
+            try:
+                processes.append({"gpu_uuid": row[0], "pid": int(row[1]), "process_name": row[2],
+                                  "used_gpu_memory_mib": optional_number(row[3])})
+            except (IndexError, ValueError):
+                process_error = "invalid_compute_process_row"
+    except (OSError, subprocess.SubprocessError) as exc:
+        process_error = type(exc).__name__
     memory = {}
     for line in Path("/proc/meminfo").read_text().splitlines():
         key, value = line.split(":", 1)
@@ -47,6 +55,7 @@ def snapshot() -> dict:
             memory[key + "_bytes"] = int(value.split()[0]) * 1024
     return {"timestamp": time.time(), "hostname": socket.gethostname(), "host_memory": memory,
             "gpus": gpus, "compute_processes": processes,
+            **({"compute_processes_error": process_error} if process_error else {}),
             "null_reason": "nvidia-smi field unavailable; not zero"}
 
 

@@ -8,6 +8,14 @@ import pytest
 ROOT = Path(__file__).parents[1]
 
 
+def test_invalid_install_role_does_not_start_downloads(tmp_path):
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/install_telemetry_tools.sh"), "invalid"],
+        env=os.environ | {"TOOLS_DIR": str(tmp_path / "tools")}, capture_output=True, text=True)
+    assert result.returncode == 2 and "Use node or server" in result.stderr
+    assert not (tmp_path / "tools").exists()
+
+
 def test_installer_requires_tools_dir() -> None:
     result = subprocess.run(
         ["bash", str(ROOT / "scripts/install_telemetry_tools.sh"), "server"],
