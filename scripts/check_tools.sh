@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ! -d .venv ]]; then
-  printf 'Missing .venv; run ./scripts/setup.sh first.\n' >&2
+if [[ $# -gt 0 ]]; then
+  echo 'Usage: bash scripts/check_tools.sh (reports optional tools on PATH)'
+  [[ $# == 1 && ( "$1" == --help || "$1" == -h ) ]] && exit 0
+  exit 2
+fi
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
+  printf 'Missing telemetry Python; run %s/scripts/setup.sh first.\n' "$repo_root" >&2
   exit 1
 fi
 
-. .venv/bin/activate
-python -m xlayer_telemetry.tool_check
+PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+  "$repo_root/.venv/bin/python" -m xlayer_telemetry.tool_check

@@ -5,14 +5,16 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 usage() {
   cat <<'EOF'
-Usage: bash scripts/verl_local.sh --config FILE install|up|run|inspect|down|server|node
+Usage: bash scripts/verl_local.sh --config FILE install|up|status|run|inspect|down|server|node
 
 Use one trusted local Bash config for every command.
 Use up, run, and down in one terminal; server and node remain available for manual runs.
 Use inspect to read this config's run artifacts without typing RUN_ROOT again.
+Use status to check managed processes; live telemetry health is shown in Grafana.
 EOF
 }
 
+if [[ $# == 1 && ( "$1" == --help || "$1" == -h ) ]]; then usage; exit 0; fi
 if [[ $# -ne 3 || "$1" != --config ]]; then
   usage >&2
   exit 2
@@ -50,15 +52,23 @@ if [[ "$enable_logs" != 0 && "$enable_logs" != 1 ]]; then
   echo "ENABLE_LOGS must be 0 or 1" >&2
   exit 2
 fi
-if [[ "$action" != install && "$action" != down && ! -x "$telemetry_python" ]]; then
+if [[ "$action" != install && "$action" != down && "$action" != status && ! -x "$telemetry_python" ]]; then
   echo "Telemetry Python not found: $telemetry_python (run scripts/setup.sh)" >&2
   exit 2
 fi
 
 stack_dir="$telemetry_home/state/verl-local"
+# Serialize lifecycle changes; children must not inherit the lock descriptor.
+if [[ "$action" == up || "$action" == down ]]; then
+  command -v flock >/dev/null || { echo 'flock (util-linux) is required for up/down' >&2; exit 2; }
+  mkdir -p "$stack_dir"
+  exec 9>"$stack_dir/lifecycle.lock"
+  flock -n 9 || { echo 'Another monitoring up/down command is running' >&2; exit 1; }
+fi
 process_start_time() {
   local stat
   local -a fields
+  [[ -r /proc/$1/stat ]] || return 1
   IFS= read -r stat < "/proc/$1/stat" || return 1
   read -r -a fields <<< "${stat##*) }"
   [[ "${fields[0]:-}" != Z && "${fields[19]:-}" =~ ^[0-9]+$ ]] || return 1
@@ -66,19 +76,21 @@ process_start_time() {
 }
 
 role_running() {
-  local pid started current
+  local pid started boot current
   [[ -f "$stack_dir/$1.pid" ]] || return 1
-  read -r pid started < "$stack_dir/$1.pid" || return 1
+  read -r pid started boot < "$stack_dir/$1.pid" || return 1
   [[ "$pid" =~ ^[0-9]+$ && "$started" =~ ^[0-9]+$ ]] || return 1
+  # Accept old two-field records; all newly started services include boot identity.
+  [[ -z "$boot" || "$boot" == "$(cat /proc/sys/kernel/random/boot_id)" ]] || return 1
   current="$(process_start_time "$pid")" || return 1
   [[ "$current" == "$started" ]]
 }
 
 stop_role() {
-  local role="$1" pid started attempt
+  local role="$1" pid started boot attempt
   [[ -f "$stack_dir/$role.pid" ]] || return 0
   if role_running "$role"; then
-    read -r pid started < "$stack_dir/$role.pid"
+    read -r pid started boot < "$stack_dir/$role.pid"
     kill -TERM "$pid" 2>/dev/null || true
     for ((attempt = 0; attempt < 100; attempt++)); do
       role_running "$role" || break
@@ -95,19 +107,34 @@ stop_role() {
 start_role() {
   local role="$1" pid started
   nohup bash "$repo_root/scripts/verl_local.sh" --config "$config_file" "$role" \
-    > "$stack_dir/$role.log" 2>&1 < /dev/null &
+    > "$stack_dir/$role.log" 2>&1 < /dev/null 9>&- &
   pid=$!
   if ! started="$(process_start_time "$pid")"; then
     echo "$role exited before its process could be recorded; see $stack_dir/$role.log" >&2
     return 1
   fi
-  if ! printf '%s %s\n' "$pid" "$started" > "$stack_dir/$role.pid"; then
+  if ! printf '%s %s %s\n' "$pid" "$started" "$(cat /proc/sys/kernel/random/boot_id)" > "$stack_dir/$role.pid"; then
     kill -TERM "$pid" 2>/dev/null || true
     return 1
   fi
 }
 
 case "$action" in
+  status)
+    status=0
+    for role in server node; do
+      if role_running "$role"; then
+        read -r pid _ < "$stack_dir/$role.pid"
+        printf '%s: running (PID %s)\n' "$role" "$pid"
+      else
+        printf '%s: not_running\n' "$role"
+        status=1
+      fi
+    done
+    printf 'Logs: %s/server.log and %s/node.log\n' "$stack_dir" "$stack_dir"
+    echo 'Process status only; check Prometheus targets and Grafana sample freshness for collection health.'
+    exit "$status"
+    ;;
   install)
     TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" node
     TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" server

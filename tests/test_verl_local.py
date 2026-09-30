@@ -253,6 +253,13 @@ def test_local_up_and_down_manage_only_the_started_stack(tmp_path: Path) -> None
         assert (stack_dir / "server.pid").exists()
         assert (stack_dir / "node.pid").exists()
 
+        status = subprocess.run(command + ["status"], env=env | {"TELEMETRY_PYTHON": "/missing/python"},
+                                capture_output=True, text=True, timeout=5)
+        assert status.returncode == 0, status.stderr
+        assert "server: running" in status.stdout and "node: running" in status.stdout
+        assert "Process status only" in status.stdout
+        assert (stack_dir / "server.pid").read_text().split()[2] == Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+
         duplicate = subprocess.run(command + ["up"], env=env, capture_output=True, text=True, timeout=5)
         assert duplicate.returncode == 1
         assert "already running" in duplicate.stderr
@@ -270,6 +277,9 @@ def test_local_up_and_down_manage_only_the_started_stack(tmp_path: Path) -> None
         assert (tmp_path / "node.stopped").exists()
         assert not (stack_dir / "server.pid").exists()
         assert not (stack_dir / "node.pid").exists()
+        status = subprocess.run(command + ["status"], env=env, capture_output=True, text=True, timeout=5)
+        assert status.returncode == 1
+        assert "server: not_running" in status.stdout and "node: not_running" in status.stdout
     finally:
         subprocess.run(command + ["down"], env=env, capture_output=True, timeout=15)
 
@@ -297,5 +307,26 @@ def test_local_down_ignores_reused_pid_record(tmp_path: Path) -> None:
         text=True,
         timeout=5,
     )
+    assert down.returncode == 0, down.stderr
+    assert not (stack_dir / "server.pid").exists()
+
+
+def test_local_down_ignores_previous_boot_and_lifecycle_lock(tmp_path: Path) -> None:
+    import fcntl
+
+    script, config, env = _fake_local_stack(tmp_path)
+    stack_dir = tmp_path / "telemetry" / "state" / "verl-local"
+    stack_dir.mkdir(parents=True)
+    # Even a matching PID/start time must not be trusted from a different boot.
+    stat = Path(f"/proc/{os.getpid()}/stat").read_text().rsplit(") ", 1)[1].split()
+    (stack_dir / "server.pid").write_text(f"{os.getpid()} {stat[19]} previous-boot\n")
+    command = ["bash", str(script), "--config", str(config)]
+    with (stack_dir / "lifecycle.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        blocked = subprocess.run(command + ["down"], env=env, capture_output=True, text=True, timeout=5)
+        assert blocked.returncode == 1
+        assert "Another monitoring up/down command" in blocked.stderr
+        assert (stack_dir / "server.pid").exists()
+    down = subprocess.run(command + ["down"], env=env, capture_output=True, text=True, timeout=5)
     assert down.returncode == 0, down.stderr
     assert not (stack_dir / "server.pid").exists()

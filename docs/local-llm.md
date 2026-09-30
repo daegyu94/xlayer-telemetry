@@ -46,7 +46,7 @@ Entity 비교에서는 label에 있는 cluster·node를 함께 사용하고 work
 [Checkout 준비](../README.md#prepare-a-checkout)를 마친 환경에서 저장소 루트로 이동합니다.
 Helper는 고정된 Ollama release를 `$HOME/telemetry/tools`에 설치하고 공식 release checksum을 대조합니다.
 모델 weight는 `$HOME/telemetry/models/ollama`에 저장하며 system service나 VERL Python 환경을 변경하지 않습니다.
-Linux, `curl`, `tar`, `zstd`, `sha256sum`, `setsid`와 GPU에 맞는 NVIDIA driver가 필요합니다.
+Linux, `curl`, `tar`, `zstd`, `sha256sum`, `setsid`, `flock`과 GPU에 맞는 NVIDIA driver가 필요합니다.
 
 ```bash
 mkdir -p "$HOME/telemetry/config"
@@ -72,6 +72,7 @@ bash scripts/local_llm.sh --config "$HOME/telemetry/config/local-llm.conf" pull
 CUDA는 지정 GPU만 보도록 제한하고, Vulkan을 통한 다른 GPU 탐색과 Ollama cloud inference는 비활성화합니다.
 `TELEMETRY_HOME`으로 설치·모델·상태의 공통 경로를 바꿀 수 있으며 이후에도 같은 config를 사용합니다.
 `LLM_PORT`를 바꿨다면 진단·평가 명령의 `--endpoint`에도 해당 주소를 전달합니다.
+`LLM_PORT`는 1–65535 범위이며, 같은 상태 directory의 install/up/down은 동시에 실행되지 않습니다.
 `LLM_MODEL`을 바꿨다면 진단·평가 명령에도 `--model`로 같은 모델을 지정합니다.
 
 ```bash

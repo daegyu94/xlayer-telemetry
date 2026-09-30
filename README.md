@@ -141,7 +141,8 @@ bash scripts/setup.sh
 ```
 
 Python 3.10 이상과 `venv` 지원이 필요합니다.
-`setup.sh`는 telemetry용 가상환경과 pytest를 준비하며 GPU driver, CUDA PyTorch, VERL, Prometheus·Grafana는 설치하지 않습니다.
+`setup.sh`는 checkout의 telemetry 가상환경에 SDK를 editable 설치하고 pytest를 준비합니다.
+GPU driver, CUDA PyTorch, VERL, Prometheus·Grafana는 설치하지 않습니다.
 Monitoring binary 설치는 [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어집니다.
 
 문서의 shell 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
@@ -171,7 +172,7 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | `xlayer_telemetry/metrics/` | Framework에 독립적인 metric SDK와 textfile 변환 |
 | `xlayer_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
 | `xlayer_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
-| `scripts/` | 도구 설치, config 기반 VERL 시작, 관측 process 실행, profile·통신 baseline |
+| [scripts/](scripts/README.md) | 기본 실행 경로와 선택 스크립트 안내; 도구 설치·관측 process·profile·통신 baseline |
 | [examples/](examples/README.md) | 실행 예제·선택 안내, local VERL config, 공통 dashboard와 framework 연결 설정 |
 | [docs/validation/](docs/validation/README.md) | 검증 당시의 환경·결과·실행하지 않은 범위 |
 | `config/metrics.json` | Metric 이름·단위·측정 범위의 공통 규칙 |

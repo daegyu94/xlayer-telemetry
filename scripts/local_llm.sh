@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
 # Optional single-user inference service; never started by telemetry up.
 set -euo pipefail
+usage() {
+  echo 'Usage: bash scripts/local_llm.sh [--config FILE] install|up|pull|status|down'
+}
+if [[ $# == 1 && ( "$1" == --help || "$1" == -h ) ]]; then usage; exit 0; fi
 if [[ "${1:-}" == --config ]]; then
   source "${2:?Specify a trusted Bash config file}"
   shift 2
 fi
 action="${1:-help}"
+[[ $# == 1 ]] || { usage >&2; exit 2; }
+case "$action" in install|up|pull|status|down) ;; *) usage >&2; exit 2 ;; esac
 telemetry_home="${TELEMETRY_HOME:-$HOME/telemetry}"
 version="${OLLAMA_VERSION:-0.34.4}"
 model="${LLM_MODEL:-qwen3.5:27b}"
 port="${LLM_PORT:-11434}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$port" =~ ^[0-9]+$ ]] || exit 2
+if [[ ${#port} -gt 5 ]] || ((10#$port < 1 || 10#$port > 65535)); then
+  echo 'LLM_PORT must be between 1 and 65535' >&2
+  exit 2
+fi
+[[ "$telemetry_home" == /* ]] || { echo 'TELEMETRY_HOME must be an absolute path' >&2; exit 2; }
 runtime="$telemetry_home/tools/ollama-v$version"
 state="$telemetry_home/state/local-llm"
 export OLLAMA_HOST="127.0.0.1:$port"
 export OLLAMA_MODELS="$telemetry_home/models/ollama"
+if [[ "$action" == up || "$action" == down || "$action" == install ]]; then
+  command -v flock >/dev/null || { echo 'flock (util-linux) is required for lifecycle changes' >&2; exit 2; }
+  mkdir -p "$state"
+  exec 9>"$state/lifecycle.lock"
+  flock -n 9 || { echo 'Another local LLM lifecycle command is running' >&2; exit 1; }
+fi
 identity() {
   local stat
   local -a fields
@@ -71,14 +88,14 @@ case "$action" in
     [[ -x "$runtime/bin/ollama" ]] || { echo 'Run local_llm.sh install first' >&2; exit 2; }
     mkdir -p "$state" "$OLLAMA_MODELS"
     if running; then echo 'Local LLM is already running'; exit 0; fi
-    if curl -fsS --max-time 2 "http://$OLLAMA_HOST/api/version" >/dev/null 2>&1; then
+    if curl --noproxy '*' -fsS --max-time 2 "http://$OLLAMA_HOST/api/version" >/dev/null 2>&1; then
       echo "Another Ollama service uses $OLLAMA_HOST; set LLM_PORT or use that endpoint" >&2
       exit 1
     fi
     CUDA_VISIBLE_DEVICES="$LLM_GPU" OLLAMA_VULKAN=false OLLAMA_NO_CLOUD=true \
       OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 \
       OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KEEP_ALIVE=5m \
-      nohup setsid "$runtime/bin/ollama" serve > "$state/server.log" 2>&1 < /dev/null &
+      nohup setsid "$runtime/bin/ollama" serve > "$state/server.log" 2>&1 < /dev/null 9>&- &
     pid=$!
     started="$(identity "$pid")"
     printf '%s %s %s\n' "$pid" "$started" "$(cat /proc/sys/kernel/random/boot_id)" > "$state/server.pid"
@@ -87,7 +104,7 @@ case "$action" in
     trap 'exit 143' TERM
     for ((i=0; i<30; i++)); do
       running || break
-      if curl -fsS --max-time 1 "http://$OLLAMA_HOST/api/version" >/dev/null 2>&1; then
+      if curl --noproxy '*' -fsS --max-time 1 "http://$OLLAMA_HOST/api/version" >/dev/null 2>&1; then
         trap - EXIT INT TERM
         echo "Local LLM ready: http://$OLLAMA_HOST (GPU $LLM_GPU)"
         exit 0
@@ -100,5 +117,4 @@ case "$action" in
   pull) "$runtime/bin/ollama" pull "$model" ;;
   status) "$runtime/bin/ollama" ps ;;
   down) stop; echo 'Local LLM stopped' ;;
-  *) echo 'Usage: bash scripts/local_llm.sh [--config FILE] install|up|pull|status|down'; exit 2 ;;
 esac

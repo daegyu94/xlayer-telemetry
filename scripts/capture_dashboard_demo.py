@@ -133,5 +133,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     result = capture(json.loads(args.context.read_text()), args.output)
     if args.metadata:
+        args.metadata.parent.mkdir(parents=True, exist_ok=True)
         args.metadata.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps(result["encoded"]))

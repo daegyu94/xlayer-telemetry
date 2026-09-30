@@ -8,6 +8,30 @@ import pytest
 ROOT = Path(__file__).parents[1]
 
 
+def test_interrupted_download_preserves_previous_archive(tmp_path: Path) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    archive = tools / "node_exporter.tar.gz"
+    archive.write_bytes(b"previous complete archive")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    curl = bin_dir / "curl"
+    curl.write_text(
+        '#!/bin/sh\nwhile test "$#" -gt 0; do\n'
+        '  if test "$1" = --output; then shift; printf partial > "$1"; fi\n'
+        '  shift\ndone\nexit 22\n'
+    )
+    curl.chmod(0o755)
+    result = subprocess.run(["bash", str(ROOT / "scripts/install_telemetry_tools.sh"), "node"],
+                            env=os.environ | {"TOOLS_DIR": str(tools),
+                                              "PATH": f"{bin_dir}:{os.environ['PATH']}"},
+                            text=True, capture_output=True, timeout=5)
+    assert result.returncode == 22
+    assert archive.read_bytes() == b"previous complete archive"
+    assert (tools / "node_exporter.tar.gz.part").read_bytes() == b"partial"
+    assert not (tools / "downloaded-archives.sha256").exists()
+
+
 def test_invalid_install_role_does_not_start_downloads(tmp_path):
     result = subprocess.run(
         ["bash", str(ROOT / "scripts/install_telemetry_tools.sh"), "invalid"],

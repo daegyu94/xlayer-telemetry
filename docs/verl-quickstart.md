@@ -80,10 +80,21 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" run
 Config의 기본값은 `NODE_NAME=gpu-local`, `CLUSTER_NAME=training-cluster`, `RUN_ROOT=$HOME/telemetry-runs/<RUN_ID>`입니다.
 Script가 server target, collector의 snapshot 경로, wrapper의 run ID·node 이름을 같은 값으로 맞춥니다.
 `run`은 VERL process가 끝나면 bridge의 마지막 기록을 반영하고 원래 VERL의 종료 코드를 반환합니다.
-이미 실행한 `RUN_ROOT`는 재사용할 수 없으므로 새 학습마다 `RUN_ID`를 바꾼 뒤 node collector를 새 설정으로 다시 시작합니다.
+이미 실행한 `RUN_ROOT`는 재사용할 수 없으므로 새 학습마다 `RUN_ID`를 바꿉니다.
+기본 collector는 같은 run parent directory의 새 run을 자동으로 발견하므로 `RUN_ID`만 바뀌었다면 재시작하지 않아도 됩니다.
 학습이 끝나도 server와 node collector는 실행 중이므로 dashboard에서 결과를 확인할 수 있습니다.
 `up`은 `$HOME/telemetry/state/verl-local/`에 process 기록과 log를 보관하므로 새 terminal에서도 같은 config로 `down`을 실행할 수 있습니다.
-다음 run에서 `RUN_ID`를 바꿨다면 `down` 후 `up`으로 node collector의 snapshot 경로를 갱신합니다.
+`RUN_ROOT`의 parent directory나 명시적인 collector 입력 경로를 바꿨다면 `down` 후 `up`으로 경로를 갱신합니다.
+
+새 terminal에서 managed process의 실행 상태를 확인할 수 있습니다.
+`status`는 process 생존만 확인하며 telemetry freshness는 Grafana에서 별도로 확인합니다.
+
+```bash
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" status
+```
+
+`up`·`down`은 Linux `flock`으로 동시 실행을 막고, 새 PID 기록에는 process 시작 시각과 boot ID를 함께 저장합니다.
+예전 두 필드 PID 기록은 이전 방식대로 읽을 수 있지만 boot ID 검사는 새로 시작한 process부터 적용됩니다.
 
 ## 3. Check the First Completed Step
 
