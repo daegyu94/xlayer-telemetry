@@ -17,6 +17,7 @@ from xlayer_telemetry.run_summary import make_run_summary
 
 
 TARGET_FILES = ("applications.json", "gpus.json", "nodes.json")
+OPTIONAL_TARGET_FILES = ("native.json", "storage.json")
 
 
 def validate_target_files(directory: Path) -> dict[str, int]:
@@ -25,9 +26,11 @@ def validate_target_files(directory: Path) -> dict[str, int]:
     if missing:
         raise ValueError(f"missing target files: {', '.join(missing)}")
 
+    files = (*TARGET_FILES, *(name for name in OPTIONAL_TARGET_FILES
+                             if (directory / name).exists()))
     group_count = 0
     target_count = 0
-    for name in TARGET_FILES:
+    for name in files:
         path = directory / name
         try:
             groups = json.loads(path.read_text(encoding="utf-8"))
@@ -55,7 +58,7 @@ def validate_target_files(directory: Path) -> dict[str, int]:
             target_count += len(targets)
 
     return {
-        "files": len(TARGET_FILES),
+        "files": len(files),
         "groups": group_count,
         "targets": target_count,
     }

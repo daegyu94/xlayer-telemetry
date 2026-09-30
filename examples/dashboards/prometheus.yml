@@ -3,22 +3,19 @@ global:
   evaluation_interval: 5s
 
 scrape_configs:
-  - job_name: node
+  # XLayer node collector exports application, GPU and host metrics together.
+  - job_name: telemetry
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/nodes.json
-        refresh_interval: 30s
-
-  - job_name: gpu
-    file_sd_configs:
-      - files:
           - /etc/prometheus/targets/gpus.json
+          - /etc/prometheus/targets/applications.json
         refresh_interval: 30s
 
-  - job_name: application
+  - job_name: native
     file_sd_configs:
       - files:
-          - /etc/prometheus/targets/applications.json
+          - /etc/prometheus/targets/native.json
         refresh_interval: 30s
 
   - job_name: storage-smart

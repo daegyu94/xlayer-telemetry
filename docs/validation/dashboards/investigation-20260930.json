@@ -44,7 +44,7 @@
     "New runtime or instrumentation (none added)"
   ],
   "screenshots": [
-    "../../../docs/figures/grafana-start-here.png",
-    "../../../docs/figures/bottleneck-summary-synthetic.png"
+    "../../figures/grafana-start-here.png",
+    "../../figures/bottleneck-summary-synthetic.png"
   ]
 }

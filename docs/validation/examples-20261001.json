@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "compose_backend": {
+    "prometheus_version": "3.11.3",
+    "grafana_version": "12.1.0"
+  },
+  "dashboards": [
+    "agent-rl-stage-correlation",
+    "telemetry-overview",
+    "xlayer-compute-communication",
+    "xlayer-data-storage",
+    "xlayer-start-here"
+  ],
+  "source": "Actual CPU SDK metrics served by an isolated temporary HTTP exporter",
+  "observed_training_step": 2,
+  "loki_references": 0,
+  "default_prometheus_3_5_config_check": "promtool syntax check passed",
+  "limitations": [
+    "Cached Prometheus image used through the supported PROMETHEUS_IMAGE override",
+    "No new VERL, GPU or Docker sandbox workload executed"
+  ],
+  "schema_version": 1,
+  "validated_on": "2026-10-01",
+  "baseline": "df9b8a9",
+  "unit_tests": {
+    "passed": 363,
+    "promtool": true
+  },
+  "checks": [
+    "CPU SDK iteration/tool/sandbox parent chain and event-only IDs",
+    "Latest snapshot and every iteration span preserved",
+    "Existing output directory is not overwritten",
+    "Custom Compose target/dashboard mounts and configurable ports",
+    "Optional native/storage target JSON validation",
+    "Historical validation outcomes unchanged",
+    "Documentation links and recording checksums preserved"
+  ],
+  "cleanup": "Isolated Compose services and their own temporary volumes removed; existing server unchanged"
+}

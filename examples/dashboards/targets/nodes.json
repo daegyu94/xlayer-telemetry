@@ -1,9 +1,20 @@
 [
   {
-    "targets": ["node-a.example:9100", "node-b.example:9100"],
+    "targets": [
+      "node-a.example:19100"
+    ],
     "labels": {
       "cluster": "example-cluster",
-      "run_id": "replace-me"
+      "nodename": "node-a"
+    }
+  },
+  {
+    "targets": [
+      "node-b.example:19100"
+    ],
+    "labels": {
+      "cluster": "example-cluster",
+      "nodename": "node-b"
     }
   }
 ]

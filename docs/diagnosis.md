@@ -275,4 +275,4 @@ python -m examples.investigation.validate \
 
 Optional Ollama가 이미 실행 중이면 `--ollama`를 추가해 선택한 record의 실제 모델 응답·review·projection까지 확인합니다.
 이 예제는 SDK fixture이며 실제 VERL 학습이나 물리 multi-node, storage 병목 검증을 대신하지 않습니다.
-[검증 기록](../examples/investigation/validation-20260930.json)은 별도 실제 VERL 두-step 실행과 model·Grafana·Loki 확인 범위를 구분합니다.
+[검증 기록](validation/investigation/validation-20260930.json)은 별도 실제 VERL 두-step 실행과 model·Grafana·Loki 확인 범위를 구분합니다.

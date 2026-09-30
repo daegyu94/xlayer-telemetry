@@ -417,7 +417,7 @@ python -m examples.sandbox.validate_smoke "$RUN_ROOT" --require-sandbox
 
 2026-09-30에는 Qwen2.5-1.5B-Instruct로 아래 6개 조합을 각각 3 step 실행했습니다.
 두 workload 모두 실제 veRL GRPO 학습·vLLM generation·외부 Docker tool 실행을 사용했습니다.
-버전·span 수·누락 source·검증 범위는 [검증 결과](../examples/sandbox/validation-20260930.json)에 기록했습니다.
+버전·span 수·누락 source·검증 범위는 [검증 결과](validation/sandbox/validation-20260930.json)에 기록했습니다.
 
 | Workload | `sync` | `colocate_async` | `separate_async` |
 | --- | --- | --- | --- |

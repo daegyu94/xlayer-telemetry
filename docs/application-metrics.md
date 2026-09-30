@@ -17,6 +17,7 @@ Application은 local JSON snapshot을 쓰고 collector가 별도로 읽으므로
 
 아래 절차는 SDK로 JSON snapshot을 만드는 application용입니다.
 먼저 CPU에서 metric 하나를 기록하고 확인한 뒤 실제 학습에 연결합니다.
+복사 없이 실행할 수 있는 [CPU SDK 예제](../examples/README.md#cpu-sdk-quickstart)는 metric과 `tool.call → sandbox.exec`의 trace/parent 연결을 함께 보여 줍니다.
 
 ## 1. Prepare the Python Environment
 

@@ -7,9 +7,10 @@ cd "$repo_root"
 python_bin="${PYTHON:-python}"
 compose_dir="$repo_root/examples/dashboards"
 target_dir="${TARGET_DIR:-$compose_dir/targets}"
+dashboard_dir="${DASHBOARDS_DIR:-$repo_root/artifacts/compose-dashboards}"
 output_dir="${OUTPUT_DIR:-$repo_root/artifacts/telemetry-validation}"
-prometheus_url="${PROMETHEUS_URL:-http://127.0.0.1:9090}"
-grafana_url="${GRAFANA_URL:-http://127.0.0.1:3000}"
+prometheus_url="${PROMETHEUS_URL:-http://127.0.0.1:${PROMETHEUS_PORT:-9090}}"
+grafana_url="${GRAFANA_URL:-http://127.0.0.1:${GRAFANA_PORT:-3000}}"
 validation_timeout="${VALIDATION_TIMEOUT:-60}"
 require_targets_up="${REQUIRE_TARGETS_UP:-0}"
 
@@ -34,6 +35,11 @@ if [[ "$require_targets_up" != "0" && "$require_targets_up" != "1" ]]; then
   exit 1
 fi
 
+"$python_bin" "$repo_root/scripts/provision_dashboards.py" --output "$dashboard_dir"
+# Use the same files and addresses for Compose and backend validation.
+target_dir="$(cd -- "$target_dir" && pwd)"
+dashboard_dir="$(cd -- "$dashboard_dir" && pwd)"
+export TARGET_DIR="$target_dir" DASHBOARDS_DIR="$dashboard_dir"
 export VALIDATION_DOCKER_VERSION
 export VALIDATION_COMPOSE_VERSION
 VALIDATION_DOCKER_VERSION="$(docker --version)"

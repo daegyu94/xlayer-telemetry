@@ -37,8 +37,8 @@ Overview와 resource 화면의 시간 범위는 2026-09-30 12:00:02–12:01:10(K
 | 관측 source | Application·GPU·host·vLLM·Ray·sandbox cgroup → Prometheus, step·span·diagnosis·trainer log → Loki |
 | 선택한 step의 verdict | `no_anomaly_observed` |
 
-Framework revision·다른 trainer mode의 실행 결과는 [실환경 검증 기록](../examples/sandbox/validation-20260930.json)과 [Real validation coverage](agent-rl.md#real-validation-coverage)에 있습니다.
-GIF의 캡처 정보와 파일 checksum은 [Recording manifest](../examples/dashboards/validation/recordings-20261001.json)에 기록했습니다.
+Framework revision·다른 trainer mode의 실행 결과는 [실환경 검증 기록](validation/sandbox/validation-20260930.json)과 [Real validation coverage](agent-rl.md#real-validation-coverage)에 있습니다.
+GIF의 캡처 정보와 파일 checksum은 [Recording manifest](validation/dashboards/recordings-20261001.json)에 기록했습니다.
 이 작은 integration workload는 SWE-Bench 해결률이나 학습 throughput benchmark가 아닙니다.
 
 ## Read the Result

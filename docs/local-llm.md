@@ -312,7 +312,7 @@ Clock 상태가 불명확하면 LLM이 임의로 timestamp를 보정하거나 �
 
 Ollama 0.34.4와 `qwen3.5:27b` Q4_K_M을 24GB RTX PRO 4000 Blackwell 한 개에서 실행했습니다.
 먼저 16K context / 6,144 output token으로 평가했으며 모델 전체가 GPU에 적재되고 선택한 GPU의 사용 메모리는 약 17.4GiB였습니다.
-[검증 기록](../examples/local-llm/validation-summary.json)에 model digest, seed, prompt version, 각 사례의 결과와 실패를 보관합니다.
+[검증 기록](validation/local-llm/validation-summary.json)에 model digest, seed, prompt version, 각 사례의 결과와 실패를 보관합니다.
 이 결과는 한 번씩 실행한 소규모 fixture 평가이며 일반적인 진단 정확도 benchmark가 아닙니다.
 
 | 검증 | 관찰 결과 |
@@ -343,7 +343,7 @@ Ollama를 종료한 상태에서 기본 CPU 테스트 **166개**가 통과했고
 ### Input and Evidence Validation (2026-09-30)
 
 같은 저장된 synthetic packet 다섯 개를 compact 입력과 prompt version 6으로 다시 실행했습니다.
-[검증 기록](../examples/local-llm/input-optimization-validation.json)에 원본·전송 payload 크기, 이전 version 4와 새 prompt token 수, 결과와 남은 한계를 보관합니다.
+[검증 기록](validation/local-llm/input-optimization-validation.json)에 원본·전송 payload 크기, 이전 version 4와 새 prompt token 수, 결과와 남은 한계를 보관합니다.
 한 사례당 한 번 실행한 결과이며 새 VERL 학습이나 일반적인 진단 정확도 측정은 아닙니다.
 
 | 사례 | 원본 packet -> Ollama payload | 실제 결과 |
@@ -372,7 +372,7 @@ Version 7의 지침은 제목을 가설로, 요약을 관측 사실로 표현하
 그러나 실제 storage 제목에는 인과관계를 과하게 표현하는 부분이, 요약에는 utilization에서 compute stall을 추정하는 부분이 남았습니다.
 증거 부족 요약에서는 이전의 external-resource wait 추정이 사라졌지만 직접 측정하지 않은 GPU idle 가능성은 언급했습니다.
 
-[검증 기록](../examples/local-llm/review-validation.json)에 두 version의 응답·input hash·token·latency와 수동 검토 결과를 보관합니다.
+[검증 기록](validation/local-llm/review-validation.json)에 두 version의 응답·input hash·token·latency와 수동 검토 결과를 보관합니다.
 최종 version 7의 두 호출은 약 161초와 146초가 걸렸으며, 이 소규모 평가를 일반적인 정확도 개선이나 inference 속도 개선으로 해석하지 않습니다.
 실제 CLI의 backend 연결 실패가 이전 성공 파일을 실패 기록으로 바꾸고 종료 코드 `1`을 반환하는 것도 확인했습니다.
 Prometheus는 검증 당시 실행되어 있지 않아 query 오류를 `missing_sources`로 남기는 경로만 확인했으며 새 host 측정값이나 VERL 학습을 검증한 것은 아닙니다.
@@ -396,7 +396,7 @@ Prompt version 10·review version 3의 실제 storage 응답은 한국어 설명
 검토는 원인 관계를 표현한 제목과 미측정 GPU 대기 주장을 수정하고, stable throughput이 storage queueing과 공존할 수 있다는 점을 들어 부적절한 counter evidence도 제거했습니다.
 최종 제목은 `Possible storage I/O contention`이었으며 필수 evidence 참조와 한국어·용어·인과 표현 검사를 통과했습니다.
 생성과 검토는 약 315초가 걸렸습니다.
-[검증 기록](../examples/local-llm/review-validation.json)에 영어 기준 검증, 초기 한국어 번역 문제와 최종 한국어 결과를 함께 보관합니다.
+[검증 기록](validation/local-llm/review-validation.json)에 영어 기준 검증, 초기 한국어 번역 문제와 최종 한국어 결과를 함께 보관합니다.
 검토 사유의 일부 표현은 여전히 사람의 교정보다 어색할 수 있으며, 세 차례의 개별 사례 검증으로 한국어 문장 품질 전체를 보장하지 않습니다.
 
 </details>

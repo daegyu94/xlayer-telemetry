@@ -35,7 +35,8 @@ Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `st
 이전 두 UID는 redirect dashboard로 남기지 않으므로 bookmark를 갱신해야 합니다.
 
 `targets/*.json`은 Prometheus의 scrape target 목록이며 dashboard 개수에 포함되지 않습니다.
-별도 Docker Compose 예제의 `Multinode LLM Cluster Resources`는 해당 예제에서만 설치하며 기본 server 목록에는 추가되지 않습니다.
+[Docker Compose 예제](../examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 5개를 생성합니다.
+별도 legacy resource dashboard는 설치하지 않습니다.
 
 ### Readability
 
@@ -102,7 +103,7 @@ Stale run의 age와 fresh GPU sample을 구분하며 실제 학습 성능의 측
 Dashboard JSON은 monitoring server를 같은 설정으로 재실행할 때 갱신됩니다.
 기존 server·collector 시작/종료 방법은 [VERL Quickstart](verl-quickstart.md#2-start-server-node-and-verl)를 따릅니다.
 Browser를 새로고침하고 이전 URL bookmark의 추가 필터도 확인합니다.
-이번 UI의 [검증 기록](../examples/dashboards/validation/investigation-20260930.json)은 실제 Grafana·Prometheus·Loki에서 synthetic fixture의 클릭·filter 왕복을 확인한 결과이며 물리 multi-node 학습 검증과 구분합니다.
+이번 UI의 [검증 기록](validation/dashboards/investigation-20260930.json)은 실제 Grafana·Prometheus·Loki에서 synthetic fixture의 클릭·filter 왕복을 확인한 결과이며 물리 multi-node 학습 검증과 구분합니다.
 
 ## Select the Context
 

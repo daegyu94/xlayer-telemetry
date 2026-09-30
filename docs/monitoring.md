@@ -227,7 +227,7 @@ Clock metric에 +12초 offset을 주입하고 storage source도 중단하여 clo
 
 2026-09-30 검증은 RTX PRO 4000 Blackwell 두 개, Node Exporter 1.9.1, Prometheus 3.5.0에서 위 항목을 통과했습니다.
 Host와 kernel이 NTP unsynchronized를 보고하여 strict check는 `unsafe`였고, sync status 요구를 제외한 scrape-relative 차이는 수십 ms 이내였습니다.
-검증 조건과 항목별 결과는 [Validation record](../examples/multinode/validation.json)에 보존합니다.
+검증 조건과 항목별 결과는 [Validation record](validation/multinode/validation.json)에 보존합니다.
 물리 host는 하나였으며 host counter도 공유합니다.
 독립된 GPU/storage 서버, 실제 distributed VERL training, RDMA/NCCL, remote 3FS producer clock과 Loki 전송은 이 검증의 완료 항목이 아닙니다.
 
@@ -478,7 +478,8 @@ PYTHONPATH=. python -m xlayer_telemetry.stack validate-stack \
 
 Loki를 활성화했다면 `--loki-url http://<monitoring-host-address>:13100`을 추가합니다.
 `SERVER_CONFIG_ONLY=1`은 server 실행 없이 설정을 생성합니다.
-별도 Docker Compose 배치는 `examples/dashboards/compose.yaml`과 그 provisioning·target 파일을 사용합니다.
+별도 Docker Compose 배치는 [Compose 예제 안내](../examples/dashboards/README.md)를 따릅니다.
+기존 node collector에 연결하며 현재 공통 metrics dashboard를 생성해서 사용합니다.
 
 ## Demo Details
 

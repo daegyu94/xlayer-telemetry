@@ -7,7 +7,7 @@
   "new_training_run": false,
   "recordings": [
     {
-      "file": "../../../docs/figures/verl-agent-rl-investigation.gif",
+      "file": "../../figures/verl-agent-rl-investigation.gif",
       "sha256": "6b8560d16dbbf4e93fcc435a95993c3cd8b90dd95a8ef7e79e90a61e4a1c376b",
       "context": {
         "variables": {
@@ -139,7 +139,7 @@
         }
       ],
       "page_errors": [],
-      "source_validation": "../../sandbox/validation-20260930.json",
+      "source_validation": "../sandbox/validation-20260930.json",
       "selected_verdict": "no_anomaly_observed",
       "mode": "Replay of preserved Prometheus and Loki records in isolated services; original data unchanged",
       "not_exercised": [
@@ -149,7 +149,7 @@
       ]
     },
     {
-      "file": "../../../docs/figures/xlayer-investigation-synthetic.gif",
+      "file": "../../figures/xlayer-investigation-synthetic.gif",
       "sha256": "fb328c9149fa3bfffba46b55202bd3389b78a28b769b2733e66a05d7967208ab",
       "context": {
         "variables": {

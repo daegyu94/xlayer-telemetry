@@ -3,8 +3,8 @@
   "browser": "headless Chrome",
   "checks": [
     "Collection health still renders without fabricated healthy/no-data states",
-    "Integrated Run Overview Duration \u2192 candidate/evidence pins row cluster, record, time and observer/resource nodes",
-    "Summary \u2192 integrated Timeline includes selected step and approximate completion context",
+    "Integrated Run Overview Duration → candidate/evidence pins row cluster, record, time and observer/resource nodes",
+    "Summary → integrated Timeline includes selected step and approximate completion context",
     "Collapsed span/event row preserves exact EventRecorder evidence",
     "Former Step Detail host/network/storage evidence expands inside Timeline",
     "Timeline sandbox selector preserves independent dedicated node",
@@ -33,8 +33,8 @@
     "GPU/VERL training performance"
   ],
   "screenshots": [
-    "../../../docs/figures/grafana-run-overview-synthetic.png",
-    "../../../docs/figures/grafana-timeline-synthetic.png"
+    "../../figures/grafana-run-overview-synthetic.png",
+    "../../figures/grafana-timeline-synthetic.png"
   ],
   "metrics_only_validation": {
     "status": "passed",

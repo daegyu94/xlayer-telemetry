@@ -172,7 +172,8 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | `xlayer_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
 | `xlayer_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
 | `scripts/` | 도구 설치, config 기반 VERL 시작, 관측 process 실행, profile·통신 baseline |
-| `examples/` | Local VERL config, dashboard, synthetic demo, framework 연결 예시 |
+| [examples/](examples/README.md) | 실행 예제·선택 안내, local VERL config, 공통 dashboard와 framework 연결 설정 |
+| [docs/validation/](docs/validation/README.md) | 검증 당시의 환경·결과·실행하지 않은 범위 |
 | `config/metrics.json` | Metric 이름·단위·측정 범위의 공통 규칙 |
 
 ## Local Validation
