@@ -1,7 +1,7 @@
 # Dashboard Guide
 
 이 문서는 Grafana의 시작 화면과 기본 dashboard를 읽고, 완료 step을 확대해 느린 구간을 조사하는 순서를 설명합니다.
-대시보드를 띄우는 절차는 [Monitoring Guide](monitoring.md#open-the-dashboards)에, 실제 값이 채워진 화면은 [VERL·vLLM·3FS·Loki 데모](real-verl-demo.md)에 있습니다.
+대시보드를 띄우는 절차는 [Monitoring Guide](monitoring.md#open-the-dashboards)에, 실제 값이 채워진 화면은 [Real VERL Agent RL Demo](real-verl-demo.md)에 있습니다.
 수집 process와 파일이 어떻게 이어지는지는 [구현 구조](architecture.md)를 먼저 읽으면 이해하기 쉽습니다.
 
 Dashboard·panel 제목, metric 이름, filter와 status 용어는 영어로 유지하고, 안내·tooltip·해석 범위는 한국어로 제공합니다.
@@ -320,10 +320,10 @@ Timeline의 `Step completion (approximate)` annotation은 Loki에 기록된 file
 Stage마다 exact span이 있으면 Timeline의 별도 exact lane에서 읽습니다.
 Annotation control로 marker를 끌 수 있으며, metrics-only dashboard에는 Loki annotation을 추가하지 않습니다.
 
-아래 이미지는 통합 전 Step Detail에서 검증한 실제 SWE-Bench 실행의 기록입니다.
-현재 화면은 위에서 설명한 Timeline 구성입니다.
+아래 이미지는 실제 SWE-Bench `colocate_async` 기록의 trainer update 3을 현재 Timeline에서 연 화면입니다.
+선택한 step과 reported stage, exact span을 구분하며, 펼친 상세 행까지 포함한 흐름은 [최신 GIF](real-verl-demo.md#watch-the-recording)에서 확인할 수 있습니다.
 
-![통합 전 Grafana Step Detail에서 확인한 실제 SWE-Bench colocate_async step 3](figures/grafana-step-detail-real.png)
+![현재 Grafana Timeline에서 확인한 실제 SWE-Bench colocate_async trainer update 3](figures/grafana-timeline-real.png)
 
 ### Legacy Standalone Explorer
 

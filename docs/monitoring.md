@@ -482,19 +482,24 @@ Loki를 활성화했다면 `--loki-url http://<monitoring-host-address>:13100`�
 
 ## Demo Details
 
-Demo는 GPU node 4개·node당 GPU 8개, storage node 8개·node당 SSD 4개의 가상 구성을 제공합니다.
+Interactive demo는 GPU node 4개·node당 GPU 8개, storage node 8개·node당 SSD 4개의 가상 구성을 제공합니다.
 정상 학습 → data wait → collective → checkpoint → recovery를 100초 주기로 반복합니다.
 Agent RL 예시는 약 6초마다 완료 step 지표를 생성합니다.
-
-![Run Overview synthetic demo](figures/xlayer-run-overview-30s.gif)
-
 Fixture는 `examples/live-demo/`에 있으며 `DEMO_TOPOLOGY_DIR`·`DEMO_ADDR`·`DEMO_PORT`로 설정할 수 있습니다.
-위 화면의 값은 실제 hardware나 VERL 성능 측정 결과가 아닙니다.
 
-아래 화면은 [실제 VERL·vLLM·3FS·Loki 실행](real-verl-demo.md)의 step 1–8, 완료 stage 시간, 처리량, GPU 사용률, 3FS FUSE에 둔 filesystem KV offload, host disk I/O와 VERL log를 보여 줍니다.
-GIF는 다섯 대시보드를 스크롤합니다.
-3FS 서비스 latency와 SMART exporter는 이 GIF의 Grafana 패널에 연결하지 않았습니다.
+아래 synthetic GIF는 현재 dashboard 8개에서 step 선택 → candidate → evidence → Timeline → subsystem detail로 조사하는 예제입니다.
+위 interactive exporter와는 별도의 작은 UI fixture로, trainer·GPU·sandbox node 세 문맥과 GPU 두 개를 표현합니다.
+Step 127의 duration 18.4 s와 baseline 11.2 s를 비교하고 `storage_queue_saturation` 등의 후보, counter/missing evidence를 확인합니다.
+이 값은 실제 hardware나 VERL 성능 측정 결과가 아닙니다.
 
-![Real VERL and vLLM run with 3FS POSIX KV offloading and Loki logs, eight steps and five Grafana dashboards](figures/verl-vllm-real-run.gif)
+![현재 Grafana의 synthetic investigation: step 선택, storage candidate, evidence, Timeline, subsystem detail](figures/xlayer-investigation-synthetic.gif)
+
+아래 실제 GIF는 2026-09-30에 완료한 VERL·vLLM·Docker sandbox 실행의 저장 데이터를 최신 UI로 재생합니다.
+3 trainer update와 baseline, tool/sandbox span, local disk와 workload log를 보여 줍니다.
+이 실행의 verdict는 `no_anomaly_observed`로, synthetic 예제와 달리 storage bottleneck을 만든 실행이 아닙니다.
+두 GIF 모두 약 95초이며 화면마다 5–7초 유지합니다.
+[Real VERL Agent RL Demo](real-verl-demo.md)에 수집 시각·실행 조건·scope와 이전 3FS POSIX 실험 기록을 정리했습니다.
+
+![현재 Grafana의 실제 VERL Agent RL 기록: 완료 step, baseline, tool/sandbox, GPU, local storage, Loki logs](figures/verl-agent-rl-investigation.gif)
 
 첫 연결이 끝나면 [VERL 연결 가이드](verl-quickstart.md)에서 기존 workload를 연결합니다.

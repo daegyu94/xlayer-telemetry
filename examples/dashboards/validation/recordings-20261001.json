@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "captured_on": "2026-10-01",
+  "dashboard_baseline": "b6aec6e",
+  "grafana_image": "grafana/grafana:12.1.0",
+  "dashboard_count": 8,
+  "new_training_run": false,
+  "recordings": [
+    {
+      "file": "../../../docs/figures/verl-agent-rl-investigation.gif",
+      "sha256": "6b8560d16dbbf4e93fcc435a95993c3cd8b90dd95a8ef7e79e90a61e4a1c376b",
+      "context": {
+        "variables": {
+          "cluster": "agent-rl-e2e",
+          "node": "gpu-local",
+          "source_node": "gpu-local",
+          "run_id": "agent-e2e-swe-colocate_async",
+          "record_id": "ea0b16c92669273759c247bd",
+          "sandbox_node": "gpu-local",
+          "log_run_id": "swe-colocate_async",
+          "diagnosis_method": "rule"
+        },
+        "from_ms": 1790737202223,
+        "to_ms": 1790737270217,
+        "step_from_ms": 1790737263884,
+        "step_to_ms": 1790737270217,
+        "data_origin": "observed",
+        "collected_on": "2026-09-30"
+      },
+      "encoded": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1600,
+            "height": 1000,
+            "nb_frames": "17"
+          }
+        ],
+        "format": {
+          "duration": "95.040000"
+        }
+      },
+      "frames": [
+        {
+          "label": "Collection health / selected run",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Run Overview / step duration",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Completed steps / investigation links",
+          "seconds": 6,
+          "visible_markers": []
+        },
+        {
+          "label": "Selected symptom / diagnosis result",
+          "seconds": 7,
+          "visible_markers": [
+            "observed",
+            "no_anomaly_observed"
+          ]
+        },
+        {
+          "label": "Supporting / counter / missing evidence",
+          "seconds": 7,
+          "visible_markers": [
+            "observed",
+            "no_anomaly_observed"
+          ]
+        },
+        {
+          "label": "Same-run baseline / sample quality",
+          "seconds": 7,
+          "visible_markers": [
+            "observed",
+            "no_anomaly_observed"
+          ]
+        },
+        {
+          "label": "Selected step / exact and approximate lanes",
+          "seconds": 7,
+          "visible_markers": []
+        },
+        {
+          "label": "Tool / sandbox spans and correlation",
+          "seconds": 7,
+          "visible_markers": [
+            "sandbox.exec",
+            "tool.call"
+          ]
+        },
+        {
+          "label": "Host resource window",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Ethernet / local disk window",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Completed VERL stages / rollout",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "vLLM engine / queue / KV signals",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Sandbox worker / local device pressure",
+          "seconds": 7,
+          "visible_markers": [
+            "Sandbox worker and device pressure"
+          ]
+        },
+        {
+          "label": "GPU matrix / device detail",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Local disk / filesystem detail",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Workload logs / independent log directory",
+          "seconds": 7,
+          "visible_markers": [
+            "TaskRunnerV1"
+          ]
+        }
+      ],
+      "page_errors": [],
+      "source_validation": "../../sandbox/validation-20260930.json",
+      "selected_verdict": "no_anomaly_observed",
+      "mode": "Replay of preserved Prometheus and Loki records in isolated services; original data unchanged",
+      "not_exercised": [
+        "New training run",
+        "New 3FS or USRBIO benchmark",
+        "Physical multi-node performance"
+      ]
+    },
+    {
+      "file": "../../../docs/figures/xlayer-investigation-synthetic.gif",
+      "sha256": "fb328c9149fa3bfffba46b55202bd3389b78a28b769b2733e66a05d7967208ab",
+      "context": {
+        "variables": {
+          "cluster": "ui-fixture",
+          "node": "gpu-0",
+          "source_node": "trainer-0",
+          "run_id": "agent-ui-smoke",
+          "record_id": "ui-step-127",
+          "sandbox_node": "sandbox-0",
+          "log_run_id": "actual-log-directory",
+          "diagnosis_method": "rule"
+        },
+        "from_ms": 1790786129749,
+        "to_ms": 1790786298149,
+        "step_from_ms": 1790786159749,
+        "step_to_ms": 1790786178150,
+        "data_origin": "synthetic"
+      },
+      "encoded": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1600,
+            "height": 1000,
+            "nb_frames": "17"
+          }
+        ],
+        "format": {
+          "duration": "95.040000"
+        }
+      },
+      "frames": [
+        {
+          "label": "Collection health / selected run",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Run Overview / step duration",
+          "seconds": 5,
+          "visible_markers": [
+            "synthetic"
+          ]
+        },
+        {
+          "label": "Completed steps / investigation links",
+          "seconds": 6,
+          "visible_markers": [
+            "synthetic"
+          ]
+        },
+        {
+          "label": "Selected symptom / diagnosis result",
+          "seconds": 7,
+          "visible_markers": [
+            "synthetic",
+            "storage_queue_saturation"
+          ]
+        },
+        {
+          "label": "Supporting / counter / missing evidence",
+          "seconds": 7,
+          "visible_markers": [
+            "synthetic",
+            "storage_queue_saturation"
+          ]
+        },
+        {
+          "label": "Same-run baseline / sample quality",
+          "seconds": 7,
+          "visible_markers": [
+            "synthetic",
+            "storage_queue_saturation"
+          ]
+        },
+        {
+          "label": "Selected step / exact and approximate lanes",
+          "seconds": 7,
+          "visible_markers": [
+            "synthetic"
+          ]
+        },
+        {
+          "label": "Tool / sandbox spans and correlation",
+          "seconds": 7,
+          "visible_markers": [
+            "synthetic",
+            "sandbox.exec",
+            "tool.call"
+          ]
+        },
+        {
+          "label": "Host resource window",
+          "seconds": 5,
+          "visible_markers": [
+            "synthetic"
+          ]
+        },
+        {
+          "label": "Ethernet / local disk window",
+          "seconds": 5,
+          "visible_markers": [
+            "synthetic"
+          ]
+        },
+        {
+          "label": "Completed VERL stages / rollout",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "vLLM engine / queue / KV signals",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Sandbox worker / local device pressure",
+          "seconds": 7,
+          "visible_markers": [
+            "Sandbox worker and device pressure"
+          ]
+        },
+        {
+          "label": "GPU matrix / device detail",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Local disk / filesystem detail",
+          "seconds": 5,
+          "visible_markers": []
+        },
+        {
+          "label": "Workload logs / independent log directory",
+          "seconds": 7,
+          "visible_markers": []
+        }
+      ],
+      "page_errors": [],
+      "backend_query_checks": 106,
+      "mode": "Synthetic investigation fixtures; actual Grafana, Prometheus and Loki services"
+    }
+  ]
+}
