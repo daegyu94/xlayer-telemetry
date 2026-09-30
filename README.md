@@ -171,7 +171,9 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | --- | --- |
 | `xlayer_telemetry/metrics/` | Framework에 독립적인 metric SDK와 textfile 변환 |
 | `xlayer_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
-| `xlayer_telemetry/` | Resource 수집, manifest·event, 진단과 실행 요약 |
+| `xlayer_telemetry/collectors/` | GPU·host·sandbox cgroup·topology 수집 구현 |
+| `xlayer_telemetry/analysis/` | Rule·선택적 LLM 진단, baseline·clock·evidence 품질과 investigation projection |
+| `xlayer_telemetry/` | 공개 event·sandbox SDK, manifest·step 이력, 조회·실행 도구와 기존 import/CLI 호환 경로 |
 | [scripts/](scripts/README.md) | 기본 실행 경로와 선택 스크립트 안내; 도구 설치·관측 process·profile·통신 baseline |
 | [examples/](examples/README.md) | 실행 예제·선택 안내, local VERL config, 공통 dashboard와 framework 연결 설정 |
 | [docs/validation/](docs/validation/README.md) | 검증 당시의 환경·결과·실행하지 않은 범위 |

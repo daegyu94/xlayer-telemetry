@@ -49,14 +49,52 @@ Nsight Systems·PyTorch Profiler 같은 전문 profiler는 저수준 상세 분�
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
 
 이 분리는 코드에도 반영됩니다.
-`diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
+`analysis/diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `analysis/diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
 [공통 Prometheus client](../xlayer_telemetry/prometheus.py)는 rule diagnosis·LLM input·clock check·recorded step 조회가 같은 방식으로 series label과 유효 sample을 읽도록 합니다.
 기존 `diagnostics.PrometheusClient` import는 호환되며, backend 파싱은 diagnosis rule과 분리합니다.
 Sandbox runtime은 별도 구현하지 않고 `SandboxRecorder`가 외부 runtime의 lifecycle을 기존 EventRecorder span으로 남깁니다.
-`sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
+`collectors/sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
 Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
 구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
 현재 integration과 사용 가이드는 VERL을 중심으로 제공하지만 SDK와 core의 run·phase·resource·evidence 모델은 다른 framework의 adapter에도 사용할 수 있습니다.
+
+### Package Responsibilities
+
+구현은 수집·SDK·framework 연결·분석의 책임으로 나눕니다.
+루트의 `events.py`, `sandbox.py`, `manifest.py`, step 이력은 application에서 사용하는 실행 문맥을 제공하고, 작은 공통 파일·수치·identity helper도 유지합니다.
+새 구현은 책임별 package에서 찾고, 기존 사용자 명령은 같은 경로로 실행합니다.
+
+```text
+xlayer_telemetry/
++-- metrics/                   application metric SDK + textfile export
++-- adapters/                  VERL / HF native concept mapping
++-- collectors/                GPU / host / cgroup / topology sampling
++-- analysis/
+|   +-- diagnosis_analysis.py  baseline comparison + rule catalog
+|   +-- diagnostics.py         source queries + correlation + report lifecycle
+|   +-- clock_quality.py       multi-node clock screening
+|   +-- evidence_quality.py    query resolution + source freshness
+|   +-- llm_diagnosis.py        optional Ollama diagnosis
+|   +-- llm_investigation.py    explicit selected-step projection
++-- events.py / sandbox.py     public instrumentation SDK
++-- manifest.py / step_history.py
++-- prometheus.py              shared backend query/parser
++-- show_run.py / step_explorer.py / stack.py
++-- diagnostics.py / *_sampler.py / ...  historical import + CLI compatibility
+```
+
+`metrics`와 `events`를 import해도 collector나 LLM diagnosis를 함께 적재하지 않습니다.
+Collector는 관측치를 생산하고 `analysis`는 그 값의 시간·entity·scope·품질을 확인하므로 수집 코드가 diagnosis 판정에 의존하지 않습니다.
+Analysis의 source 조회는 기존 Prometheus와 ClickHouse를 사용하며 새 telemetry backend를 만들지 않습니다.
+
+기존 `from xlayer_telemetry.diagnostics import DiagnosticEngine`과 `python -m xlayer_telemetry.diagnostics`는 유지합니다.
+루트 호환 모듈은 구현을 복사하지 않고 해당 package의 같은 module 객체를 가리키므로 import 경로에 따라 sampler 상태나 class가 두 벌로 생기지 않습니다.
+기존 shell launcher·example·설정 파일은 경로를 바꾸지 않아도 됩니다.
+새 내부 코드는 `analysis`·`collectors`의 구현 경로를 직접 사용합니다.
+
+Checkout의 `scripts/`는 실행 helper, `examples/`는 사용 가능한 recipe·fixture, `config/`는 공통 계약, `docs/`는 사용·설계 안내입니다.
+이 directory는 이미 역할별로 나뉘어 있어 유지하고, 테스트도 기존 `test_<module>.py` 구조를 유지합니다.
+공개 API와 짧은 공통 helper까지 각각 directory로 나누거나 한 module만 있는 계층을 추가하지 않습니다.
 
 ### When to Revisit eBPF
 

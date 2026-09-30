@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 import time
 
-from .diagnosis_analysis import compare_signals, evaluate_rules
-from .diagnostics import write_report
+from .analysis.diagnosis_analysis import compare_signals, evaluate_rules
+from .analysis.diagnostics import write_report
 from .events import CorrelationContext, EventRecorder
 from .step_history import StepHistoryWriter
 

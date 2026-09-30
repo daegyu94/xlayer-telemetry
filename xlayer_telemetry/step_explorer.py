@@ -12,7 +12,7 @@ import statistics
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
-from .clock_quality import assess_clocks
+from .analysis.clock_quality import assess_clocks
 from .prometheus import escape_label, range_series, series_stats
 from .fileio import json_objects
 from .measurements import finite_number

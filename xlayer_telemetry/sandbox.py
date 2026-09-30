@@ -9,7 +9,7 @@ import re
 from typing import Any, Iterator, Mapping
 
 from .events import EventRecorder, SpanIdentity
-from .sandbox_sampler import pressure_ratio, read_cgroup, read_io_devices
+from .collectors.sandbox_sampler import pressure_ratio, read_cgroup, read_io_devices
 
 
 LIFECYCLE_OPERATIONS = frozenset({"queue", "acquire", "prepare", "exec", "reset", "release"})
