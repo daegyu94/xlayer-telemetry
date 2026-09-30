@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 from pathlib import Path
 import socket
@@ -12,6 +11,7 @@ import time
 from typing import Any, Iterable, Iterator, Mapping
 
 from xlayer_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.step_history import StepHistoryWriter
 
 
@@ -83,7 +83,8 @@ class VerlMetricsAdapter:
     def translate(data: Mapping[str, Any]) -> list[Metric]:
         samples: list[Metric] = []
         for key, value in data.items():
-            if type(value) not in (int, float) or not math.isfinite(value):
+            value = finite_number(value)
+            if value is None:
                 continue
             if key.startswith("timing_s/"):
                 stage = key.removeprefix("timing_s/")
@@ -113,11 +114,9 @@ class VerlMetricsAdapter:
             if mapping is not None:
                 name, labels = mapping
                 samples.append(Metric(name, float(value), labels=labels))
-        duration = data.get("perf/time_per_step")
-        fallback = data.get("timing_s/step")
-        if (type(duration) not in (int, float) or not math.isfinite(duration)) and (
-            type(fallback) in (int, float) and math.isfinite(fallback) and fallback >= 0
-        ):
+        duration = finite_number(data.get("perf/time_per_step"))
+        fallback = finite_number(data.get("timing_s/step"))
+        if duration is None and fallback is not None and fallback >= 0:
             samples.append(Metric("training_step_time_seconds", float(fallback), labels={"phase": "rl_step"}))
         return samples
 
@@ -205,8 +204,8 @@ def main() -> None:
         parser.error("--run-id or TELEMETRY_RUN_ID is required")
     if args.metrics_dir is None:
         parser.error("--metrics-dir or TELEMETRY_METRICS_DIR is required")
-    if args.poll_interval <= 0:
-        parser.error("--poll-interval must be positive")
+    if finite_number(args.poll_interval) is None or args.poll_interval <= 0:
+        parser.error("--poll-interval must be finite and positive")
     if not args.follow and not args.input.is_file():
         parser.error(f"not a file: {args.input}")
 

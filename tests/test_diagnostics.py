@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from xlayer_telemetry import diagnostics
+from xlayer_telemetry import diagnostics, prometheus
 from xlayer_telemetry.diagnostics import (
     DiagnosticEngine,
     PrometheusClient,
@@ -158,9 +158,9 @@ def test_missing_backend_has_bounded_retry_and_replay_baseline_is_safe(tmp_path:
 
 
 def test_counter_reset_and_single_sample_are_distinct() -> None:
-    reset = diagnostics._series_stats([{"values": [[0, "100"], [1, "0"], [2, "20"]]}])
+    reset = prometheus.series_stats([{"points": [[0, 100], [1, 0], [2, 20]]}])
     assert reset["max_series_delta"] == 20
-    assert diagnostics._series_stats([{"values": [[0, "100"]]}])["max_series_delta"] is None
+    assert prometheus.series_stats([{"points": [[0, 100]]}])["max_series_delta"] is None
     assert DiagnosticEngine._signals(None, {"gpu_evictions_delta": {"max": 3,
                                      "max_series_delta": 0}}, [])["gpu_evictions_delta"] == 3
 
@@ -403,7 +403,7 @@ def test_prometheus_client_parses_matrix_and_counter_delta(monkeypatch) -> None:
         requests.append((request, timeout))
         return FakeResponse(payload)
 
-    monkeypatch.setattr(diagnostics, "urlopen", fake_urlopen)
+    monkeypatch.setattr(prometheus, "urlopen", fake_urlopen)
 
     stats = PrometheusClient("http://prometheus", timeout=3).query_range(
         "metric_name", 90, 100, 2
@@ -454,3 +454,19 @@ def test_threefs_client_uses_bounded_read_only_query_and_env_auth(
     assert "TIMESTAMP < toDateTime(100)" in query
     assert "mount_name = 'training'" in query
     assert requests[0][0].get_header("Authorization").startswith("Basic ")
+
+
+def test_query_configuration_preserves_explicit_overrides_and_optional_scopes():
+    engine = DiagnosticEngine({
+        'prometheus': {'url': 'http://unused', 'queries': {'tool_duration_seconds': 'my_tool_seconds'}},
+        'storage_node': 'storage-a', 'storage_device': 'nvme0n1',
+        'sandbox': {'enabled': True, 'node': 'sandbox-a', 'device': 'nvme1n1'},
+    })
+    queries = engine._queries('cluster-a', with_sandbox=True)
+    assert queries['tool_duration_seconds'] == 'my_tool_seconds'
+    assert 'job="native"' in queries['vllm_requests_waiting']
+    assert 'telemetry_source="vllm"' in queries['vllm_requests_waiting']
+    assert 'nodename="{sandbox_node}"' in queries['sandbox_io_pressure_ratio']
+    assert 'device="{sandbox_device}"' in queries['sandbox_device_busy_ratio']
+    assert 'instance="{storage_node}"' in queries['storage_device_busy_ratio']
+    assert 'sandbox_io_pressure_ratio' not in engine._queries('cluster-a')

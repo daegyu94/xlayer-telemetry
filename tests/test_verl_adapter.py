@@ -97,3 +97,14 @@ def test_bridge_verl_file_records_to_worker_snapshot(tmp_path: Path) -> None:
         ("rl_stage_duration_seconds", "reward"),
         ("training_step_time_seconds", "rl_step"),
     }
+
+
+def test_invalid_logger_numbers_do_not_hide_valid_metrics():
+    samples = VerlMetricsAdapter.translate({
+        'perf/time_per_step': 10**1000, 'timing_s/step': 2,
+        'critic/rewards/mean': .5, 'timing_s/gen': float('nan'),
+    })
+    metrics = {sample.name: sample.value for sample in samples}
+    assert metrics['training_step_time_seconds'] == 2
+    assert metrics['reward_mean'] == .5
+    assert all(sample.labels.get('verl_stage') != 'gen' for sample in samples)

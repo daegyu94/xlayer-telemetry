@@ -148,7 +148,7 @@ def test_cgroup_io_error_does_not_hide_other_controller_data(tmp_path, monkeypat
 @pytest.mark.parametrize("payload", [[], {"status": "success", "data": {"result": None}},
                                      {"status": "success", "data": {"result": [{"metric": None}]}}])
 def test_malformed_backend_response_is_missing_evidence_not_engine_crash(monkeypatch, payload):
-    monkeypatch.setattr("xlayer_telemetry.diagnostics._read_json", lambda *_: payload)
+    monkeypatch.setattr("xlayer_telemetry.prometheus._read_json", lambda *_: payload)
     engine = DiagnosticEngine({"prometheus": {"url": "http://unused"}}, clock=lambda: 30)
     report = engine.analyze(step(), [])
     assert report["verdict"] == "insufficient_data"

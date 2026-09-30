@@ -50,6 +50,8 @@ DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 �
 
 이 분리는 코드에도 반영됩니다.
 `diagnosis_analysis.py`는 framework 이름을 모르는 측정값·scope·baseline·participant를 입력으로 받아 rule을 평가하고, `diagnostics.py`는 VERL step 이력과 Prometheus·3FS source를 연결합니다.
+[공통 Prometheus client](../xlayer_telemetry/prometheus.py)는 rule diagnosis·LLM input·clock check·recorded step 조회가 같은 방식으로 series label과 유효 sample을 읽도록 합니다.
+기존 `diagnostics.PrometheusClient` import는 호환되며, backend 파싱은 diagnosis rule과 분리합니다.
 Sandbox runtime은 별도 구현하지 않고 `SandboxRecorder`가 외부 runtime의 lifecycle을 기존 EventRecorder span으로 남깁니다.
 `sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
 Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.

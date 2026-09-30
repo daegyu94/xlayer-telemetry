@@ -6,7 +6,6 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-import math
 from pathlib import Path
 import re
 import statistics
@@ -14,17 +13,13 @@ from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
 from .clock_quality import assess_clocks
-from .diagnostics import _series_stats
+from .prometheus import escape_label, range_series, series_stats
 from .fileio import json_objects
 from .measurements import finite_number
 
 
 ASSET = Path(__file__).with_name("step_explorer.html")
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-
-
-def _label(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def load_steps(run_root: Path) -> list[dict[str, Any]]:
@@ -84,28 +79,9 @@ def _request_json(base_url: str, path: str, params: dict[str, Any]) -> dict[str,
         return json.load(response)
 
 
-def _series(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    if payload.get("status") != "success":
-        raise ValueError(payload.get("error", "query failed"))
-    result = []
-    for item in payload.get("data", {}).get("result", []):
-        points = []
-        for timestamp, raw in item.get("values", []):
-            try:
-                value = float(raw)
-                timestamp = float(timestamp)
-            except (TypeError, ValueError):
-                continue
-            if math.isfinite(value) and math.isfinite(timestamp):
-                points.append([timestamp, value])
-        if points:
-            result.append({"labels": item.get("metric", {}), "points": points})
-    return result
-
-
 def _signals(cluster: str, node: str, *, include_vllm: bool = True) -> dict[str, dict[str, str]]:
-    telemetry = f'job="telemetry",cluster="{_label(cluster)}",instance="{_label(node)}"'
-    native = f'job="native",cluster="{_label(cluster)}",node="{_label(node)}",telemetry_source="vllm"'
+    telemetry = f'job="telemetry",cluster="{escape_label(cluster)}",instance="{escape_label(node)}"'
+    native = f'job="native",cluster="{escape_label(cluster)}",node="{escape_label(node)}",telemetry_source="vllm"'
     signals = {
         "gpu": {"title": "GPU utilization", "unit": "%", "scope": "node", "query": f'avg(telemetry_gpu_utilization_percent{{{telemetry}}})'},
         "gpu_memory": {"title": "Compute-process GPU memory", "unit": "GiB", "scope": "node processes", "query": f'sum(telemetry_gpu_process_memory_bytes{{{telemetry}}}) / 1073741824'},
@@ -168,9 +144,7 @@ class StepExplorer:
             def clock_query(query, begin, finish, interval):
                 payload = _request_json(self.prometheus_url, "/api/v1/query_range", {
                     "query": query, "start": begin, "end": finish, "step": interval})
-                if payload.get("status") != "success":
-                    raise ValueError(payload.get("error", "clock query failed"))
-                return _series_stats(payload.get("data", {}).get("result", []))
+                return series_stats(range_series(payload))
             output["clock_quality"] = assess_clocks(
                 clock_query, cluster=self.cluster, nodes=[item["name"] for item in nodes], start=start, end=end)
             query_step = max(2, min(15, round((end - start) / 30)))
@@ -190,9 +164,9 @@ class StepExplorer:
                     payload = _request_json(self.prometheus_url, "/api/v1/query_range", {
                         "query": signal["query"], "start": start, "end": end, "step": query_step,
                     })
-                    values = _series(payload)
+                    values = range_series(payload)
                     return node_name, key, {"title": signal["title"], "unit": signal["unit"], "scope": signal["scope"], "series": values, "summary": _summary(values, start, end)}, None
-                except (OSError, ValueError, TimeoutError) as exc:
+                except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
                     return node_name, key, None, str(exc)
 
             with ThreadPoolExecutor(max_workers=8) as pool:
@@ -206,7 +180,7 @@ class StepExplorer:
         if self.loki_url and self.log_run_id:
             def fetch_logs(node_name: str) -> tuple[str, list[list[Any]] | None, str | None]:
                 try:
-                    selector = f'{{cluster="{_label(self.cluster)}",node="{_label(node_name)}"}} | unpack | run_id="{_label(self.log_run_id)}"'
+                    selector = f'{{cluster="{escape_label(self.cluster)}",node="{escape_label(node_name)}"}} | unpack | run_id="{escape_label(self.log_run_id)}"'
                     payload = _request_json(self.loki_url, "/loki/api/v1/query_range", {
                         "query": selector, "start": int(start * 1e9), "end": int(end * 1e9),
                         "limit": 100, "direction": "FORWARD",
@@ -218,7 +192,7 @@ class StepExplorer:
                         key=lambda item: item[0],
                     )[:100]
                     return node_name, logs, None
-                except (OSError, ValueError, TimeoutError) as exc:
+                except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
                     return node_name, None, str(exc)
 
             with ThreadPoolExecutor(max_workers=8) as pool:

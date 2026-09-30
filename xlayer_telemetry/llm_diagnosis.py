@@ -16,7 +16,7 @@ import time
 from typing import Any
 from urllib.request import Request, urlopen
 
-from .diagnostics import PrometheusClient
+from .prometheus import PrometheusClient
 from .clock_quality import assess_clocks
 from .evidence_quality import quality, check_source, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result

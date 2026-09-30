@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [core-refactor-20261001.json](core-refactor-20261001.json) | 공통 Prometheus parser·snapshot 선택·VERL bridge의 회귀 검증 |
 | [examples-20261001.json](examples-20261001.json) | CPU SDK 예제·공통 Compose dashboard·target 설정·문서 링크와 기존 테스트 검증 |
 | [sandbox/validation-20260930.json](sandbox/validation-20260930.json) | 실제 VERL Agent RL의 workload·trainer mode matrix와 Docker tool·native metrics·span 연결 |
 | [multinode/validation.json](multinode/validation.json) | 한 host의 GPU·logical node·clock screening; 물리 multi-node 학습과 구분 |

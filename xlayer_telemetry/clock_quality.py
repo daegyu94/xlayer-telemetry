@@ -9,9 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any, Callable, Iterable
 
-
-def _label(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+from .prometheus import escape_label
 
 
 def assess_clocks(
@@ -26,7 +24,7 @@ def assess_clocks(
         "require_sync": require_sync, "nodes": {},
     }
     for node in sorted(set(nodes)):
-        selector = f'job="telemetry",cluster="{_label(cluster)}",instance="{_label(node)}"'
+        selector = f'job="telemetry",cluster="{escape_label(cluster)}",instance="{escape_label(node)}"'
         wall = f"node_time_seconds{{{selector}}}"
         expressions = {
             "offset_seconds": f"{wall} - timestamp({wall})",
@@ -72,7 +70,7 @@ def main() -> None:
     import argparse
     import json
     import time
-    from .diagnostics import PrometheusClient
+    from .prometheus import PrometheusClient
 
     parser = argparse.ArgumentParser(description="Check node clocks against Prometheus scrape time")
     parser.add_argument("--prometheus-url", required=True)

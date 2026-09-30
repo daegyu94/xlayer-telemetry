@@ -11,23 +11,27 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, wr
 from xlayer_telemetry.measurements import finite_number
 
 
+_IDENTITY_FIELDS = ("run_id", "producer", "role", "worker_id", "node")
+
+
+def _select_latest(selected: dict, snapshot: dict) -> None:
+    identity = tuple(snapshot[key] for key in _IDENTITY_FIELDS)
+    previous = selected.get(identity)
+    observed = finite_number(snapshot.get("observed_at"))
+    prior = finite_number(previous.get("observed_at")) if previous is not None else None
+    if previous is None or (observed is not None and (prior is None or observed >= prior)):
+        selected[identity] = snapshot
+
+
 def _iter_snapshots(metrics_dir: Path) -> list[dict]:
     snapshots: dict[tuple[str, ...], dict] = {}
     for path in sorted(metrics_dir.glob("*.json")):
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
             if (isinstance(value, dict) and value.get("schema_version") == 2
-                    and all(isinstance(value.get(key), str) for key in
-                            ("run_id", "producer", "role", "worker_id", "node"))):
-                identity = tuple(str(value.get(key, "")) for key in
-                                 ("run_id", "producer", "role", "worker_id", "node"))
-                previous = snapshots.get(identity)
-                observed = value.get("observed_at")
-                previous_at = previous.get("observed_at") if previous else None
-                if previous is None or (finite_number(observed) is not None
-                                        and (finite_number(previous_at) is None or observed >= previous_at)):
-                    snapshots[identity] = value
-        except (AttributeError, OSError, ValueError):
+                    and all(isinstance(value.get(key), str) for key in _IDENTITY_FIELDS)):
+                _select_latest(snapshots, value)
+        except (OSError, ValueError):
             continue
     return list(snapshots.values())
 
@@ -59,10 +63,7 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                 continue
             if max_age_seconds is not None and (observed is None or not 0 <= now-observed <= max_age_seconds):
                 continue
-            identity = tuple(snapshot[key] for key in ("run_id", "producer", "role", "worker_id", "node"))
-            previous = selected.get(identity)
-            if previous is None or (observed is not None and observed >= (finite_number(previous.get("observed_at")) or 0)):
-                selected[identity] = snapshot
+            _select_latest(selected, snapshot)
     return list(selected.values())
 
 

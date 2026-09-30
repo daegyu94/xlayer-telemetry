@@ -103,3 +103,16 @@ def test_bad_worker_snapshot_does_not_hide_valid_workers() -> None:
     assert 'worker_id="0"' in text
     assert "training_loss{" in text
     assert "bad metric" not in text
+
+
+def test_snapshot_selection_matches_within_and_across_directories(tmp_path):
+    first, second = tmp_path / 'a', tmp_path / 'b'
+    first.mkdir()
+    second.mkdir()
+    for path, stamp, step in [(first/'old.json', None, 1), (first/'known.json', 100, 2),
+                               (second/'new.json', 200, 3), (second/'unknown.json', None, 4)]:
+        path.write_text(json.dumps({**SNAPSHOT, 'observed_at': stamp, 'step': step}))
+    assert _iter_snapshots(first)[0]['step'] == 2
+    assert _iter_snapshots(second)[0]['step'] == 3
+    assert textfile.collect_snapshots([first, second], [])[0]['step'] == 3
+    assert textfile.collect_snapshots([second, first], [], now=205, max_age_seconds=10)[0]['step'] == 3

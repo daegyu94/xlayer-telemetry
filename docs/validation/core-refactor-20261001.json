@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "checks": {
+    "two_nodes_same_worker_isolated": true,
+    "new_run_without_collector_restart": true,
+    "real_source_timestamps": {
+      "interval_seconds": 5.000000953674316,
+      "query_step_seconds": 2.0,
+      "range_window_seconds": 0,
+      "evaluation_count": 1.0,
+      "evaluation_count_kind": "query_evaluations_not_scrapes",
+      "observed_source_samples": 1,
+      "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
+      "last_source_timestamp": 1790789060.113,
+      "source_age_seconds": 1.0186877250671387,
+      "freshness": "observed",
+      "source_coverage": "returned_series_only",
+      "warnings": [
+        "fewer_than_two_query_evaluations"
+      ]
+    },
+    "completed_run_removed_from_export": true,
+    "snapshot_expiry": true
+  },
+  "limitations": [
+    "SDK fixture values, not VERL training.",
+    "Logical nodes share one host.",
+    "No causal storage or GPU bottleneck asserted."
+  ],
+  "schema_version": 1,
+  "validated_on": "2026-10-01",
+  "baseline": "0756a80",
+  "unit_tests": {
+    "passed": 376,
+    "promtool": true
+  },
+  "refactor_checks": [
+    "Shared Prometheus matrix parsing preserves stable client output and legacy import",
+    "Distinct engine labels and reset-aware counters preserved",
+    "Malformed/nonfinite sample pairs remain missing evidence instead of zero",
+    "Malformed remote series do not hide valid node evidence",
+    "Explicit query overrides and optional sandbox/storage scope retained",
+    "Snapshot identity and freshness selection shared across directories",
+    "Overflowing VERL logger integers do not stop valid metric translation"
+  ]
+}

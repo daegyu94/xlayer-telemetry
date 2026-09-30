@@ -149,3 +149,20 @@ def test_prometheus_label_values_are_escaped() -> None:
     expression = _signals('a"b', "node\\one")["gpu"]["query"]
     assert 'cluster="a\\"b"' in expression
     assert 'instance="node\\\\one"' in expression
+
+
+def test_malformed_remote_matrix_is_isolated_from_valid_node(tmp_path, monkeypatch):
+    _history(tmp_path)
+    _manifest(tmp_path, roles=[{'role': 'trainer', 'node': 'gpu-local'},
+                               {'role': 'rollout', 'node': 'rollout-b'}])
+
+    def query(base, path, params):
+        if 'instance="rollout-b"' in params['query'] or 'node="rollout-b"' in params['query']:
+            return {'status': 'success', 'data': {'result': [{'metric': None}]}}
+        return {'status': 'success', 'data': {'result': [{'values': [[15, '42']]}]}}
+
+    monkeypatch.setattr('xlayer_telemetry.step_explorer._request_json', query)
+    detail = StepExplorer(tmp_path, 'http://unused', 'cluster-a', None, None).detail('one')
+    assert detail['node_data']['rollout-b']['errors']
+    assert not detail['node_data']['rollout-b']['signals']
+    assert detail['node_data']['gpu-local']['signals']['gpu']['summary']['mean'] == 42

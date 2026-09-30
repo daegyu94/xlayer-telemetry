@@ -14,7 +14,7 @@ from pathlib import Path
 import re
 import statistics
 import time
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -23,6 +23,8 @@ from .clock_quality import assess_clocks
 from .evidence_quality import quality, check_source, validate_sampling
 from .sandbox import device_window
 from .fileio import atomic_write_text, json_objects
+# Keep the established import path for SDK callers.
+from .prometheus import PrometheusClient, escape_label
 
 
 DEFAULT_QUERIES = {
@@ -62,85 +64,6 @@ DEFAULT_THRESHOLDS = {
 _ALLOWED_3FS_FILTERS = {"host", "mount_name", "instance", "io", "uid", "pod", "method"}
 _DATABASE = re.compile(r"^[A-Za-z0-9_]+$")
 _LATENCY_NAME = re.compile(r"latency|duration|elapsed|cost|time", re.IGNORECASE)
-
-
-def _read_json(request: Request, timeout: float) -> Any:
-    with urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read())
-
-
-def _escape_prometheus(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-
-
-def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None] | None:
-    values: list[float] = []
-    deltas: list[float] = []
-    for item in series:
-        current: list[float] = []
-        for point in item.get("values", []):
-            try:
-                value = float(point[1])
-            except (IndexError, TypeError, ValueError):
-                continue
-            if math.isfinite(value):
-                current.append(value)
-                values.append(value)
-        if len(current) >= 2:
-            deltas.append(sum(right - left if right >= left else right
-                              for left, right in zip(current, current[1:])))
-    if not values:
-        return None
-    return {
-        "min": min(values),
-        "mean": statistics.fmean(values),
-        "max": max(values),
-        "last": values[-1],
-        "max_series_delta": max(deltas) if deltas else None,
-        "sample_count": float(len(values)),
-    }
-
-
-def _finite_string(value: Any) -> bool:
-    try:
-        return math.isfinite(float(value))
-    except (TypeError, ValueError, OverflowError):
-        return False
-
-
-@dataclass
-class PrometheusClient:
-    url: str
-    timeout: float = 5.0
-
-    def query_range(self, query: str, start: float, end: float, step: float) -> dict[str, float] | None:
-        return self.query_range_detail(query, start, end, step)["aggregate"]
-
-    def query_range_detail(self, query: str, start: float, end: float, step: float) -> dict[str, Any]:
-        params = urlencode({"query": query, "start": start, "end": end, "step": step})
-        request = Request(self.url.rstrip("/") + "/api/v1/query_range?" + params)
-        payload = _read_json(request, self.timeout)
-        if not isinstance(payload, dict):
-            raise RuntimeError("Prometheus response must be an object")
-        if payload.get("status") != "success":
-            raise RuntimeError(f"Prometheus query failed: {payload.get('error', 'unknown error')}")
-        data = payload.get("data")
-        if not isinstance(data, dict) or not isinstance(data.get("result"), list):
-            raise RuntimeError("Prometheus response is missing a range-query matrix")
-        matrix = data["result"]
-        if any(not isinstance(item, dict) or not isinstance(item.get("metric", {}), dict)
-               or not isinstance(item.get("values", []), list) for item in matrix):
-            raise RuntimeError("Prometheus response contains an invalid series")
-        return {
-            "aggregate": _series_stats(matrix),
-            "series": [
-                {"labels": item.get("metric", {}), "stats": stats,
-                 **({"source_timestamps": [float(point[1]) for point in item.get("values", [])
-                      if len(point) == 2 and _finite_string(point[1])]} if query.startswith("timestamp(") else {})}
-                for item in matrix
-                if (stats := _series_stats([item])) is not None
-            ],
-        }
 
 
 @dataclass
@@ -288,35 +211,30 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
         return None
     for path in paths:
         try:
-            with path.open(encoding="utf-8", errors="replace") as stream:
-                for line in stream:
-                    try:
-                        item = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if (not isinstance(item, dict) or item.get("schema_version") != 1
-                            or item.get("record_type") != "span"
-                            or item.get("name") != "tool.call" or item.get("run_id") != run_id
-                            or item.get("status") != "ok"
-                            or item.get("boundary_accuracy") == "clock_discontinuity"
-                            or not isinstance(item.get("trace_id"), str)
-                            or not isinstance(item.get("span_id"), str)):
-                        continue
-                    attributes = item.get("attributes")
-                    if not isinstance(attributes, dict) or not isinstance(attributes.get("tool"), str):
-                        continue
-                    if tool_name is not None and attributes["tool"] != tool_name:
-                        continue
-                    began = finite(item.get("start_time_unix_nano"))
-                    finished = finite(item.get("end_time_unix_nano"))
-                    duration = finite(item.get("duration_seconds"))
-                    if (began is not None and finished is not None and duration is not None
-                            and duration >= 0 and start <= began / 1e9
-                            and finished / 1e9 <= end):
-                        count += 1
-                        if max_duration is None or duration > max_duration:
-                            longest = item
-                            max_duration = duration
+            for item in json_objects(path):
+                if (item.get("schema_version") != 1
+                        or item.get("record_type") != "span"
+                        or item.get("name") != "tool.call" or item.get("run_id") != run_id
+                        or item.get("status") != "ok"
+                        or item.get("boundary_accuracy") == "clock_discontinuity"
+                        or not isinstance(item.get("trace_id"), str)
+                        or not isinstance(item.get("span_id"), str)):
+                    continue
+                attributes = item.get("attributes")
+                if not isinstance(attributes, dict) or not isinstance(attributes.get("tool"), str):
+                    continue
+                if tool_name is not None and attributes["tool"] != tool_name:
+                    continue
+                began = finite(item.get("start_time_unix_nano"))
+                finished = finite(item.get("end_time_unix_nano"))
+                duration = finite(item.get("duration_seconds"))
+                if (began is not None and finished is not None and duration is not None
+                        and duration >= 0 and start <= began / 1e9
+                        and finished / 1e9 <= end):
+                    count += 1
+                    if max_duration is None or duration > max_duration:
+                        longest = item
+                        max_duration = duration
         except OSError:
             continue
     if longest is None:
@@ -376,6 +294,40 @@ class DiagnosticEngine:
         self.clock = clock
         self.thresholds = {**DEFAULT_THRESHOLDS, **config.get("thresholds", {})}
 
+    def _queries(self, cluster: str, *, with_sandbox: bool = False) -> dict[str, str]:
+        """Build scoped defaults while preserving explicit user query overrides."""
+        queries = dict(DEFAULT_QUERIES)
+        custom = self.config["prometheus"].get("queries", {})
+        if cluster:
+            for name, template in queries.items():
+                job = "native" if name.startswith(("vllm_", "ray_")) else "telemetry"
+                source = ',telemetry_source="vllm"' if name.startswith("vllm_") else ''
+                queries[name] = re.sub(
+                    r'\{(?=[A-Za-z_]+=)',
+                    lambda match: '{cluster="{cluster}",job="' + job + '"' + source + ',', template,
+                )
+        queries.update(custom)
+        if self.config.get("storage_node") and self.config.get("storage_device"):
+            queries.setdefault("storage_device_busy_ratio", (
+                'rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",'
+                'instance="{storage_node}",device="{storage_device}"}[1m])'
+            ))
+        if with_sandbox:
+            sandbox = self.config.get("sandbox", {})
+            defaults = {
+                "tool_duration_seconds": 'agent_tool_call_duration_seconds{run_id="{run_id}"}',
+                "sandbox_io_pressure_ratio": 'sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}',
+            }
+            if sandbox.get("device"):
+                defaults["sandbox_device_busy_ratio"] = (
+                    'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
+                )
+            for name, template in defaults.items():
+                if cluster:
+                    template = template.replace('{', '{cluster="{cluster}",job="telemetry",', 1)
+                queries.setdefault(name, template)
+        return queries
+
     def analyze(self, current: Mapping[str, Any] | None, history: list[dict[str, Any]]) -> dict[str, Any]:
         now = self.clock()
         lookback = float(self.config.get("lookback_seconds", 60))
@@ -427,35 +379,16 @@ class DiagnosticEngine:
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
-        queries = dict(DEFAULT_QUERIES)
-        if cluster:
-            for name, template in queries.items():
-                job = "native" if name.startswith(("vllm_", "ray_")) else "telemetry"
-                source = ',telemetry_source="vllm"' if name.startswith("vllm_") else ''
-                queries[name] = re.sub(r'\{(?=[A-Za-z_]+=)', lambda match: '{cluster="{cluster}",job="' + job + '"' + source + ',', template)
-        queries.update(self.config["prometheus"].get("queries", {}))
-        if self.config.get("storage_node") and self.config.get("storage_device"):
-            queries.setdefault("storage_device_busy_ratio", (
-                'rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",instance="{storage_node}",device="{storage_device}"}[1m])'
-            ))
         sandbox_config = self.config.get("sandbox", {})
         sandbox_node = str((current or {}).get("sandbox_node") or sandbox_config.get("node") or node)
         sandbox_device = str(sandbox_config.get("device", ""))
-        if sandbox_config.get("enabled") and current:
-            queries.setdefault("tool_duration_seconds", (
-                'agent_tool_call_duration_seconds{run_id="{run_id}"}'
-            ))
-            queries.setdefault("sandbox_io_pressure_ratio", (
-                'sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}'
-            ))
-            if sandbox_device:
-                queries.setdefault("sandbox_device_busy_ratio", (
-                    'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
-                ))
-            if cluster:
-                for name in ("tool_duration_seconds", "sandbox_io_pressure_ratio", "sandbox_device_busy_ratio"):
-                    if name in queries and name not in self.config["prometheus"].get("queries", {}):
-                        queries[name] = queries[name].replace('{', '{cluster="{cluster}",job="telemetry",', 1)
+        queries = self._queries(cluster, with_sandbox=bool(sandbox_config.get("enabled") and current))
+        query_context = {
+            "node": node, "run_id": run_id, "cluster": cluster,
+            "compute_node": compute_node, "rollout_node": rollout_node,
+            "storage_node": storage_node, "storage_device": str(self.config.get("storage_device", "")),
+            "sandbox_node": sandbox_node, "sandbox_device": sandbox_device,
+        }
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
         baseline_record = select_baseline(current, history, policy=baseline_policy) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
@@ -501,15 +434,9 @@ class DiagnosticEngine:
 
         for name, template in queries.items():
             try:
-                query = (str(template).replace("{node}", _escape_prometheus(node))
-                         .replace("{run_id}", _escape_prometheus(run_id))
-                         .replace("{cluster}", _escape_prometheus(cluster))
-                         .replace("{compute_node}", _escape_prometheus(compute_node))
-                         .replace("{rollout_node}", _escape_prometheus(rollout_node))
-                         .replace("{storage_node}", _escape_prometheus(storage_node))
-                         .replace("{storage_device}", _escape_prometheus(str(self.config.get("storage_device", ""))))
-                         .replace("{sandbox_node}", _escape_prometheus(sandbox_node))
-                         .replace("{sandbox_device}", _escape_prometheus(sandbox_device)))
+                query = str(template)
+                for key, value in query_context.items():
+                    query = query.replace("{" + key + "}", escape_label(value))
                 stats, series = query_with_detail(query, float(start), end)
                 source_sample = check_source(self.prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
                 sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample)}
