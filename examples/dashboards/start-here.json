@@ -2,128 +2,143 @@
   "annotations": {
     "list": []
   },
-  "description": "Choose a telemetry view by the question you need to answer.",
+  "description": "Collect → Correlate → Diagnose 순서로 확인하고, 조사할 질문에 맞는 화면을 선택합니다.",
   "editable": true,
   "links": [],
   "panels": [
     {
       "id": 1,
       "type": "text",
-      "title": "Choose a question",
+      "title": "VERL / Cross-Layer Investigation",
       "gridPos": {
-        "h": 3,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Start with Run Overview** to check that data is arriving, then open the view that matches the symptom. Set cluster, node, run, and time there. Other dashboards reuse this context; Run Logs may need a different run directory name. Node and shared-service metrics can include other workloads."
+        "content": "**Collect → Correlate → Diagnose**\n\nRun Overview에서 수집 상태를 확인하고, Agent RL과 Step Explorer에서 느린 구간을 선택한 뒤 후보와 근거를 조사합니다. 각 화면에서 Cluster · Node · Run · 시간 범위를 맞춥니다. Shared resource는 Run별 사용량이 아닙니다."
       }
     },
     {
       "id": 2,
       "type": "text",
-      "title": "Is this run being observed?",
+      "title": "1 · Collect / Run Health",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 12,
         "x": 0,
-        "y": 3
+        "y": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "Check exporter status, sample freshness, GPU utilization, and the latest completed step.\n\n[Open Run Overview](/d/telemetry-overview)"
+        "content": "Exporter 상태와 sample freshness를 먼저 확인합니다. GPU utilization과 application metric으로 관측이 이어지는지 봅니다.\n\n[Run Overview 열기](/d/telemetry-overview?${__url_time_range})"
       }
     },
     {
       "id": 3,
       "type": "text",
-      "title": "Which training stage slowed?",
+      "title": "2 · Correlate / Stage Signals",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 12,
         "x": 12,
-        "y": 3
+        "y": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "Compare completed VERL stage times with rollout queue, KV cache, and GPU activity.\n\n[Open Agent RL Stage Correlation](/d/agent-rl-stage-correlation)"
-      }
-    },
-    {
-      "id": 4,
-      "type": "text",
-      "title": "Is compute or communication busy?",
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 0,
-        "y": 7
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "Inspect GPU power, clock, process memory, Ethernet, and RDMA on the selected nodes.\n\n[Open Compute & Communication](/d/xlayer-compute-communication)"
-      }
-    },
-    {
-      "id": 5,
-      "type": "text",
-      "title": "Is the data path involved?",
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 7
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "Compare device I/O and filesystem mounts; inspect topology and optional SSD health.\n\n[Open Data & Storage](/d/xlayer-data-storage)"
-      }
-    },
-    {
-      "id": 6,
-      "type": "text",
-      "title": "What happened in the logs?",
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 0,
-        "y": 11
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "Search node-local run logs in the selected interval. This view needs Loki.\n\n[Open Run Logs](/d/xlayer-run-logs)"
+        "content": "완료된 VERL stage duration을 rollout queue·KV cache·GPU activity와 비교해 느린 구간을 찾습니다.\n\n[Agent RL Stage Correlation 열기](/d/agent-rl-stage-correlation?${__url_time_range})"
       }
     },
     {
       "id": 7,
       "type": "text",
-      "title": "What changed within one step?",
+      "title": "Select a Step",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 12,
-        "x": 12,
-        "y": 11
+        "x": 0,
+        "y": 9
       },
       "options": {
         "mode": "markdown",
-        "content": "Choose a completed VERL step and inspect its node resources and logs in Grafana. This view needs Loki step-event collection.\n\n[Open Step Explorer](/d/xlayer-step-explorer)"
+        "content": "완료 step 번호를 눌러 자원·log를 함께 조사합니다. **Loki step-event 수집 필요:** 시간 경계는 추정치입니다.\n\n[Step Explorer 열기](/d/xlayer-step-explorer?${__url_time_range})"
       }
     },
     {
       "id": 8,
       "type": "text",
-      "title": "Why did this interval slow?",
+      "title": "3 · Diagnose / Candidate & Evidence",
       "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 24,
-        "h": 3
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 9
       },
       "options": {
         "mode": "markdown",
-        "content": "Start with the slow step, then inspect candidates, evidence, missing evidence, and a shared timeline. Requires diagnostics plus Loki.\n\n[Open Bottleneck Summary](/d/xlayer-bottleneck-summary) · [Open Cross-Layer Timeline](/d/xlayer-cross-layer-timeline)"
+        "content": "같은 run의 baseline과 supporting · counter · missing evidence를 확인합니다. **Diagnostics + Loki 필요.**\n\n[Bottleneck Summary 열기](/d/xlayer-bottleneck-summary?${__url_time_range})"
+      }
+    },
+    {
+      "id": 9,
+      "type": "text",
+      "title": "Cross-Layer Timeline",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Exact span · approximate step · sampled metric을 같은 시간축에서 비교합니다. **EventRecorder / step event + Loki 필요.**\n\n[Cross-Layer Timeline 열기](/d/xlayer-cross-layer-timeline?${__url_time_range})"
+      }
+    },
+    {
+      "id": 6,
+      "type": "text",
+      "title": "Logs / Supporting Evidence",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "선택한 구간의 workload log를 읽습니다. **Loki 필요:** Run은 log directory 이름이며 telemetry run_id와 다를 수 있습니다.\n\n[Run Logs 열기](/d/xlayer-run-logs?${__url_time_range})"
+      }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "Compute & Communication",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "GPU power·SM clock·process memory와 TCP/Ethernet·RDMA를 같은 node·시간 범위에서 비교합니다.\n\n[Compute & Communication 열기](/d/xlayer-compute-communication?${__url_time_range})"
+      }
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "Data & Storage",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Local device I/O·filesystem을 비교하고 storage topology와 선택적 SSD SMART를 확인합니다.\n\n[Data & Storage 열기](/d/xlayer-data-storage?${__url_time_range})"
       }
     }
   ],
@@ -141,5 +156,5 @@
   "timezone": "browser",
   "title": "00 · Start Here",
   "uid": "xlayer-start-here",
-  "version": 2
+  "version": 3
 }

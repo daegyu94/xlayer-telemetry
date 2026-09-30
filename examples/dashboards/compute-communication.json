@@ -24,12 +24,12 @@
       "id": 1,
       "type": "table",
       "title": "GPU utilization matrix (latest sample)",
-      "description": "Rows: cluster/node; columns: reported GPU index. Samples older than 30 seconds are hidden. 0% means measured idle; N/A means missing evidence, not an unallocated GPU. Host-wide, independent of the Run filter.",
+      "description": "행은 cluster/node, 열은 GPU index입니다. 30초보다 오래된 sample은 숨깁니다. 0%는 측정된 idle, N/A는 근거 없음입니다. Run 필터는 적용되지 않습니다.",
       "gridPos": {
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -66,7 +66,8 @@
         "footer": {
           "show": false
         },
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
       "transformations": [
         {
@@ -87,7 +88,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -114,7 +115,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Device별 GPU utilization입니다. Worker allocation과 함께 보며 특정 Run의 사용량으로 자동 귀속하지 않습니다."
     },
     {
       "id": 3,
@@ -124,7 +126,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 6
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -149,7 +151,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Device별 GPU power입니다. Utilization·temperature·SM clock과 같은 시간 구간에서 비교합니다."
     },
     {
       "id": 4,
@@ -159,7 +162,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -184,7 +187,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Device별 GPU temperature입니다. 온도만으로 throttling을 단정하지 않고 power·SM clock 변화를 함께 확인합니다."
     },
     {
       "id": 5,
@@ -194,7 +198,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -219,18 +223,19 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Device별 GPU SM clock입니다. Clock 감소가 있으면 부하·temperature·power 상태와 함께 조사합니다."
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Compute-process GPU memory",
-      "description": "nvidia-smi compute-process memory; it is not total unified-memory use.",
+      "description": "nvidia-smi의 compute-process GPU memory입니다. PID를 표시하지만 전체 unified-memory 사용량이나 Run 소유 관계를 증명하지 않습니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -265,7 +270,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -291,7 +296,7 @@
           "placement": "bottom"
         }
       },
-      "description": " Samples beyond Training sample max age are hidden; increase it for long steps. Throughput is per-worker reporting, not a sum across workers."
+      "description": "Application이 기록한 worker-local timer입니다. Training sample max age를 넘으면 숨기므로 긴 step에서는 기준을 조정합니다. Worker 간 합산값이 아닙니다."
     },
     {
       "id": 8,
@@ -301,7 +306,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 34
       },
       "datasource": {
         "type": "prometheus",
@@ -331,7 +336,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Node/interface의 TCP/Ethernet bytes/s입니다. Endpoint pair나 weight-sync·storage traffic을 자동 구분하지 않습니다."
     },
     {
       "id": 9,
@@ -341,7 +347,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 30
+        "y": 34
       },
       "datasource": {
         "type": "prometheus",
@@ -371,7 +377,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "InfiniBand/RoCE port counter의 bytes/s입니다. 지원 NIC·counter가 필요하며 개별 NCCL·3FS 요청의 traffic은 아닙니다."
     },
     {
       "id": 10,
@@ -381,23 +388,23 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 42
       },
       "options": {
         "mode": "markdown",
-        "content": "**How to read compute signals**\n\n- GPU utilization is host-wide. Allocation uses the latest explicit `CUDA_VISIBLE_DEVICES` assignment in the selected age window.\n- GPU index and UUID are different identifiers. Missing or old snapshots do not prove that a GPU is free.\n- TCP/RDMA charts show port counters, not endpoint-pair traffic. Supplied topology does not measure bandwidth or latency."
+        "content": "**Allocation과 communication을 함께 읽기**\n\n- GPU utilization은 device 전체입니다. Allocation은 선택한 age 범위의 명시적 CUDA_VISIBLE_DEVICES snapshot입니다.\n- GPU index와 UUID는 다릅니다. Snapshot이 없거나 오래됐다는 이유로 GPU가 비어 있다고 판단하지 않습니다.\n- TCP/RDMA는 port counter입니다. 제공된 topology만으로 endpoint 간 bandwidth·latency를 측정하지는 않습니다."
       }
     },
     {
       "id": 11,
       "type": "table",
       "title": "GPU allocation matrix",
-      "description": "Rows: cluster/node/run/producer/role/worker; columns: CUDA_VISIBLE_DEVICES identifiers (index or UUID, not normalized to sampler indexes). Only recent explicitly reported assignments appear. This is snapshot evidence, not process liveness; long steps may require a larger Training sample max age.",
+      "description": "행은 cluster/node/run/producer/role/worker, 열은 CUDA_VISIBLE_DEVICES 식별자입니다. Index·UUID를 sampler index로 자동 정규화하지 않습니다. 최근 배치 snapshot이며 process 생존 증거는 아닙니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 46
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -435,7 +442,8 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
       "transformations": [
         {
@@ -452,12 +460,12 @@
       "id": 12,
       "type": "table",
       "title": "Compute topology matrix",
-      "description": "Cluster-filtered supplied edges, not measured traffic. Cluster-qualified endpoints prevent collisions. Node and Run filters do not restrict topology: its publisher may be a different node.",
+      "description": "선택한 Cluster의 명시적으로 제공된 edge입니다. 측정 traffic이 아니며 Node·Run 필터는 적용되지 않습니다. Publisher가 다른 node일 수 있습니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 46
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -479,7 +487,8 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
       "transformations": [
         {
@@ -491,6 +500,21 @@
           }
         }
       ]
+    },
+    {
+      "id": 90,
+      "type": "text",
+      "title": "Compute & communication scope",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Node의 GPU·host·NIC 신호를 같은 시간 구간에서 비교합니다. Allocation은 명시적 snapshot이며 shared GPU·port counter를 특정 Run에 자동 귀속하지 않습니다.\n\nN/A이면 source 지원 여부와 sample age를 확인합니다. Run 필터는 application timer·allocation에 적용됩니다."
+      }
     }
   ],
   "refresh": "5s",
@@ -520,7 +544,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "name": "node",
@@ -541,7 +566,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
       },
       {
         "name": "run_id",
@@ -562,7 +588,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
         "name": "training_max_age",
@@ -574,7 +601,8 @@
           "value": "300"
         },
         "multi": false,
-        "includeAll": false
+        "includeAll": false,
+        "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
       }
     ]
   },
@@ -584,7 +612,7 @@
   },
   "timezone": "browser",
   "title": "07 · Compute & Communication",
-  "description": "Inspect GPU, host, Ethernet, and RDMA activity on selected nodes.",
+  "description": "선택한 node의 GPU·host·TCP/Ethernet·RDMA 상태를 조사합니다.",
   "uid": "xlayer-compute-communication",
-  "version": 3
+  "version": 4
 }

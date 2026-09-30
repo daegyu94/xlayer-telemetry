@@ -4,9 +4,16 @@
 대시보드를 띄우는 절차는 [Monitoring Guide](monitoring.md#open-the-dashboards)에, 실제 값이 채워진 화면은 [VERL·vLLM·3FS·Loki 데모](real-verl-demo.md)에 있습니다.
 수집 process와 파일이 어떻게 이어지는지는 [구현 구조](architecture.md)를 먼저 읽으면 이해하기 쉽습니다.
 
+Dashboard·panel 제목, metric 이름, filter와 status 용어는 영어로 유지하고, 안내·tooltip·해석 범위는 한국어로 제공합니다.
+각 화면 상단의 안내를 읽고 panel 제목 옆 info 아이콘에서 측정 범위와 optional source 조건을 확인합니다.
+긴 evidence·stage 요약은 표 안에서 줄바꿈하며, 표의 pagination으로 다음 행을 확인할 수 있습니다.
+Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
+추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
+
 ## Start Here
 
 `00 · Start Here`는 조사할 질문에 맞는 화면을 고르는 진입점입니다.
+Collect / Run Health → Correlate / Stage Signals → Select a Step → Diagnose / Candidate & Evidence 순서로 이동하고, Cross-Layer Timeline과 Logs에서 근거를 더 확인합니다.
 `01`부터 `05`까지의 제목은 일반적인 조사 순서이며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
 Step Explorer와 Step Detail은 Loki를 활성화했을 때 Grafana에 추가됩니다.
 완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](dashboards.md#open-in-grafana)에 있습니다.
@@ -60,6 +67,8 @@ Ray endpoint를 등록했더라도 전용 panel은 제공하지 않으므로 Ray
 Sandbox worker sampler를 켰다면 아래의 pool occupancy, I/O pressure, throughput·operations, CPU·memory·OOM panel에서 sandbox node의 상태를 봅니다.
 `Sandbox sample age`가 증가하면 해당 cgroup 그래프는 오래된 textfile 값이므로 현재 상태로 해석하지 않습니다.
 Pool occupancy는 외부 runtime adapter가 `sandbox_active`·`sandbox_queued`를 낼 때만 채워집니다.
+Sandbox panel은 기본적으로 접힌 `Sandbox signals (optional)` 행에 모아 두었습니다.
+Sampler/runtime을 연결했다면 행을 펼치고 dedicated 배치에서는 Node를 sandbox node로 선택합니다.
 `Sandbox worker and device pressure`의 CPU PSI는 cgroup 전체의 CPU 대기 비율이며, I/O PSI와 별도 원인 후보입니다.
 `Sandbox worker memory`의 peak는 cgroup 생성 이후의 high-water mark이므로 선택한 시간 구간의 peak가 아닙니다.
 `Sandbox worker CPU and OOM`은 OOM event와 실제 OOM kill을 구분하며, OOM kill은 해당 source가 있을 때만 표시됩니다.
@@ -84,6 +93,8 @@ Filesystem used·free space는 선택한 마운트의 용량 상태이고, disk 
 같은 시간대의 변화는 조사 단서지만 이번 run의 KV offload I/O 양을 직접 증명하지는 않습니다.
 
 Storage topology 표는 component·edge 정보를 공급했을 때, SSD health 패널은 SMART exporter를 연결했을 때 채워집니다.
+SMART panel은 기본적으로 접힌 `SSD health / SMART (optional)` 행을 펼쳐 확인합니다.
+상단 `Storage node`·`SSD` 필터는 local disk의 `Node`·`Device` 필터와 별도로 적용됩니다.
 3FS 서비스 latency는 이 상세 그래프에 포함되지 않습니다.
 진단을 켜면 Bottleneck Summary에서 ClickHouse 비교 결과와 측정 범위를 확인하고, 원본 수치는 [ClickHouse 진단](agent-rl.md#add-diagnostics)에서 확인합니다.
 

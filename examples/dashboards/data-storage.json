@@ -28,7 +28,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -58,7 +58,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "선택한 Node·Device의 read/write bytes/s입니다. Run이나 sandbox의 I/O 양으로 자동 귀속하지 않습니다."
     },
     {
       "id": 2,
@@ -68,7 +69,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -98,18 +99,19 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "선택한 Node·Device의 read/write operations/s입니다. Device 전체 counter이며 request size나 metadata latency를 직접 보여 주지는 않습니다."
     },
     {
       "id": 3,
       "type": "timeseries",
       "title": "Disk I/O busy time",
-      "description": "Fraction of wall time with I/O in progress. This is not a latency percentile.",
+      "description": "I/O가 진행 중이던 wall-time 비율입니다. Latency percentile이 아니며 p99와 동일하게 해석하지 않습니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 12
       },
       "datasource": {
         "type": "prometheus",
@@ -145,7 +147,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 12
       },
       "datasource": {
         "type": "prometheus",
@@ -172,7 +174,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "선택한 Mount의 filesystem 사용 비율입니다. Mount 용량과 Device I/O는 서로 다른 관측 범위입니다."
     },
     {
       "id": 5,
@@ -182,7 +185,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 20
       },
       "datasource": {
         "type": "prometheus",
@@ -207,7 +210,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "선택한 Mount의 filesystem 여유 공간입니다. 3FS FUSE mount를 골라도 local device I/O가 3FS service latency로 바뀌지는 않습니다."
     },
     {
       "id": 6,
@@ -217,11 +221,11 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 20
       },
       "options": {
         "mode": "markdown",
-        "content": "**How to read storage signals**\n\n- Disk and filesystem counters cover the client node. They are not exclusive to the selected run.\n- Correlate them with the run time range; attributing I/O to a dataset or checkpoint needs workload instrumentation.\n- Remote-storage topology needs component and edge IDs plus service metrics. Metadata and data roles can share a server.\n- SSD panels show N/A until a SMART exporter supplies those metrics."
+        "content": "**Local device와 remote storage 구분**\n\n- Disk·filesystem 값은 선택한 node 전체이며 Run별로 분리되지 않습니다.\n- Dataset·checkpoint I/O attribution에는 workload 계측이 필요합니다.\n- Topology는 명시적으로 제공한 component·edge 관계입니다. 3FS service latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다.\n- SSD health는 아래 SMART 행을 펼칩니다. Exporter가 없으면 N/A입니다."
       }
     },
     {
@@ -232,7 +236,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 28
       },
       "datasource": {
         "type": "prometheus",
@@ -254,20 +258,21 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
-      "description": "Supplied components for the selected clusters. Independent of Node and Run filters."
+      "description": "선택한 Cluster의 명시적으로 제공된 component입니다. Node·Run 필터와 독립적으로 표시합니다."
     },
     {
       "id": 8,
       "type": "table",
       "title": "Storage topology matrix",
-      "description": "Cluster-filtered supplied edges, not measured traffic. Cluster-qualified endpoints prevent collisions. Node and Run filters do not restrict topology: its publisher may be a different node.",
+      "description": "선택한 Cluster의 명시적으로 제공된 edge입니다. 측정 traffic이 아니며 Node·Run 필터는 적용되지 않습니다. Cluster를 포함한 endpoint identity로 충돌을 방지합니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 28
       },
       "datasource": {
         "type": "prometheus",
@@ -289,7 +294,8 @@
       },
       "options": {
         "showHeader": true,
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
       "transformations": [
         {
@@ -303,426 +309,509 @@
       ]
     },
     {
-      "id": 9,
-      "type": "stat",
-      "title": "SSDs with critical warnings",
+      "id": 90,
+      "type": "text",
+      "title": "Device / mount / SSD selection",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 32
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(smartctl_device_critical_warning{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"} != bool 0)",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "text": {
-          "titleSize": 16,
-          "valueSize": 44
-        }
-      },
-      "description": "Number of selected SSDs whose NVMe critical-warning bitmask is non-zero."
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Maximum SSD temperature",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 32
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "noValue": "N/A",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "yellow",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "text": {
-          "titleSize": 16,
-          "valueSize": 44
-        }
-      }
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Maximum endurance used",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 32
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "noValue": "N/A",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "yellow",
-                "value": 80
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "text": {
-          "titleSize": 16,
-          "valueSize": 44
-        }
-      },
-      "description": "Vendor-estimated NVMe endurance consumed. It is coarse and may update only once per power-on hour."
-    },
-    {
-      "id": 12,
-      "type": "stat",
-      "title": "Minimum available spare",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 32
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "min(smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "noValue": "N/A",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red"
-              },
-              {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "green",
-                "value": 20
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "values": false
-        },
-        "text": {
-          "titleSize": 16,
-          "valueSize": 44
-        }
-      }
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "SSD temperature",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 36
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"}",
-          "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "SSD endurance and available spare",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "legendFormat": "{{storage_system}}/{{instance}} {{device}} used"
-        },
-        {
-          "refId": "B",
-          "expr": "smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "legendFormat": "{{storage_system}}/{{instance}} {{device}} spare"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "NVMe media errors",
-      "description": "Lifetime unrecovered media-error counters. Any increase requires investigation.",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 44
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "smartctl_device_media_errors{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 16,
-      "type": "bargauge",
-      "title": "Lifetime host bytes written by SSD",
-      "description": "Host writes reported by the device. This does not include internal NAND writes from garbage collection or wear leveling.",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 44
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "smartctl_device_bytes_written{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "legendFormat": "{{storage_system}}/{{instance}} {{device}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "min": 0,
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "showUnfilled": true
-      }
-    },
-    {
-      "id": 17,
-      "type": "table",
-      "title": "SSD inventory and SMART status",
-      "gridPos": {
-        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 52
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (cluster, storage_system, instance, device, protocol, model_name, firmware_version) (smartctl_device{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-          "format": "table",
-          "instant": true
-        },
-        {
-          "refId": "B",
-          "expr": "smartctl_device_smart_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "format": "table",
-          "instant": true
-        },
-        {
-          "refId": "C",
-          "expr": "smartctl_device_smartctl_exit_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-          "format": "table",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "N/A"
-        },
-        "overrides": []
+        "y": 0
       },
       "options": {
-        "showHeader": true,
-        "cellHeight": "md"
+        "mode": "markdown",
+        "content": "**Local I/O:** Node · Device · Mount를 선택합니다. **SSD health:** 접힌 SMART 행에서 Storage node · SSD를 확인합니다.\n\nDisk busy는 latency p99가 아닙니다. 3FS service latency는 diagnostics의 ClickHouse evidence로 확인하며 local sandbox NVMe와 구분합니다."
+      }
+    },
+    {
+      "id": 91,
+      "type": "row",
+      "title": "SSD health / SMART (optional)",
+      "description": "SMART exporter를 연결한 경우 펼칩니다. Storage system · Storage node · SSD 필터는 위 Node 필터와 별도입니다.",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 36
       },
-      "description": "Device identity omits the serial-number label. SMART status 1 means passed. The smartctl exit status is a bitmask: non-zero can indicate collection errors or device health findings; inspect the bits and exporter logs."
+      "panels": [
+        {
+          "id": 9,
+          "type": "stat",
+          "title": "SSDs with critical warnings",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 37
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(smartctl_device_critical_warning{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"} != bool 0)",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "text": {
+              "titleSize": 16,
+              "valueSize": 40
+            }
+          },
+          "description": "선택한 SSD 중 NVMe critical-warning bitmask가 0이 아닌 device 수입니다. SMART exporter가 없으면 N/A입니다."
+        },
+        {
+          "id": 10,
+          "type": "stat",
+          "title": "Maximum SSD temperature",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 37
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "noValue": "N/A",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "text": {
+              "titleSize": 16,
+              "valueSize": 40
+            }
+          },
+          "description": "선택한 SSD의 최대 temperature입니다. Node 필터와 별도로 Storage node·SSD 선택을 확인합니다."
+        },
+        {
+          "id": 11,
+          "type": "stat",
+          "title": "Maximum endurance used",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 12,
+            "y": 37
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "noValue": "N/A",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 80
+                  },
+                  {
+                    "color": "red",
+                    "value": 100
+                  }
+                ]
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "text": {
+              "titleSize": 16,
+              "valueSize": 40
+            }
+          },
+          "description": "Vendor가 추정한 NVMe endurance 사용량입니다. 값이 거칠고 power-on hour 기준으로 갱신될 수 있습니다."
+        },
+        {
+          "id": 12,
+          "type": "stat",
+          "title": "Minimum available spare",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 18,
+            "y": 37
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "min(smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "noValue": "N/A",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "green",
+                    "value": 20
+                  }
+                ]
+              },
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "text": {
+              "titleSize": 16,
+              "valueSize": 40
+            }
+          },
+          "description": "선택한 SSD의 최소 available spare입니다. SMART exporter가 제공하는 device health 값입니다."
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "SSD temperature",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 41
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"}",
+              "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom"
+            }
+          },
+          "description": "Storage node·SSD별 device temperature입니다. Host GPU temperature와 별도 source입니다."
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "SSD endurance and available spare",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 41
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "legendFormat": "{{storage_system}}/{{instance}} {{device}} used"
+            },
+            {
+              "refId": "B",
+              "expr": "smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "legendFormat": "{{storage_system}}/{{instance}} {{device}} spare"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom"
+            }
+          },
+          "description": "SSD endurance 사용량과 available spare입니다. 값의 의미가 다르므로 legend를 확인합니다."
+        },
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "NVMe media errors",
+          "description": "Lifetime unrecovered media-error counter입니다. 증가하면 device 상태와 SMART/exporter log를 조사합니다.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 49
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_media_errors{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 16,
+          "type": "bargauge",
+          "title": "Lifetime host bytes written by SSD",
+          "description": "SSD가 보고한 lifetime host writes입니다. Garbage collection·wear leveling의 내부 NAND writes는 포함하지 않습니다.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 49
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_bytes_written{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "legendFormat": "{{storage_system}}/{{instance}} {{device}}",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": true
+          }
+        },
+        {
+          "id": 17,
+          "type": "table",
+          "title": "SSD inventory and SMART status",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 57
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max by (cluster, storage_system, instance, device, protocol, model_name, firmware_version) (smartctl_device{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "smartctl_device_smart_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "C",
+              "expr": "smartctl_device_smartctl_exit_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
+              "format": "table",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "md",
+            "enablePagination": true
+          },
+          "description": "Serial number는 표시하지 않습니다. SMART status 1은 passed이며 smartctl exit status는 bitmask입니다. Non-zero는 수집 오류나 health 경고일 수 있으므로 각 bit와 exporter log를 확인합니다."
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -752,7 +841,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "name": "node",
@@ -773,7 +863,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
       },
       {
         "name": "device",
@@ -794,7 +885,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Host block device입니다. Mount·SSD 선택과 별도이며 backing device를 확인합니다."
       },
       {
         "name": "mount",
@@ -815,7 +907,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Filesystem mountpoint입니다. 3FS FUSE mount도 service latency와 별도 관측치입니다."
       },
       {
         "name": "storage_system",
@@ -836,7 +929,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "SMART target의 Storage system label입니다. 3FS service metric을 자동 연결하지 않습니다."
       },
       {
         "name": "storage_node",
@@ -857,7 +951,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "SMART exporter를 수집하는 storage node입니다. 위 Node 필터와 별도로 선택합니다."
       },
       {
         "name": "ssd",
@@ -878,7 +973,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "SMART exporter가 보고하는 SSD device입니다."
       },
       {
         "name": "run_id",
@@ -899,7 +995,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       }
     ]
   },
@@ -909,7 +1006,7 @@
   },
   "timezone": "browser",
   "title": "08 · Data & Storage",
-  "description": "Inspect local devices, filesystem mounts, topology, and optional SSD health.",
+  "description": "Local device·filesystem·topology와 선택적 SSD SMART 상태를 조사합니다.",
   "uid": "xlayer-data-storage",
-  "version": 4
+  "version": 5
 }

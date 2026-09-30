@@ -29,7 +29,7 @@
         "h": 20,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "id": 1,
       "options": {
@@ -50,7 +50,23 @@
         }
       ],
       "title": "Node-local run logs",
-      "type": "logs"
+      "type": "logs",
+      "description": "선택한 Cluster·Node·Workload·Run과 시간 구간의 log입니다. Run은 log directory에서 추출한 이름이며 telemetry run_id와 다를 수 있습니다. 비어 있으면 Loki·Alloy 경로와 실제 directory 이름을 확인합니다."
+    },
+    {
+      "id": 90,
+      "type": "text",
+      "title": "Log source & context",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "Cluster · Node · Workload · Run · 시간 범위를 맞춥니다. Run은 Alloy가 log directory에서 읽은 이름이며 telemetry run_id와 다를 수 있습니다.\n\n목록이 비면 Loki·Alloy와 log 경로를 확인합니다. 한 줄의 error만으로 workload 결과를 단정하지 않고 exit code와 run artifact를 함께 봅니다."
+      }
     }
   ],
   "refresh": "5s",
@@ -78,7 +94,8 @@
         "name": "cluster",
         "query": "label_values(cluster)",
         "refresh": 2,
-        "type": "query"
+        "type": "query",
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "allValue": ".*",
@@ -97,7 +114,8 @@
         "name": "node",
         "query": "label_values({cluster=~\"$cluster\"}, node)",
         "refresh": 2,
-        "type": "query"
+        "type": "query",
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
       },
       {
         "allValue": ".*",
@@ -116,7 +134,8 @@
         "name": "workload",
         "query": "label_values({cluster=~\"$cluster\", node=~\"$node\"}, workload)",
         "refresh": 2,
-        "type": "query"
+        "type": "query",
+        "description": "Alloy가 log root에 지정한 Workload label입니다."
       },
       {
         "current": {
@@ -126,7 +145,8 @@
         "label": "Run",
         "name": "run_id",
         "query": ".*",
-        "type": "textbox"
+        "type": "textbox",
+        "description": "Alloy가 log directory에서 추출한 Run입니다. Telemetry run_id와 다를 수 있습니다."
       }
     ]
   },
@@ -136,7 +156,7 @@
   },
   "timezone": "browser",
   "title": "09 · Run Logs",
-  "description": "Search node-local run logs when Loki is enabled.",
+  "description": "Loki에 수집된 node-local run log를 선택한 시간 구간에서 검색합니다.",
   "uid": "xlayer-run-logs",
-  "version": 2
+  "version": 3
 }

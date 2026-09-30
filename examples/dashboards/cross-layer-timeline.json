@@ -33,7 +33,8 @@
         "current": {
           "text": "All",
           "value": "$__all"
-        }
+        },
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "name": "run_id",
@@ -43,7 +44,8 @@
         "current": {
           "text": ".*",
           "value": ".*"
-        }
+        },
+        "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
         "name": "node",
@@ -61,7 +63,8 @@
         "current": {
           "text": "All",
           "value": "$__all"
-        }
+        },
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다. Dedicated sandbox에서는 sandbox node를 선택합니다."
       },
       {
         "name": "record_id",
@@ -72,7 +75,8 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Step record ID"
+        "label": "Step record ID",
+        "description": "Step Explorer에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
       },
       {
         "name": "trace_id",
@@ -83,15 +87,23 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Trace ID"
+        "label": "Trace ID",
+        "description": "EventRecorder의 Trace ID입니다. 지정하면 관련 span/event로 좁힙니다."
       }
     ]
   },
-  "version": 1,
+  "version": 2,
   "uid": "xlayer-cross-layer-timeline",
-  "title": "05 \u00b7 Cross-Layer Timeline",
-  "description": "Align exact spans, an estimated step window, and sampled resource metrics without inventing phase boundaries.",
+  "title": "05 · Cross-Layer Timeline",
+  "description": "Exact span, approximate step 구간, sampled resource metric을 같은 시간축에서 비교합니다.",
   "links": [
+    {
+      "title": "Start Here",
+      "type": "link",
+      "url": "/d/xlayer-start-here",
+      "includeTimeRange": false,
+      "keepTime": false
+    },
     {
       "title": "Bottleneck Summary",
       "type": "link",
@@ -116,21 +128,21 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 3
+        "h": 5
       },
       "options": {
         "mode": "markdown",
-        "content": "**Exact:** EventRecorder start/end spans. **Approximate:** VERL file logger step interval, inferred from observation time and reported duration. **Sampled:** Prometheus resource lines. Stage durations have no known order and are shown in Step Detail as values, never as invented bars. Shared service and node data are correlated by time only."
+        "content": "**Exact:** EventRecorder가 기록한 span 경계 · **Approximate:** file logger로 추정한 step 구간 · **Sampled:** Prometheus resource metric\n\nStage duration의 실행 순서는 알 수 없습니다. Resource node·Trace ID를 맞추고 아래 clock 상태와 sample freshness도 확인합니다. Shared signal의 동시 변화만으로 원인을 확정하지 않습니다."
       }
     },
     {
       "id": 2,
       "type": "state-timeline",
       "title": "Exact workload spans",
-      "description": "Exact boundaries in the producer node wall clock. Cross-node alignment requires synchronized clocks; spans with detected wall clock jumps are excluded.",
+      "description": "Producer node의 wall clock으로 기록한 실제 span 경계입니다. Node 간 정렬에는 clock 동기화가 필요하며 wall-clock jump가 감지된 span은 제외합니다.",
       "gridPos": {
         "x": 0,
-        "y": 3,
+        "y": 5,
         "w": 24,
         "h": 6
       },
@@ -235,10 +247,10 @@
       "id": 3,
       "type": "state-timeline",
       "title": "Approximate VERL step interval",
-      "description": "A single estimated step interval; stage durations are not ordered phases.",
+      "description": "관측 시각과 보고된 duration에서 추정한 step 구간입니다. Stage duration은 순서가 있는 phase 경계가 아닙니다.",
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 11,
         "w": 24,
         "h": 5
       },
@@ -338,7 +350,7 @@
       "title": "Exact spans: open step, logs, or diagnosis",
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 16,
         "w": 24,
         "h": 6
       },
@@ -405,19 +417,19 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "Step Detail: sampled metrics and logs",
+                    "title": "Step Detail에서 metric·log 확인",
                     "url": "/d/xlayer-step-detail?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}"
                   },
                   {
-                    "title": "Diagnosis candidates in this interval",
+                    "title": "이 구간의 diagnosis 후보 확인",
                     "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
                   },
                   {
-                    "title": "Related events and logs",
+                    "title": "관련 log 확인",
                     "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
                   },
                   {
-                    "title": "Related EventRecorder events in this trace",
+                    "title": "같은 trace의 EventRecorder event 확인",
                     "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}"
                   }
                 ]
@@ -541,6 +553,17 @@
               {
                 "id": "custom.hidden",
                 "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 280
               }
             ]
           },
@@ -629,6 +652,12 @@
             ]
           }
         ]
+      },
+      "description": "Span ID link로 실제 span 시간 구간의 Step Detail·diagnosis·log를 엽니다. Trace 관계와 시간 정렬의 정확도는 별도로 확인합니다.",
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "enablePagination": true
       }
     },
     {
@@ -637,7 +666,7 @@
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 22,
         "w": 12,
         "h": 7
       },
@@ -663,7 +692,8 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "선택한 Resource node의 sampled GPU utilization입니다. Exact span과 같은 해상도의 trace가 아니며 다른 workload도 포함될 수 있습니다."
     },
     {
       "id": 5,
@@ -671,7 +701,7 @@
       "title": "vLLM waiting requests",
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 22,
         "w": 12,
         "h": 7
       },
@@ -697,7 +727,8 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "선택한 node의 sampled vLLM waiting requests입니다. Shared engine은 Run별로 자동 분리되지 않습니다."
     },
     {
       "id": 6,
@@ -705,7 +736,7 @@
       "title": "RDMA bytes per second",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 29,
         "w": 12,
         "h": 7
       },
@@ -731,7 +762,8 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "선택한 node/port의 RDMA bytes/s입니다. Rate의 lookback 범위와 clock 상태를 함께 확인합니다."
     },
     {
       "id": 7,
@@ -739,7 +771,7 @@
       "title": "Device busy ratio",
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 29,
         "w": 12,
         "h": 7
       },
@@ -765,7 +797,8 @@
         "tooltip": {
           "mode": "multi"
         }
-      }
+      },
+      "description": "선택한 node/device의 I/O busy 비율입니다. Latency p99나 특정 span의 I/O 사용량은 아닙니다."
     },
     {
       "id": 10,
@@ -773,7 +806,7 @@
       "title": "Related EventRecorder events",
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 36,
         "w": 24,
         "h": 5
       },
@@ -969,10 +1002,23 @@
               {
                 "id": "custom.width",
                 "value": 320
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
               }
             ]
           }
         ]
+      },
+      "description": "선택한 Trace ID에 관련된 EventRecorder event입니다. Trace ID가 비어 있으면 선택 구간의 event를 함께 조회합니다.",
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "enablePagination": true
       }
     },
     {
@@ -983,7 +1029,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 41
       },
       "datasource": {
         "type": "prometheus",
@@ -1013,7 +1059,7 @@
           ]
         }
       },
-      "description": "Select the sandbox node. Exact sandbox.* lifecycle spans appear above when EventRecorder JSONL reaches Loki; this pressure series is sampled and is not per-trajectory attribution."
+      "description": "Resource node를 sandbox node로 선택합니다. sandbox.* lifecycle span은 JSONL이 Loki에 수집되면 위에 표시됩니다. PSI는 sampled cgroup signal이며 trajectory별 사용량이 아닙니다."
     },
     {
       "id": 8,
@@ -1021,13 +1067,13 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 53,
+        "y": 55,
         "w": 24,
         "h": 2
       },
       "options": {
         "mode": "markdown",
-        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) \u00b7 [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) \u00b7 [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam})"
+        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})\n\n같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다."
       }
     },
     {
@@ -1036,7 +1082,7 @@
       "title": "Node clock offset from scrape time",
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 48,
         "w": 12,
         "h": 7
       },
@@ -1063,7 +1109,7 @@
           "mode": "multi"
         }
       },
-      "description": "Includes scrape/transport delay; screening signal, not an NTP offset or timestamp correction. Inspect each node and both baseline/current intervals."
+      "description": "Scrape/transport delay가 포함된 offset입니다. NTP offset 측정이나 timestamp 보정값으로 쓰지 않습니다. Baseline·current 구간의 각 node를 확인합니다."
     },
     {
       "id": 13,
@@ -1071,7 +1117,7 @@
       "title": "Node clock synchronization status",
       "gridPos": {
         "x": 12,
-        "y": 46,
+        "y": 48,
         "w": 12,
         "h": 7
       },
@@ -1098,7 +1144,7 @@
           "mode": "multi"
         }
       },
-      "description": "1 = kernel reports synchronized, 0 = unsynchronized, no data = unknown. Metric freshness also needs checking; this alone does not prove precise alignment."
+      "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
     }
   ]
 }

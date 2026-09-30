@@ -12,6 +12,13 @@
       "url": "/d/xlayer-start-here"
     },
     {
+      "title": "Agent RL Stage Correlation",
+      "type": "link",
+      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}",
+      "includeTimeRange": true,
+      "keepTime": true
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Compute & Communication",
@@ -49,7 +56,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -65,7 +72,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -79,9 +98,11 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
-      }
+          "valueSize": 40
+        },
+        "colorMode": "none"
+      },
+      "description": "telemetry job에서 up인 target 수입니다. Native vLLM·SMART target은 포함하지 않으므로 Prometheus Targets에서 별도로 확인합니다."
     },
     {
       "id": 2,
@@ -91,7 +112,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -108,7 +129,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -122,9 +155,11 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
-      }
+          "valueSize": 40
+        },
+        "colorMode": "none"
+      },
+      "description": "선택한 node의 MemAvailable입니다. Host 전체의 값이며 특정 Run의 memory 사용량이 아닙니다."
     },
     {
       "id": 3,
@@ -134,7 +169,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -151,7 +186,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -165,10 +212,11 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
+          "valueSize": 40
+        },
+        "colorMode": "none"
       },
-      "description": "Age of each selected worker snapshot, including stale ones. A fresh worker must not hide a stalled worker; age alone does not prove whether a process is alive."
+      "description": "각 worker가 snapshot을 마지막으로 갱신한 뒤 지난 시간입니다. 오래된 worker도 표시하며, age만으로 process 생존을 판단하지 않습니다."
     },
     {
       "id": 4,
@@ -178,7 +226,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -195,7 +243,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -209,20 +269,22 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
-      }
+          "valueSize": 40
+        },
+        "colorMode": "none"
+      },
+      "description": "각 node의 마지막 GPU sample 이후 지난 시간입니다. Target이 up이어도 age가 계속 커지면 sampler와 exporter log를 확인합니다."
     },
     {
       "id": 5,
       "type": "table",
       "title": "GPU utilization matrix (latest sample)",
-      "description": "Rows: cluster/node; columns: reported GPU index. Samples older than 30 seconds are hidden. 0% means measured idle; N/A means missing evidence, not an unallocated GPU. Host-wide, independent of the Run filter.",
+      "description": "행은 cluster/node, 열은 GPU index입니다. 30초보다 오래된 sample은 숨깁니다. 0%는 측정된 idle이고 N/A는 근거가 없다는 뜻이며, Run 필터로 GPU 사용량이 분리되지 않습니다.",
       "gridPos": {
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "datasource": {
         "type": "prometheus",
@@ -259,7 +321,8 @@
         "footer": {
           "show": false
         },
-        "cellHeight": "md"
+        "cellHeight": "md",
+        "enablePagination": true
       },
       "transformations": [
         {
@@ -280,7 +343,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 14
       },
       "datasource": {
         "type": "prometheus",
@@ -306,7 +369,7 @@
           "placement": "bottom"
         }
       },
-      "description": " Samples beyond Training sample max age are hidden; increase it for long steps. Throughput is per-worker reporting, not a sum across workers."
+      "description": "Application이 보고한 worker별 tokens/s입니다. Training sample max age를 넘으면 숨깁니다. VERL의 per-GPU throughput은 Agent RL 화면에서 확인합니다."
     },
     {
       "id": 7,
@@ -316,7 +379,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 14
       },
       "datasource": {
         "type": "prometheus",
@@ -342,7 +405,7 @@
           "placement": "bottom"
         }
       },
-      "description": " Samples beyond Training sample max age are hidden; increase it for long steps. Step time is per-worker reporting, not a sum across workers."
+      "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다."
     },
     {
       "id": 8,
@@ -352,7 +415,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 22
       },
       "datasource": {
         "type": "prometheus",
@@ -378,7 +441,7 @@
           "placement": "bottom"
         }
       },
-      "description": " Samples beyond Training sample max age are hidden; increase it for long steps. Loss is per-worker reporting, not a sum across workers."
+      "description": "SDK/adapter가 training_loss를 기록할 때만 표시됩니다. VERL file logger bridge는 actor·critic loss를 이 값으로 자동 변환하지 않습니다. Age 기준을 넘은 sample은 숨깁니다."
     },
     {
       "id": 9,
@@ -388,11 +451,11 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 22
       },
       "options": {
         "mode": "markdown",
-        "content": "**How to read these signals**\n\n- Host and GPU metrics cover the selected nodes; they are not exclusive to the selected run until allocation mapping is collected.\n- GPU utilization of 0% is measured idle. A missing cell does not prove that a GPU is free.\n- On unified-memory systems, host memory and GPU allocation are not additive. Unavailable GPU-memory values remain N/A."
+        "content": "**Scope 확인**\n\n- GPU·host 값은 선택한 node 전체입니다. Worker allocation이 있어도 공유 자원의 전체 사용량을 특정 Run에 귀속하지 않습니다.\n- GPU 0%는 측정된 idle이고 빈 cell이나 N/A는 근거 없음입니다.\n- Unified-memory 환경에서 host memory와 GPU allocation을 더하지 않습니다. 미지원 GPU memory는 N/A로 남깁니다."
       }
     },
     {
@@ -403,7 +466,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -428,7 +491,8 @@
           "displayMode": "table",
           "placement": "bottom"
         }
-      }
+      },
+      "description": "Node 전체의 사용 중인 swap입니다. 선택한 Run의 사용량으로 자동 귀속하지 않습니다."
     },
     {
       "id": 11,
@@ -438,7 +502,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -463,6 +527,22 @@
           "displayMode": "table",
           "placement": "bottom"
         }
+      },
+      "description": "Node 전체의 swap-in / swap-out pages/s입니다. Memory pressure를 조사할 때 MemAvailable과 함께 비교합니다."
+    },
+    {
+      "id": 90,
+      "type": "text",
+      "title": "Collection & scope",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Collect:** Exporter targets up과 sample age부터 확인합니다. **Correlate:** Cluster · Node · Run · 시간 범위를 맞춥니다.\n\nN/A는 0이 아닙니다. Host/GPU는 node/device 전체이며 VERL per-GPU throughput과 stage·reward는 [Agent RL](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${__url_time_range})에서 확인합니다."
       }
     }
   ],
@@ -493,7 +573,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "name": "node",
@@ -514,7 +595,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
       },
       {
         "name": "run_id",
@@ -535,7 +617,8 @@
             "$__all"
           ]
         },
-        "refresh": 2
+        "refresh": 2,
+        "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
         "name": "training_max_age",
@@ -547,7 +630,8 @@
           "value": "300"
         },
         "multi": false,
-        "includeAll": false
+        "includeAll": false,
+        "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
       }
     ]
   },
@@ -557,7 +641,7 @@
   },
   "timezone": "browser",
   "title": "01 · Run Overview",
-  "description": "Start here to check exporter health, recent GPU samples, and run progress.",
+  "description": "Collector와 sample freshness를 확인한 뒤 VERL run의 진행 상태와 node 자원을 살펴봅니다.",
   "uid": "telemetry-overview",
-  "version": 3
+  "version": 4
 }

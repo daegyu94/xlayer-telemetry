@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -12,6 +13,60 @@ DASHBOARDS = (
     "agent-rl-stages.json",
 )
 NAV_DASHBOARD = "start-here.json"
+
+
+def _panels(dashboard):
+    """Include panels inside collapsed optional rows."""
+    for panel in dashboard["panels"]:
+        yield panel
+        if panel.get("panels"):
+            yield from _panels(panel)
+
+
+def test_dashboard_guidance_is_korean_and_layout_and_links_are_valid():
+    paths = sorted((ROOT / "examples/dashboards").glob("*.json"))
+    dashboards = [json.loads(path.read_text()) for path in paths]
+    uids = {dashboard["uid"] for dashboard in dashboards}
+    for dashboard in dashboards:
+        assert re.search("[가-힣]", dashboard["description"])
+        for variable in dashboard.get("templating", {}).get("list", []):
+            assert re.search("[가-힣]", variable["description"])
+        panels = list(_panels(dashboard))
+        assert len({panel["id"] for panel in panels}) == len(panels)
+        for panel in panels:
+            assert not re.search("[가-힣]", panel["title"])
+            content = (panel["options"]["content"] if panel["type"] == "text"
+                       else panel["description"])
+            assert re.search("[가-힣]", content)
+            if panel["type"] == "text":
+                for url in re.findall(r"\]\((/d/[^)]+)\)", content):
+                    assert url.split("?", 1)[0].split("/")[2] in uids
+                    assert "${__url_time_range}" in url
+            pos = panel["gridPos"]
+            assert pos["x"] >= 0 and pos["y"] >= 0
+            assert pos["w"] > 0 and pos["h"] > 0 and pos["x"] + pos["w"] <= 24
+        siblings = dashboard["panels"]
+        for index, first in enumerate(siblings):
+            a = first["gridPos"]
+            for second in siblings[index + 1:]:
+                b = second["gridPos"]
+                assert not (a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
+                            and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"])
+
+
+def test_optional_rows_keep_real_metric_panels_and_distinct_units():
+    for name, expected in (("agent-rl-stages.json", "sandbox_io_pressure_ratio"),
+                           ("data-storage.json", "smartctl_device_temperature")):
+        dashboard = json.loads((ROOT / "examples/dashboards" / name).read_text())
+        row = next(panel for panel in dashboard["panels"] if panel["type"] == "row")
+        assert row["collapsed"] is True
+        assert expected in str(row["panels"])
+        assert all(panel["datasource"]["uid"] == "telemetry-prometheus" for panel in row["panels"])
+    dashboard = json.loads((ROOT / "examples/dashboards/agent-rl-stages.json").read_text())
+    live = next(panel for panel in dashboard["panels"] if panel["id"] == 9)
+    cache = next(item for item in live["fieldConfig"]["overrides"]
+                 if item["matcher"] == {"id": "byFrameRefID", "options": "B"})
+    assert {prop["id"]: prop["value"] for prop in cache["properties"]}["unit"] == "percentunit"
 
 
 def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> None:
@@ -30,15 +85,15 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
         assert {item["name"] for item in payload["templating"]["list"]} >= {"cluster", "node"}
         assert all(
             panel.get("datasource", {}).get("uid") == "telemetry-prometheus"
-            for panel in payload["panels"]
-            if panel["type"] != "text"
+            for panel in _panels(payload)
+            if panel["type"] not in {"text", "row"}
         )
     assert "${node:queryparam}" in next(link["url"] for link in payloads[0]["links"] if link["title"] == "Compute & Communication")
     assert any(link["title"] == "Run Logs" for link in payloads[0]["links"])
     assert "${run_id:queryparam}" in next(link["url"] for link in payloads[2]["links"] if link["title"] == "Run Overview")
     storage_variables = {item["name"] for item in payloads[2]["templating"]["list"]}
     assert {"storage_system", "storage_node", "ssd"} <= storage_variables
-    storage_titles = {panel["title"] for panel in payloads[2]["panels"]}
+    storage_titles = {panel["title"] for panel in _panels(payloads[2])}
     assert {
         "SSDs with critical warnings",
         "Maximum SSD temperature",
@@ -112,7 +167,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
                                              "Device busy ratio", "Sandbox I/O pressure (sampled)"}]
     assert all('nodename=~"$node"' in target["expr"]
                for panel in resource_panels for target in panel["targets"])
-    sandbox_panels = {panel["title"]: panel for panel in agent_rl["panels"]
+    sandbox_panels = {panel["title"]: panel for panel in _panels(agent_rl)
                       if panel["title"].startswith("Sandbox")}
     assert "sandbox_cpu_pressure_ratio" in str(sandbox_panels["Sandbox worker and device pressure"])
     assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox worker CPU and OOM"])
@@ -497,7 +552,7 @@ def test_healthy_ssd_count_preserves_zero_without_faking_missing_data() -> None:
     dashboard = json.loads(
         (ROOT / "examples/dashboards/data-storage.json").read_text()
     )
-    panel = next(p for p in dashboard["panels"] if p["title"] == "SSDs with critical warnings")
+    panel = next(p for p in _panels(dashboard) if p["title"] == "SSDs with critical warnings")
     expr = panel["targets"][0]["expr"]
     assert expr.startswith("sum(") and "!= bool 0" in expr
     assert "or vector(0)" not in expr

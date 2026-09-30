@@ -63,7 +63,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -79,7 +79,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -93,10 +105,11 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
+          "valueSize": 40
+        },
+        "colorMode": "none"
       },
-      "description": "Last completed VERL training step. This value is intentionally retained between updates; use worker sample age to tell a long in-progress step or stopped run from fresh data."
+      "description": "마지막으로 완료된 VERL training step입니다. 갱신 사이에도 값을 유지하므로 Worker sample age로 긴 step·중단된 run·오래된 값을 구분합니다."
     },
     {
       "id": 2,
@@ -106,7 +119,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -123,7 +136,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -137,10 +162,11 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
+          "valueSize": 40
+        },
+        "colorMode": "none"
       },
-      "description": "Last completed reward scalar, retained between step updates. This is not a live indication that reward computation is currently running; check worker sample age."
+      "description": "완료 step에서 마지막으로 보고된 reward mean입니다. Reward 계산이 현재 실행 중이라는 뜻은 아니며 Worker sample age를 함께 확인합니다."
     },
     {
       "id": 3,
@@ -150,7 +176,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -167,7 +193,19 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -181,21 +219,22 @@
         },
         "text": {
           "titleSize": 16,
-          "valueSize": 64
-        }
+          "valueSize": 40
+        },
+        "colorMode": "none"
       },
-      "description": "Age since each worker last completed a logger update. A growing value can mean a long step, a stalled worker, or failed metric export."
+      "description": "각 worker의 마지막 logger 갱신 이후 지난 시간입니다. 계속 증가하면 긴 step, worker 지연, metric export 실패를 원본 log와 함께 확인합니다."
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Completed RL stage duration (step boundary)",
-      "description": "VERL emits timing_s/* after logger.log at step completion. This panel does not identify the currently running phase; use RL-Insight state traces and live native metrics for in-progress work.",
+      "description": "VERL은 step 완료 후 timing_s/*를 기록합니다. 현재 phase나 phase 실행 순서는 알 수 없습니다. 진행 중 상태는 직접 계측한 span과 native metric으로 확인합니다.",
       "gridPos": {
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "datasource": {
         "type": "prometheus",
@@ -230,12 +269,12 @@
       "id": 5,
       "type": "timeseries",
       "title": "Completed step throughput and response length",
-      "description": "VERL perf/throughput divides batch tokens by the full step duration and GPU count. This is not the live rollout engine token rate.",
+      "description": "perf/throughput은 batch tokens를 전체 step duration과 GPU 수로 나눈 값입니다. Output tokens는 response length 평균이며 live rollout token rate와 구분합니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 17
       },
       "datasource": {
         "type": "prometheus",
@@ -258,7 +297,44 @@
           "unit": "short",
           "noValue": "N/A"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:tokens/s/GPU"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Throughput / GPU"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Output tokens"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -274,12 +350,12 @@
       "id": 6,
       "type": "timeseries",
       "title": "GPU utilization by selected node",
-      "description": "Host-wide signal. Use worker GPU allocation and the run manifest before attributing it to this run.",
+      "description": "선택한 node의 device 사용률입니다. Worker GPU allocation과 run manifest를 확인하며 공유 GPU의 전체 사용률을 특정 Run에 귀속하지 않습니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 17
       },
       "datasource": {
         "type": "prometheus",
@@ -319,7 +395,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 25
       },
       "datasource": {
         "type": "prometheus",
@@ -354,7 +430,7 @@
           ]
         }
       },
-      "description": "Weight-sync duration from VERL is step-complete. Policy lag can be live only when rollout replicas emit it directly."
+      "description": "VERL weight-sync duration은 완료 step 기준입니다. Policy lag는 rollout replica가 직접 기록할 때만 나타납니다."
     },
     {
       "id": 8,
@@ -364,7 +440,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 25
       },
       "datasource": {
         "type": "prometheus",
@@ -399,18 +475,18 @@
           ]
         }
       },
-      "description": "Application metrics update when their producer emits. High-cardinality tool/request evidence belongs in event or trace storage."
+      "description": "Producer가 기록한 tool duration과 reward stage duration입니다. 개별 tool/request 근거는 event/span에서 확인하며 JSONL span이 이 metric으로 자동 변환되지는 않습니다."
     },
     {
       "id": 9,
       "type": "timeseries",
       "title": "Live rollout engine signals",
-      "description": "Native vLLM endpoint scraped independently of VERL step completion. Selected by cluster and node, not run_id: shared engines may include other runs. Metric availability and names depend on the deployed vLLM version.",
+      "description": "VERL step 완료와 독립적으로 수집하는 native vLLM metric입니다. Cluster·Node로 선택하며 Run으로 분리되지 않습니다. Metric 이름은 vLLM version에 따라 다를 수 있습니다.",
       "gridPos": {
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 33
       },
       "datasource": {
         "type": "prometheus",
@@ -438,7 +514,48 @@
           "unit": "short",
           "noValue": "N/A"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "KV cache"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ops"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -455,12 +572,12 @@
       "id": 10,
       "type": "timeseries",
       "title": "vLLM KV offload store and load",
-      "description": "Native vLLM offload bytes scraped independently of VERL steps. These counters include all configured offload tiers and are scoped by cluster and node, not run_id. Pair them with host disk I/O and the configured filesystem tier to identify file offloading.",
+      "description": "Native vLLM offload counter의 전송률입니다. 설정된 모든 tier를 포함하며 Run으로 분리되지 않습니다. File offload 여부는 connector 설정과 host disk I/O를 함께 확인합니다.",
       "gridPos": {
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 41
       },
       "datasource": {
         "type": "prometheus",
@@ -497,324 +614,371 @@
       }
     },
     {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Sandbox pool occupancy",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 45
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sandbox_active{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "active"
-        },
-        {
-          "refId": "B",
-          "expr": "sandbox_queued{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "queued"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Optional runtime adapter gauges. Select the sandbox node for a dedicated deployment."
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Sandbox worker and device pressure",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 45
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "I/O PSI"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
-          "legendFormat": "local device busy {{device}}"
-        },
-        {
-          "refId": "C",
-          "expr": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "CPU PSI"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "I/O and CPU PSI are sandbox-worker cgroup scope; device busy is node/device scope. Select the sandbox node and verify the backing device before comparing."
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "Sandbox worker I/O rate",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 53
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "rate(sandbox_io_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "read"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(sandbox_io_write_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "write"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Aggregate cgroup bytes on the selected sandbox node. No sandbox or trajectory ID labels."
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Sandbox worker I/O operations",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 53
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "rate(sandbox_io_read_ops_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "read ops/s"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(sandbox_io_write_ops_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "write ops/s"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Aggregate cgroup operations, not per-tool attribution."
-    },
-    {
-      "id": 15,
-      "type": "timeseries",
-      "title": "Sandbox worker memory",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 61
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sandbox_memory_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "current"
-        },
-        {
-          "refId": "B",
-          "expr": "sandbox_memory_peak_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "peak"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "Current memory covers the worker cgroup and descendants. Peak is the high-water mark since this cgroup was created, not the peak of the selected time interval."
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Sandbox worker CPU and OOM",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 61
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "rate(sandbox_cpu_usage_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "CPU cores"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "OOM/s"
-        },
-        {
-          "refId": "C",
-          "expr": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
-          "legendFormat": "OOM kills/s"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
-        }
-      },
-      "description": "CPU rate in cores; OOM attempts and actual OOM kills per second over the selected rate interval."
-    },
-    {
-      "id": 17,
-      "type": "stat",
-      "title": "Sandbox sample age",
+      "id": 90,
+      "type": "text",
+      "title": "Completed stages & live signals",
       "gridPos": {
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 69
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "time() - sandbox_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "{{node}} / {{runtime}}",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "N/A"
-        },
-        "overrides": []
+        "y": 0
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
+        "mode": "markdown",
+        "content": "**Completed:** step·stage·reward는 VERL logger 갱신 시점의 값입니다. **Live:** vLLM·GPU는 별도 주기로 수집합니다.\n\n느린 구간에서 [Step Explorer](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&${__url_time_range})로 이동합니다. N/A인 native panel은 endpoint 설정을, Sandbox 행은 sampler/runtime 연결 여부를 확인합니다."
+      }
+    },
+    {
+      "id": 91,
+      "type": "row",
+      "title": "Sandbox signals (optional)",
+      "description": "Runtime pool metric과 cgroup sampler를 연결한 경우 펼칩니다. Dedicated 배치에서는 Node를 sandbox node로 선택합니다.",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
       },
-      "description": "Age of the latest sandbox cgroup sample. A stale textfile must not be read as live pressure."
+      "panels": [
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Sandbox pool occupancy",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sandbox_active{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "active"
+            },
+            {
+              "refId": "B",
+              "expr": "sandbox_queued{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "queued"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "Runtime이 sandbox_active·sandbox_queued를 제공할 때만 표시됩니다. Dedicated 배치에서는 Node를 sandbox node로 선택합니다."
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Sandbox worker and device pressure",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 50
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "I/O PSI"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "local device busy {{device}}"
+            },
+            {
+              "refId": "C",
+              "expr": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "CPU PSI"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "I/O·CPU PSI는 sandbox-worker cgroup, device busy는 node/device 범위입니다. 같은 sandbox node와 backing device인지 확인한 뒤 비교합니다."
+        },
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Sandbox worker I/O rate",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(sandbox_io_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "read"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(sandbox_io_write_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "write"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "선택한 sandbox worker cgroup의 read/write bytes/s입니다. Sandbox·trajectory ID label 없이 집계하며 per-tool I/O로 해석하지 않습니다."
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "Sandbox worker I/O operations",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 58
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(sandbox_io_read_ops_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "read ops/s"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(sandbox_io_write_ops_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "write ops/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "Sandbox worker cgroup의 read/write operations/s입니다. Node/device IOPS와 scope가 다르며 개별 tool에 자동 귀속되지 않습니다."
+        },
+        {
+          "id": 15,
+          "type": "timeseries",
+          "title": "Sandbox worker memory",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sandbox_memory_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "current"
+            },
+            {
+              "refId": "B",
+              "expr": "sandbox_memory_peak_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "peak"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "Current는 worker cgroup과 descendants의 memory입니다. Peak는 cgroup 생성 이후 high-water mark이며 선택한 시간 구간의 peak가 아닙니다."
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Sandbox worker CPU and OOM",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 66
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(sandbox_cpu_usage_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "CPU cores"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "OOM/s"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "OOM kills/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "CPU rate는 cores 단위입니다. OOM event와 실제 OOM kill은 선택한 rate 구간의 초당 증가량이며 서로 구분합니다."
+        },
+        {
+          "id": 17,
+          "type": "stat",
+          "title": "Sandbox sample age",
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 74
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "time() - sandbox_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
+              "legendFormat": "{{node}} / {{runtime}}",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 16,
+              "valueSize": 40
+            },
+            "colorMode": "none"
+          },
+          "description": "마지막 sandbox cgroup sample 이후 지난 시간입니다. 오래된 textfile 값을 현재 pressure로 해석하지 않습니다."
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -837,7 +1001,8 @@
         "definition": "label_values(training_sample_timestamp_seconds, cluster)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
         "name": "node",
@@ -851,7 +1016,8 @@
         "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
       },
       {
         "name": "run_id",
@@ -865,7 +1031,8 @@
         "definition": "label_values(training_sample_timestamp_seconds{cluster=~\"$cluster\"}, run_id)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
         "name": "phase",
@@ -879,7 +1046,8 @@
         "definition": "label_values(rl_stage_duration_seconds{run_id=~\"$run_id\"}, phase)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "VERL adapter가 매핑한 phase입니다. 완료 stage duration의 필터이며 현재 실행 phase는 아닙니다."
       },
       {
         "name": "role",
@@ -893,7 +1061,8 @@
         "definition": "label_values(training_sample_timestamp_seconds{run_id=~\"$run_id\"}, role)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "Application snapshot의 trainer·rollout·sandbox 등 Role입니다."
       },
       {
         "name": "worker",
@@ -907,7 +1076,8 @@
         "definition": "label_values(training_sample_timestamp_seconds{run_id=~\"$run_id\",role=~\"$role\"}, worker_id)",
         "includeAll": true,
         "allValue": ".*",
-        "refresh": 1
+        "refresh": 1,
+        "description": "Application snapshot의 Worker identity입니다. Node와 함께 확인합니다."
       }
     ]
   },
@@ -917,7 +1087,7 @@
   },
   "timezone": "browser",
   "title": "02 · Agent RL Stage Correlation",
-  "description": "Compare completed VERL stage times with rollout engine signals.",
+  "description": "완료된 VERL stage duration을 vLLM rollout과 GPU, 선택적 sandbox 신호와 비교합니다.",
   "uid": "agent-rl-stage-correlation",
-  "version": 2
+  "version": 3
 }
