@@ -16,7 +16,6 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges, writ
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
 from xlayer_telemetry.show_run import summarize
 from xlayer_telemetry.step_backfill import backfill
-from xlayer_telemetry.step_explorer import StepExplorer
 from xlayer_telemetry.step_history import StepHistoryWriter
 from xlayer_telemetry.collectors.topology_textfile import build_gauges
 from xlayer_telemetry.collectors.sandbox_sampler import read_cgroup
@@ -39,18 +38,6 @@ def test_history_consumers_skip_bad_lines_and_keep_valid_steps(tmp_path):
     # A bridge restart must not fail while rebuilding its deduplication set.
     StepHistoryWriter(path, run_id="r", node="n", worker_id="driver")
     assert backfill(tmp_path) == 1
-    assert StepExplorer(tmp_path, None, "lab", None, None).steps()[0]["id"] == "one"
-
-
-def test_step_detail_uses_one_history_read(tmp_path, monkeypatch):
-    calls = []
-    def read(root):
-        calls.append(root)
-        return [step()]
-    monkeypatch.setattr("xlayer_telemetry.step_explorer.load_steps", read)
-    explorer = StepExplorer(tmp_path, None, "lab", None, None)
-    assert explorer.detail("one")["step"]["duration"] == 5
-    assert calls == [tmp_path]
 
 
 def test_bad_snapshot_encoding_and_numeric_overflow_are_isolated(tmp_path):

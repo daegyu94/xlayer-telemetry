@@ -90,8 +90,8 @@ Start Here -> Run Overview (completed steps)
 완료 step 목록은 Loki를 활성화했을 때 Run Overview에 추가됩니다.
 Loki를 끈 server에는 metrics 화면만 provision하고, 설치하지 않은 investigation 화면의 링크는 `requires Loki` 안내로 바꿉니다.
 같은 output directory에서 Loki를 끄고 재실행하면 repository가 제공한 optional dashboard만 제거하며 사용자 dashboard 파일은 유지합니다.
-일반적인 monitoring 경로에는 별도 Step Explorer UI/server가 필요하지 않습니다.
-Grafana의 step 목록에서 기존 상세 dashboard로 이어지며, standalone explorer는 저장된 run 파일을 직접 읽어 조사하는 선택지입니다.
+Step Explorer는 Grafana의 Run Overview와 Cross-Layer Timeline에서 사용하며 별도 UI/server를 실행하지 않습니다.
+Loki 없이 저장된 run을 읽을 때는 `python -m xlayer_telemetry.show_run "$RUN_ROOT"`으로 step event와 진단 결과를 확인합니다.
 완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](dashboards.md#open-in-grafana)에 있습니다.
 화면을 처음 열었다면 [필터와 시간 범위](#select-the-context)부터 확인하고, 느린 step을 찾은 뒤 [Step Explorer](#step-explorer)와 [Run Analysis](#run-analysis)로 이어갑니다.
 
@@ -221,7 +221,6 @@ Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 �
 두 신호가 동시에 변해도 인과관계가 확정되지는 않으며, 공유 자원에는 다른 workload의 영향도 포함될 수 있습니다.
 완료된 step 하나를 확대하려면 Grafana의 [Step Explorer](dashboards.md#open-in-grafana)를 엽니다.
 같은 run의 이전 step 대비 주요 signal 변화와 후보는 [Bottleneck Summary](#bottleneck-summary-and-cross-layer-timeline)에서 봅니다.
-두 step의 자원 평균 차이를 직접 지정해 계산하려면 기존 [로컬 UI](dashboards.md#legacy-standalone-explorer)를 사용합니다.
 증상별 다음 조사 항목과 trace 연결은 [Run Analysis](dashboards.md#run-analysis)에서 다룹니다.
 
 ## Bottleneck Summary and Cross-Layer Timeline
@@ -326,67 +325,13 @@ Annotation control로 marker를 끌 수 있으며, metrics-only dashboard에는 
 
 ![현재 Grafana Timeline에서 확인한 실제 SWE-Bench colocate_async trainer update 3](figures/grafana-timeline-real.png)
 
-### Legacy Standalone Explorer
-
-기존 로컬 UI는 저장된 run 파일을 직접 읽거나 두 step을 수동으로 비교할 때 계속 사용할 수 있습니다.
-일반적인 monitoring에서는 Grafana Timeline으로 현재 구간을 확대하고 Bottleneck Summary의 current-vs-baseline 비교를 사용합니다.
-Standalone explorer의 수동 두-step 평균 비교와 진단 엔진이 선택한 같은 run의 baseline 비교는 baseline 선택 방법이 다릅니다.
-
-![실제 VERL 실행의 step 8에서 stage, GPU·host·disk·vLLM 지표와 Loki log를 보여 주는 Step Explorer](figures/step-explorer-real.png)
-
-#### Start the Local Explorer
-
-VERL wrapper가 만든 run의 `telemetry-events/verl-steps.jsonl`이 필요합니다.
-Run 파일에 접근할 수 있고 Prometheus와 Loki에도 연결되는 host에서 아래처럼 시작합니다.
-`--cluster`는 Prometheus target에 붙인 실제 `cluster` label로 지정하고, `--log-run-id`는 Alloy가 log 경로에서 추출한 결과 디렉터리 이름을 사용합니다.
-
-```bash
-. .venv/bin/activate
-export RESULTS_DIR='/path/to/your-run-directory'
-python -m xlayer_telemetry.step_explorer \
-  --run-root "$RESULTS_DIR/telemetry" \
-  --cluster real-verl-3fs \
-  --prometheus-url http://127.0.0.1:19090 \
-  --loki-url http://127.0.0.1:13100 \
-  --log-run-id "$(basename "$RESULTS_DIR")"
-```
-
-브라우저에서 `http://127.0.0.1:8765/`를 엽니다.
-서버는 기본적으로 localhost에만 바인딩하며, 원격 host에서 실행한다면 `ssh -L 8765:127.0.0.1:8765 user@explorer-host`처럼 포트를 전달합니다.
-Prometheus 없이 step과 stage 기록만 확인하려면 `--prometheus-url`, `--loki-url`, `--log-run-id`를 생략할 수 있습니다.
-
-#### Include Multiple Nodes
-
-Step Explorer는 `topology-manifest.json`이 있으면 그 파일을, 없으면 wrapper의 `telemetry-manifest.json`을 읽어 run에 참여한 node와 역할을 찾습니다.
-Wrapper의 기본 manifest는 trainer와 rollout을 모두 driver node로 기록하므로, 실제 배치가 다르면 다음처럼 별도의 topology manifest를 만듭니다.
-`RUN_ID`는 step 이력의 `run_id`와 같아야 하며, 같은 역할의 node가 여러 대라면 `--role`을 반복합니다.
-
-```bash
-export RUN_ID='your-telemetry-run-id'
-python -m xlayer_telemetry.manifest \
-  --output "$RESULTS_DIR/telemetry/topology-manifest.json" \
-  --run-id "$RUN_ID" \
-  --role trainer=trainer-0 \
-  --role rollout=rollout-0 \
-  --role rollout=rollout-1
-```
-
-이미 다른 위치에 manifest가 있다면 시작 명령에 `--topology-manifest /path/to/topology-manifest.json`을 추가합니다.
-Step 기록은 driver의 run directory에만 있어도 되며, Explorer가 각 node의 Prometheus·Loki endpoint에 직접 접속할 필요는 없습니다.
-Prometheus와 Loki가 해당 node의 지표·log를 수집하고 있어야 하고, manifest의 node 이름은 Prometheus의 `instance`, native vLLM의 `node`, Loki의 `node` label과 일치해야 합니다.
-Loki를 여러 node에서 조회할 때는 `--log-run-id`의 결과 디렉터리 이름이 각 node의 log 경로에서 같아야 합니다.
-
-화면은 선택한 driver step의 공통 시간 범위에 trainer·rollout node의 resource와 log를 각각 표시합니다.
-Rollout 역할의 node에서만 vLLM native 지표를 조회하며, 역할 정보가 없으면 모든 발견된 node에서 조회합니다.
-다른 node의 값이 `N/A`라면 manifest 배치와 exporter target·label을 먼저 확인합니다.
-Node 사이의 시계가 맞지 않으면 같은 시간 범위의 비교도 어긋날 수 있습니다.
-
 ### Read a Step
 
-상단의 `Step`에서 완료된 step을 고릅니다.
-시작·종료 시각과 `Boundary accuracy`를 먼저 확인한 뒤 stage 소요 시간, 자원 그래프, 같은 시간 범위의 log를 읽습니다.
-`Compare with`에서 다른 step을 고르면 선택한 step에서 비교 step을 뺀 stage 시간과 자원 표본 평균을 볼 수 있습니다.
-선택 상태는 주소의 `step`과 `compare` 매개변수에 남아 같은 run을 연 화면으로 다시 이동할 수 있습니다.
+Run Overview의 완료 step 목록에서 조사할 행을 선택합니다.
+Timeline의 선택 record·step·시작/종료 시각과 경계 정확도를 먼저 확인한 뒤 reported stage, exact span, resource graph를 읽습니다.
+같은 구간의 log는 Run Logs 링크로 확인합니다.
+Current-vs-baseline 비교는 Bottleneck Summary의 `Baseline comparison / sample quality`에서 확인하며, Signal 메뉴로 각 interval의 Timeline을 열 수 있습니다.
+Dashboard link는 `record_id`와 run·node·시간 범위를 전달하므로 선택한 context를 유지하며 조사합니다.
 
 현재 VERL file logger에는 원래 step 경계 시각이 없으므로 `approximate`는 bridge가 관측한 완료 시각에서 보고된 step 시간을 빼서 만든 구간입니다.
 Bridge가 시작 전의 backlog나 종료 후의 record를 재생하면 원래 시각을 복원할 수 없어 `unknown`으로 기록하고 시간 기반 Step Explorer 목록에서는 제외합니다.
@@ -569,6 +514,6 @@ Offset에는 scrape/transport delay가 포함되며 kernel sync status는 `1`이
 이 패널만으로 sample freshness나 정밀 event 정렬을 입증할 수는 없습니다.
 Current와 baseline 모두 [clock check](monitoring.md#check-clock-alignment-before-diagnosing)를 수행합니다.
 
-선택적인 standalone Step Explorer도 node별 clock quality를 응답에 포함하고 불확실하면 warning을 표시합니다.
-두 interval이 모두 aligned일 때만 resource delta를 표시하며 raw metric/log는 조사용으로 남깁니다.
+Diagnosis의 clock guard가 current 또는 baseline을 unsafe·unknown으로 판정하면 resource delta를 비교 결과에서 제외합니다.
+불확실한 clock은 missing evidence로 남기며 Timeline의 raw metric/log는 조사용으로 확인할 수 있습니다.
 Grafana의 수동 timeline은 자동으로 시간축을 이동시키지 않으므로 clock 상태를 확인한 후 overlap을 해석합니다.

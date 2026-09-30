@@ -22,7 +22,6 @@ from xlayer_telemetry.collectors.gpu_sampler import snapshot
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
-from xlayer_telemetry.step_explorer import StepExplorer
 
 
 def free_port():
@@ -146,22 +145,21 @@ def main():
         assert len(span_records) == 3 and len({record['trace_id'] for record in span_records}) == 1
         assert sum(record.get('parent_span_id') == trace.span_id for record in span_records) == 2
         checks['cross_node_trace_parent_links'] = True
-        (args.output / 'topology-manifest.json').write_text(json.dumps({'schema_version': 1, 'run_id': 'local-validation',
-            'deployment': {'roles': [{'node': node, 'role': 'rollout' if node.startswith('gpu') else 'storage'} for node in nodes]}}))
-        (events / 'verl-steps.jsonl').write_text(json.dumps({'record_type': 'verl_step_observation', 'record_id': 'local',
+        interval = {'schema_version': 1, 'record_type': 'verl_step_observation', 'record_id': 'local',
             'run_id': 'local-validation', 'node': 'gpu-a', 'step': 1, 'worker_id': '0', 'boundary_scope': 'validation_interval',
-            'observed_at': end, 'analysis_window': {'start': begin, 'end': end, 'accuracy': 'validation_interval'}}) + '\n')
-        detail = StepExplorer(args.output, base, cluster, None, None).detail('local')
-        assert len(detail['node_data']) == 3
-        assert detail['node_data']['storage-a']['signals']['disk_read']['summary'] is not None
-        checks['step_explorer_three_node_query'] = True
-        diagnostic_config = {'prometheus': {'url': base}, 'cluster': cluster,
+            'observed_at': end, 'analysis_window': {'start': begin, 'end': end, 'accuracy': 'validation_interval'}}
+        (events / 'verl-steps.jsonl').write_text(json.dumps(interval) + '\n')
+        diagnostic_config = {'prometheus': {'url': base, 'queries': {
+                                'disk_read_bytes_per_second': 'rate(node_disk_read_bytes_total{cluster="{cluster}",job="telemetry",instance="{storage_node}"}[1m])',
+                             }}, 'cluster': cluster,
                              'compute_node': 'gpu-b', 'rollout_node': 'gpu-b',
                              'storage_node': 'storage-a', 'clock': {'require_sync': False}}
         engine = DiagnosticEngine(diagnostic_config, prometheus=client)
-        interval = {'node': 'gpu-a', 'run_id': 'local-validation',
-                    'analysis_window': {'start': begin, 'end': end}}
-        assert engine.analyze(interval, [])['clock_quality']['status'] == 'aligned'
+        diagnosis = engine.analyze(interval, [])
+        assert diagnosis['clock_quality']['status'] == 'aligned'
+        assert set(diagnosis['clock_quality']['nodes']) == set(nodes)
+        assert {'gpu_utilization_percent', 'host_memory_available_ratio', 'disk_read_bytes_per_second'} <= set(diagnosis['evidence'])
+        checks['diagnosis_three_node_query'] = True
         skew['storage-a'] = 12
         shifted_start = time.time() + 1
         threading.Event().wait(4)

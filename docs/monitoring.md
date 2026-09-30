@@ -221,11 +221,12 @@ PYTHONPATH="$PWD" python examples/multinode/validate_local.py \
 ```
 
 Architecture에 맞춰 binary directory의 `amd64` 또는 `arm64`를 선택합니다.
-GPU UUID 두 개, logical node별 application snapshot, storage host metric, shared trace/parent, Step Explorer 조회를 실제 backend에서 검사합니다.
+GPU UUID 두 개, logical node별 application snapshot, storage host metric, shared trace/parent와 세 node에 걸친 diagnosis query를 실제 backend에서 검사합니다.
 Clock metric에 +12초 offset을 주입하고 storage source도 중단하여 clock screening을 확인합니다.
 이 두 fault는 test proxy에서만 만들며 시스템 clock이나 storage를 변경하지 않습니다.
 
-2026-09-30 검증은 RTX PRO 4000 Blackwell 두 개, Node Exporter 1.9.1, Prometheus 3.5.0에서 위 항목을 통과했습니다.
+2026-09-30 검증은 RTX PRO 4000 Blackwell 두 개, Node Exporter 1.9.1, Prometheus 3.5.0에서 수행했습니다.
+당시에는 standalone Step Explorer 조회를 검사했으며 현재 script는 같은 backend에서 diagnosis evidence를 검사합니다.
 Host와 kernel이 NTP unsynchronized를 보고하여 strict check는 `unsafe`였고, sync status 요구를 제외한 scrape-relative 차이는 수십 ms 이내였습니다.
 검증 조건과 항목별 결과는 [Validation record](validation/multinode/validation.json)에 보존합니다.
 물리 host는 하나였으며 host counter도 공유합니다.

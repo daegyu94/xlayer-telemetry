@@ -80,7 +80,7 @@ xlayer_telemetry/
 +-- events.py / sandbox.py     public instrumentation SDK
 +-- manifest.py / step_history.py
 +-- prometheus.py              shared backend query/parser
-+-- show_run.py / step_explorer.py / stack.py
++-- show_run.py / stack.py
 ```
 
 `metrics`와 `events`를 import해도 collector나 LLM diagnosis를 함께 적재하지 않습니다.
@@ -122,6 +122,8 @@ python -m xlayer_telemetry.analysis.diagnostics --help
 Editable 설치는 checkout의 변경을 바로 읽습니다.
 `metrics`·`events`·`sandbox`의 공개 SDK 경로와 metric·event·diagnosis 파일 형식은 유지하므로 저장된 run을 변환할 필요는 없습니다.
 `scripts/`의 실행 helper를 호출하는 외부 프로젝트는 module 경로를 직접 쓰지 않는 한 호출 방식을 바꿀 필요가 없습니다.
+Standalone Step Explorer의 HTML·Python 서버는 제거했습니다.
+완료 step 탐색은 Grafana의 Run Overview → Cross-Layer Timeline을 사용하고, Loki가 없는 저장된 run은 `python -m xlayer_telemetry.show_run "$RUN_ROOT"`으로 읽습니다.
 검증 기록의 명령은 실행 당시 경로를 보존하며, 현재 명령은 각 사용 가이드를 따릅니다.
 
 ### When to Revisit eBPF
