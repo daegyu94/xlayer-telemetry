@@ -55,6 +55,7 @@ def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]]
     eligible = [
         item for item in history
         if item.get("run_id") == current.get("run_id")
+        and item.get("node") == current.get("node")
         and item.get("worker_id") == current.get("worker_id")
         and item.get("boundary_scope") == current.get("boundary_scope")
         and finite(item.get("step_duration_seconds")) is not None
@@ -160,6 +161,12 @@ def evaluate_rules(
             "boundary_accuracy": context.get("boundary_accuracy", "unknown"),
         } for name in observed]
         gpu_label = labels_for("gpu_utilization_percent").get("gpu")
+        observed_nodes = sorted({
+            str(item["labels"].get("node") or item["labels"].get("nodename"))
+            for item in evidence if item["labels"].get("node") or item["labels"].get("nodename")
+        })
+        fallback_node = (context.get("compute_node") or context.get("node")) if component == "compute" else (
+            context.get("rollout_node") if component == "rollout" else context.get("node") if component == "host" else None)
         related_devices = list((related or {}).get("devices", []))
         if not related_devices and component == "compute" and gpu_label is not None:
             related_devices = [gpu_label]
@@ -169,7 +176,7 @@ def evaluate_rules(
             "counter_evidence": [{"signal": name, "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
             "missing_evidence": missing,
             "observation_scope": scope,
-            "related_nodes": list((related or {}).get("nodes", [])) or ([context["node"]] if component in {"compute", "host"} and context.get("node") else []),
+            "related_nodes": list((related or {}).get("nodes", [])) or observed_nodes or ([fallback_node] if fallback_node else []),
             "related_devices": related_devices,
             "related_spans": list((related or {}).get("spans", [])) or list(context.get("related_spans", [])),
         })

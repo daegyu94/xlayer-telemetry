@@ -66,7 +66,8 @@ class StepHistoryWriter:
                     except json.JSONDecodeError:
                         continue
                     record_id = record.get("record_id")
-                    if isinstance(record_id, str):
+                    if (isinstance(record_id, str) and record.get("run_id") == self.run_id
+                            and record.get("node") == self.node and record.get("worker_id") == self.worker_id):
                         seen.add(record_id)
         except FileNotFoundError:
             pass
@@ -78,8 +79,10 @@ class StepHistoryWriter:
         if type(step) is not int or step < 0 or not isinstance(data, dict):
             return None
         canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
-        record_id = hashlib.sha256(canonical.encode()).hexdigest()[:24]
-        if record_id in self._seen:
+        legacy_id = hashlib.sha256(canonical.encode()).hexdigest()[:24]
+        identity = json.dumps([self.run_id, self.node, self.worker_id, record], sort_keys=True, separators=(",", ":"))
+        record_id = hashlib.sha256(identity.encode()).hexdigest()[:24]
+        if record_id in self._seen or legacy_id in self._seen:
             return None
 
         observed_at = self.clock()

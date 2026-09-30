@@ -89,7 +89,7 @@
   },
   "version": 1,
   "uid": "xlayer-cross-layer-timeline",
-  "title": "05 · Cross-Layer Timeline",
+  "title": "05 \u00b7 Cross-Layer Timeline",
   "description": "Align exact spans, an estimated step window, and sampled resource metrics without inventing phase boundaries.",
   "links": [
     {
@@ -127,7 +127,7 @@
       "id": 2,
       "type": "state-timeline",
       "title": "Exact workload spans",
-      "description": "Only exact EventRecorder spans are rendered as phase bars.",
+      "description": "Exact boundaries in the producer node wall clock. Cross-node alignment requires synchronized clocks; spans with detected wall clock jumps are excluded.",
       "gridPos": {
         "x": 0,
         "y": 3,
@@ -141,7 +141,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=\"exact\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -649,7 +649,7 @@
         {
           "refId": "A",
           "expr": "telemetry_gpu_utilization_percent{cluster=~\"$cluster\",nodename=~\"$node\"}",
-          "legendFormat": "{{gpu}}"
+          "legendFormat": "{{cluster}} / {{nodename}} / {{gpu}}"
         }
       ],
       "fieldConfig": {
@@ -682,7 +682,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "vllm:num_requests_waiting{node=~\"$node\"}",
+          "expr": "vllm:num_requests_waiting{cluster=~\"$cluster\",node=~\"$node\"}",
           "legendFormat": "{{node}}"
         }
       ],
@@ -716,8 +716,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_infiniband_port_data_received_bytes_total{nodename=~\"$node\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{nodename=~\"$node\"}[1m])",
-          "legendFormat": "{{device}}"
+          "expr": "rate(node_infiniband_port_data_received_bytes_total{cluster=~\"$cluster\",nodename=~\"$node\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{cluster=~\"$cluster\",nodename=~\"$node\"}[1m])",
+          "legendFormat": "{{cluster}} / {{nodename}} / {{device}}"
         }
       ],
       "fieldConfig": {
@@ -750,8 +750,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_disk_io_time_seconds_total{nodename=~\"$node\"}[1m])",
-          "legendFormat": "{{device}}"
+          "expr": "rate(node_disk_io_time_seconds_total{cluster=~\"$cluster\",nodename=~\"$node\"}[1m])",
+          "legendFormat": "{{cluster}} / {{nodename}} / {{device}}"
         }
       ],
       "fieldConfig": {
@@ -1021,14 +1021,84 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 53,
         "w": 24,
         "h": 2
       },
       "options": {
         "mode": "markdown",
-        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam})"
+        "content": "[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) \u00b7 [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}) \u00b7 [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam})"
       }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Node clock offset from scrape time",
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+          "legendFormat": "{{cluster}} / {{nodename}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "Includes scrape/transport delay; screening signal, not an NTP offset or timestamp correction. Inspect each node and both baseline/current intervals."
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Node clock synchronization status",
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_timex_sync_status{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "legendFormat": "{{cluster}} / {{nodename}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "links": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "1 = kernel reports synchronized, 0 = unsynchronized, no data = unknown. Metric freshness also needs checking; this alone does not prove precise alignment."
     }
   ]
 }

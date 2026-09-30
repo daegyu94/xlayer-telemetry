@@ -189,7 +189,7 @@ def test_dedicated_node_diagnosis_queries_the_sandbox_device():
          "sandbox": {"enabled": True, "node": "sandbox-2", "device": "nvme0n1"}},
         prometheus=prom, clock=lambda: 31,
     )
-    baseline = {"run_id": "run-1", "worker_id": "driver", "boundary_scope": "rl_step",
+    baseline = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver", "boundary_scope": "rl_step",
                 "observed_at": 10, "step_duration_seconds": 10,
                 "analysis_window": {"start": 0, "end": 10}}
     current = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver",
@@ -253,7 +253,7 @@ def test_exact_tool_spans_supply_duration_when_prometheus_tool_metric_is_missing
                      "node": "sandbox-2", "device": "nvme0n1"}},
         prometheus=Prometheus(), clock=lambda: 31,
     )
-    baseline = {"run_id": "run-1", "worker_id": "driver", "boundary_scope": "rl_step",
+    baseline = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver", "boundary_scope": "rl_step",
                 "observed_at": 10, "step_duration_seconds": 10,
                 "analysis_window": {"start": 0, "end": 10}}
     current = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver",
@@ -294,7 +294,7 @@ def test_tool_span_baseline_does_not_compare_different_operations(tmp_path):
          "sandbox": {"enabled": True, "events_dir": str(directory)}},
         prometheus=Prometheus(), clock=lambda: 30,
     )
-    baseline = {"run_id": "run-1", "worker_id": "driver", "boundary_scope": "rl_step",
+    baseline = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver", "boundary_scope": "rl_step",
                 "observed_at": 10, "step_duration_seconds": 10,
                 "analysis_window": {"start": 0, "end": 10}}
     current = {"run_id": "run-1", "node": "gpu-0", "worker_id": "driver",

@@ -341,3 +341,30 @@ Input과 output을 같은 경로로 지정하는 명령은 입력 보존을 위�
 현재 validator는 일부 entity 혼합과 evidence ID 누락을 막지만 자유 서술의 scope·인과 해석·조사 명령의 정확성까지 검증하지 못하므로 모델의 결론과 참조된 측정값을 함께 읽어야 합니다.
 모델에 tool 실행이나 자동 remediation 권한은 없습니다.
 이 PoC는 Ollama API의 structured JSON output과 thinking을 사용하며, 다른 backend·자동 호출·Grafana 표시·추가 evidence 조회는 실측 유용성과 실패 유형을 평가한 뒤 확장할 수 있습니다.
+
+## Multi-node Clock Evidence
+
+여러 node의 metric을 비교할 때는 clock alignment를 별도 evidence로 전달합니다.
+Saved diagnosis의 `clock_quality`는 rule 결과 없이 observation packet에 보존되고 compact table에도 포함됩니다.
+Current 또는 baseline의 clock 상태가 `unsafe`/`unknown`이면 LLM response도 `insufficient_evidence`만 허용합니다.
+Unchecked 입력은 동기화가 검증된 입력을 뜻하지 않습니다.
+
+직접 수집하는 source config에는 `cluster`와 `clock.nodes`를 추가하여 workload boundary를 만든 node와 관련 GPU·rollout·sandbox·storage producer를 모두 지정합니다.
+각 PromQL에도 같은 cluster와 실제 node/source 조건을 사용합니다.
+Clock threshold와 검사 한계는 [Clock and Node Selection](diagnosis.md#clock-and-node-selection)에 설명합니다.
+
+```json
+{
+  "cluster": "training-cluster",
+  "clock": {
+    "nodes": ["gpu-a", "gpu-b", "storage-a"],
+    "require_sync": true,
+    "max_skew_seconds": 1,
+    "max_sample_age_seconds": 30
+  }
+}
+```
+
+이 fragment를 기존 source config에 병합합니다.
+Source config의 interval과 queries 설정은 그대로 필요합니다.
+Clock 상태가 불명확하면 LLM이 임의로 timestamp를 보정하거나 시간 overlap을 추론하지 않습니다.

@@ -1,0 +1,47 @@
+{
+  "validated_on": "2026-09-30",
+  "status": "passed",
+  "physical_hosts": 1,
+  "logical_nodes": [
+    "gpu-a",
+    "gpu-b",
+    "storage-a"
+  ],
+  "hardware": {
+    "gpu_count": 2,
+    "model": "NVIDIA RTX PRO 4000 Blackwell"
+  },
+  "backends": {
+    "node_exporter": "1.9.1",
+    "prometheus": "3.5.0"
+  },
+  "checks": {
+    "scrape_relative_alignment_without_ntp_requirement": "aligned",
+    "strict_sync_check": "unsafe",
+    "real_gpu_series": true,
+    "node_local_worker_snapshots": true,
+    "storage_host_metrics": true,
+    "cross_node_trace_parent_links": true,
+    "step_explorer_three_node_query": true,
+    "synthetic_plus_12s_clock_skew": "unsafe",
+    "real_backend_diagnosis_withheld_for_skew": true,
+    "stopped_storage_source": "unknown"
+  },
+  "max_scrape_relative_offset_seconds": {
+    "gpu-a": 0.009657621383666992,
+    "gpu-b": 0.008524894714355469,
+    "storage-a": 0.017181873321533203
+  },
+  "strict_sync_status": "unsafe",
+  "strict_sync_issue": "Kernel node_timex_sync_status=0; timedatectl NTPSynchronized=no; timesyncd packet count=0.",
+  "faults": {
+    "clock_skew_seconds": 12,
+    "source_stopped": "storage-a HTTP test proxy"
+  },
+  "limitations": [
+    "No distributed VERL training or independent remote clocks tested.",
+    "Clock skew is injected into an HTTP evidence proxy; system clocks are unchanged.",
+    "Node Exporter host counters share one physical machine.",
+    "No local SSD or 3FS bottleneck is asserted."
+  ]
+}

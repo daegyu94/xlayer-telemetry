@@ -24,7 +24,7 @@ def test_emitter_replaces_worker_snapshot_atomically(tmp_path: Path) -> None:
         ],
     )
 
-    assert path == tmp_path / "verl-trainer-0.json"
+    assert path == tmp_path / "verl-trainer-0@trainer-0@run-1.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "schema_version": 2,
         "run_id": "run-1",
@@ -109,11 +109,12 @@ def test_producer_roles_have_distinct_snapshots(tmp_path: Path) -> None:
             producer="verl",
             role=role,
             worker_id="0",
+            node="node-a",
         )
         emitter.emit(step=1, samples=[Metric("training_loss", 1)])
 
     assert {path.name for path in tmp_path.iterdir()} == {
-        "verl-agent-0.json",
-        "verl-rollout-0.json",
-        "verl-trainer-0.json",
+        "verl-agent-0@node-a@run-1.json",
+        "verl-rollout-0@node-a@run-1.json",
+        "verl-trainer-0@node-a@run-1.json",
     }

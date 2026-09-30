@@ -18,16 +18,17 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline
+from .clock_quality import assess_clocks
 
 
 DEFAULT_QUERIES = {
-    "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{node}"}',
+    "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
     "host_memory_available_ratio": 'node_memory_MemAvailable_bytes{instance="{node}"} / node_memory_MemTotal_bytes{instance="{node}"}',
     "disk_busy_ratio": 'rate(node_disk_io_time_seconds_total{instance="{node}"}[1m])',
-    "vllm_requests_waiting": 'vllm:num_requests_waiting{node="{node}"}',
-    "vllm_kv_cache_usage": 'vllm:kv_cache_usage_perc{node="{node}"}',
-    "vllm_preemptions_total": 'vllm:num_preemptions_total{node="{node}"}',
-    "ray_pending_tasks": 'ray_tasks{State=~"PENDING.*"}',
+    "vllm_requests_waiting": 'vllm:num_requests_waiting{node="{rollout_node}"}',
+    "vllm_kv_cache_usage": 'vllm:kv_cache_usage_perc{node="{rollout_node}"}',
+    "vllm_preemptions_total": 'vllm:num_preemptions_total{node="{rollout_node}"}',
+    "ray_pending_tasks": 'ray_tasks{node="{rollout_node}",State=~"PENDING.*"}',
     "policy_version_lag": 'policy_version_lag{nodename="{node}",run_id="{run_id}"}',
     "host_swap_activity": 'rate(node_vmstat_pswpin{instance="{node}"}[1m]) + rate(node_vmstat_pswpout{instance="{node}"}[1m])',
     "disk_read_bytes_per_second": 'rate(node_disk_read_bytes_total{instance="{node}"}[1m])',
@@ -65,7 +66,7 @@ def _read_json(request: Request, timeout: float) -> Any:
 
 
 def _escape_prometheus(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None] | None:
@@ -210,6 +211,25 @@ def load_config(path: Path) -> dict[str, Any]:
         if any(not isinstance(sandbox.get(key), str) or not sandbox[key]
                for key in ("node", "device", "events_dir") if key in sandbox):
             raise ValueError("sandbox.node, sandbox.device and sandbox.events_dir must be nonempty strings")
+    for key in ("cluster", "compute_node", "rollout_node", "storage_node", "storage_device"):
+        if key in config and (not isinstance(config[key], str) or not config[key]):
+            raise ValueError(f"{key} must be a nonempty string")
+    clocks = config.get("clock", {})
+    if not isinstance(clocks, dict):
+        raise ValueError("clock must be an object")
+    for key in ("enabled", "require_sync"):
+        if key in clocks and type(clocks[key]) is not bool:
+            raise ValueError(f"clock.{key} must be boolean")
+    for key in ("max_skew_seconds", "max_sample_age_seconds"):
+        if key in clocks and (finite(clocks[key]) is None or clocks[key] <= 0):
+            raise ValueError(f"clock.{key} must be finite and positive")
+    if clocks.get("enabled", False) and not config.get("cluster"):
+        raise ValueError("clock checks require cluster")
+    if threefs and "clock_nodes" in threefs and (
+        not isinstance(threefs["clock_nodes"], list) or not threefs["clock_nodes"]
+        or any(not isinstance(node, str) or not node for node in threefs["clock_nodes"])
+    ):
+        raise ValueError("threefs.clock_nodes must be a nonempty list of node names")
     return config
 
 
@@ -255,6 +275,7 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
                             or item.get("record_type") != "span"
                             or item.get("name") != "tool.call" or item.get("run_id") != run_id
                             or item.get("status") != "ok"
+                            or item.get("boundary_accuracy") == "clock_discontinuity"
                             or not isinstance(item.get("trace_id"), str)
                             or not isinstance(item.get("span_id"), str)):
                         continue
@@ -358,18 +379,33 @@ class DiagnosticEngine:
             start = max(0.0, end - lookback)
             window = {"start": start, "end": end, "accuracy": "periodic", "source": "diagnostic_lookback"}
         node = str((current or {}).get("node") or self.config.get("node", ""))
+        compute_node = str(self.config.get("compute_node") or node)
+        rollout_node = str(self.config.get("rollout_node") or node)
+        storage_node = str(self.config.get("storage_node") or node)
+        cluster = str(self.config.get("cluster", ""))
         run_id = str((current or {}).get("run_id") or self.config.get("run_id", ""))
         execution_mode = str((current or {}).get("execution_mode") or self.config.get("execution_mode", "sync"))
         comparable_history = [
             item for item in history
             if current and item.get("run_id") == current.get("run_id")
+            and item.get("node") == current.get("node")
             and item.get("worker_id") == current.get("worker_id")
             and item.get("boundary_scope") == current.get("boundary_scope")
         ]
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
-        queries = {**DEFAULT_QUERIES, **self.config["prometheus"].get("queries", {})}
+        queries = dict(DEFAULT_QUERIES)
+        if cluster:
+            for name, template in queries.items():
+                job = "native" if name.startswith(("vllm_", "ray_")) else "telemetry"
+                source = ',telemetry_source="vllm"' if name.startswith("vllm_") else ''
+                queries[name] = re.sub(r'\{(?=[A-Za-z_]+=)', lambda match: '{cluster="{cluster}",job="' + job + '"' + source + ',', template)
+        queries.update(self.config["prometheus"].get("queries", {}))
+        if self.config.get("storage_node") and self.config.get("storage_device"):
+            queries.setdefault("storage_device_busy_ratio", (
+                'rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",instance="{storage_node}",device="{storage_device}"}[1m])'
+            ))
         sandbox_config = self.config.get("sandbox", {})
         sandbox_node = str((current or {}).get("sandbox_node") or sandbox_config.get("node") or node)
         sandbox_device = str(sandbox_config.get("device", ""))
@@ -384,6 +420,10 @@ class DiagnosticEngine:
                 queries.setdefault("sandbox_device_busy_ratio", (
                     'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
                 ))
+            if cluster:
+                for name in ("tool_duration_seconds", "sandbox_io_pressure_ratio", "sandbox_device_busy_ratio"):
+                    if name in queries and name not in self.config["prometheus"].get("queries", {}):
+                        queries[name] = queries[name].replace('{', '{cluster="{cluster}",job="telemetry",', 1)
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
         baseline_record = select_baseline(current, history) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
@@ -393,6 +433,32 @@ class DiagnosticEngine:
         baseline_metrics: dict[str, Any] = {}
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
+        clock_config = self.config.get("clock", {})
+        clock_quality = {"status": "unchecked", "nodes": {}}
+        if clock_config.get("enabled", bool(cluster)):
+            clock_nodes = {node, compute_node, rollout_node, storage_node}
+            if sandbox_config.get("enabled"):
+                clock_nodes.add(sandbox_node)
+            clock_nodes.update(self.config.get("threefs", {}).get("clock_nodes", []))
+            clock_quality = assess_clocks(
+                self.prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                start=float(start), end=end,
+                max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
+                max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
+                require_sync=clock_config.get("require_sync", True),
+            )
+            if clock_quality["status"] != "aligned":
+                missing.extend(f"clock:{name}:{item['status']}" for name, item in clock_quality["nodes"].items() if item["status"] != "aligned")
+            if baseline_window_valid:
+                clock_quality["baseline"] = assess_clocks(
+                    self.prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                    start=float(baseline_window["start"]), end=float(baseline_window["end"]),
+                    max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
+                    max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
+                    require_sync=clock_config.get("require_sync", True),
+                )
+                if clock_quality["baseline"]["status"] != "aligned":
+                    missing.append("clock:baseline:unaligned")
 
         def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]]]:
             if hasattr(self.prometheus, "query_range_detail"):
@@ -404,6 +470,11 @@ class DiagnosticEngine:
             try:
                 query = (str(template).replace("{node}", _escape_prometheus(node))
                          .replace("{run_id}", _escape_prometheus(run_id))
+                         .replace("{cluster}", _escape_prometheus(cluster))
+                         .replace("{compute_node}", _escape_prometheus(compute_node))
+                         .replace("{rollout_node}", _escape_prometheus(rollout_node))
+                         .replace("{storage_node}", _escape_prometheus(storage_node))
+                         .replace("{storage_device}", _escape_prometheus(str(self.config.get("storage_device", ""))))
                          .replace("{sandbox_node}", _escape_prometheus(sandbox_node))
                          .replace("{sandbox_device}", _escape_prometheus(sandbox_device)))
                 stats, series = query_with_detail(query, float(start), end)
@@ -462,7 +533,10 @@ class DiagnosticEngine:
 
         current_signals = self._signals(current, evidence, threefs_rows)
         baseline_signals = self._signals(baseline_record, baseline_metrics, threefs_baseline) if baseline_record else {}
-        signal_labels: dict[str, dict[str, str]] = {}
+        signal_labels: dict[str, dict[str, str]] = {
+            ("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name): dict(items[0].get("labels", {}))
+            for name, items in current_series.items() if len(items) == 1
+        }
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
         vllm_names = ("vllm_requests_waiting", "vllm_kv_cache_usage", "vllm_preemptions_total")
         identity_keys = ("cluster", "node", "instance", "engine", "model_name", "model")
@@ -505,6 +579,12 @@ class DiagnosticEngine:
                     else:
                         current_signals[signal] = value / 100 if name == "vllm_kv_cache_usage" and value > 1 else value
                     signal_labels[signal] = dict(selected)
+                    matching_prior = [item for item in baseline_series.get(name, []) if entity(item) == selected]
+                    baseline_signals.pop(signal, None)
+                    if len(matching_prior) == 1:
+                        prior_value = matching_prior[0]["stats"].get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
+                        if prior_value is not None:
+                            baseline_signals[signal] = prior_value / 100 if name == "vllm_kv_cache_usage" and prior_value > 1 else prior_value
         elif any(len(items) > 1 for items in detailed):
             for name in vllm_names:
                 current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
@@ -518,23 +598,29 @@ class DiagnosticEngine:
         findings = self._findings(
             finding_evidence, threefs_rows, threefs_baseline, float(start), end, execution_mode
         )
+        def gpu_identity(item):
+            labels = item.get("labels", {})
+            return tuple((key, str(labels[key])) for key in ("cluster", "instance", "nodename", "node", "gpu", "gpu_uuid") if key in labels)
         before_by_gpu = {
-            str(item.get("labels", {}).get("gpu")): item["stats"]
+            gpu_identity(item): item["stats"]
             for item in baseline_series.get("gpu_utilization_percent", [])
             if item.get("labels", {}).get("gpu") is not None
         }
         gpu_pairs = [
-            (str(item["labels"]["gpu"]), item["stats"], before_by_gpu[str(item["labels"]["gpu"])])
+            (item["labels"], item["stats"], before_by_gpu[gpu_identity(item)])
             for item in current_series.get("gpu_utilization_percent", [])
             if item.get("labels", {}).get("gpu") is not None
-            and str(item["labels"]["gpu"]) in before_by_gpu
+            and gpu_identity(item) in before_by_gpu
         ]
         if gpu_pairs:
-            gpu, observed, prior = max(gpu_pairs, key=lambda item: item[2]["mean"] - item[1]["mean"])
+            gpu_labels, observed, prior = max(gpu_pairs, key=lambda item: item[2]["mean"] - item[1]["mean"])
             current_signals["gpu_utilization_percent"] = observed["mean"]
             baseline_signals["gpu_utilization_percent"] = prior["mean"]
-            signal_labels["gpu_utilization_percent"] = {"gpu": gpu}
+            signal_labels["gpu_utilization_percent"] = dict(gpu_labels)
             signal_scopes["gpu_utilization_percent"] = "device"
+        elif current_series.get("gpu_utilization_percent") and baseline_series.get("gpu_utilization_percent"):
+            baseline_signals.pop("gpu_utilization_percent", None)
+            missing.append("gpu:baseline_entity_match")
         selected_3fs_metric = None
         if baseline_record:
             def latencies(rows: list[dict[str, Any]]) -> dict[str, float]:
@@ -593,6 +679,8 @@ class DiagnosticEngine:
             context={"sources": sources, "window": window,
                      "boundary_accuracy": window.get("accuracy", "unknown"),
                      "node": node,
+                     "compute_node": compute_node,
+                     "rollout_node": rollout_node,
                      "sandbox_node": sandbox_node if sandbox_config.get("enabled") else None,
                      "sandbox_device": sandbox_device if sandbox_config.get("enabled") else None,
                      "related_spans": (current or {}).get("related_spans", []),
@@ -602,6 +690,13 @@ class DiagnosticEngine:
                      "signal_scopes": signal_scopes,
                      "participant_durations_seconds": (current or {}).get("participant_durations_seconds", {})},
         ) if current else []
+        unsafe_timing = (clock_quality["status"] not in {"aligned", "unchecked"}
+                         or clock_quality.get("baseline", {}).get("status", "aligned") != "aligned")
+        if unsafe_timing:
+            # Keep raw evidence inspectable; do not use an unaligned resource
+            # window as a bottleneck hypothesis for this workload interval.
+            candidates = []
+            findings = []
         comparison = {
             "current_interval": window,
             "baseline_interval": baseline_window if baseline_record else None,
@@ -611,9 +706,22 @@ class DiagnosticEngine:
         }
         external_count = len(evidence) - 1
         verdict = "bottleneck_suspected" if findings or candidates else "no_anomaly_observed"
+        if unsafe_timing:
+            verdict = "insufficient_data"
         if external_count == 0 and not candidates:
             verdict = "insufficient_data"
         limitations = []
+        if unsafe_timing:
+            limitations.append("Clock alignment is unsafe or unknown; cross-layer diagnosis and baseline deltas are withheld. Raw resource windows remain available for inspection.")
+        if clock_quality["status"] == "unchecked":
+            limitations.append("Clock alignment was not checked. Configure cluster to enable Node Exporter clock checks.")
+        if self.threefs is not None and not self.config.get("threefs", {}).get("clock_nodes"):
+            limitations.append("3FS producer clocks were not checked; shared-service timestamp alignment requires threefs.clock_nodes covering its producers.")
+            for candidate in candidates:
+                if any(item.get("signal", "").startswith("threefs_") for item in candidate.get("evidence", [])):
+                    candidate["missing_evidence"].append("threefs_producer_clock_alignment")
+                    if candidate["state"] == "strong_signal":
+                        candidate["state"] = "supporting_signal"
         if execution_mode == "async":
             limitations.append(
                 "The VERL record is a trainer-update boundary; continuous vLLM, Ray, and 3FS activity is not owned by this step."
@@ -635,6 +743,7 @@ class DiagnosticEngine:
             "step": (current or {}).get("step"),
             "boundary_scope": (current or {}).get("boundary_scope", "continuous_window"),
             "analysis_window": window,
+            "clock_quality": clock_quality,
             "verdict": verdict,
             "findings": findings,
             "evidence": evidence,
@@ -647,7 +756,7 @@ class DiagnosticEngine:
                 "slow_stages": slow,
                 "boundary_scope": (current or {}).get("boundary_scope", "continuous_window"),
             },
-            "comparison": comparison,
+            "comparison": {**comparison, "signals": []} if unsafe_timing else comparison,
             "candidates": candidates,
         }
 

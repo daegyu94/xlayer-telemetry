@@ -386,3 +386,14 @@ Baseline은 학습 throughput이 아니므로 같은 node·GPU·network 조건�
 Model, batch, sequence length, concurrency, cache 상태와 topology를 기록하고 비교 run에서 동일하게 유지합니다.
 원인 후보를 하나씩 변경한 뒤 profiler를 끈 실제 VERL 실행에서 개선이 유지되는지 확인합니다.
 Throughput뿐 아니라 loss·reward와 correctness도 함께 확인하고, synthetic 결과와 실제 workload 결과는 구분해 남깁니다.
+
+### Read Clock Evidence in the Timeline
+
+Cross-Layer Timeline의 `Node clock offset from scrape time`과 `Node clock synchronization status`는 선택한 cluster/node별 clock evidence를 보여줍니다.
+Offset에는 scrape/transport delay가 포함되며 kernel sync status는 `1`이면 synchronized, `0`이면 unsynchronized, N/A이면 unknown입니다.
+이 패널만으로 sample freshness나 정밀 event 정렬을 입증할 수는 없습니다.
+Current와 baseline 모두 [clock check](monitoring.md#check-clock-alignment-before-diagnosing)를 수행합니다.
+
+선택적인 standalone Step Explorer도 node별 clock quality를 응답에 포함하고 불확실하면 warning을 표시합니다.
+두 interval이 모두 aligned일 때만 resource delta를 표시하며 raw metric/log는 조사용으로 남깁니다.
+Grafana의 수동 timeline은 자동으로 시간축을 이동시키지 않으므로 clock 상태를 확인한 후 overlap을 해석합니다.

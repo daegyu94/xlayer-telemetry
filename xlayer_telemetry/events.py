@@ -105,13 +105,16 @@ class EventRecorder:
         context: CorrelationContext,
         *,
         clock_ns: Callable[[], int] = time.time_ns,
+        monotonic_ns: Callable[[], int] | None = None,
     ) -> None:
         self.directory = directory
         self.context = context
         self.clock_ns = clock_ns
+        self.monotonic_ns = monotonic_ns or (time.monotonic_ns if clock_ns is time.time_ns else clock_ns)
         self.disabled = False
         self.path = directory / (producer_filename_stem(
-            context.producer, context.role, context.worker_id) + ".jsonl")
+            context.producer, context.role, context.worker_id,
+            node=context.node, run_id=context.run_id) + ".jsonl")
 
     @classmethod
     def from_env(
@@ -189,6 +192,7 @@ class EventRecorder:
             span_id=uuid.uuid4().hex[:16],
         )
         started_ns = self.clock_ns()
+        started_mono = self.monotonic_ns() if self.monotonic_ns is not self.clock_ns else started_ns
         status = "ok"
         final_attributes = dict(attributes or {})
         try:
@@ -199,6 +203,9 @@ class EventRecorder:
             raise
         finally:
             ended_ns = self.clock_ns()
+            ended_mono = self.monotonic_ns() if self.monotonic_ns is not self.clock_ns else ended_ns
+            elapsed_ns = max(0, ended_mono - started_mono)
+            discontinuity = abs((ended_ns - started_ns) - elapsed_ns) > 1_000_000_000
             self._write(
                 {
                     "schema_version": 1,
@@ -212,8 +219,10 @@ class EventRecorder:
                     "end_time_unix_nano": ended_ns,
                     "start_time_ms": started_ns // 1_000_000,
                     "end_time_ms": ended_ns // 1_000_000,
-                    "boundary_accuracy": "exact",
-                    "duration_seconds": max(0, ended_ns - started_ns) / 1_000_000_000,
+                    "boundary_accuracy": "clock_discontinuity" if discontinuity else "exact",
+                    "clock_scope": "node",
+                    "duration_source": "monotonic" if self.monotonic_ns is not self.clock_ns else "injected_clock",
+                    "duration_seconds": elapsed_ns / 1_000_000_000,
                     "status": status,
                     "trace_id": identity.trace_id,
                     "span_id": identity.span_id,

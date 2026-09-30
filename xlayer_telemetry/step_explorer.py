@@ -13,6 +13,8 @@ import statistics
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
+from .clock_quality import assess_clocks
+from .diagnostics import _series_stats
 
 
 ASSET = Path(__file__).with_name("step_explorer.html")
@@ -158,6 +160,14 @@ class StepExplorer:
             "node_data": {node["name"]: {"signals": {}, "logs": [], "errors": {}} for node in nodes},
         }
         if self.prometheus_url:
+            def clock_query(query, begin, finish, interval):
+                payload = _request_json(self.prometheus_url, "/api/v1/query_range", {
+                    "query": query, "start": begin, "end": finish, "step": interval})
+                if payload.get("status") != "success":
+                    raise ValueError(payload.get("error", "clock query failed"))
+                return _series_stats(payload.get("data", {}).get("result", []))
+            output["clock_quality"] = assess_clocks(
+                clock_query, cluster=self.cluster, nodes=[item["name"] for item in nodes], start=start, end=end)
             query_step = max(2, min(15, round((end - start) / 30)))
             has_rollout = any("rollout" in node["roles"] for node in nodes)
             requests = [
@@ -186,6 +196,8 @@ class StepExplorer:
                         output["node_data"][node_name]["errors"][key] = error
                     else:
                         output["node_data"][node_name]["signals"][key] = signal
+        else:
+            output["clock_quality"] = {"status": "unchecked", "nodes": {}}
         if self.loki_url and self.log_run_id:
             def fetch_logs(node_name: str) -> tuple[str, list[list[Any]] | None, str | None]:
                 try:

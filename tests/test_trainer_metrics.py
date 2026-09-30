@@ -24,7 +24,7 @@ def test_callback_writes_loss_step_time_and_token_rate(tmp_path: Path) -> None:
     state.num_input_tokens_seen = 100
     callback.on_log(None, state, None, {"loss": 1.5})
 
-    snapshot = json.loads((tmp_path / "trl-trainer-0.json").read_text(encoding="utf-8"))
+    snapshot = json.loads((tmp_path / "trl-trainer-0@trainer-0@run-1.json").read_text(encoding="utf-8"))
     assert {sample["name"]: sample["value"] for sample in snapshot["samples"]} == {
         "training_loss": 1.5,
         "training_step_time_seconds": 2.0,

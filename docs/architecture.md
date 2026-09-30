@@ -113,7 +113,7 @@ $RUN_ROOT/                              $OUTPUT_DIR/
     verl-metrics.jsonl                     gpu.prom
     telemetry-bridge.log                 gpu-*.jsonl
   telemetry-metrics/                     node-exporter.log
-    verl-trainer-driver.json             alloy-data/         (logs enabled)
+    verl-trainer-driver@NODE@RUN.json      alloy-data/         (logs enabled)
   telemetry-events/
     verl-steps.jsonl
   diagnostics/
@@ -162,6 +162,26 @@ Bridge 시작 전에 존재하던 기록이나 종료 후 재생한 기록은 �
 `ingested_at`은 파일을 읽은 시각이며 `source_event_time`을 대신하지 않습니다.
 Async mode에서는 이 구간이 trainer update를 나타내며, 동시에 실행된 rollout이나 storage I/O가 해당 update에 속한다고 보장하지 않습니다.
 구간 해석은 [Step Explorer](dashboards.md#read-a-step)에 자세히 설명합니다.
+
+### Multi-node Correlation Boundary
+
+GPU 번호 `0`과 worker 번호 `0`은 node마다 반복됩니다.
+Resource identity는 cluster·node·device, application identity는 run·node·producer·role·worker를 함께 사용하며, snapshot/event 파일명에도 node와 run을 포함합니다.
+같은 directory에 여러 node의 snapshot을 저장해도 node collector는 자신의 `NODE_NAME`과 일치하는 snapshot만 노출합니다.
+기존 파일은 계속 읽을 수 있지만 SDK upgrade 이후 고정 파일명을 읽는 외부 script는 JSON의 identity나 `*.json` 목록을 사용해야 합니다.
+Log directory는 각 node에서 실제로 생성한 파일만 Alloy가 읽도록 분리합니다.
+Shared directory 전체를 여러 Alloy가 동시에 tail하면 중복 수집이나 잘못된 collector node label이 생길 수 있습니다.
+
+Prometheus scrape timestamp와 application/span의 node wall clock은 서로 다른 시간 source입니다.
+`EventRecorder`의 duration은 monotonic clock으로 계산하고 wall clock jump가 감지된 span은 `clock_discontinuity`로 표시합니다.
+이는 duration을 보호하지만 서로 다른 node의 절대 timestamp를 맞추지는 않습니다.
+Trace ID와 parent span ID는 clock 차이가 있어도 관계를 보존하며, resource window와의 시간 overlap은 별도 clock 검증이 필요합니다.
+
+Cluster를 지정한 diagnosis는 기존 Node Exporter의 `node_time_seconds`와 `node_timex_sync_status`로 current/baseline의 clock 상태를 검사합니다.
+차이가 크거나 source가 없거나 오래됐거나 kernel이 unsynchronized를 보고하면 raw evidence는 남기고 cross-layer candidate와 resource delta를 보류합니다.
+Scrape-relative offset에는 network/collection delay가 포함되므로 NTP 측정이나 timestamp 자동 보정으로 사용하지 않습니다.
+Clock 검사를 통과해도 polling 오차, 1분 rate window, shared-service attribution 제한은 남습니다.
+실행 순서는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)에 설명합니다.
 
 ## Design Principles
 

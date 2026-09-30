@@ -142,6 +142,35 @@ Tool duration은 `agent_tool_call_duration_seconds`의 해당 run 표본을 사�
 이 query는 `run_id`로 tool metric을 고르므로 trainer·rollout node가 달라도 사용할 수 있지만, 여러 rollout worker의 표본이 같은 구간에 섞일 수 있습니다.
 두 scope가 겹쳐도 특정 trajectory의 SSD 사용량이라는 인과 주장은 하지 않습니다.
 
+## Clock and Node Selection
+
+Multi-node diagnosis에서는 [설정 예제](../examples/multinode/diagnostics.json)를 복사하여 실제 cluster·node·storage device를 지정합니다.
+`compute_node`는 GPU source, `rollout_node`는 native vLLM/Ray source, `storage_node`와 `storage_device`는 storage host의 특정 block device를 선택합니다.
+생략한 node는 현재 step observer의 node를 사용합니다.
+한 설정이 cluster의 모든 GPU를 자동 집계하는 것은 아니며, 다른 compute/rollout node 조합을 조사하려면 해당 node를 선택한 설정을 사용합니다.
+Step Explorer의 manifest 기반 조회는 여러 node를 각각 보여줍니다.
+
+`cluster`를 지정하면 기본 query는 cluster/job으로 제한되고 clock check도 기본 활성화됩니다.
+사용자가 제공한 `prometheus.queries`는 그대로 사용하므로 각 selector에 `cluster="{cluster}"`와 source·node/device 조건을 명시해야 합니다.
+지원 placeholder는 `{node}`, `{run_id}`, `{cluster}`, `{compute_node}`, `{rollout_node}`, `{storage_node}`, `{storage_device}`, `{sandbox_node}`, `{sandbox_device}`입니다.
+Host 전체 disk busy와 별도 storage node의 `storage_device_busy_ratio`는 다른 signal이며 shared 3FS latency와 동일한 사용량으로 합치지 않습니다.
+
+`clock_quality`는 current 구간의 node별 offset·sample age·kernel sync status를 보존하며 baseline이 있으면 그 구간도 검사합니다.
+`aligned`는 설정한 screening 조건을 만족했다는 뜻이고, `unsafe`는 skew·staleness·unsynchronized 상태, `unknown`은 필요한 clock source 부족, `unchecked`는 기존 설정에서 검사하지 않았다는 뜻입니다.
+Current 또는 baseline이 `unsafe`/`unknown`이면 `verdict=insufficient_data`, 빈 `candidates`와 빈 resource comparison을 기록하고 `missing_sources`에 clock 상태를 남깁니다.
+Raw `evidence`와 workload duration은 inspect할 수 있으며 기존 bounded retry를 적용합니다.
+Clock 상태를 나중에 고쳤다고 이미 끝난 step의 과거 timestamp가 복원되지는 않습니다.
+
+기본 `clock.require_sync=true`, `max_skew_seconds=1`, `max_sample_age_seconds=30`입니다.
+`clock.require_sync=false`는 offset/freshness만 확인하는 제한된 조사 모드이고 `clock.enabled=false`는 검사 자체를 제외합니다.
+두 경우 모두 물리 node 동기화의 증거로 사용하지 않습니다.
+기존 cluster 없는 config는 호환을 위해 `unchecked`로 실행되므로 multi-node 운영 전 cluster를 추가해야 합니다.
+
+ClickHouse endpoint의 server clock만 확인해서 3FS distribution timestamp를 검증할 수는 없습니다.
+`threefs.clock_nodes`에 timestamp를 만드는 실제 3FS producer node 목록을 넣고 해당 node의 host collector를 `TELEMETRY_TARGETS`에 등록합니다.
+목록이 없으면 3FS candidate에 `threefs_producer_clock_alignment`가 missing evidence로 남고 `strong_signal`을 `supporting_signal`로 제한합니다.
+이 clock 검사는 step별 3FS 사용량의 attribution을 제공하지 않습니다.
+
 ## Data and UI Boundaries
 
 `diagnostics/latest.json`의 `schema_version=1`, `findings`, `evidence`, `missing_sources`는 기존 소비자를 위해 유지합니다.
@@ -156,7 +185,8 @@ Bridge가 파일 끝을 따라가며 새 record를 읽은 경우에만 관측 �
 
 VERL file logger는 stage duration만 주고 stage별 실제 시작·끝은 주지 않습니다.
 Timeline은 file logger에서 추정한 전체 step band만 `approximate`로 표시하며 rollout·reward·update 순서를 추정해 그리지 않습니다.
-`EventRecorder`가 만든 span은 실제 start/end timestamp로 `exact` bar에 표시하고, Prometheus 선은 sampling 간격의 관측치입니다.
+`EventRecorder`가 만든 span은 producer node의 start/end timestamp로 `exact` bar에 표시하고, Prometheus 선은 sampling 간격의 관측치입니다.
+Wall clock jump가 감지된 `clock_discontinuity` span은 exact bar에서 제외되며 duration 자체는 monotonic clock 값으로 보존합니다.
 Span 표의 `span_id`에서 같은 시간 창의 Step Detail·Logs·Diagnosis로 이동하고, `trace_id`로 기록한 관련 event를 아래 표에서 필터링할 수 있습니다.
 Clock skew, scrape 간격, shared resource의 다른 사용자 때문에 눈으로 겹친 구간도 추가 확인이 필요합니다.
 

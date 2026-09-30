@@ -60,7 +60,7 @@ def test_bridge_verl_file_records_to_worker_snapshot(tmp_path: Path) -> None:
 
     assert bridge_records(records, VerlMetricsAdapter(emitter)) == 2
     snapshot = json.loads(
-        (tmp_path / "verl-trainer-driver.json").read_text(encoding="utf-8")
+        (tmp_path / "verl-trainer-driver@gpu-a@grpo-001.json").read_text(encoding="utf-8")
     )
     assert snapshot["step"] == 2
     assert {

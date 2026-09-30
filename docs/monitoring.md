@@ -115,6 +115,119 @@ bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.con
 시작 시 HTTP 상태와 query를 검사하고 `OUTPUT_DIR/startup-summary.json`을 기록합니다.
 설정 파일은 로컬 Bash 파일이므로 `$HOME`을 사용할 수 있으며, 파일에 적힌 값이 현재 terminal의 같은 이름 환경 변수보다 우선합니다.
 
+## Monitor GPU and Storage Nodes Together
+
+Collector와 correlation은 분산 실행을 지원하지만, GPU 두 개가 있는 한 host는 독립된 clock을 가진 두 node가 아닙니다.
+먼저 각 node의 논리 이름, monitoring host에서 접근할 주소, 실제 workload 역할을 정합니다.
+GPU/rollout node와 storage node 모두 같은 cluster에 등록하고, 모든 application·native source·manifest·Loki 설정에서 같은 node 이름을 사용합니다.
+
+```text
+GPU node gpu-a            GPU node gpu-b           Storage node storage-a
+  trainer                  rollout / vLLM           3FS / local SSD
+  node collector           node collector           host collector + SMART
+       |                        |                          |
+       +------------------------+--------------------------+
+                                |
+                                v
+                       Monitoring host
+                       Prometheus / Loki
+                                |
+                                v
+                         XLayer diagnosis
+                         Grafana timeline
+```
+
+각 GPU node에서 기존 `node` collector를 실행합니다.
+Storage node에는 GPU가 없어도 다음처럼 host collector를 실행할 수 있습니다.
+`TOOLS_DIR`은 그 node에서 도구를 설치한 경로이며 `NODE_ADDR`는 monitoring host에서 접근 가능한 local interface 주소로 바꿉니다.
+
+```bash
+TOOLS_DIR="$HOME/telemetry/tools" \
+NODE_ADDR='10.0.1.10' NODE_NAME='storage-a' \
+ENABLE_GPU_METRICS=0 \
+OUTPUT_DIR="$HOME/telemetry/state/storage-host" \
+  bash scripts/run_telemetry.sh node
+```
+
+이 경로는 CPU·memory·network·disk·filesystem·clock metric을 노출하며 NVIDIA driver가 필요하지 않습니다.
+SMART도 필요하면 `ENABLE_SSD_HEALTH=1`을 추가하고 관련 권한을 준비합니다.
+기존 `storage` role은 SMART 전용이며 host/clock metric을 제공하지 않으므로 host collector를 대신하지 않습니다.
+GPU가 있는 collector에서 `ENABLE_GPU_METRICS=0`으로 바꾸면 이전 `gpu.prom`도 제거합니다.
+
+Monitoring host의 `server.conf`에는 모든 host collector를 등록합니다.
+`STORAGE_TARGETS`는 선택적인 SMART endpoint이고 `TELEMETRY_TARGETS`는 host/clock endpoint입니다.
+둘은 용도가 다릅니다.
+
+```bash
+CLUSTER_NAME='training-cluster'
+TELEMETRY_TARGETS='gpu-a=10.0.0.10,gpu-b=10.0.0.11,storage-a=10.0.1.10'
+# SMART를 활성화한 경우에만 추가합니다.
+STORAGE_TARGETS='storage-a=10.0.1.10'
+```
+
+VERL launcher에서 지정한 telemetry 환경 변수가 remote Ray worker에 자동 전달된다고 가정하지 않습니다.
+Remote worker에도 동일한 `TELEMETRY_RUN_ID`와 각 host의 `TELEMETRY_NODE`, 실제 node-local metric/event directory를 설정하고 SDK를 설치해야 합니다.
+Trainer file logger bridge 하나는 trainer boundary를 제공하며 모든 remote worker를 자동 instrument하지 않습니다.
+Manifest에서는 같은 role을 여러 node에 반복해서 지정할 수 있습니다.
+
+```bash
+python -m xlayer_telemetry.manifest \
+  --output "$RUN_ROOT/topology-manifest.json" --run-id 'grpo-001' \
+  --role trainer=gpu-a --role rollout=gpu-b --role storage=storage-a
+```
+
+### Check Clock Alignment Before Diagnosing
+
+Monitoring host, GPU node, sandbox node와 storage telemetry producer를 모두 같은 신뢰 가능한 NTP source에 동기화합니다.
+Ubuntu에서는 운영 환경에 맞는 chrony 또는 systemd-timesyncd를 사용하고 `timedatectl show -p NTPSynchronized`와 해당 service의 tracking 상태를 확인합니다.
+두 daemon을 동시에 새로 켜거나 실행 중인 training의 clock을 임의로 변경하지 않습니다.
+Service가 enabled인 것만으로 실제 동기화가 완료된 것은 아닙니다.
+
+실제 collector를 등록하고 scrape가 진행된 뒤 monitoring host에서 다음을 실행합니다.
+Exit code `0`은 현재 검사 구간의 `aligned`, `1`은 `unsafe` 또는 `unknown`입니다.
+
+```bash
+python -m xlayer_telemetry.clock_quality \
+  --prometheus-url 'http://127.0.0.1:19090' \
+  --cluster 'training-cluster' \
+  --node gpu-a --node gpu-b --node storage-a
+```
+
+기본 검사 구간은 최근 60초이며 허용 scrape-relative 차이는 1초, clock sample age는 30초입니다.
+`node_time_seconds - timestamp(node_time_seconds)`는 exporter wall clock과 Prometheus scrape clock의 차이를 봅니다.
+Network/collection delay도 포함하므로 정밀 NTP offset이나 event timestamp 보정값으로 해석하지 않습니다.
+Prometheus는 exporter가 별도 timestamp를 보내지 않는 metric에 scrape timestamp를 사용하지만 event·log·application timestamp는 producer clock에서 만들어집니다.
+근거는 [Prometheus configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/), [Node Exporter time collector](https://github.com/prometheus/node_exporter/blob/master/collector/time.go), [timex collector](https://github.com/prometheus/node_exporter/blob/master/collector/timex.go)에 있습니다.
+
+`--allow-unsynchronized`는 kernel sync status 요구만 제외하는 조사 옵션입니다.
+이 옵션으로 같은 host의 offset 검사가 통과해도 NTP나 물리 multi-node 동기화가 검증된 것은 아닙니다.
+짧은 step은 허용 차이보다 짧을 수 있으므로 threshold를 실제 분석 해상도에 맞추고 sample 간격과 rate window도 함께 확인합니다.
+자동 diagnosis 설정은 [Clock and Node Selection](diagnosis.md#clock-and-node-selection)에 있습니다.
+
+### Reproduce the Local Validation
+
+실제 GPU 두 개와 설치된 Prometheus/Node Exporter binary가 있다면 다음 검증을 실행할 수 있습니다.
+새 output directory를 지정합니다.
+기존 monitoring service는 건드리지 않고 별도 loopback port와 process를 사용한 뒤 정리합니다.
+
+```bash
+PYTHONPATH="$PWD" python examples/multinode/validate_local.py \
+  --node-exporter "$TOOLS_DIR/node_exporter-1.9.1.linux-amd64/node_exporter" \
+  --prometheus "$TOOLS_DIR/prometheus-3.5.0.linux-amd64/prometheus" \
+  --output /tmp/xlayer-multinode-check
+```
+
+Architecture에 맞춰 binary directory의 `amd64` 또는 `arm64`를 선택합니다.
+GPU UUID 두 개, logical node별 application snapshot, storage host metric, shared trace/parent, Step Explorer 조회를 실제 backend에서 검사합니다.
+Clock metric에 +12초 offset을 주입하고 storage source도 중단하여 clock screening을 확인합니다.
+이 두 fault는 test proxy에서만 만들며 시스템 clock이나 storage를 변경하지 않습니다.
+
+2026-09-30 검증은 RTX PRO 4000 Blackwell 두 개, Node Exporter 1.9.1, Prometheus 3.5.0에서 위 항목을 통과했습니다.
+Host와 kernel이 NTP unsynchronized를 보고하여 strict check는 `unsafe`였고, sync status 요구를 제외한 scrape-relative 차이는 수십 ms 이내였습니다.
+검증 조건과 항목별 결과는 [Validation record](../examples/multinode/validation.json)에 보존합니다.
+물리 host는 하나였으며 host counter도 공유합니다.
+독립된 GPU/storage 서버, 실제 distributed VERL training, RDMA/NCCL, remote 3FS producer clock과 Loki 전송은 이 검증의 완료 항목이 아닙니다.
+
 ## Open the Dashboards
 
 같은 host의 browser에서 `http://127.0.0.1:13000`을 엽니다.

@@ -113,11 +113,15 @@ def main() -> None:
     parser.add_argument("--metrics-dir", required=True, type=Path)
     parser.add_argument("--textfile-dir", required=True, type=Path)
     parser.add_argument("--interval", type=float, default=2.0)
+    parser.add_argument("--node", help="Only publish snapshots for this logical collector node")
     args = parser.parse_args()
     if args.interval <= 0:
         parser.error("interval must be positive")
     while True:
-        write_gauges(args.textfile_dir, "application.prom", build_metrics(_iter_snapshots(args.metrics_dir)))
+        snapshots = _iter_snapshots(args.metrics_dir)
+        if args.node:
+            snapshots = [item for item in snapshots if item.get("node") == args.node]
+        write_gauges(args.textfile_dir, "application.prom", build_metrics(snapshots))
         time.sleep(args.interval)
 
 

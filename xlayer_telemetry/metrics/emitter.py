@@ -72,6 +72,8 @@ class MetricEmitter:
         self.role = role
         self.worker_id = worker_id
         self.node = node or socket.gethostname()
+        if not _IDENTIFIER.fullmatch(self.node):
+            raise ValueError(f"invalid node: {self.node!r}")
         self.rank = rank
         self.local_rank = local_rank
         self.gpu = gpu
@@ -148,7 +150,8 @@ class MetricEmitter:
                 "samples": encoded,
             }
             self.directory.mkdir(parents=True, exist_ok=True)
-            filename = producer_filename_stem(self.producer, self.role, self.worker_id) + ".json"
+            filename = producer_filename_stem(self.producer, self.role, self.worker_id,
+                                              node=self.node, run_id=self.run_id) + ".json"
             destination = self.directory / filename
             temporary = self.directory / f".{filename}.{os.getpid()}.tmp"
             temporary.write_text(json.dumps(snapshot, separators=(",", ":")) + "\n", encoding="utf-8")

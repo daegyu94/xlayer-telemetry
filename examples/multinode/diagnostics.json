@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "cluster": "training-cluster",
+  "compute_node": "gpu-a",
+  "rollout_node": "gpu-b",
+  "storage_node": "storage-a",
+  "storage_device": "nvme0n1",
+  "clock": {
+    "enabled": true,
+    "require_sync": true,
+    "max_skew_seconds": 1,
+    "max_sample_age_seconds": 30
+  },
+  "prometheus": {
+    "url": "http://monitor.internal:19090",
+    "query_step_seconds": 2,
+    "timeout_seconds": 5
+  }
+}

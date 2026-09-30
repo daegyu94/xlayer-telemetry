@@ -94,6 +94,11 @@ if emitter is not None:
 `worker_id`를 생략하면 `RANK`를 사용하고, `RANK`도 없으면 `0`을 사용합니다.
 같은 directory의 동일 producer·role을 여러 process가 기록한다면 서로 다른 worker ID를 지정합니다.
 Run마다 directory를 분리하고, 각 node의 application과 collector는 같은 node-local directory를 사용합니다.
+SDK 파일명은 producer·role·worker prefix 뒤에 `@NODE@RUN`을 붙여 서로 다른 node의 local worker 번호나 run이 충돌하지 않도록 합니다.
+공유 snapshot directory를 사용하는 경우에도 collector의 `NODE_NAME`과 snapshot의 `node`를 일치시킵니다.
+Textfile CLI의 `--node`는 해당 node만 선택하며 launcher는 이 필터를 자동 전달합니다.
+기존 snapshot 파일도 계속 읽을 수 있고 같은 identity가 여러 파일에 있으면 최신 `observed_at`을 선택합니다.
+고정 basename을 직접 읽는 외부 script는 emitter가 반환한 경로나 snapshot의 identity를 사용해야 합니다.
 
 ### Use a Trainer Callback
 

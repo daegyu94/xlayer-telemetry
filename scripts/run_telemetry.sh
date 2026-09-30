@@ -97,11 +97,11 @@ start_smartctl_exporter() {
 }
 if [[ "$role" == node ]]; then
   : "${NODE_ADDR:?Set NODE_ADDR to this node management address}"
+  node_name="${NODE_NAME:-$(hostname)}"
   if [[ -n "${LOKI_PUSH_URL:-}" || -n "${TELEMETRY_LOG_ROOTS:-}" ]]; then
     : "${LOKI_PUSH_URL:?Set LOKI_PUSH_URL when TELEMETRY_LOG_ROOTS is set}"
     : "${TELEMETRY_LOG_ROOTS:?Set TELEMETRY_LOG_ROOTS when LOKI_PUSH_URL is set}"
     cluster_name="${CLUSTER_NAME:-telemetry-cluster}"
-    node_name="${NODE_NAME:-$(hostname -s)}"
     if [[ ! "$cluster_name" =~ ^[A-Za-z0-9_.-]+$ || ! "$node_name" =~ ^[A-Za-z0-9_.-]+$ ]]; then
       echo "CLUSTER_NAME and NODE_NAME must contain only letters, digits, dots, underscores, or hyphens" >&2
       exit 2
@@ -298,18 +298,31 @@ EOF
   if [[ "${ENABLE_SSD_HEALTH:-0}" == 1 ]]; then
     start_smartctl_exporter
   fi
-  gpu_sampler_args=(
-    --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl"
-    --textfile-dir "$output_dir/textfile"
-  )
-  if [[ -n "${DURATION:-}" ]]; then
-    gpu_sampler_args+=(--duration "$DURATION")
+  if [[ "${ENABLE_GPU_METRICS:-1}" != 0 && "${ENABLE_GPU_METRICS:-1}" != 1 ]]; then
+    echo "ENABLE_GPU_METRICS must be 0 or 1" >&2
+    exit 2
   fi
-  "${PYTHON:-python3}" -m xlayer_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
-  pids+=("$!")
+  if [[ "${ENABLE_GPU_METRICS:-1}" == 1 ]]; then
+    gpu_sampler_args=(
+      --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl"
+      --textfile-dir "$output_dir/textfile"
+    )
+    if [[ -n "${DURATION:-}" ]]; then
+      gpu_sampler_args+=(--duration "$DURATION")
+    fi
+    "${PYTHON:-python3}" -m xlayer_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
+    pids+=("$!")
+  else
+    rm -f "$output_dir/textfile/gpu.prom"
+    if [[ -n "${DURATION:-}" ]]; then
+      sleep "$DURATION" &
+      pids+=("$!")
+    fi
+  fi
   if [[ -n "${TELEMETRY_METRICS_DIR:-}" ]]; then
     "${PYTHON:-python3}" -m xlayer_telemetry.metrics.textfile \
       --metrics-dir "$TELEMETRY_METRICS_DIR" \
+      --node "$node_name" \
       --textfile-dir "$output_dir/textfile" --interval "${TELEMETRY_METRICS_INTERVAL:-2}" &
     pids+=("$!")
   fi

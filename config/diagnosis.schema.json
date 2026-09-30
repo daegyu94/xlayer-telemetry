@@ -15,6 +15,15 @@
     "first_attempt_at": {"type": "number"},
     "retry_at": {"type": ["number", "null"]},
     "analysis_window": {"type": "object"},
+    "clock_quality": {
+      "type": "object",
+      "required": ["status", "nodes"],
+      "properties": {
+        "status": {"enum": ["aligned", "unsafe", "unknown", "unchecked"]},
+        "nodes": {"type": "object"},
+        "baseline": {"type": "object"}
+      }
+    },
     "verdict": {"enum": ["bottleneck_suspected", "no_anomaly_observed", "insufficient_data"]},
     "findings": {"type": "array"},
     "evidence": {"type": "object"},

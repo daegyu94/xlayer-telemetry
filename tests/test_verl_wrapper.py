@@ -103,7 +103,7 @@ printf '%s\\n' '{"step":1,"data":{"timing_s/gen":0.5,"perf/throughput":10.0}}' >
     assert "trainer.project_name=agent-rl" in passed
     assert "trainer.experiment_name=grpo-quickstart" in passed
     snapshot = json.loads(
-        (output / "telemetry-metrics" / "verl-trainer-driver.json").read_text(
+        next((output / "telemetry-metrics").glob("verl-trainer-driver*.json")).read_text(
             encoding="utf-8"
         )
     )

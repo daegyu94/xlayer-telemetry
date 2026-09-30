@@ -31,9 +31,10 @@ def query(kind: str, fields: list[str]) -> list[list[str]]:
 def snapshot() -> dict:
     fields = ["index", "utilization.gpu", "power.draw", "temperature.gpu", "clocks.sm", "memory.used", "memory.total"]
     gpus = []
-    for row in query("gpu", fields):
+    for row in query("gpu", fields + ["uuid"]):
         gpu = {key: optional_number(value) for key, value in zip(fields, row)}
         gpu["unavailable_fields"] = [key for key in fields if gpu[key] is None]
+        gpu["uuid"] = row[len(fields)] if len(row) > len(fields) else None
         gpus.append(gpu)
     processes = []
     for row in query("compute-apps", ["gpu_uuid", "pid", "process_name", "used_gpu_memory"]):
@@ -74,9 +75,12 @@ def main():
             if args.textfile_dir:
                 samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", value["timestamp"])]
                 for gpu in value["gpus"]:
+                    labels = {"gpu": str(int(gpu["index"]))}
+                    if gpu.get("uuid"):
+                        labels["gpu_uuid"] = gpu["uuid"]
                     for field, name in [("utilization.gpu", "utilization_percent"), ("power.draw", "power_watts"), ("temperature.gpu", "temperature_celsius"), ("clocks.sm", "sm_clock_mhz")]:
                         if gpu[field] is not None:
-                            samples.append(GaugeSample(f"telemetry_gpu_{name}", f"nvidia-smi {field}.", gpu[field], {"gpu": str(int(gpu["index"]))}))
+                            samples.append(GaugeSample(f"telemetry_gpu_{name}", f"nvidia-smi {field}.", gpu[field], labels))
                 for process in value["compute_processes"]:
                     if process["used_gpu_memory_mib"] is not None:
                         samples.append(GaugeSample(

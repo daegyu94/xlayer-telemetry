@@ -106,9 +106,11 @@
       const s = primary.step;
       $('context').innerHTML = `<h2>Step ${s.step} · ${esc(s.scope)}</h2><p class="muted">${esc(s.run_id)} / ${esc(s.node)} / ${esc(s.worker)}</p><div class="info"><div><small>Start</small><strong>${clock(s.start)}</strong></div><div><small>End</small><strong>${clock(s.end)}</strong></div><div><small>Reported duration</small><strong>${number(s.duration)} s</strong></div><div><small>Boundary accuracy</small><strong>${esc(s.accuracy)}</strong></div></div><p class="hint warning">${s.accuracy === 'exact' ? 'The step boundary was recorded by the workload.' : 'The window is estimated from the file logger observation and reported duration. Stage values are durations, not an ordered execution timeline.'} Shared resource activity cannot be attributed to this run alone.</p>`;
       $('stages').innerHTML = `<h2>Reported stage durations · step ${s.step}</h2>${stageRows(primary.stages)}`;
+      const timing = primary.clock_quality;
+      if (timing?.status !== 'aligned') $('context').innerHTML += `<p class="warning">Clock alignment: ${esc(timing?.status || 'unchecked')}. Resource/log windows are for inspection; cross-node overlap is not established.</p>`;
       if (other) {
         const names = [...new Set([...Object.keys(primary.stages), ...Object.keys(other.stages)])].filter(name => name !== 'step');
-        const resources = primary.nodes.map(node => {
+        const resources = timing?.status === 'aligned' && other.clock_quality?.status === 'aligned' ? primary.nodes.map(node => {
           const current = primary.node_data[node.name]?.signals || {};
           const previous = other.node_data[node.name]?.signals || {};
           const rows = Object.entries(current).map(([key,signal]) => {
@@ -117,7 +119,7 @@
             return `<div class="stage"><span title="${esc(signal.title)}">${esc(signal.title)}</span><span>${number(after)} vs ${number(before)} ${esc(signal.unit)}</span><strong>${after-before>=0?'+':''}${number(after-before)}</strong></div>`;
           }).join('');
           return rows ? `<h3>${esc(node.name)} · resource means</h3>${rows}` : '';
-        }).join('');
+        }).join('') : '<p class="warning">Resource deltas withheld until both intervals have aligned clock evidence.</p>';
         $('comparison').innerHTML = `<h2>Compare with step ${other.step.step}</h2><p class="muted">Selected minus comparison. Resource values are interval sample means from each node or shared engine.</p>${names.map(name => { const a=primary.stages[name], b=other.stages[name]; return `<div class="stage"><span title="${esc(name)}">${esc(name)}</span><span>${a === undefined || b === undefined ? 'Missing in one step' : `${number(a)}s vs ${number(b)}s`}</span><strong>${a === undefined || b === undefined ? 'N/A' : `${a-b>=0?'+':''}${number(a-b)}s`}</strong></div>`; }).join('')}${resources}`;
       } else $('comparison').innerHTML = '<h2>Compare steps</h2><p class="muted">Choose another completed step above to compare stage durations.</p>';
       $('signals').innerHTML = primary.nodes.map(node => {

@@ -60,7 +60,7 @@ def test_local_config_generates_server_target_and_collects_verl_step(tmp_path: P
     )
     assert result.returncode == 0, result.stderr
     snapshot = json.loads(
-        (run / "telemetry-metrics" / "verl-trainer-driver.json").read_text()
+        next((run / "telemetry-metrics").glob("verl-trainer-driver*.json")).read_text()
     )
     assert snapshot["step"] == 7
     assert snapshot["run_id"] == "grpo-001"
