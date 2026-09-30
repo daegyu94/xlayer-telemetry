@@ -311,7 +311,7 @@ EOF
     if [[ -n "${DURATION:-}" ]]; then
       gpu_sampler_args+=(--duration "$DURATION")
     fi
-    "${PYTHON:-python3}" -m xlayer_telemetry.gpu_sampler "${gpu_sampler_args[@]}" &
+    "${PYTHON:-python3}" -m xlayer_telemetry.collectors.gpu_sampler "${gpu_sampler_args[@]}" &
     pids+=("$!")
   else
     rm -f "$output_dir/textfile/gpu.prom"
@@ -331,7 +331,7 @@ EOF
     pids+=("$!")
   fi
   if [[ -n "${TOPOLOGY_DIR:-}" ]]; then
-    "${PYTHON:-python3}" -m xlayer_telemetry.topology_textfile \
+    "${PYTHON:-python3}" -m xlayer_telemetry.collectors.topology_textfile \
       --topology-dir "$TOPOLOGY_DIR" --textfile-dir "$output_dir/textfile" \
       --interval "${TOPOLOGY_INTERVAL:-10}" &
     pids+=("$!")
@@ -371,11 +371,11 @@ elif [[ "$role" == server ]]; then
     demo_addr="${DEMO_ADDR:-127.0.0.1}"
     demo_port="${DEMO_PORT:-19110}"
     demo_topology_dir="${DEMO_TOPOLOGY_DIR:-$PWD/examples/live-demo}"
-    "${PYTHON:-python3}" -m xlayer_telemetry.live_demo \
+    "${PYTHON:-python3}" -m xlayer_telemetry.demos.live \
       --listen "$demo_addr:$demo_port" --topology-dir "$demo_topology_dir" \
       --write-prometheus-config "$output_dir/prometheus.yml"
     if [[ "${SERVER_CONFIG_ONLY:-0}" != 1 ]]; then
-      "${PYTHON:-python3}" -m xlayer_telemetry.live_demo \
+      "${PYTHON:-python3}" -m xlayer_telemetry.demos.live \
         --listen "$demo_addr:$demo_port" --topology-dir "$demo_topology_dir" &
       pids+=("$!")
     fi

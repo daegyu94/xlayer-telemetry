@@ -39,7 +39,7 @@ Loki 없이도 완전한 진단은 `diagnostics/latest.json`과 `python -m xlaye
 다음 예시는 node collector의 root가 `verl=$HOME/telemetry-runs`이고 `ENABLE_LOGS=1`인 경우입니다.
 
 ```bash
-python -m xlayer_telemetry.diagnosis_demo \
+python -m xlayer_telemetry.demos.diagnosis \
   --output "$HOME/telemetry-runs/diagnosis-demo-001/telemetry" \
   --run-id diagnosis-demo-001
 ```

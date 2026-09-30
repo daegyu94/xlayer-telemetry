@@ -94,7 +94,7 @@ Inference를 실행한 뒤 `status`에서 모델이 실제로 GPU에 적재됐�
 Host metric만 있는 최소 예제로는 workload 정보가 필요한 학습 병목을 충분히 설명할 수 없습니다.
 
 ```bash
-python -m xlayer_telemetry.llm_diagnosis \
+python -m xlayer_telemetry.analysis.llm_diagnosis \
   --source-config examples/local-llm/prometheus.json \
   --output "$HOME/telemetry/llm-diagnosis.json"
 ```
@@ -115,10 +115,10 @@ Source 누락, baseline 부재, query 실패는 명시적으로 남기고 rule e
 모델이 읽을 입력을 먼저 확인하고 보존하려면 `--collect-only`를 사용합니다.
 
 ```bash
-python -m xlayer_telemetry.llm_diagnosis \
+python -m xlayer_telemetry.analysis.llm_diagnosis \
   --source-config examples/local-llm/prometheus.json \
   --collect-only --output "$HOME/telemetry/observations.json"
-python -m xlayer_telemetry.llm_diagnosis \
+python -m xlayer_telemetry.analysis.llm_diagnosis \
   --input "$HOME/telemetry/observations.json" \
   --output "$HOME/telemetry/llm-diagnosis.json"
 ```
@@ -177,7 +177,7 @@ Adapter는 `comparison.signals`와 필요한 문맥만 선택하고 `verdict`, `
 이 경우 모델이 생성한 candidate는 거부하고, 후보가 없는 관측 요약·증거 부족 응답만 조사 결과로 활용합니다.
 
 ```bash
-python -m xlayer_telemetry.llm_diagnosis \
+python -m xlayer_telemetry.analysis.llm_diagnosis \
   --input "$RUN_ROOT/diagnostics/latest.json" \
   --output "$RUN_ROOT/diagnostics/llm.json"
 ```
@@ -188,7 +188,7 @@ Bottleneck Summary의 `Step record ID`를 복사하고 run 파일에 접근할 �
 Ollama가 다른 monitoring host에 있다면 `--endpoint`로 주소를 지정합니다.
 
 ```bash
-python -m xlayer_telemetry.llm_diagnosis \
+python -m xlayer_telemetry.analysis.llm_diagnosis \
   --run-root "$RUN_ROOT" --record-id RECORD_ID
 ```
 

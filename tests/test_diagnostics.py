@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from xlayer_telemetry import diagnostics, prometheus
-from xlayer_telemetry.diagnostics import (
+from xlayer_telemetry.analysis import diagnostics
+from xlayer_telemetry import prometheus
+from xlayer_telemetry.analysis.diagnostics import (
     DiagnosticEngine,
     PrometheusClient,
     ThreeFSClient,

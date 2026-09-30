@@ -1,6 +1,6 @@
 import json
 
-from xlayer_telemetry.diagnosis_demo import generate
+from xlayer_telemetry.demos.diagnosis import generate
 
 
 def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_path):

@@ -264,7 +264,7 @@ def serve(demo: Demo, listen: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--topology-dir", type=Path, default=Path(__file__).parents[1] / "examples" / "live-demo")
+    parser.add_argument("--topology-dir", type=Path, default=Path(__file__).parents[2] / "examples" / "live-demo")
     parser.add_argument("--listen", default="127.0.0.1:19110")
     parser.add_argument("--write-prometheus-config", type=Path)
     args = parser.parse_args()

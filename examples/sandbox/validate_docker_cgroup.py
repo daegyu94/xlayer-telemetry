@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import time
 
-from xlayer_telemetry.sandbox_sampler import read_cgroup
+from xlayer_telemetry.collectors.sandbox_sampler import read_cgroup
 
 
 def docker(*args: str) -> str:

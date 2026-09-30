@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from xlayer_telemetry.clock_quality import assess_clocks
+from xlayer_telemetry.analysis.clock_quality import assess_clocks
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
 from xlayer_telemetry.step_history import StepHistoryWriter
-from xlayer_telemetry.diagnostics import DiagnosticEngine, load_config
-from xlayer_telemetry.diagnosis_analysis import select_baseline
-from xlayer_telemetry import llm_diagnosis as llm
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, load_config
+from xlayer_telemetry.analysis.diagnosis_analysis import select_baseline
+from xlayer_telemetry.analysis import llm_diagnosis as llm
 
 
 def stats(value):

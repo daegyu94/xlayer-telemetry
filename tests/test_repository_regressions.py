@@ -9,8 +9,8 @@ from threading import Barrier
 import pytest
 
 from xlayer_telemetry import fileio
-from xlayer_telemetry.diagnosis_analysis import select_baseline
-from xlayer_telemetry.diagnostics import DiagnosticEngine, load_history
+from xlayer_telemetry.analysis.diagnosis_analysis import select_baseline
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, load_history
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges, write_gauges
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
@@ -18,8 +18,8 @@ from xlayer_telemetry.show_run import summarize
 from xlayer_telemetry.step_backfill import backfill
 from xlayer_telemetry.step_explorer import StepExplorer
 from xlayer_telemetry.step_history import StepHistoryWriter
-from xlayer_telemetry.topology_textfile import build_gauges
-from xlayer_telemetry.sandbox_sampler import read_cgroup
+from xlayer_telemetry.collectors.topology_textfile import build_gauges
+from xlayer_telemetry.collectors.sandbox_sampler import read_cgroup
 
 
 def step(record_id="one", observed=20, duration=5):

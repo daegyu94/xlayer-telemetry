@@ -1,9 +1,26 @@
 from pathlib import Path
+import subprocess
+import sys
 
-from xlayer_telemetry.live_demo import Demo, prometheus_config
+from xlayer_telemetry.demos.live import Demo, prometheus_config
 
 
 ROOT = Path(__file__).parents[1]
+
+
+def test_cli_finds_checkout_topology_without_an_explicit_directory(tmp_path) -> None:
+    output = tmp_path / "prometheus.yml"
+    result = subprocess.run(
+        [sys.executable, "-m", "xlayer_telemetry.demos.live",
+         "--write-prometheus-config", str(output)],
+        cwd=ROOT, capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not result.stderr
+    config = output.read_text()
+    assert "nodename: gpu-node-0" in config
+    assert "nodename: storage-node-0" in config
+    assert config.count("__metrics_path__:") == 13
 
 
 def test_demo_matches_the_b300_and_storage_topology() -> None:

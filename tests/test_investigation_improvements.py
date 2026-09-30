@@ -10,16 +10,16 @@ import time
 
 import pytest
 
-from xlayer_telemetry.diagnosis_analysis import select_baseline, validate_baseline_policy
-from xlayer_telemetry.diagnostics import DiagnosticEngine, _investigation_rows
-from xlayer_telemetry.evidence_quality import quality, timestamp_query, check_source
+from xlayer_telemetry.analysis.diagnosis_analysis import select_baseline, validate_baseline_policy
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows
+from xlayer_telemetry.analysis.evidence_quality import quality, timestamp_query, check_source
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
-from xlayer_telemetry.llm_diagnosis import packet_from_report, model_view, validate_packet
-from xlayer_telemetry.llm_investigation import selected_report, project_result
+from xlayer_telemetry.analysis.llm_diagnosis import packet_from_report, model_view, validate_packet
+from xlayer_telemetry.analysis.llm_investigation import selected_report, project_result
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.textfile import collect_snapshots, build_metrics
 from xlayer_telemetry.sandbox import SandboxRecorder, device_window
-from xlayer_telemetry.sandbox_sampler import parse_io_devices
+from xlayer_telemetry.collectors.sandbox_sampler import parse_io_devices
 from xlayer_telemetry.show_run import summarize
 from xlayer_telemetry.step_history import StepHistoryWriter
 from xlayer_telemetry.telemetry_health import observe, finish
@@ -191,7 +191,7 @@ Path(os.environ['VERL_FILE_LOGGER_PATH']).write_text(json.dumps({'step':1,'data'
 
 
 def test_bad_quality_cannot_enter_model_packet():
-    from xlayer_telemetry.llm_diagnosis import validate_packet
+    from xlayer_telemetry.analysis.llm_diagnosis import validate_packet
     packet={'schema_version':1,'record_type':'llm_observation_packet','observations':[
         {'id':'m1','signal':'cpu','current':1,'observation_scope':'node',
          'sampling_quality':{'current':{'range_window_seconds':float('nan')}}}]}

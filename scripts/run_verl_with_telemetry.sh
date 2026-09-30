@@ -104,7 +104,7 @@ if [[ -n "$diagnostics_config" ]]; then
   [[ -f "$diagnostics_config" ]] || { echo "diagnostics config is not a file: $diagnostics_config" >&2; exit 2; }
   diagnostics_config="$(cd "$(dirname "$diagnostics_config")" && pwd -P)/$(basename "$diagnostics_config")"
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m xlayer_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
       --config "$diagnostics_config" --check-config
 fi
 if [[ -z "$run_id" ]]; then
@@ -278,7 +278,7 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
 bridge_pid=$!
 if [[ -n "$diagnostics_config" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m xlayer_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
       --config "$diagnostics_config" \
       --history "$step_history_path" \
       --output "$output_dir/diagnostics" \
@@ -343,7 +343,7 @@ if [[ -n "$diagnostics_config" ]]; then
     sleep "$settle_seconds"
   fi
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m xlayer_telemetry.diagnostics \
+    "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
       --config "$diagnostics_config" --history "$step_history_path" \
       --output "$output_dir/diagnostics" --run-id "$run_id" \
       --node "$node_name" --execution-mode "$execution_mode" --once --pending-only --finalize-pending \

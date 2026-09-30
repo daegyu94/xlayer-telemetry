@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from xlayer_telemetry import gpu_sampler
+from xlayer_telemetry.collectors import gpu_sampler
 
 
 @pytest.mark.parametrize("value", ["[N/A]", "Not Supported", "nan", ""])

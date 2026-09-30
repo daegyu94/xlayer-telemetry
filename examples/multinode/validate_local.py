@@ -15,10 +15,10 @@ import threading
 import time
 from urllib.request import urlopen
 
-from xlayer_telemetry.clock_quality import assess_clocks
-from xlayer_telemetry.diagnostics import DiagnosticEngine, PrometheusClient
+from xlayer_telemetry.analysis.clock_quality import assess_clocks
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, PrometheusClient
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
-from xlayer_telemetry.gpu_sampler import snapshot
+from xlayer_telemetry.collectors.gpu_sampler import snapshot
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics

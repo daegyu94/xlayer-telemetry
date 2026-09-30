@@ -16,7 +16,7 @@ import threading
 import time
 from urllib.request import urlopen
 
-from xlayer_telemetry.diagnostics import DiagnosticEngine, PrometheusClient, write_report
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, PrometheusClient, write_report
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.prometheus import format_gauges
 from xlayer_telemetry.metrics.textfile import collect_snapshots, build_metrics
@@ -102,7 +102,7 @@ def main():
             assert not stale
             checks['snapshot_expiry']=True
             if args.ollama:
-                result=subprocess.run([sys.executable,'-m','xlayer_telemetry.llm_diagnosis',
+                result=subprocess.run([sys.executable,'-m','xlayer_telemetry.analysis.llm_diagnosis',
                                        '--run-root',str(runs/'a'),'--record-id','selected-step'],timeout=650)
                 checks['ollama_exit_code']=result.returncode
                 assert result.returncode==0

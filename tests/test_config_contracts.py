@@ -9,8 +9,8 @@ import sys
 from jsonschema import Draft202012Validator
 import pytest
 
-from xlayer_telemetry.diagnosis_demo import generate
-from xlayer_telemetry.diagnostics import DiagnosticEngine
+from xlayer_telemetry.demos.diagnosis import generate
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
 from xlayer_telemetry.schema import ALLOWED_CATEGORIES, EVENT_ONLY_LABELS, load_schema
 
 

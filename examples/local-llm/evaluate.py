@@ -11,7 +11,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from xlayer_telemetry.llm_diagnosis import diagnose, failure_record, write_result
+from xlayer_telemetry.analysis.llm_diagnosis import diagnose, failure_record, write_result
 
 
 # signal, baseline, unit, scope, labels

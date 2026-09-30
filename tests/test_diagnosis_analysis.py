@@ -7,8 +7,8 @@ from jsonschema import Draft202012Validator
 
 import pytest
 
-from xlayer_telemetry.diagnosis_analysis import compare_signals, evaluate_rules, select_baseline
-from xlayer_telemetry.diagnostics import _investigation_rows
+from xlayer_telemetry.analysis.diagnosis_analysis import compare_signals, evaluate_rules, select_baseline
+from xlayer_telemetry.analysis.diagnostics import _investigation_rows
 
 
 BASE = {

@@ -455,7 +455,7 @@ Sandbox worker와 하위 container가 속한 **안정적인 cgroup v2 subtree**�
 파일명만 바꾸고 label 조합을 같게 두면 중복 시계열이 되므로, 같은 node·runtime·filesystem·deployment의 여러 container는 공통 parent cgroup 하나로 집계합니다.
 
 ```bash
-python -m xlayer_telemetry.sandbox_sampler \
+python -m xlayer_telemetry.collectors.sandbox_sampler \
   --cgroup /sys/fs/cgroup/your-sandbox-worker \
   --textfile-dir "$HOME/telemetry/state/node/textfile" \
   --node sandbox-0 \

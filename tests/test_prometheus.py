@@ -2,7 +2,7 @@
 import pytest
 
 from xlayer_telemetry import prometheus
-from xlayer_telemetry.diagnostics import PrometheusClient as LegacyPrometheusClient
+from xlayer_telemetry.analysis.diagnostics import PrometheusClient as DiagnosticPrometheusClient
 from xlayer_telemetry.prometheus import PrometheusClient, range_series, series_stats
 
 
@@ -10,8 +10,8 @@ def matrix(series):
     return {'status': 'success', 'data': {'result': series}}
 
 
-def test_client_keeps_legacy_import_and_entity_boundaries(monkeypatch):
-    assert LegacyPrometheusClient is PrometheusClient
+def test_client_is_shared_and_preserves_entity_boundaries(monkeypatch):
+    assert DiagnosticPrometheusClient is PrometheusClient
     payload = matrix([
         {'metric': {'engine': 'A'}, 'values': [[0, '100'], [1, '0'], [2, '20']]},
         {'metric': {'engine': 'B'}, 'values': [[0, '0'], [1, '0'], [2, '0']]},

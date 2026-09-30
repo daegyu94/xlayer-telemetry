@@ -6,12 +6,12 @@ import sys
 
 import pytest
 
-from xlayer_telemetry.diagnosis_analysis import evaluate_rules
-from xlayer_telemetry.diagnostics import DiagnosticEngine, load_config, tool_span_window
+from xlayer_telemetry.analysis.diagnosis_analysis import evaluate_rules
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, load_config, tool_span_window
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
 from xlayer_telemetry.metrics.prometheus import format_gauges
 from xlayer_telemetry.sandbox import SandboxRecorder
-from xlayer_telemetry.sandbox_sampler import (
+from xlayer_telemetry.collectors.sandbox_sampler import (
     parse_io_stat, parse_pressure, pressure_ratio, read_cgroup, samples,
 )
 from examples.sandbox.validate_smoke import validate as validate_smoke
@@ -66,7 +66,7 @@ def test_sampler_cli_writes_node_exporter_textfile(tmp_path):
     (cgroup / "io.stat").write_text("259:0 rbytes=1024 wbytes=2048 rios=2 wios=3\n")
     textfile = tmp_path / "textfile"
     subprocess.run([
-        sys.executable, "-m", "xlayer_telemetry.sandbox_sampler",
+        sys.executable, "-m", "xlayer_telemetry.collectors.sandbox_sampler",
         "--cgroup", str(cgroup), "--textfile-dir", str(textfile),
         "--node", "gpu-0", "--runtime", "docker",
         "--filesystem", "overlayfs", "--deployment", "colocated", "--once",

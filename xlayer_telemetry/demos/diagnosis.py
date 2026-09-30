@@ -7,10 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 import time
 
-from .analysis.diagnosis_analysis import compare_signals, evaluate_rules
-from .analysis.diagnostics import write_report
-from .events import CorrelationContext, EventRecorder
-from .step_history import StepHistoryWriter
+from ..analysis.diagnosis_analysis import compare_signals, evaluate_rules
+from ..analysis.diagnostics import write_report
+from ..events import CorrelationContext, EventRecorder
+from ..step_history import StepHistoryWriter
 
 
 def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time) -> dict:

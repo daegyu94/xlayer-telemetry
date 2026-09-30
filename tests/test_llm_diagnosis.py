@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from xlayer_telemetry import llm_diagnosis as llm
+from xlayer_telemetry.analysis import llm_diagnosis as llm
 
 
 def packet():

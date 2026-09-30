@@ -190,7 +190,7 @@ Service가 enabled인 것만으로 실제 동기화가 완료된 것은 아닙�
 Exit code `0`은 현재 검사 구간의 `aligned`, `1`은 `unsafe` 또는 `unknown`입니다.
 
 ```bash
-python -m xlayer_telemetry.clock_quality \
+python -m xlayer_telemetry.analysis.clock_quality \
   --prometheus-url 'http://127.0.0.1:19090' \
   --cluster 'training-cluster' \
   --node gpu-a --node gpu-b --node storage-a
