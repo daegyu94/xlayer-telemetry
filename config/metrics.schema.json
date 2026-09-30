@@ -2,8 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/daegyu94/xlayer-telemetry/blob/main/config/metrics.schema.json",
   "title": "XLayer Telemetry metric contract",
+  "description": "Canonical vocabulary, not a scrape configuration or a registry of automatically emitted metrics. policy describes intended collection; source availability is documented separately.",
   "type": "object",
   "required": [
+    "$schema",
     "schema_version",
     "recommended_labels",
     "manifest_only_fields",
@@ -12,21 +14,26 @@
   ],
   "properties": {
     "$schema": {
-      "type": "string"
+      "const": "./metrics.schema.json"
     },
     "schema_version": {
       "const": 1
     },
     "recommended_labels": {
+      "description": "Optional bounded label names; never attach every label to every signal or assign shared-resource usage to a run. Per-request and per-sandbox identifiers belong in event attributes.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9_]*$"
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "not": {
+          "enum": ["sandbox_id", "container_id", "trajectory_id", "request_id", "prompt_id", "trace_id", "span_id", "swe_bench_instance_id"]
+        }
       }
     },
     "manifest_only_fields": {
+      "description": "Detailed run metadata and paths, not Prometheus labels. A bounded filesystem type (overlayfs/ext4/xfs) is a recommended label; filesystem_path belongs here.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
@@ -36,6 +43,7 @@
       }
     },
     "phase_vocabulary": {
+      "description": "Recommended canonical phases; adapters and SDK integrations can use additional application phases.",
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
@@ -82,19 +90,24 @@
           },
           "unit": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "scope": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "source": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "policy": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "Intended collection policy, not proof of a built-in producer or source readiness."
           }
         }
       }

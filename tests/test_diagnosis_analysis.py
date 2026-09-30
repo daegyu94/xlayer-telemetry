@@ -1,6 +1,9 @@
 """Rule checks use measured scenarios rather than mirroring implementation."""
 
 import json
+from pathlib import Path
+
+from jsonschema import Draft202012Validator
 
 import pytest
 
@@ -29,6 +32,13 @@ BASE = {
 }
 
 
+@pytest.fixture(scope="module")
+def candidate_validator():
+    schema = json.loads((Path(__file__).parents[1] / "config/diagnosis.schema.json").read_text())
+    return Draft202012Validator({"$schema": schema["$schema"], "$defs": schema["$defs"],
+                                **schema["properties"]["candidates"]["items"]})
+
+
 @pytest.mark.parametrize("identifier,changes,context", [
     ("storage_queue_saturation", {"threefs_p99_latency": 12, "storage_device_busy_ratio": 0.96, "threefs_throughput_bytes_per_second": 110}, {}),
     ("device_limited_storage", {"threefs_p99_latency": 12, "storage_device_busy_ratio": 0.96, "network_utilization_ratio": 0.2}, {}),
@@ -41,9 +51,10 @@ BASE = {
     ("host_memory_pressure", {"host_memory_available_ratio": 0.05, "host_swap_activity": 10}, {}),
     ("straggler", {}, {"participant_durations_seconds": {"rank-0": 10, "rank-1": 11, "rank-2": 22}}),
 ])
-def test_strong_synthetic_scenarios(identifier, changes, context):
+def test_strong_synthetic_scenarios(identifier, changes, context, candidate_validator):
     candidates = evaluate_rules(BASE | changes, BASE, thresholds={}, context=context)
     selected = next(item for item in candidates if item["id"] == identifier)
+    candidate_validator.validate(selected)
     assert selected["state"] == "strong_signal"
     assert selected["evidence"]
     assert selected["missing_evidence"] == (["per_run_3fs_client_bytes"] if selected["component"] == "storage" else [])

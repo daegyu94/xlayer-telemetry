@@ -306,6 +306,8 @@ def evaluate_rules(
                         "signal": "participant_duration_seconds", "value": numbers[slowest],
                         "baseline": median, "observation_scope": "worker",
                         "source": "workload", "participant": slowest,
+                        "window": context.get("window"),
+                        "boundary_accuracy": context.get("boundary_accuracy", "unknown"),
                     }],
                     "counter_evidence": [], "missing_evidence": [], "observation_scope": "worker",
                     "related_nodes": [], "related_devices": [], "related_spans": [],

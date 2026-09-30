@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -9,6 +10,14 @@ from typing import Any
 
 
 REQUIRED_FIELDS = {"name", "category", "unit", "scope", "source", "policy"}
+CONTRACT_FIELDS = {
+    "$schema", "schema_version", "recommended_labels", "manifest_only_fields",
+    "phase_vocabulary", "metrics",
+}
+EVENT_ONLY_LABELS = {
+    "sandbox_id", "container_id", "trajectory_id", "request_id", "prompt_id",
+    "trace_id", "span_id", "swe_bench_instance_id",
+}
 ALLOWED_CATEGORIES = {
     "training",
     "rollout",
@@ -40,14 +49,23 @@ def load_schema(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise ValueError("metric contract must be an object")
+    extra = value.keys() - CONTRACT_FIELDS
+    if extra:
+        raise ValueError(f"Metric contract has unsupported fields: {sorted(extra)}")
     if value.get("$schema") != "./metrics.schema.json":
         raise ValueError("$schema must reference ./metrics.schema.json")
-    if value.get("schema_version") != 1:
+    if isinstance(value.get("schema_version"), bool) or value.get("schema_version") != 1:
         raise ValueError("Unsupported schema_version")
 
     _validate_vocabulary("recommended_labels", value.get("recommended_labels"))
     _validate_vocabulary("manifest_only_fields", value.get("manifest_only_fields"))
     _validate_vocabulary("phase_vocabulary", value.get("phase_vocabulary"))
+    forbidden = set(value["recommended_labels"]) & EVENT_ONLY_LABELS
+    if forbidden:
+        raise ValueError(f"High-cardinality identifiers belong in events, not recommended_labels: {sorted(forbidden)}")
+    overlap = set(value["recommended_labels"]) & set(value["manifest_only_fields"])
+    if overlap:
+        raise ValueError(f"Label and manifest-only vocabularies overlap: {sorted(overlap)}")
 
     metrics = value.get("metrics")
     if not isinstance(metrics, list) or not metrics:
@@ -74,3 +92,18 @@ def load_schema(path: Path) -> dict[str, Any]:
             raise ValueError(f"Duplicate metric name: {metric['name']}")
         names.add(metric["name"])
     return value
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("path", type=Path, help="checkout metric contract JSON")
+    args = parser.parse_args()
+    try:
+        contract = load_schema(args.path)
+    except (OSError, ValueError) as error:
+        parser.exit(2, f"Invalid metric contract: {error}\n")
+    print(json.dumps({"schema_version": contract["schema_version"], "metrics": len(contract["metrics"])}))
+
+
+if __name__ == "__main__":
+    main()

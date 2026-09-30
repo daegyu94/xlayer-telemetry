@@ -175,7 +175,7 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | [scripts/](scripts/README.md) | 기본 실행 경로와 선택 스크립트 안내; 도구 설치·관측 process·profile·통신 baseline |
 | [examples/](examples/README.md) | 실행 예제·선택 안내, local VERL config, 공통 dashboard와 framework 연결 설정 |
 | [docs/validation/](docs/validation/README.md) | 검증 당시의 환경·결과·실행하지 않은 범위 |
-| `config/metrics.json` | Metric 이름·단위·측정 범위의 공통 규칙 |
+| [config/](config/README.md) | Metric 공통 어휘·JSON Schema와 rule diagnosis 출력 계약 |
 
 ## Local Validation
 

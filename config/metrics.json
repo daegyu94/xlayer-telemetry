@@ -16,7 +16,12 @@
     "operation",
     "parallel_group",
     "rank",
-    "replica"
+    "replica",
+    "runtime",
+    "filesystem",
+    "deployment",
+    "status",
+    "tool"
   ],
   "manifest_only_fields": [
     "git_commit",
@@ -30,7 +35,7 @@
     "global_batch_size",
     "sequence_length",
     "storage_path_type",
-    "filesystem",
+    "filesystem_path",
     "cache_state",
     "node_topology",
     "verl_config",
@@ -1033,6 +1038,7 @@
     "critic_update",
     "advantage_estimation",
     "artifact_write",
-    "profiling"
+    "profiling",
+    "environment"
   ]
 }

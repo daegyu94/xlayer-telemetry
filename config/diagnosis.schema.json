@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/daegyu94/xlayer-telemetry/blob/main/config/diagnosis.schema.json",
   "title": "XLayer bottleneck diagnosis",
+  "description": "Rule diagnosis report with inspectable evidence. Additive fields preserve legacy output compatibility; this is not the separate optional LLM response schema. Correlation is not attribution.",
   "type": "object",
   "required": ["schema_version", "record_type", "run_id", "analysis_window", "verdict", "findings", "evidence", "missing_sources", "diagnosis_schema_version", "symptom", "comparison", "candidates"],
   "properties": {
@@ -17,7 +18,7 @@
     "revision": {"type": "integer", "minimum": 1},
     "first_attempt_at": {"type": "number"},
     "retry_at": {"type": ["number", "null"]},
-    "analysis_window": {"type": "object"},
+    "analysis_window": {"$ref": "#/$defs/interval"},
     "clock_quality": {
       "type": "object",
       "required": ["status", "nodes"],
@@ -36,8 +37,8 @@
       "type": "object",
       "required": ["current_interval", "baseline_interval", "selection", "signals"],
       "properties": {
-        "current_interval": {"type": "object"},
-        "baseline_interval": {"type": ["object", "null"]},
+        "current_interval": {"$ref": "#/$defs/interval"},
+        "baseline_interval": {"anyOf": [{"$ref": "#/$defs/interval"}, {"type": "null"}]},
         "baseline_record_id": {"type": ["string", "null"]},
         "workload_comparability": {"enum": ["matched_configured_fields", "unverified", "unavailable"]},
         "selection": {"enum": ["same_run_same_worker_nearest_prior_median", "unavailable"]},
@@ -55,7 +56,7 @@
           "summary": {"type": "string"},
           "state": {"enum": ["weak_signal", "supporting_signal", "strong_signal"]},
           "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
-          "counter_evidence": {"type": "array", "items": {"type": "object"}},
+          "counter_evidence": {"type": "array", "items": {"$ref": "#/$defs/counter_evidence"}},
           "missing_evidence": {"type": "array", "items": {"type": "string"}},
           "observation_scope": {"$ref": "#/$defs/observation_scope"},
           "related_nodes": {"type": "array", "items": {"type": "string"}},
@@ -66,6 +67,26 @@
     }
   },
   "$defs": {
+    "interval": {
+      "type": "object",
+      "description": "Workload interval with timestamp provenance. Unknown/replayed boundaries may be null or unavailable and cannot anchor external resource correlation.",
+      "properties": {
+        "start": {"type": ["number", "null"]},
+        "end": {"type": ["number", "null"]},
+        "accuracy": {"type": "string"},
+        "source": {"type": "string"}
+      }
+    },
+    "counter_evidence": {
+      "type": "object",
+      "required": ["signal", "value", "observation_scope"],
+      "properties": {
+        "signal": {"type": "string"},
+        "value": {"type": "number"},
+        "observation_scope": {"$ref": "#/$defs/observation_scope"},
+        "labels": {"type": "object"}
+      }
+    },
     "observation_scope": {
       "enum": ["application", "process", "worker", "cgroup", "device", "node", "network-interface", "service", "shared-service", "cluster", "mixed", "unknown"]
     },
@@ -78,8 +99,9 @@
         "baseline": {"type": ["number", "null"]},
         "observation_scope": {"$ref": "#/$defs/observation_scope"},
         "source": {"type": "string"},
+        "labels": {"type": "object"},
         "query": {"type": ["string", "null"]},
-        "window": {"type": ["object", "null"]},
+        "window": {"anyOf": [{"$ref": "#/$defs/interval"}, {"type": "null"}]},
         "boundary_accuracy": {"type": "string"},
         "sampling_quality": {"type": ["object", "null"]}
       }

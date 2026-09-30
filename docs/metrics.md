@@ -74,6 +74,7 @@ SDK counter를 기록할 때는 application이 누적값을 관리합니다.
 ## Read the Contract File
 
 기준 파일은 [config/metrics.json](../config/metrics.json)입니다.
+계약 파일의 역할과 검증 명령은 [config 안내](../config/README.md)에 정리했습니다.
 이 파일은 공통 어휘와 구현 기준이며 metric을 자동 수집하거나 exporter 이름을 자동 변환하는 registry는 아닙니다.
 실제 수집에는 collector·adapter가, 화면 표시에는 해당 metric을 읽는 query가 필요합니다.
 따라서 계약에 이름을 추가한 것만으로 Prometheus 시계열이나 Grafana panel이 생기지는 않습니다.
@@ -110,6 +111,7 @@ SDK counter를 기록할 때는 application이 누적값을 관리합니다.
 | `policy` | 상시, workload별, diagnostic 등 수집 시점·용도 |
 
 `category`와 `source`는 다릅니다.
+`policy: "always"`는 해당 source를 사용할 때의 수집 권장 방식이며 built-in producer나 source 가용성을 보증하지 않습니다.
 NIC counter와 application collective timer는 모두 network 분석에 도움이 되지만 생산자와 측정 범위가 다릅니다.
 새 항목을 쓸 때 기존 entry의 단위와 표현을 먼저 확인합니다.
 
