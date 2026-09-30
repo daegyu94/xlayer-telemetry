@@ -56,6 +56,8 @@ def provision(output, enable_logs=False):
             json.dump(dashboard, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
         try:
+            # Grafana may run as a different UID in a read-only bind mount.
+            temporary.chmod(0o644)
             temporary.replace(destination)
         finally:
             temporary.unlink(missing_ok=True)

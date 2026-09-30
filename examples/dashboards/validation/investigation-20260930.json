@@ -13,6 +13,12 @@
   ],
   "page_errors": [],
   "real_backend_queries": 112,
+  "existing_server_validation": {
+    "dashboard_files_reloaded": 10,
+    "start_here_browser_render": "passed",
+    "page_errors": [],
+    "container_readable_provisioned_files": true
+  },
   "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
   "grafana_image": "grafana/grafana:12.1.0",
   "baseline": "48b87050d44358cb7c8e4753224382e400eddae2",

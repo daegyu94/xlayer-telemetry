@@ -318,6 +318,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     for path in tmp_path.glob('*.json'):
         if path == custom:
             continue
+        assert path.stat().st_mode & 0o777 == 0o644
         dashboard = json.loads(path.read_text())
         assert not any('/d/xlayer-step-explorer' in link.get('url', '') for link in dashboard['links'])
         for panel in _panels(dashboard):
