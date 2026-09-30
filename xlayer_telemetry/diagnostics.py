@@ -920,11 +920,11 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         "data_origin": report.get("data_origin", "observed"),
         "step": report.get("step"), "record_id": report.get("trigger_record_id"),
         "observed_at": window.get("end"), "boundary_accuracy": window.get("accuracy"),
-        "window_start_ms": int(window["start"] * 1000) if finite(window.get("start")) is not None else None,
-        "window_end_ms": int(window["end"] * 1000) if finite(window.get("end")) is not None else None,
+        "window_start_ms": math.floor(window["start"] * 1000) if finite(window.get("start")) is not None else None,
+        "window_end_ms": math.ceil(window["end"] * 1000) if finite(window.get("end")) is not None else None,
         "baseline_record_id": comparison.get("baseline_record_id"),
-        "baseline_start_ms": int(baseline["start"] * 1000) if finite(baseline.get("start")) is not None else None,
-        "baseline_end_ms": int(baseline["end"] * 1000) if finite(baseline.get("end")) is not None else None,
+        "baseline_start_ms": math.floor(baseline["start"] * 1000) if finite(baseline.get("start")) is not None else None,
+        "baseline_end_ms": math.ceil(baseline["end"] * 1000) if finite(baseline.get("end")) is not None else None,
     }
     symptom = report.get("symptom", {})
     strong = [item for item in report.get("candidates", []) if item.get("state") == "strong_signal"]

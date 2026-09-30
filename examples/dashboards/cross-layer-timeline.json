@@ -107,14 +107,14 @@
     {
       "title": "Bottleneck Summary",
       "type": "link",
-      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
       "includeTimeRange": true,
       "keepTime": true
     },
     {
       "title": "Step Detail",
       "type": "link",
-      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}",
+      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
       "includeTimeRange": true,
       "keepTime": true
     }
@@ -153,7 +153,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=\"exact\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=\"exact\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -361,7 +361,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"span\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\"",
           "queryType": "range",
           "maxLines": 5000
         }

@@ -19,6 +19,13 @@
       "keepTime": true
     },
     {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&var-source_node=${node:percentencode}",
+      "includeTimeRange": true,
+      "keepTime": true
+    },
+    {
       "includeTimeRange": true,
       "keepTime": true,
       "title": "Compute & Communication",
@@ -56,7 +63,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -112,7 +119,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -169,7 +176,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -226,7 +233,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 4
+        "y": 5
       },
       "datasource": {
         "type": "prometheus",
@@ -284,7 +291,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -343,7 +350,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 15
       },
       "datasource": {
         "type": "prometheus",
@@ -379,7 +386,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 15
       },
       "datasource": {
         "type": "prometheus",
@@ -415,7 +422,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 23
       },
       "datasource": {
         "type": "prometheus",
@@ -451,7 +458,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 23
       },
       "options": {
         "mode": "markdown",
@@ -466,7 +473,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 31
       },
       "datasource": {
         "type": "prometheus",
@@ -502,7 +509,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 30
+        "y": 31
       },
       "datasource": {
         "type": "prometheus",
@@ -535,14 +542,14 @@
       "type": "text",
       "title": "Collection & scope",
       "gridPos": {
-        "h": 4,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "**Collect:** Exporter targets up과 sample age부터 확인합니다. **Correlate:** Cluster · Node · Run · 시간 범위를 맞춥니다.\n\nN/A는 0이 아닙니다. Host/GPU는 node/device 전체이며 VERL per-GPU throughput과 stage·reward는 [Agent RL](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${__url_time_range})에서 확인합니다."
+        "content": "**Collect:** Exporter targets up과 sample age부터 확인합니다. **Correlate:** Cluster · Node · Run · 시간 범위를 맞춥니다.\n\nN/A는 0이 아닙니다. Host/GPU는 node/device 전체이며 VERL per-GPU throughput과 stage·reward는 [Agent RL](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${__url_time_range})에서 확인합니다.\n\n[느린 step 선택](/d/xlayer-step-explorer?${cluster:queryparam}&${run_id:queryparam}&var-source_node=${node:percentencode}&${__url_time_range}) → [Candidate + Evidence 확인](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})"
       }
     }
   ],

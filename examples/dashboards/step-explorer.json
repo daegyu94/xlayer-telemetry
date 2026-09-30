@@ -15,7 +15,7 @@
     {
       "title": "Agent RL Stage Correlation",
       "type": "link",
-      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}",
+      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}&var-node=${source_node:percentencode}",
       "includeTimeRange": true,
       "keepTime": true
     },
@@ -40,7 +40,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Cluster · Observer node · Run을 선택한 뒤 **step 번호**를 누르면 Step Detail이 열립니다.\n\nLoki step-event 수집이 필요합니다. 목록이 비면 wrapper의 step JSONL과 Alloy·Loki를 확인합니다. 누락된 step은 duration 0인 step이 아닙니다."
+        "content": "**느린 step 선택 → Candidate + Evidence → Timeline / Deep dive**\n\nDuration이 긴 step부터 확인하고 **step 번호**의 메뉴에서 Step Detail · Bottleneck Summary · Cross-Layer Timeline을 엽니다. 선택한 run·step·observer node·시간 구간을 유지합니다.\n\n목록이 비면 step JSONL과 Alloy·Loki를 확인합니다. Boundary는 기록된 시간 품질이며 missing data를 0으로 해석하지 않습니다."
       }
     },
     {
@@ -115,7 +115,17 @@
                 "value": [
                   {
                     "title": "Step Detail 열기",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-log_run_id=${__data.fields[\"run_id\"]}",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}&var-log_run_id=${__data.fields[\"run_id\"]}",
+                    "targetBlank": false
+                  },
+                  {
+                    "title": "Bottleneck Summary 열기",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
+                    "targetBlank": false
+                  },
+                  {
+                    "title": "Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
                     "targetBlank": false
                   }
                 ]
@@ -311,6 +321,14 @@
               {
                 "id": "custom.width",
                 "value": 185
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
               }
             ]
           },
@@ -341,7 +359,15 @@
             "properties": [
               {
                 "id": "custom.hidden",
-                "value": true
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Boundary"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
               }
             ]
           }
@@ -353,9 +379,15 @@
         "footer": {
           "show": false
         },
-        "enablePagination": true
+        "enablePagination": true,
+        "sortBy": [
+          {
+            "displayName": "Duration",
+            "desc": true
+          }
+        ]
       },
-      "description": "Step 번호를 누르면 기록된 시간 구간의 Step Detail을 엽니다. 목록은 Loki의 완료 step event이며 표의 stage duration은 순서가 있는 phase trace가 아닙니다."
+      "description": "Duration이 긴 step부터 표시합니다. Step 번호를 눌러 Step Detail·Bottleneck Summary·Cross-Layer Timeline을 선택하면 해당 행의 run·record·observer node·시간 구간이 전달됩니다. Resource node는 실제 배치에 맞게 바꿉니다."
     }
   ],
   "refresh": "10s",

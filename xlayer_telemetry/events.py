@@ -218,7 +218,7 @@ class EventRecorder:
                     "event_time_unix_nano": started_ns,
                     "end_time_unix_nano": ended_ns,
                     "start_time_ms": started_ns // 1_000_000,
-                    "end_time_ms": ended_ns // 1_000_000,
+                    "end_time_ms": (ended_ns + 999_999) // 1_000_000,
                     "boundary_accuracy": "clock_discontinuity" if discontinuity else "exact",
                     "clock_scope": "node",
                     "duration_source": "monotonic" if self.monotonic_ns is not self.clock_ns else "injected_clock",

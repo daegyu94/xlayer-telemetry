@@ -22,7 +22,7 @@
     {
       "title": "Bottleneck Summary",
       "type": "link",
-      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
       "includeTimeRange": true,
       "keepTime": true
     }
@@ -60,7 +60,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\"} | json | run_id=\"$run_id\" | record_id=\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_id=~\"$record_id\" | __error__=\"\"",
           "queryType": "range",
           "maxLines": 1000
         }
@@ -258,6 +258,14 @@
               {
                 "id": "custom.width",
                 "value": 185
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
               }
             ]
           },

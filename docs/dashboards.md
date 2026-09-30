@@ -7,8 +7,49 @@
 Dashboard·panel 제목, metric 이름, filter와 status 용어는 영어로 유지하고, 안내·tooltip·해석 범위는 한국어로 제공합니다.
 각 화면 상단의 안내를 읽고 panel 제목 옆 info 아이콘에서 측정 범위와 optional source 조건을 확인합니다.
 긴 evidence·stage 요약은 표 안에서 줄바꿈하며, 표의 pagination으로 다음 행을 확인할 수 있습니다.
+Step Explorer는 Duration이 긴 step부터 표시하고, step 번호의 메뉴에서 Step Detail·Bottleneck Summary·Cross-Layer Timeline으로 이동합니다.
+행의 run·record·observer node·시간 구간을 전달하며 Resource node는 실제 trainer·rollout·sandbox·storage 배치에 맞게 바꿉니다.
 Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
 추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
+
+## Investigation UX Principles
+
+첫 화면은 수집 상태를 확인하고 조사할 step을 고르는 데 사용합니다.
+Bottleneck Summary에서는 symptom과 candidate를 먼저 읽고, measured changes를 확인한 뒤 `Evidence details (expand to inspect)`를 펼칩니다.
+Candidate ID와 Evidence type의 column filter로 supporting·counter·missing evidence를 좁힙니다.
+Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Step Detail로 열어 같은 context에서 비교하도록 돕습니다.
+
+State는 원본 진단 용어를 유지합니다.
+`strong_signal`은 rule 조건이 관측된 후보이고, `no_anomaly_observed`는 관측한 근거에서 후보를 찾지 못했다는 뜻입니다.
+`insufficient_data`·빈 panel·N/A는 정상이나 0을 뜻하지 않으며, synthetic 결과는 Origin으로 구분합니다.
+색상은 이 구분을 보조하며 인과관계나 정상 상태를 보증하지 않습니다.
+
+Timeline의 Trace ID는 exact span과 related event에 함께 적용합니다.
+Step record는 approximate trainer step을 선택하며 Trace ID와 자동으로 같아지는 개념이 아닙니다.
+같은 Trace ID도 clock synchronization을 보장하지 않으므로 exact·approximate·sampled 경계와 node clock 상태를 따로 확인합니다.
+
+아래 화면은 synthetic fixture를 실제 Grafana 12.1.0에서 렌더링한 예입니다.
+Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합니다.
+
+![Synthetic step의 symptom·candidate·baseline 변화로 이어지는 Bottleneck Summary](figures/bottleneck-summary-synthetic.png)
+
+### Reference Patterns and Decisions
+
+다음 공식 문서의 조사 패턴을 기존 Grafana 구조에 적용했습니다.
+참고 제품을 설치하거나 telemetry backend를 변경하지 않습니다.
+
+| Reference | 참고할 패턴 | XLayer에 적용한 방식 |
+| --- | --- | --- |
+| [Grafana links](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/manage-dashboard-links/) | Context를 유지하는 dashboard·data link | Step 행의 run·record·node·시간 구간으로 이동하고 current/baseline을 따로 열기 |
+| [Coroot inspections](https://docs.coroot.com/inspections/overview/) | Application context에서 상태를 좁혀가는 조사 | Symptom → candidate → measured changes → evidence 순서; missing data를 정상으로 표현하지 않기 |
+| [SigNoz related signals](https://signoz.io/docs/userguide/span-details/) | 선택한 span에서 log·metric으로 이동 | 기존 span link 유지, Trace ID를 span/event에 일관되게 적용, step에서 diagnosis/timeline 바로 열기 |
+| [Perses dashboard model](https://perses.dev/perses/docs/api/dashboard/) | 명시적인 panel·variable·layout 정의 | 기존 dashboard JSON을 source of truth로 유지하고 link·scope·layout 계약을 테스트 |
+| [OpenObserve service graph](https://openobserve.ai/docs/user-guide/data-exploration/traces/service-graph/) | 관계를 따라 조사 대상을 좁히기 | 기존 topology와 evidence entity를 navigation에 사용; 설정된 edge를 실제 traffic이나 causal path로 바꾸지 않기 |
+| [Netdata chart contexts](https://learn.netdata.cloud/docs/dashboards-and-charts/charts) | Node·device context, chart별 측정 범위와 동기화된 탐색 | 기존 resource selector·단위·tooltip을 유지하고 optional evidence를 접이식 row로 단계적으로 공개 |
+
+[Grafana 12.4의 Dynamic Dashboards](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-4/)는 12.4에서 preview로 소개된 기능이며, 현재 검증한 Grafana 12.1.0에서는 사용하지 않습니다.
+Tabs·auto-grid 전환은 지원할 최소 버전과 provisioning 호환성을 검증한 뒤 검토합니다.
+Service health map이나 causal graph도 충분한 entity별 관측 근거가 생기기 전에는 추가하지 않습니다.
 
 ## Start Here
 
@@ -143,9 +184,10 @@ Alloy는 각 root 아래 `<run>/telemetry-events/verl-steps*.jsonl`과 `<run>/te
 Step event의 `run_id`는 JSON 내용에서 읽으며, Loki stream의 `cluster`·`node`·`workload`는 collector 설정에서 가져옵니다.
 Shared storage의 같은 파일을 여러 collector가 중복 수집하지 않도록 한 node에서만 읽습니다.
 
-Grafana의 `03 · Step Explorer`에서 Cluster, Observer node, Run을 선택한 뒤 표의 step 번호를 누릅니다.
+Grafana의 `03 · Step Explorer`에서 Cluster, Observer node, Run을 선택한 뒤 표의 step 번호를 누르고 `Step Detail 열기`를 선택합니다.
 `06 · Step Detail`은 기록된 시작·종료 시각으로 시간 범위를 맞추고, stage 요약과 node별 GPU·CPU·memory·network·disk·vLLM 지표 및 같은 구간의 log를 표시합니다.
-Resource node는 기본적으로 모든 node이므로 run에 속한 node를 골라 보며, `Log directory`가 telemetry `run_id`와 다르면 실제 결과 디렉터리 이름으로 바꿉니다.
+Step 행의 observer node가 첫 Resource node로 전달되므로 실제 trainer·rollout·sandbox 배치에 맞게 바꿉니다.
+`Log directory`가 telemetry `run_id`와 다르면 실제 결과 디렉터리 이름으로 바꿉니다.
 Loki와 Prometheus가 해당 node를 수집하고 있어야 값이 채워집니다.
 목록이 비면 먼저 `telemetry-events/verl-steps.jsonl`의 생성 여부와 Alloy의 파일 경로·Loki push 상태를 확인합니다.
 목록은 있지만 자원 그래프가 비면 Prometheus target과 선택한 `Resource node`, 두 저장소의 보존 기간을 확인합니다.

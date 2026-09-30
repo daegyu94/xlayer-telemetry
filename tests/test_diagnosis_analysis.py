@@ -96,3 +96,13 @@ def test_investigation_projection_keeps_scope_and_window():
     assert rows[1]["observation_scope"] == "shared-service"
     assert "per-run client bytes" in rows[1]["missing_evidence_summary"]
     assert {row["evidence_type"] for row in rows if row["row_kind"] == "evidence"} == {"supporting", "missing"}
+
+
+def test_investigation_navigation_windows_include_fractional_end_timestamp():
+    report = {
+        'analysis_window': {'start': 100.0002, 'end': 120.0008},
+        'comparison': {'baseline_interval': {'start': 80.0002, 'end': 90.0008}},
+    }
+    row = _investigation_rows(report)[0]
+    assert (row['window_start_ms'], row['window_end_ms']) == (100000, 120001)
+    assert (row['baseline_start_ms'], row['baseline_end_ms']) == (80000, 90001)

@@ -346,7 +346,7 @@ def test_investigation_dashboards_keep_boundary_accuracy_and_navigation():
     timeline = json.loads((ROOT / "examples/dashboards/cross-layer-timeline.json").read_text())
     assert {summary["uid"], timeline["uid"]} == {"xlayer-bottleneck-summary", "xlayer-cross-layer-timeline"}
     assert any("missing_evidence_summary" in str(panel) for panel in summary["panels"])
-    evidence = next(panel for panel in summary["panels"] if panel["title"].startswith("Evidence details"))
+    evidence = next(panel for panel in _panels(summary) if panel["type"] == "table" and panel["title"].startswith("Evidence details"))
     assert 'row_kind="evidence"' in evidence["targets"][0]["expr"]
     assert any(item["matcher"]["options"] == "signal" for item in evidence["fieldConfig"]["overrides"])
     assert any("window_start_ms" in str(panel) and "record_id" in str(panel) for panel in summary["panels"])
@@ -556,3 +556,46 @@ def test_healthy_ssd_count_preserves_zero_without_faking_missing_data() -> None:
     expr = panel["targets"][0]["expr"]
     assert expr.startswith("sum(") and "!= bool 0" in expr
     assert "or vector(0)" not in expr
+
+
+def test_investigation_links_preserve_selected_interval_and_identity():
+    index = json.loads((ROOT / 'examples/dashboards/step-explorer.json').read_text())
+    table = next(panel for panel in _panels(index) if panel['type'] == 'table')
+    step = next(item for item in table['fieldConfig']['overrides']
+                if item['matcher']['options'] == 'step' and any(p['id'] == 'links' for p in item['properties']))
+    links = next(p['value'] for p in step['properties'] if p['id'] == 'links')
+    assert {link['url'].split('?')[0] for link in links} == {
+        '/d/xlayer-step-detail', '/d/xlayer-bottleneck-summary', '/d/xlayer-cross-layer-timeline'}
+    for link in links:
+        for field in ('window_start_ms', 'window_end_ms', 'run_id', 'record_id', 'node'):
+            assert '${__data.fields["' + field + '"]}' in link['url']
+    assert table['options']['sortBy'] == [{'displayName': 'Duration', 'desc': True}]
+
+    summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
+    comparison = next(panel for panel in _panels(summary) if panel['id'] == 4)
+    signal = next(item for item in comparison['fieldConfig']['overrides']
+                  if item['matcher']['options'] == 'signal')
+    links = next(p['value'] for p in signal['properties'] if p['id'] == 'links')
+    assert 'window_start_ms' in links[0]['url']
+    assert all(field in links[1]['url'] for field in ('baseline_start_ms', 'baseline_end_ms', 'baseline_record_id'))
+
+
+def test_investigation_ui_distinguishes_missing_evidence_and_respects_trace_filter():
+    summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
+    row = next(panel for panel in summary['panels'] if panel['type'] == 'row')
+    assert row['collapsed'] and row['panels'][0]['id'] == 6
+    assert 'row_kind="evidence"' in row['panels'][0]['targets'][0]['expr']
+    verdict = next(item for item in summary['panels'][1]['fieldConfig']['overrides']
+                   if item['matcher']['options'] == 'verdict')
+    values = next(p['value'] for p in verdict['properties'] if p['id'] == 'mappings')[0]['options']
+    assert values['insufficient_data']['color'] == 'gray'
+    assert values['no_anomaly_observed']['color'] != 'green'
+    assert all(value['text'] == key for key, value in values.items())
+    timeline = json.loads((ROOT / 'examples/dashboards/cross-layer-timeline.json').read_text())
+    for panel in timeline['panels']:
+        for target in panel.get('targets', []):
+            if 'record_type="span"' in target['expr'] or 'record_type="event"' in target['expr']:
+                assert 'trace_id=~"$trace_id"' in target['expr']
+    detail = json.loads((ROOT / 'examples/dashboards/step-detail.json').read_text())
+    expr = detail['panels'][1]['targets'][0]['expr']
+    assert 'run_id=~"$run_id"' in expr and 'record_id=~"$record_id"' in expr

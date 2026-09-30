@@ -94,3 +94,18 @@ def test_distinct_hyphenated_event_producers_do_not_share_stream(tmp_path: Path)
         recorder.event("tool.call", phase="tool")
     assert recorders[0].path != recorders[1].path
     assert [json.loads(recorder.path.read_text())["producer"] for recorder in recorders] == ["a-b", "a"]
+
+
+def test_span_navigation_window_encloses_exact_nanosecond_boundary(tmp_path):
+    import json
+    from xlayer_telemetry.events import CorrelationContext, EventRecorder
+    clock = iter((1000000200, 2000000800)).__next__
+    recorder = EventRecorder(tmp_path, CorrelationContext(
+        run_id='r', producer='app', role='rollout', worker_id='0', node='n'), clock_ns=clock)
+    with recorder.span('tool.call', phase='environment'):
+        pass
+    record = json.loads(next(tmp_path.glob('*.jsonl')).read_text())
+    assert record['start_time_ms'] == 1000
+    assert record['end_time_ms'] == 2001
+    assert record['start_time_unix_nano'] == 1000000200
+    assert record['end_time_unix_nano'] == 2000000800
