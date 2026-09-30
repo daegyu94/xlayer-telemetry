@@ -50,7 +50,8 @@ DEMO_LIVE=1 \
 
 이 명령은 foreground에서 계속 실행되므로 terminal을 열어 둡니다.
 [Start Here](http://127.0.0.1:13000/d/xlayer-start-here)를 열고 Run Overview로 이동해 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
-`Exporter targets up`이 0보다 크고 GPU matrix에 값이 나타나면 수집과 Grafana 연결에 성공한 것입니다.
+`Collector availability`의 해당 target이 Up이고 application/GPU sample age가 fresh이면 수집과 Grafana 연결을 확인한 것입니다.
+GPU별 값은 Compute & Communication의 GPU matrix에서 확인합니다.
 Agent RL Stage Correlation에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 선택하면 완료 step 값이 증가하는 것도 확인할 수 있습니다.
 화면이 비어 있으면 먼저 실행 terminal의 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
 실제 학습 성능이 아닌 화면·수집 경로 확인용 값입니다.
@@ -248,13 +249,12 @@ Target이 up인데 run이 보이지 않는다면 [VERL 연결 가이드](verl-qu
 | Dashboard | 확인할 내용 |
 | --- | --- |
 | Start Here | 목적별 화면 선택과 조사 순서 |
-| Run Overview | Target 상태, GPU 사용률, run별 학습 지표 |
+| Run Overview | Target 상태·sample freshness, step 시간 추이와 선택적 완료 step 목록 |
 | Agent RL Stage Correlation | VERL 완료 stage와 등록한 rollout engine 지표 |
 | Compute & Communication | GPU·host·NIC/RDMA와 topology |
 | Data & Storage | Local device·filesystem, storage topology, 선택적 SMART |
-| Step Explorer / Step Detail | Loki의 완료 step을 선택하고 같은 구간의 resource·log 확인 |
 | Bottleneck Summary | 진단 sidecar와 Loki를 연결한 run의 candidate·baseline·evidence |
-| Cross-Layer Timeline | Loki의 span·step band와 Prometheus resource를 같은 시간축에서 확인 |
+| Cross-Layer Timeline | 선택한 step 요약·span·step band와 Prometheus resource를 같은 시간축에서 확인 |
 | Run Logs | Loki를 활성화했을 때만 제공되는 log 검색 |
 
 각 화면의 필터·패널·측정 범위는 [Dashboard Guide](dashboards.md)에서 설명하고, [실제 실행 GIF](real-verl-demo.md)에서 값이 채워진 예를 볼 수 있습니다.
@@ -406,7 +406,7 @@ Run Logs에서 cluster·node·workload·run을 선택합니다.
 `run_id`와 file 경로는 log record에 저장되고 `cluster`·`node`·`workload`가 index label로 사용됩니다.
 `run_id`는 여기서 경로의 run directory 이름이며 wrapper에 전달한 `--run-id`와 다를 수 있습니다.
 Run Overview의 Run Logs 링크는 시간과 run 선택을 전달합니다.
-Grafana의 `03 · Step Explorer`는 step event에서 `run_id`와 시간 범위를 읽습니다.
+Run Overview에 통합된 Step Explorer 목록은 step event에서 `run_id`와 시간 범위를 읽습니다.
 VERL wrapper가 만든 `telemetry/telemetry-events/verl-steps.jsonl`도 수집하며, 기존 기록의 backfill 파일도 같은 패턴으로 읽습니다.
 두 경로가 모두 없다면 step 목록은 비어 있습니다.
 Grafana Step Explorer는 event를 Loki에서, 자원 그래프를 Prometheus에서 읽으므로 두 datasource의 보존 기간과 선택한 시간 범위를 함께 확인합니다.

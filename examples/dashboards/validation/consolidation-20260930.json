@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "browser": "headless Chrome",
+  "checks": [
+    "Collection health still renders without fabricated healthy/no-data states",
+    "Integrated Run Overview Duration \u2192 candidate/evidence pins row cluster, record, time and observer/resource nodes",
+    "Summary \u2192 integrated Timeline includes selected step and approximate completion context",
+    "Collapsed span/event row preserves exact EventRecorder evidence",
+    "Former Step Detail host/network/storage evidence expands inside Timeline",
+    "Timeline sandbox selector preserves independent dedicated node",
+    "Clock quality remains available through progressive disclosure",
+    "Step single click opens integrated Timeline with exact record context",
+    "Compute/Storage/Stage retain return navigation to selected diagnosis",
+    "Log directory and application run remain separate after consolidation"
+  ],
+  "page_errors": [],
+  "real_backend_queries": 106,
+  "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+  "grafana_image": "grafana/grafana:12.1.0",
+  "baseline": "3d1c721",
+  "unit_tests": {
+    "passed": 359,
+    "dashboard_tests": 28,
+    "promtool_queries": true
+  },
+  "dashboard_counts": {
+    "before_loki": 10,
+    "after_loki": 8,
+    "metrics_only": 5
+  },
+  "not_exercised": [
+    "Physical multi-node training",
+    "GPU/VERL training performance"
+  ],
+  "screenshots": [
+    "../../../docs/figures/grafana-run-overview-synthetic.png",
+    "../../../docs/figures/grafana-timeline-synthetic.png"
+  ],
+  "metrics_only_validation": {
+    "status": "passed",
+    "loki_dashboard_count": 8,
+    "metrics_only_dashboard_count": 5,
+    "live_file_reload": true,
+    "metrics_only_datasources": [
+      "telemetry-prometheus"
+    ],
+    "metrics_only_browser": "passed",
+    "page_errors": []
+  },
+  "existing_server_validation": {
+    "status": "passed",
+    "dashboard_count": 8,
+    "removed_uids": [
+      "xlayer-step-explorer",
+      "xlayer-step-detail"
+    ],
+    "all_dashboard_structures_match": true,
+    "prometheus_on_19090": "not running; data validation used isolated services"
+  }
+}

@@ -733,7 +733,7 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="observation packet or saved diagnosis JSON; rule fields are discarded")
     source.add_argument("--run-root", type=Path, help="Diagnose one saved step explicitly; requires --record-id")
-    parser.add_argument("--record-id", help="Copy Step record ID from Grafana Step Detail/Bottleneck Summary")
+    parser.add_argument("--record-id", help="Copy Step record ID from Grafana Cross-Layer Timeline/Bottleneck Summary")
     source.add_argument("--source-config", type=Path, help="Prometheus intervals and scoped queries, without diagnosis rules")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434")

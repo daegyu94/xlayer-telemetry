@@ -24,7 +24,7 @@ Run Overview
                  |  approximate VERL step window
                  |  sampled Prometheus metrics
                  |
-                 +> Step Detail / Compute / Storage / Logs
+                 +> Timeline / Compute / Storage / Logs
                  +> targeted PyTorch Profiler / Nsight or NCCL baseline
 ```
 
@@ -49,7 +49,7 @@ Loki가 파일을 받은 뒤 Grafana의 Bottleneck Summary에서 Run을 `diagnos
 실제 GPU·3FS source를 확인하려면 뒤의 진단 설정으로 VERL run을 실행합니다.
 
 1. Run Overview에서 target과 sample freshness를 확인하고 느린 step의 시간을 찾습니다.
-2. Step Explorer에서 완료된 step을 선택해 `record_id`와 추정 시간 범위를 확인합니다.
+2. Run Overview의 완료 step 목록에서 step을 선택해 `record_id`와 추정 시간 범위를 확인합니다.
 3. Bottleneck Summary의 candidate 상태와 scope, missing evidence를 함께 읽습니다.
    Evidence details 표에서 supporting·counter·missing 행의 수치, source, entity를 확인합니다.
 4. Cross-Layer Timeline에서 exact span, approximate step band, sampled metric의 시간 관계를 봅니다.
@@ -110,7 +110,7 @@ Source 자체가 없는 경우에도 재시도는 제한 시간에 끝나며, `s
 GPU utilization은 같은 `gpu` label의 양쪽 표본을 비교하며, device별 짝을 만들 수 없으면 node aggregate로 scope를 낮춥니다.
 비교 표의 device 값은 baseline 대비 utilization 감소가 가장 큰 GPU에서 선택합니다.
 이는 이상 구간 탐색을 위한 값이며, 해당 GPU가 선택한 run의 장치라고 귀속하거나 node 전체 GPU의 평균이라고 해석하지 않습니다.
-전체 device별 그래프는 Step Detail에서 확인합니다.
+전체 device별 그래프는 Compute에서, 선택한 step과의 시간 비교는 Timeline에서 확인합니다.
 vLLM의 KV usage·waiting·preemption은 Prometheus가 engine identity를 제공할 때 같은 engine의 series끼리 비교합니다.
 여러 engine이 있으나 공통 identity를 확인할 수 없으면 `vllm:shared_engine_identity`를 누락 근거로 남기고 이를 강한 후보로 조합하지 않습니다.
 동일한 이전 step이나 해당 표본이 없으면 baseline을 만들어 내지 않고 `missing_evidence`에 표시합니다.
@@ -240,7 +240,8 @@ VERL file logger는 stage duration만 주고 stage별 실제 시작·끝은 주�
 Timeline은 file logger에서 추정한 전체 step band만 `approximate`로 표시하며 rollout·reward·update 순서를 추정해 그리지 않습니다.
 `EventRecorder`가 만든 span은 producer node의 start/end timestamp로 `exact` bar에 표시하고, Prometheus 선은 sampling 간격의 관측치입니다.
 Wall clock jump가 감지된 `clock_discontinuity` span은 exact bar에서 제외되며 duration 자체는 monotonic clock 값으로 보존합니다.
-Span 표의 `span_id`에서 같은 시간 창의 Step Detail·Logs·Diagnosis로 이동하고, `trace_id`로 기록한 관련 event를 아래 표에서 필터링할 수 있습니다.
+Timeline의 `Span and event records` 행을 펼쳐 span 표를 확인합니다.
+`span_id`에서 같은 시간 창의 Timeline·Logs·Diagnosis로 이동하고, `trace_id`로 기록한 관련 event를 필터링할 수 있습니다.
 Clock skew, scrape 간격, shared resource의 다른 사용자 때문에 눈으로 겹친 구간도 추가 확인이 필요합니다.
 
 ### Follow the Data Path

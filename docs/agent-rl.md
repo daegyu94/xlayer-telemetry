@@ -45,7 +45,7 @@ Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 �
 Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
 3FS FUSE mount의 filesystem 지표는 node 자원 경로로 볼 수 있지만 3FS 서비스 latency는 ClickHouse를 조회하는 실행 진단에 기록됩니다.
 Tool span은 JSONL event로 남고 workload log는 Alloy·Loki를 거쳐 Grafana Run Logs에 표시됩니다.
-VERL step event는 별도로 Loki에 수집하면 Grafana Step Explorer의 목록과 상세 구간을 엽니다.
+VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 목록에서 Timeline의 상세 구간을 엽니다.
 
 ## Choose the Next Source
 
@@ -430,6 +430,7 @@ Calculator의 인자 오류와 실제 Docker nonzero exit도 별도로 실행해
 
 Prometheus에서 application·GPU·host·vLLM·Ray·sandbox cgroup 지표를, Loki에서 trainer log·step·span·diagnosis projection을 확인했습니다.
 Grafana Step Explorer의 step 메뉴가 실제 run·record·node·시간 범위를 전달하고, Step Detail·Bottleneck Summary·Timeline·Logs에서 해당 자료를 읽는지 브라우저로 검증했습니다.
+이 검증 이후 Step Explorer 목록은 Run Overview에, Step Detail은 Timeline에 통합했습니다.
 `policy_version_lag`와 RDMA source는 없었으므로 missing evidence로 남겼습니다.
 Optional Ollama 진단은 별도로 실제 관측 packet을 읽고 한국어 응답과 evidence validation을 통과했습니다.
 

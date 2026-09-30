@@ -21,14 +21,6 @@
       "targetBlank": false
     },
     {
-      "title": "Step Explorer",
-      "type": "link",
-      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
-      "includeVars": false,
-      "keepTime": true,
-      "targetBlank": false
-    },
-    {
       "title": "Bottleneck Summary",
       "type": "link",
       "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
@@ -831,7 +823,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "07 · Compute & Communication",
+  "title": "05 · Compute & Communication",
   "description": "선택한 node의 GPU·host·TCP/Ethernet·RDMA 상태를 조사합니다.",
   "uid": "xlayer-compute-communication",
   "version": 5

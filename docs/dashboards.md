@@ -7,10 +7,35 @@
 Dashboard·panel 제목, metric 이름, filter와 status 용어는 영어로 유지하고, 안내·tooltip·해석 범위는 한국어로 제공합니다.
 각 화면 상단의 안내를 읽고 panel 제목 옆 info 아이콘에서 측정 범위와 optional source 조건을 확인합니다.
 Stage 요약은 표 안에서 줄바꿈하며, 긴 evidence는 cell의 inspect 기능으로 읽고 pagination으로 다음 행을 확인할 수 있습니다.
-Step Explorer는 Duration이 긴 step부터 표시하고, Duration → Bottleneck Summary, Stage → Cross-Layer Timeline, Step → Step Detail로 한 번에 이동합니다.
+Run Overview의 Step Explorer 목록은 Duration이 긴 step부터 표시하고, Duration → Bottleneck Summary, Step·Stage → Cross-Layer Timeline으로 한 번에 이동합니다.
 행의 run·record·observer node·시간 구간을 전달하며 Resource node는 실제 trainer·rollout·sandbox·storage 배치에 맞게 바꿉니다.
 Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
 추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
+
+## Dashboard Inventory
+
+기본 monitoring server는 metrics-only 구성에서 5개, Loki 구성에서 8개의 dashboard를 설치합니다.
+완료 step 선택은 Run Overview에, 이전 Step Detail의 구간 요약과 자원 비교는 Timeline에 통합했습니다.
+상세 GPU memory·KV offload·log는 각각 Compute·Stage Correlation·Run Logs로 이동하므로 같은 내용을 별도 step 화면에 반복하지 않습니다.
+
+| Dashboard | 역할 | Loki 필요 |
+| --- | --- | --- |
+| 00 · Start Here | Collector와 sample freshness 확인, Run 선택 | 아니요 |
+| 01 · Run Overview | Step 시간 추이와 완료 step 선택 | 목록만 필요 |
+| 02 · Agent RL Stage Correlation | Stage·rollout engine·sandbox 상세 | 아니요 |
+| 03 · Bottleneck Summary | Candidate와 supporting/counter/missing evidence | 예 |
+| 04 · Cross-Layer Timeline | 선택한 step·span·자원을 같은 시간 구간에서 비교 | 예 |
+| 05 · Compute & Communication | GPU·process·network·allocation 상세 | 아니요 |
+| 06 · Data & Storage | Local device·filesystem·SMART 상세 | 아니요 |
+| 07 · Run Logs | Workload log 검색 | 예 |
+
+Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `step-detail.json`을 제거하고 통합 화면을 설치합니다.
+다른 이름의 사용자 dashboard는 유지합니다.
+기존 bookmark의 `/d/xlayer-step-explorer`는 `/d/telemetry-overview`로, `/d/xlayer-step-detail`은 `/d/xlayer-cross-layer-timeline`으로 바꾸고 query string의 run·node·record·시간은 그대로 유지합니다.
+이전 두 UID는 redirect dashboard로 남기지 않으므로 bookmark를 갱신해야 합니다.
+
+`targets/*.json`은 Prometheus의 scrape target 목록이며 dashboard 개수에 포함되지 않습니다.
+별도 Docker Compose 예제의 `Multinode LLM Cluster Resources`는 해당 예제에서만 설치하며 기본 server 목록에는 추가되지 않습니다.
 
 ### Readability
 
@@ -20,7 +45,7 @@ Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidat
 Panel 제목·축·legend·표 본문의 font는 Grafana 기본 UI를 따릅니다.
 이 글자도 작게 느껴진다면 브라우저 확대를 110–125%로 설정하고, 좁아진 화면에서는 sidebar를 접거나 panel 메뉴의 View로 확대합니다.
 
-Step Detail과 Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
+Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
 기본 monitoring server의 Prometheus datasource query 간격은 실제 scrape 간격인 2초로 설정합니다.
 외부 Prometheus를 연결했다면 datasource의 Scrape interval을 실제 수집 주기에 맞춥니다.
 Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback이 정밀한 step trace로 바뀌지는 않습니다.
@@ -29,7 +54,7 @@ Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback�
 
 `00 · Start Here`에서 Cluster · Node · Run을 고르고 collector 연결과 application/GPU sample age를 먼저 확인합니다.
 `Observed runs`는 exporter가 제공하는 worker snapshot 목록이며, 현재 실행 중인 run 목록이나 정상 판정이 아닙니다.
-Run을 누르면 Run Overview, Sample age를 누르면 해당 run의 Step Explorer로 이동합니다.
+Run과 Sample age를 누르면 해당 run의 Run Overview로 이동합니다.
 `Potential issue → next action`은 수집 누락과 느린 workload를 구분해 다음 화면을 안내합니다.
 
 | 상태 | 의미 | 다음 행동 |
@@ -43,23 +68,25 @@ Age의 green은 fresh sample을 뜻하며 workload가 healthy하다는 뜻이 �
 느린 step을 찾으면 다음 순서로 조사합니다.
 
 ```text
-Start Here -> Run Overview -> Stage Correlation -> Step Explorer
-                                                      |
-                                                      | click Duration
-                                                      v
-                                              Bottleneck Summary
-                                                      |
-                                    supporting / counter / missing
-                                                      |
-                          +---------------------------+-----------+
-                          |                                       |
-                          v                                       v
-                 Cross-Layer Timeline                       Cross-Layer Detail
-                   exact / approximate                     GPU / Network / Storage
-                    / sampled                              vLLM / Sandbox / Logs
+Start Here -> Run Overview (completed steps)
+                  |
+                  | click Duration
+                  v
+          Bottleneck Summary
+                  |
+         supporting / counter / missing
+                  |
+                  v
+         Cross-Layer Timeline
+         step / spans / sampled resources
+                  |
+          +-------+-------+----------+
+          |               |          |
+          v               v          v
+       Compute         Storage   Stage / Logs
 ```
-`01`부터 `06`까지의 제목은 탐색 위치를 구분하며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
-Step Explorer와 Step Detail은 Loki를 활성화했을 때 Grafana에 추가됩니다.
+`00`부터 `07`까지의 제목은 탐색 위치를 구분하며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
+완료 step 목록은 Loki를 활성화했을 때 Run Overview에 추가됩니다.
 Loki를 끈 server에는 metrics 화면만 provision하고, 설치하지 않은 investigation 화면의 링크는 `requires Loki` 안내로 바꿉니다.
 같은 output directory에서 Loki를 끄고 재실행하면 repository가 제공한 optional dashboard만 제거하며 사용자 dashboard 파일은 유지합니다.
 일반적인 monitoring 경로에는 별도 Step Explorer UI/server가 필요하지 않습니다.
@@ -80,12 +107,12 @@ Browser를 새로고침하고 이전 URL bookmark의 추가 필터도 확인합�
 ## Select the Context
 
 먼저 Start Here 또는 Run Overview에서 `Cluster`, `Node`, `Run`과 시간 범위를 선택합니다.
-각 dashboard 상단에는 Start Here → Run Overview → Step Explorer → Bottleneck Summary → Cross-Layer Timeline 순서의 공통 navigation이 있습니다.
+각 dashboard 상단에는 Start Here → Run Overview → Bottleneck Summary → Cross-Layer Timeline 순서의 공통 navigation이 있습니다.
 링크는 Cluster·Run·resource node·observer node·선택한 record·Trace ID·Method·시간 범위를 전달하며 GPU·vLLM engine·sandbox node 선택도 보존합니다.
 화면에서 사용하지 않는 context는 숨겨서 유지하므로 subsystem detail을 보고 돌아와도 선택한 step을 다시 찾을 필요가 없습니다.
 여러 Cluster를 함께 보더라도 Step·candidate·evidence 행의 data link는 Loki stream의 Cluster로 좁힙니다.
 JSON의 node와 collector node가 다르면 stream의 observer node를 별도로 사용합니다.
-Step Explorer의 `Observer node`는 step/diagnosis를 기록한 collector이고, detail의 `Resource node`는 실제 조사할 GPU·sandbox·storage node입니다.
+Run Overview와 Timeline의 `Observer node`는 step/diagnosis를 기록한 collector이고, `Resource node`는 실제 조사할 GPU·sandbox·storage node입니다.
 두 node는 같을 필요가 없으며 dedicated sandbox를 보기 위해 step 기록의 출처를 바꾸지 않습니다.
 Application의 Run 선택·step·stage·sample age는 observer context로 조회하고 GPU·host·NIC·disk·native vLLM은 Resource node로 조회합니다.
 따라서 GPU detail에서 trainer와 다른 node를 선택해도 같은 run의 완료 step이 사라지지 않습니다.
@@ -115,9 +142,14 @@ GPU·host, native vLLM·Ray, 3FS 같은 공유 source는 같은 시간·node에�
 두 age는 마지막으로 보고된 시각과 현재 시각의 차이이며, 숫자가 계속 커지면 exporter target이 up이어도 생산자가 새 값을 쓰지 않는 상태일 수 있습니다.
 
 기본 화면은 마지막 완료 step과 step duration 추이에 집중합니다.
-느린 시간대를 확대하고 `Select a slow step` 링크로 Step Explorer를 열어 Duration을 누릅니다.
+느린 시간대를 확대하고 같은 화면의 `Completed steps · select to investigate` 목록에서 Duration을 누릅니다.
 GPU matrix는 Compute & Communication에서, stage·reward·VERL tokens/s/GPU는 Agent RL Stage Correlation에서 확인합니다.
 Generic application throughput·loss와 host memory·swap은 접힌 행에 남아 있으며 해당 metric을 생산할 때만 채워집니다.
+
+아래는 synthetic fixture의 완료 step 목록을 실제 Grafana에서 조회한 화면입니다.
+Cluster·observer·record가 같은 이름을 사용해도 행의 Cluster를 전달하므로 선택한 실행의 evidence로 이동합니다.
+
+![Run Overview에 통합된 완료 step 목록과 Duration drill-down](figures/grafana-run-overview-synthetic.png)
 
 ## Agent RL Stage Correlation
 
@@ -195,7 +227,7 @@ Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 �
 
 Bottleneck Summary의 후보 표는 진단 sidecar의 결과를 Loki로 보낸 run에서 채워집니다.
 Cross-Layer Timeline은 Loki의 step event·EventRecorder span과 Prometheus metric을 표시하므로 진단 sidecar 없이도 기록된 실행을 탐색할 수 있습니다.
-Step Explorer에서 느린 step을 선택한 뒤 Bottleneck Summary로 이동하면 같은 run의 baseline, 후보 상태, 근거, 반대 근거와 누락된 근거를 볼 수 있습니다.
+Run Overview의 완료 step 목록에서 느린 step을 선택해 Bottleneck Summary로 이동하면 같은 run의 baseline, 후보 상태, 근거, 반대 근거와 누락된 근거를 볼 수 있습니다.
 각 행의 scope가 `shared-service`나 `node`라면 해당 수치는 그 run에 귀속된 사용량이 아닙니다.
 
 Cross-Layer Timeline은 EventRecorder의 실제 start/end span, VERL file logger에서 추정한 step band, Prometheus의 sampled resource line을 같은 시간축에 놓습니다.
@@ -209,8 +241,8 @@ Loki가 없으면 `diagnostics/latest.json`과 `show_run`에서 후보를 읽을
 Bottleneck Summary에서는 symptom → candidate → supporting/counter/missing evidence 순서로 읽습니다.
 Evidence table은 candidate 바로 아래에 항상 표시하며, `Baseline comparison / sample quality`는 필요한 경우 펼칩니다.
 Candidate ID와 Evidence type의 column filter로 supporting·counter·missing evidence를 좁힙니다.
-Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Step Detail로 열어 같은 context에서 비교하도록 돕습니다.
-Evidence의 Signal 메뉴는 선택한 Resource node와 해당 record의 시간 구간을 유지해 Step Detail·Compute·Storage로 이동합니다.
+Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Timeline으로 열어 같은 context에서 비교하도록 돕습니다.
+Evidence의 Signal 메뉴는 선택한 Resource node와 해당 record의 시간 구간을 유지해 Timeline·Compute·Storage로 이동합니다.
 Evidence의 Entity와 Scope를 먼저 보고 실제 node·device에 맞게 필터를 선택합니다.
 Diagnosis의 observer node를 resource node라고 추정하거나 shared resource를 Run에 자동 귀속하지 않습니다.
 
@@ -226,6 +258,11 @@ Exact span의 diagnosis 링크는 선택한 step의 시간 범위·record·obser
 짧은 span 구간으로 diagnosis 조회 범위를 바꿔 step completion에 기록된 결과를 숨기지 않습니다.
 Clock·timestamp provenance 같은 metadata는 state lane으로 그리지 않고 table·clock panel에서 확인합니다.
 
+아래는 같은 synthetic step의 요약과 exact/approximate lane을 통합한 Timeline입니다.
+자원 상세와 원본 기록은 아래의 접힌 행에서 확인합니다.
+
+![Step 요약과 exact/approximate lane을 함께 보여 주는 Cross-Layer Timeline](figures/grafana-timeline-synthetic.png)
+
 아래 화면은 synthetic fixture를 실제 Grafana 12.1.0에서 렌더링한 예입니다.
 Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합니다.
 
@@ -238,7 +275,8 @@ Evaluation count는 scrape 횟수가 아니며 source age가 비어 있으면 fr
 
 ## Step Explorer
 
-Step Explorer는 Grafana에서 완료된 VERL step을 고르고 해당 구간의 stage, node 자원 지표와 Loki log를 확인하는 화면입니다.
+Step Explorer는 Run Overview에 통합된 완료 VERL step 목록입니다.
+별도 dashboard를 열지 않고 목록에서 선택한 구간의 Timeline이나 Bottleneck Summary로 이동합니다.
 [Agent RL Stage Correlation](dashboards.md#agent-rl-stage-correlation)에서 느린 구간을 찾은 뒤 사용합니다.
 Grafana 화면은 Loki에 step event가 수집된 run에서 동작합니다.
 Wrapper는 step event를 로컬 JSONL에 남기고, Alloy가 이를 Loki에 전송해야 Grafana가 완료 step 목록을 조회할 수 있습니다.
@@ -252,10 +290,10 @@ Alloy는 각 root 아래 `<run>/telemetry-events/verl-steps*.jsonl`과 `<run>/te
 Step event의 `run_id`는 JSON 내용에서 읽으며, Loki stream의 `cluster`·`node`·`workload`는 collector 설정에서 가져옵니다.
 Shared storage의 같은 파일을 여러 collector가 중복 수집하지 않도록 한 node에서만 읽습니다.
 
-Grafana의 `03 · Step Explorer`에서 Cluster, Observer node, Run을 선택한 뒤 Duration을 누르면 Bottleneck Summary, Stage 요약을 누르면 Timeline, Step 번호를 누르면 Step Detail이 열립니다.
-`06 · Step Detail`은 기록된 시작·종료 시각으로 시간 범위를 맞추고, stage 요약과 node별 GPU·CPU·memory·network·disk·vLLM 지표 및 같은 구간의 log를 표시합니다.
+Grafana의 `01 · Run Overview`에서 Cluster, Observer node, Run을 선택한 뒤 완료 step 목록의 Duration을 누르면 Bottleneck Summary, Step 번호나 Stage 요약을 누르면 Timeline이 열립니다.
+`04 · Cross-Layer Timeline`은 기록된 시작·종료 시각으로 시간 범위를 맞추고 step 요약·exact span·approximate step·sampled resource를 함께 표시합니다.
 이전에 선택한 Resource node는 유지하고, 행의 observer node는 별도 context로 전달합니다.
-Standalone으로 Step Explorer를 열었다면 Resource node는 All이므로 실제 trainer·rollout·sandbox 배치에 맞게 바꿉니다.
+Run Overview를 직접 열었다면 Resource node는 All이므로 실제 trainer·rollout·sandbox 배치에 맞게 바꿉니다.
 `Log directory`가 telemetry `run_id`와 다르면 실제 결과 디렉터리 이름으로 바꿉니다.
 Loki와 Prometheus가 해당 node를 수집하고 있어야 값이 채워집니다.
 목록이 비면 먼저 `telemetry-events/verl-steps.jsonl`의 생성 여부와 Alloy의 파일 경로·Loki push 상태를 확인합니다.
@@ -274,18 +312,23 @@ python -m xlayer_telemetry.step_backfill "$RUN_ROOT"
 Prometheus의 기본 보존 기간은 1일이므로 오래된 step은 Loki 목록에 있어도 자원 그래프가 비어 있을 수 있습니다.
 Stage 시간과 step 경계는 아래 [Read a Step](#read-a-step)의 해석 범위를 따릅니다.
 
-Step Detail의 기본 화면은 선택한 step 요약·GPU utilization·vLLM waiting이며 host·network·storage·offload·log는 계층별 행을 펼쳐 확인합니다.
-Step Detail과 Timeline의 `Step completion (approximate)` annotation은 Loki에 기록된 file-logger completion 시각을 표시합니다.
+Timeline의 기본 화면은 선택한 step 요약·exact/approximate lane·GPU·vLLM·RDMA·device busy입니다.
+Host·Ethernet·local disk, span/event 원본, sandbox PSI와 clock quality는 해당 행을 펼쳐 확인합니다.
+GPU memory는 Compute, KV offload는 Stage Correlation, log는 Run Logs 링크로 같은 시간 구간에서 확인합니다.
+Timeline의 `Step completion (approximate)` annotation은 Loki에 기록된 file-logger completion 시각을 표시합니다.
 이는 logger 관측 marker이며 stage의 정확한 start/end나 실제 실행 순서를 의미하지 않습니다.
 Stage마다 exact span이 있으면 Timeline의 별도 exact lane에서 읽습니다.
 Annotation control로 marker를 끌 수 있으며, metrics-only dashboard에는 Loki annotation을 추가하지 않습니다.
 
-![실제 SWE-Bench colocate_async 실행의 step 3을 Grafana Step Detail에서 확대한 화면](figures/grafana-step-detail-real.png)
+아래 이미지는 통합 전 Step Detail에서 검증한 실제 SWE-Bench 실행의 기록입니다.
+현재 화면은 위에서 설명한 Timeline 구성입니다.
+
+![통합 전 Grafana Step Detail에서 확인한 실제 SWE-Bench colocate_async step 3](figures/grafana-step-detail-real.png)
 
 ### Legacy Standalone Explorer
 
 기존 로컬 UI는 저장된 run 파일을 직접 읽거나 두 step을 수동으로 비교할 때 계속 사용할 수 있습니다.
-일반적인 monitoring에서는 Grafana Step Detail로 현재 구간을 확대하고 Bottleneck Summary의 current-vs-baseline 비교를 사용합니다.
+일반적인 monitoring에서는 Grafana Timeline으로 현재 구간을 확대하고 Bottleneck Summary의 current-vs-baseline 비교를 사용합니다.
 Standalone explorer의 수동 두-step 평균 비교와 진단 엔진이 선택한 같은 run의 baseline 비교는 baseline 선택 방법이 다릅니다.
 
 ![실제 VERL 실행의 step 8에서 stage, GPU·host·disk·vLLM 지표와 Loki log를 보여 주는 Step Explorer](figures/step-explorer-real.png)

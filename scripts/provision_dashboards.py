@@ -10,6 +10,7 @@ import tempfile
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples" / "dashboards"
 METRICS = {"start-here", "run-overview", "compute-communication", "data-storage", "agent-rl-stages"}
+RETIRED = {"step-explorer.json", "step-detail.json"}
 
 
 def provision(output, enable_logs=False):
@@ -27,11 +28,26 @@ def provision(output, enable_logs=False):
             yield from panels(panel.get("panels", []))
 
     output.mkdir(parents=True, exist_ok=True)
+    for name in RETIRED:
+        (output / name).unlink(missing_ok=True)
     for path, dashboard in dashboards.items():
         destination = output / path.name
         if path not in enabled:
             destination.unlink(missing_ok=True)  # Only repository-owned optional files.
             continue
+        if not enable_logs:
+            # Run Overview includes a Loki step table only when logs are enabled.
+            removed_height = 0
+            kept = []
+            for panel in dashboard["panels"]:
+                if panel.get("datasource", {}).get("uid") == "telemetry-loki":
+                    removed_height += panel["gridPos"]["h"]
+                    continue
+                panel["gridPos"]["y"] -= removed_height
+                for child in panel.get("panels", []):
+                    child["gridPos"]["y"] -= removed_height
+                kept.append(panel)
+            dashboard["panels"] = kept
         dashboard["links"] = [link for link in dashboard.get("links", [])
                               if not disabled(link.get("url", ""))]
         for panel in panels(dashboard["panels"]):

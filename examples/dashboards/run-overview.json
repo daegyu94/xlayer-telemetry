@@ -13,14 +13,6 @@
       "targetBlank": false
     },
     {
-      "title": "Step Explorer",
-      "type": "link",
-      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
-      "includeVars": false,
-      "keepTime": true,
-      "targetBlank": false
-    },
-    {
       "title": "Bottleneck Summary",
       "type": "link",
       "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
@@ -82,7 +74,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id:text} · **Resource node:** ${node:text}<br>먼저 수집 상태와 age를 확인합니다. 아래 Run을 선택한 뒤 느린 step을 조사합니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Run:** ${run_id:text} · **Observer:** ${source_node:text} · **Resource node:** ${node:text}<br>수집 상태와 age를 확인한 뒤 아래 완료 step 목록에서 Duration → Bottleneck Summary, Step·Stage → Timeline으로 이동합니다. Step 목록에는 Loki가 필요합니다.</span>"
       }
     },
     {
@@ -415,14 +407,412 @@
           "placement": "bottom"
         }
       },
-      "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다. 느린 구간을 drag하여 확대한 뒤 Step Explorer의 Duration을 누르면 해당 record의 진단을 엽니다.",
+      "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다. 느린 구간을 drag하여 확대한 뒤 Run Overview의 Duration을 누르면 해당 record의 진단을 엽니다.",
       "links": [
         {
           "title": "Select a slow step",
-          "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+          "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
           "targetBlank": false
         }
       ]
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Completed steps · select to investigate",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | window_start_ms != \"\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": true
+          }
+        },
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "step": 1,
+              "run_id": 2,
+              "node": 3,
+              "worker_id": 4,
+              "boundary_scope": 5,
+              "step_duration_seconds": 6,
+              "stage_summary": 7,
+              "record_id": 9,
+              "cluster": 0
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "analysis_window"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_scope"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "execution_mode"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observed_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_type"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_durations_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worker_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${log_run_id:queryparam}&${diagnosis_method:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Bottleneck Summary 열기",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 390
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Boundary"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
+        },
+        "enablePagination": true,
+        "sortBy": [
+          {
+            "displayName": "Duration",
+            "desc": true
+          }
+        ]
+      },
+      "description": "Duration이 긴 step부터 표시합니다. Duration은 Bottleneck Summary, Stage는 Cross-Layer Timeline, Step은 Cross-Layer Timeline로 한 번에 이동합니다. 행의 Run·record·observer와 시간 구간 및 선택한 Resource node를 유지합니다. Duration → Bottleneck Summary, Step·Stage → Cross-Layer Timeline. Loki를 활성화한 경우에만 제공됩니다."
     },
     {
       "id": 9,
@@ -430,13 +820,13 @@
       "title": "Next investigation",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 28,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 느린 phase를 찾고 [Step Explorer](/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})의 Duration을 누릅니다.<br>GPU matrix·NIC는 [Compute](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}), device·filesystem은 [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 확인합니다. Shared resource는 Run에 자동 귀속하지 않습니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 느린 phase를 찾고 [완료 step 목록](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 Duration을 누릅니다.<br>GPU matrix·NIC는 [Compute](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}), device·filesystem은 [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 확인합니다. Shared resource는 Run에 자동 귀속하지 않습니다.</span>"
       }
     },
     {
@@ -447,7 +837,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 32,
         "w": 24,
         "h": 1
       },
@@ -458,7 +848,7 @@
           "title": "Training throughput (tokens/s)",
           "gridPos": {
             "x": 0,
-            "y": 23,
+            "y": 33,
             "w": 12,
             "h": 8
           },
@@ -494,7 +884,7 @@
           "title": "Training loss",
           "gridPos": {
             "x": 12,
-            "y": 23,
+            "y": 33,
             "w": 12,
             "h": 8
           },
@@ -534,7 +924,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 33,
         "w": 24,
         "h": 1
       },
@@ -545,7 +935,7 @@
           "title": "Host available memory by node",
           "gridPos": {
             "x": 0,
-            "y": 24,
+            "y": 34,
             "w": 12,
             "h": 8
           },
@@ -602,7 +992,7 @@
           "title": "Host swap used by node",
           "gridPos": {
             "x": 12,
-            "y": 24,
+            "y": 34,
             "w": 12,
             "h": 8
           },
@@ -638,7 +1028,7 @@
           "title": "Host swap I/O pages per second",
           "gridPos": {
             "x": 0,
-            "y": 32,
+            "y": 42,
             "w": 12,
             "h": 8
           },
@@ -761,14 +1151,24 @@
       {
         "name": "source_node",
         "label": "Observer node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
         },
-        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
-        "hide": 2
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "Application snapshot과 step event를 기록한 collector node입니다. Resource node와 다를 수 있습니다."
       },
       {
         "name": "record_id",
@@ -862,7 +1262,7 @@
   },
   "timezone": "browser",
   "title": "01 · Run Overview",
-  "description": "Collector와 sample freshness를 확인한 뒤 VERL run의 진행 상태와 node 자원을 살펴봅니다.",
+  "description": "Collector와 sample freshness를 확인하고, 같은 화면의 완료 step 목록에서 느린 구간을 선택합니다.",
   "uid": "telemetry-overview",
   "version": 5
 }

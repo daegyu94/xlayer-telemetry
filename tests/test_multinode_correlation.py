@@ -220,9 +220,11 @@ def test_unknown_baseline_clock_withholds_resource_delta():
 def test_timeline_preserves_cluster_node_identity_and_clock_panels():
     root = Path(__file__).resolve().parents[1]
     dashboard = json.loads((root / 'examples/dashboards/cross-layer-timeline.json').read_text())
-    for panel in dashboard['panels']:
+    panels = dashboard['panels'] + [child for row in dashboard['panels']
+                                    for child in row.get('panels', [])]
+    for panel in panels:
         if panel.get('datasource', {}).get('type') == 'prometheus':
             for target in panel['targets']:
                 assert 'cluster=~"$cluster"' in target['expr']
-    assert any(panel['title'] == 'Node clock synchronization status' for panel in dashboard['panels'])
-    assert any(panel['title'] == 'Node clock offset from scrape time' for panel in dashboard['panels'])
+    assert any(panel['title'] == 'Node clock synchronization status' for panel in panels)
+    assert any(panel['title'] == 'Node clock offset from scrape time' for panel in panels)

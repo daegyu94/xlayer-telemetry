@@ -89,7 +89,7 @@
         },
         "hide": 0,
         "label": "Step record ID",
-        "description": "Step Explorer에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
+        "description": "Run Overview에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
       },
       {
         "name": "trace_id",
@@ -106,14 +106,24 @@
       {
         "name": "source_node",
         "label": "Observer node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
         },
-        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
-        "hide": 2
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "Application snapshot과 step event를 기록한 collector node입니다. Resource node와 다를 수 있습니다."
       },
       {
         "name": "diagnosis_method",
@@ -166,21 +176,24 @@
       {
         "name": "sandbox_node",
         "label": "Sandbox node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
         },
-        "hide": 2,
-        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "description": "Dedicated sandbox node를 rollout Node와 독립적으로 선택합니다. Colocated 배치에서도 같은 metric/schema를 사용합니다."
       }
     ]
   },
   "version": 3,
   "uid": "xlayer-cross-layer-timeline",
-  "title": "05 · Cross-Layer Timeline",
-  "description": "Exact span, approximate step 구간, sampled resource metric을 같은 시간축에서 비교합니다.",
+  "title": "04 · Cross-Layer Timeline",
+  "description": "선택한 step 요약, exact span, approximate step 구간과 sampled resource를 한 화면에서 비교합니다. Host·network·storage 상세는 행을 펼쳐 확인합니다.",
   "links": [
     {
       "title": "Start Here",
@@ -199,14 +212,6 @@
       "targetBlank": false
     },
     {
-      "title": "Step Explorer",
-      "type": "link",
-      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
-      "includeVars": false,
-      "keepTime": true,
-      "targetBlank": false
-    },
-    {
       "title": "Bottleneck Summary",
       "type": "link",
       "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
@@ -215,9 +220,33 @@
       "targetBlank": false
     },
     {
-      "title": "Step Detail",
+      "title": "Agent RL Stage Correlation",
       "type": "link",
-      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Compute & Communication",
+      "type": "link",
+      "url": "/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Data & Storage",
+      "type": "link",
+      "url": "/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Run Logs",
+      "type": "link",
+      "url": "/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
       "includeVars": false,
       "keepTime": true,
       "targetBlank": false
@@ -240,13 +269,368 @@
       }
     },
     {
+      "id": 20,
+      "type": "table",
+      "title": "Selected step and reported stages",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 5
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": true
+          }
+        },
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "step": 1,
+              "run_id": 2,
+              "node": 3,
+              "worker_id": 4,
+              "boundary_scope": 5,
+              "step_duration_seconds": 6,
+              "stage_summary": 7,
+              "record_id": 8,
+              "boundary_accuracy": 5,
+              "cluster": 0
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "analysis_window"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "execution_mode"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observed_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_type"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_durations_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 390
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worker_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
+        },
+        "enablePagination": true
+      },
+      "description": "선택한 step의 보고된 duration과 stage 요약입니다. Boundary accuracy를 확인하며 stage 값을 순서대로 실행된 phase bar로 해석하지 않습니다."
+    },
+    {
       "id": 2,
       "type": "state-timeline",
       "title": "Exact workload spans",
       "description": "Producer node의 wall clock으로 기록한 실제 span 경계입니다. Node 간 정렬에는 clock 동기화가 필요하며 wall-clock jump가 감지된 span은 제외합니다.",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 9,
         "w": 24,
         "h": 6
       },
@@ -366,7 +750,7 @@
       "description": "관측 시각과 보고된 duration에서 추정한 step 구간입니다. Stage duration은 순서가 있는 phase 경계가 아닙니다.",
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 15,
         "w": 24,
         "h": 5
       },
@@ -473,378 +857,12 @@
       }
     },
     {
-      "id": 9,
-      "type": "table",
-      "title": "Exact spans: open step, logs, or diagnosis",
-      "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 24,
-        "h": 6
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "telemetry-loki"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
-          "queryType": "range",
-          "maxLines": 5000
-        }
-      ],
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "source": "Line",
-            "format": "json",
-            "replace": true,
-            "keepTime": false
-          }
-        },
-        {
-          "id": "extractFields",
-          "options": {
-            "source": "record",
-            "format": "json",
-            "replace": false,
-            "keepTime": false
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "step": 1,
-              "phase": 2,
-              "name": 3,
-              "role": 4,
-              "worker_id": 5,
-              "node": 6,
-              "duration_seconds": 7,
-              "trace_id": 8,
-              "span_id": 9,
-              "boundary_accuracy": 10,
-              "cluster": 0
-            },
-            "renameByName": {}
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            }
-          },
-          "links": []
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "span_id"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Step Detail에서 metric·log 확인",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
-                  },
-                  {
-                    "title": "선택한 step의 diagnosis 후보 확인",
-                    "url": "/d/xlayer-bottleneck-summary?${__url_time_range}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&${node:queryparam}&${record_id:queryparam}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
-                  },
-                  {
-                    "title": "관련 log 확인",
-                    "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-telemetry_run_id=${__data.fields[\"run_id\"]}&var-run_id=${log_run_id:percentencode}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
-                  },
-                  {
-                    "title": "같은 trace의 EventRecorder event 확인",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "schema_version"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "record_type"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "run_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "producer"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "start_time_unix_nano"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "end_time_unix_nano"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "event_time_unix_nano"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "start_time_ms"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "end_time_ms"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "attributes"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "auto",
-                  "wrapText": true
-                }
-              },
-              {
-                "id": "custom.width",
-                "value": 280
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "status"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "boundary_accuracy"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "signal"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "signal_extracted"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "filename"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cluster"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "workload"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "record"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "observer_node"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cluster"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Cluster"
-              },
-              {
-                "id": "custom.width",
-                "value": 130
-              }
-            ]
-          }
-        ]
-      },
-      "description": "Span ID link로 실제 span 시간 구간의 Step Detail·diagnosis·log를 엽니다. Trace 관계와 시간 정렬의 정확도는 별도로 확인합니다.",
-      "options": {
-        "showHeader": true,
-        "cellHeight": "lg",
-        "enablePagination": true
-      }
-    },
-    {
       "id": 4,
       "type": "timeseries",
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 20,
         "w": 12,
         "h": 7
       },
@@ -855,7 +873,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "telemetry_gpu_utilization_percent{cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "expr": "telemetry_gpu_utilization_percent{cluster=~\"$cluster\",nodename=~\"$node\",gpu=~\"$gpu\"}",
           "legendFormat": "{{cluster}} / {{nodename}} / {{gpu}}"
         }
       ],
@@ -882,7 +900,7 @@
       "title": "vLLM waiting requests",
       "gridPos": {
         "x": 12,
-        "y": 21,
+        "y": 20,
         "w": 12,
         "h": 7
       },
@@ -893,8 +911,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "vllm:num_requests_waiting{cluster=~\"$cluster\",node=~\"$node\"}",
-          "legendFormat": "{{node}}"
+          "expr": "vllm:num_requests_waiting{cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}",
+          "legendFormat": "{{node}} / {{instance}}"
         }
       ],
       "fieldConfig": {
@@ -920,7 +938,7 @@
       "title": "RDMA bytes per second",
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 27,
         "w": 12,
         "h": 7
       },
@@ -958,7 +976,7 @@
       "title": "Device busy ratio",
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 27,
         "w": 12,
         "h": 7
       },
@@ -991,318 +1009,1014 @@
       "description": "선택한 node/device의 I/O busy 비율입니다. Latency p99나 특정 span의 I/O 사용량은 아닙니다."
     },
     {
-      "id": 10,
-      "type": "table",
-      "title": "Related EventRecorder events",
+      "id": 90,
+      "type": "row",
+      "title": "Span and event records",
+      "description": "Exact span과 관련 event의 원본 context와 navigation을 확인합니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 9,
+          "type": "table",
+          "title": "Exact spans: open step, logs, or diagnosis",
+          "gridPos": {
+            "x": 0,
+            "y": 35,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 5000
+            }
+          ],
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "step": 1,
+                  "phase": 2,
+                  "name": 3,
+                  "role": 4,
+                  "worker_id": 5,
+                  "node": 6,
+                  "duration_seconds": 7,
+                  "trace_id": 8,
+                  "span_id": 9,
+                  "boundary_accuracy": 10,
+                  "cluster": 0
+                },
+                "renameByName": {}
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              },
+              "links": []
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "span_id"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Cross-Layer Timeline에서 metric·log 확인",
+                        "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
+                      },
+                      {
+                        "title": "선택한 step의 diagnosis 후보 확인",
+                        "url": "/d/xlayer-bottleneck-summary?${__url_time_range}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&${node:queryparam}&${record_id:queryparam}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
+                      },
+                      {
+                        "title": "관련 log 확인",
+                        "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-telemetry_run_id=${__data.fields[\"run_id\"]}&var-run_id=${log_run_id:percentencode}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
+                      },
+                      {
+                        "title": "같은 trace의 EventRecorder event 확인",
+                        "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "schema_version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "record_type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "run_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "producer"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "start_time_unix_nano"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "end_time_unix_nano"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "event_time_unix_nano"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "start_time_ms"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "end_time_ms"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "attributes"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "auto",
+                      "wrapText": true
+                    }
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "status"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "boundary_accuracy"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "signal"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "signal_extracted"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "filename"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "workload"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "record"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "observer_node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cluster"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              }
+            ]
+          },
+          "description": "Span ID link로 실제 span 시간 구간의 Cross-Layer Timeline·diagnosis·log를 엽니다. Trace 관계와 시간 정렬의 정확도는 별도로 확인합니다.",
+          "options": {
+            "showHeader": true,
+            "cellHeight": "lg",
+            "enablePagination": true
+          }
+        },
+        {
+          "id": 10,
+          "type": "table",
+          "title": "Related EventRecorder events",
+          "gridPos": {
+            "x": 0,
+            "y": 42,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"event\" | trace_id=~\"$trace_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 5000
+            }
+          ],
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {
+                  "step": 1,
+                  "phase": 2,
+                  "name": 3,
+                  "attributes": 4,
+                  "role": 5,
+                  "worker_id": 6,
+                  "node": 7,
+                  "trace_id": 8,
+                  "cluster": 0
+                },
+                "renameByName": {}
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              },
+              "links": []
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "schema_version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "record_type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "run_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "producer"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "timestamp_unix_nano"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "event_time_unix_nano"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "signal"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "signal_extracted"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "filename"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "workload"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "attributes"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 320
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "auto",
+                      "wrapText": true
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "record"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "observer_node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cluster"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              }
+            ]
+          },
+          "description": "선택한 Trace ID에 관련된 EventRecorder event입니다. Trace ID가 비어 있으면 선택 구간의 event를 함께 조회합니다.",
+          "options": {
+            "showHeader": true,
+            "cellHeight": "lg",
+            "enablePagination": true
+          }
+        }
+      ]
+    },
+    {
+      "id": 91,
+      "type": "row",
+      "title": "Host / network / local storage",
+      "description": "선택한 구간의 sampled host·Ethernet·local disk를 비교합니다. Node/device 범위이며 Run 귀속량이 아닙니다.",
+      "collapsed": true,
       "gridPos": {
         "x": 0,
         "y": 35,
         "w": 24,
-        "h": 6
+        "h": 1
       },
-      "datasource": {
-        "type": "loki",
-        "uid": "telemetry-loki"
-      },
-      "targets": [
+      "panels": [
         {
-          "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"event\" | trace_id=~\"$trace_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
-          "queryType": "range",
-          "maxLines": 5000
-        }
-      ],
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "source": "Line",
-            "format": "json",
-            "replace": true,
-            "keepTime": false
-          }
-        },
-        {
-          "id": "extractFields",
-          "options": {
-            "source": "record",
-            "format": "json",
-            "replace": false,
-            "keepTime": false
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "step": 1,
-              "phase": 2,
-              "name": 3,
-              "attributes": 4,
-              "role": 5,
-              "worker_id": 6,
-              "node": 7,
-              "trace_id": 8,
-              "cluster": 0
+          "id": 21,
+          "type": "timeseries",
+          "title": "Host CPU busy",
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"idle\"}[1m])))",
+              "legendFormat": "{{cluster}} / {{nodename}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto"
+              }
             },
-            "renameByName": {}
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi"
             }
           },
-          "links": []
+          "description": "Node 전체 CPU busy 비율입니다. Rate는 1분 lookback을 사용하므로 짧은 step 바깥의 sample도 포함될 수 있습니다."
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "schema_version"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+        {
+          "id": 22,
+          "type": "timeseries",
+          "title": "Host memory used",
+          "gridPos": {
+            "x": 0,
+            "y": 43,
+            "w": 24,
+            "h": 7
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "record_type"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "run_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} - node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+              "legendFormat": "{{cluster}} / {{nodename}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto"
               }
-            ]
+            },
+            "overrides": []
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "producer"
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
             },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+            "tooltip": {
+              "mode": "multi"
+            }
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "timestamp_unix_nano"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+          "description": "Node 전체 memory 사용량입니다. 특정 worker·Run의 memory로 자동 분리되지 않습니다."
+        },
+        {
+          "id": 23,
+          "type": "timeseries",
+          "title": "TCP/Ethernet receive and transmit",
+          "gridPos": {
+            "x": 0,
+            "y": 50,
+            "w": 24,
+            "h": 7
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "event_time_unix_nano"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "signal"
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (instance) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+              "legendFormat": "RX / {{cluster}} / {{nodename}} / {{device}}"
             },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
+            {
+              "refId": "B",
+              "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+              "legendFormat": "TX / {{cluster}} / {{nodename}} / {{device}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto"
               }
-            ]
+            },
+            "overrides": []
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "signal_extracted"
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
             },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+            "tooltip": {
+              "mode": "multi"
+            }
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "filename"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+          "description": "Node/interface의 receive bytes/s입니다. 1분 lookback이므로 짧은 step의 정확한 전송량은 아닙니다."
+        },
+        {
+          "id": 24,
+          "type": "timeseries",
+          "title": "Local disk read and write",
+          "gridPos": {
+            "x": 0,
+            "y": 57,
+            "w": 24,
+            "h": 7
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cluster"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "workload"
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
+              "legendFormat": "Read / {{cluster}} / {{nodename}} / {{device}}"
             },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
+            {
+              "refId": "B",
+              "expr": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
+              "legendFormat": "Write / {{cluster}} / {{nodename}} / {{device}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto"
               }
-            ]
+            },
+            "overrides": []
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "attributes"
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
             },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 320
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "auto",
-                  "wrapText": true
-                }
-              }
-            ]
+            "tooltip": {
+              "mode": "multi"
+            }
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "record"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "observer_node"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cluster"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Cluster"
-              },
-              {
-                "id": "custom.width",
-                "value": 130
-              }
-            ]
-          }
-        ]
-      },
-      "description": "선택한 Trace ID에 관련된 EventRecorder event입니다. Trace ID가 비어 있으면 선택 구간의 event를 함께 조회합니다.",
-      "options": {
-        "showHeader": true,
-        "cellHeight": "lg",
-        "enablePagination": true
-      }
+          "description": "Node/device의 disk read bytes/s입니다. 1분 lookback이며 특정 sandbox·3FS 요청에 자동 귀속하지 않습니다."
+        }
+      ]
     },
     {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Sandbox I/O pressure (sampled)",
+      "id": 92,
+      "type": "row",
+      "title": "Sandbox signals (optional)",
+      "description": "Sandbox node를 실제 colocated 또는 dedicated node로 고릅니다. Cgroup PSI와 device busy의 scope를 구분합니다.",
+      "collapsed": true,
       "gridPos": {
-        "h": 7,
-        "w": 24,
         "x": 0,
-        "y": 41
+        "y": 36,
+        "w": 24,
+        "h": 1
       },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
+      "panels": [
         {
-          "refId": "A",
-          "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",role=\"sandbox\"}",
-          "legendFormat": "cgroup I/O PSI"
+          "id": 11,
+          "type": "timeseries",
+          "title": "Sandbox I/O pressure (sampled)",
+          "gridPos": {
+            "x": 0,
+            "y": 37,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}",
+              "legendFormat": "cgroup I/O PSI"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A",
+              "custom": {
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          },
+          "description": "Resource node를 sandbox node로 선택합니다. sandbox.* lifecycle span은 JSONL이 Loki에 수집되면 위에 표시됩니다. PSI는 sampled cgroup signal이며 trajectory별 사용량이 아닙니다."
         }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "noValue": "N/A",
-          "custom": {
-            "showPoints": "auto"
-          }
+      ]
+    },
+    {
+      "id": 93,
+      "type": "row",
+      "title": "Clock quality",
+      "description": "Node 사이의 sampled clock 차이를 확인합니다. 같은 trace라도 clock synchronization을 보장하지 않습니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Node clock offset from scrape time",
+          "gridPos": {
+            "x": 0,
+            "y": 38,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+              "legendFormat": "{{cluster}} / {{nodename}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "links": [],
+              "custom": {
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "description": "Scrape/transport delay가 포함된 offset입니다. NTP offset 측정이나 timestamp 보정값으로 쓰지 않습니다. Baseline·current 구간의 각 node를 확인합니다."
         },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
+        {
+          "id": 13,
+          "type": "timeseries",
+          "title": "Node clock synchronization status",
+          "gridPos": {
+            "x": 0,
+            "y": 45,
+            "w": 24,
+            "h": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_timex_sync_status{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+              "legendFormat": "{{cluster}} / {{nodename}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "links": [],
+              "custom": {
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
         }
-      },
-      "description": "Resource node를 sandbox node로 선택합니다. sandbox.* lifecycle span은 JSONL이 Loki에 수집되면 위에 표시됩니다. PSI는 sampled cgroup signal이며 trajectory별 사용량이 아닙니다."
+      ]
     },
     {
       "id": 8,
@@ -1310,90 +2024,14 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 38,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range})<br>GPU memory·KV offload·Logs 상세는 위 링크에서 확인합니다. 선택한 step·node·시간 범위를 유지합니다.</span>"
       }
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Node clock offset from scrape time",
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "w": 12,
-        "h": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
-          "legendFormat": "{{cluster}} / {{nodename}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "links": [],
-          "custom": {
-            "showPoints": "auto"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "description": "Scrape/transport delay가 포함된 offset입니다. NTP offset 측정이나 timestamp 보정값으로 쓰지 않습니다. Baseline·current 구간의 각 node를 확인합니다."
-    },
-    {
-      "id": 13,
-      "type": "timeseries",
-      "title": "Node clock synchronization status",
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "w": 12,
-        "h": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "node_timex_sync_status{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
-          "legendFormat": "{{cluster}} / {{nodename}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "links": [],
-          "custom": {
-            "showPoints": "auto"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
     }
   ]
 }

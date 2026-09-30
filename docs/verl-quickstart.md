@@ -140,7 +140,7 @@ Telemetry failure가 workload의 성공·실패 exit code를 덮어쓰지 않습
 
 | 원하는 기능 | Config에서 추가할 값 | 이어서 읽을 문서 |
 | --- | --- | --- |
-| Run Logs와 Grafana Step Explorer | `ENABLE_LOGS=1`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
+| Run Logs와 Run Overview의 완료 step 목록 | `ENABLE_LOGS=1`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
 | vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; server 재시작 | [Native endpoint](agent-rl.md#register-native-endpoints) |
 | 자동 진단과 선택적 3FS ClickHouse | `DIAGNOSTICS_CONFIG`; 새 run 시작 | [Diagnostics](agent-rl.md#add-diagnostics) |
 | 다른 저장 위치·node 이름 | 절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME` | [구현 구조](architecture.md#what-each-file-is-for) |

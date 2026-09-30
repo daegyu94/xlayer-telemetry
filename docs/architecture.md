@@ -115,7 +115,7 @@ VERL record: step=7, timing_s/gen=2.4, perf/time_per_step=8.0
 Bridge는 `timing_s/gen`을 `rl_stage_duration_seconds`의 `phase="rollout"` 값으로 바꾸고, `perf/time_per_step`을 `training_step_time_seconds`로 바꿉니다.
 Node collector가 새 snapshot을 읽은 뒤 Prometheus가 scrape해야 Grafana의 metric panel이 바뀝니다.
 다음 step이 완료되기 전까지 panel이 step 7의 마지막 값을 유지하는 것은 이 구조에서 정상입니다.
-Step event는 별도로 JSONL에 쌓이며, Alloy·Loki를 켠 경우에만 Grafana Step Explorer의 step 목록에 나타납니다.
+Step event는 별도로 JSONL에 쌓이며, Alloy·Loki를 켠 경우에만 Run Overview에 통합된 Step Explorer 목록에 나타납니다.
 VERL logger가 보고한 stage 소요 시간은 실제 stage의 시작·종료 timestamp가 아니므로 Step Explorer의 시간 구간은 추정치입니다.
 
 ## What Each File Is For
