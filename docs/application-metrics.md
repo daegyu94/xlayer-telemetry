@@ -63,7 +63,7 @@ python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 ```
 
 출력에서 `demo/trainer`, `step 1`, `training_loss=1.25`를 찾습니다.
-`telemetry-metrics/demo-trainer-0.json`에는 최신 snapshot이 저장됩니다.
+예제에서는 `telemetry-metrics/demo-trainer-0@gpu-local@metrics-demo-001.json`에 최신 snapshot이 저장됩니다.
 식별자에 `-`가 포함되면 파일명에서는 `%2D`로 인코딩되며, snapshot 안의 원래 식별자는 유지됩니다.
 별도 summary나 manifest가 없다는 안내가 나와도 이 예제에서는 정상입니다.
 
@@ -158,11 +158,13 @@ TELEMETRY_METRICS_DIR='/path/to/artifacts/metrics-demo-001/telemetry-metrics' \
 
 이 예제의 loopback 주소는 monitoring server가 같은 host에 있을 때 사용합니다.
 분산 배치에서는 monitoring host가 접근할 수 있는 node 주소를 지정합니다.
-`node` role에는 동작하는 `nvidia-smi`가 필요하므로 CPU에서 JSON 확인만 할 때는 앞의 2단계까지만 실행합니다.
+GPU metric도 수집하려면 동작하는 `nvidia-smi`가 필요합니다.
+CPU application이나 GPU 없는 sandbox/storage node에서는 같은 명령에 `ENABLE_GPU_METRICS=0`을 추가하여 host·application metric만 노출할 수 있습니다.
 
 Collector는 기본 2초마다 `OUTPUT_DIR/textfile/application.prom`을 갱신합니다.
 `TELEMETRY_METRICS_INTERVAL`로 주기를 바꿀 수 있습니다.
-Shared storage의 같은 snapshot을 여러 node collector가 읽으면 중복 시계열이 생길 수 있습니다.
+Launcher는 `NODE_NAME`에 해당하는 snapshot만 읽으므로 application의 `TELEMETRY_NODE`와 일치시킵니다.
+같은 논리 node를 여러 exporter로 중복 등록하면 별도 중복 시계열이 생길 수 있습니다.
 JSON 생성은 되지만 Grafana가 비어 있다면 JSON 경로, `application.prom`, Node Exporter target, dashboard filter 순서로 확인합니다.
 
 ## 5. Check the Dashboard

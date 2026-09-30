@@ -13,8 +13,8 @@ VERL 실행에서는 trainer metric과 node 자원 지표를 Prometheus에서 �
 ```text
 Agent RL / VERL                          GPU / host node
 +-----------------------------+          +-----------------------------------+
-| VERL trainer               |          | GPU > GPU sampler > gpu.prom       |
-| loss / reward / step time   |          | CPU / network / filesystem        |
+| VERL trainer                |          | GPU > GPU sampler > gpu.prom       |
+| stage / reward / step time   |          | CPU / network / filesystem        |
 +-------------+---------------+          | (including 3FS FUSE mount)        |
               | file logger              +----------------+------------------+
               v                                           |
@@ -59,6 +59,7 @@ VERL step event는 별도로 Loki에 수집하면 Grafana Step Explorer의 목�
 
 이 저장소는 VERL, vLLM, Ray, 3FS 자체를 설치하거나 endpoint를 자동으로 찾지 않습니다.
 Native metric은 배포에서 제공하는 이름과 label에 따라 dashboard query를 맞춰야 할 수 있습니다.
+자동 변환되는 VERL key와 별도 producer가 필요한 signal은 [실제 수집 범위](metrics.md#what-is-actually-collected)에 정리했습니다.
 System resource와 shared service metric에는 application의 `run_id`가 자동으로 붙지 않습니다.
 처음에는 vLLM·Ray·3FS를 한꺼번에 등록하지 말고, endpoint 하나의 target이 up인지 확인한 뒤 다음 source를 추가합니다.
 Ray는 수집 target과 diagnostics query가 준비되어 있지만 전용 Grafana panel은 제공하지 않으므로 Prometheus Explore에서 실제 metric 이름을 먼저 확인합니다.

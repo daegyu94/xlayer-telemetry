@@ -12,6 +12,7 @@ import heapq
 import json
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlsplit, urlunsplit
 
 
 def _load(path: Path) -> dict[str, Any] | None:
@@ -81,6 +82,17 @@ def summarize(output_dir: Path) -> str:
     if manifest is not None:
         lines.append("\n[telemetry-manifest.json]")
         lines.extend(_flatten(manifest))
+        sources = manifest.get("sources")
+        if isinstance(sources, dict) and sources:
+            lines.append("\n[declared sources -- metadata only; endpoints were not queried]")
+            for name, endpoint in sorted(sources.items()):
+                if isinstance(endpoint, str):
+                    try:
+                        parts = urlsplit(endpoint)
+                        endpoint = urlunsplit((parts.scheme, parts.netloc.rsplit('@', 1)[-1], parts.path, '', ''))
+                    except ValueError:
+                        endpoint = "(invalid endpoint; see manifest)"
+                lines.append(f"  {name}: {endpoint}")
 
     metadata_files = sorted(
         p for p in output_dir.glob("run-metadata-*.json") if "-rank-" not in p.stem
@@ -97,7 +109,7 @@ def summarize(output_dir: Path) -> str:
     metrics_dir = output_dir / "telemetry-metrics"
     metrics_files = sorted(metrics_dir.glob("*.json")) if metrics_dir.is_dir() else []
     if not metrics_files:
-        lines.append("\n(no telemetry-metrics -- metrics were not enabled for this run)")
+        lines.append("\n(no telemetry-metrics snapshots found; check the logger/SDK producer and its output path)")
     for path in metrics_files:
         snapshot = _load(path)
         if snapshot is None or snapshot.get("schema_version") != 2:
@@ -168,6 +180,9 @@ def summarize(output_dir: Path) -> str:
         missing = diagnosis.get("missing_sources", [])
         if missing:
             lines.append(f"  missing_sources={len(missing)}")
+            lines.extend(f"    {source}" for source in missing)
+        if diagnosis.get("clock_quality"):
+            lines.append(f"  clock_quality={diagnosis['clock_quality'].get('status', 'unknown')}")
         lines.append("  full_report=diagnostics/latest.json")
 
     for pattern in ("artifacts/**/*.pt.trace.json", "artifacts/**/*.nsys-rep", "artifacts/nccl-baseline/manifest.env", "artifacts/nccl-baseline/all-reduce.log"):

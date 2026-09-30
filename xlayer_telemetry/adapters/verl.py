@@ -53,6 +53,26 @@ DIRECT_METRICS = {
 }
 
 
+def describe_metrics() -> str:
+    """Describe the actual translation tables without requiring a VERL run."""
+    lines = ["VERL file logger -> application snapshot (only keys present in the log)",
+             "step -> training_step (published by the textfile collector)"]
+    for key, (name, labels) in DIRECT_METRICS.items():
+        suffix = " " + ", ".join(f"{key}={value}" for key, value in labels.items()) if labels else ""
+        lines.append(f"{key} -> {name}{suffix}")
+    lines.append("timing_s/step -> training_step_time_seconds phase=rl_step (fallback when perf/time_per_step is absent or non-finite)")
+    lines.extend(["", "Supported stages (completed durations, not live phase boundaries):"])
+    for stage, phase in STAGE_PHASES.items():
+        lines.append(f"timing_s/{stage} -> rl_stage_duration_seconds phase={phase}")
+    lines.extend([
+        "timing_per_token_ms/<supported stage> -> rl_stage_time_per_token_seconds (ms / 1000)",
+        "", "Other logger keys remain in logs/verl-metrics.jsonl; they are not automatically exported.",
+        "vLLM/Ray endpoints are registered separately on the monitoring server.",
+        "GPU/host metrics require the node collector; tool/sandbox spans require instrumentation.",
+    ])
+    return "\n".join(lines)
+
+
 class VerlMetricsAdapter:
     """Translate stable VERL logger keys while leaving native telemetry untouched."""
 
@@ -93,6 +113,12 @@ class VerlMetricsAdapter:
             if mapping is not None:
                 name, labels = mapping
                 samples.append(Metric(name, float(value), labels=labels))
+        duration = data.get("perf/time_per_step")
+        fallback = data.get("timing_s/step")
+        if (type(duration) not in (int, float) or not math.isfinite(duration)) and (
+            type(fallback) in (int, float) and math.isfinite(fallback) and fallback >= 0
+        ):
+            samples.append(Metric("training_step_time_seconds", float(fallback), labels={"phase": "rl_step"}))
         return samples
 
     def emit(self, data: Mapping[str, Any], *, step: int) -> Path | None:
@@ -155,7 +181,8 @@ def bridge_records(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--describe-metrics", action="store_true", help="List supported logger keys and metric names without starting a bridge")
     parser.add_argument(
         "--metrics-dir",
         type=Path,
@@ -169,6 +196,11 @@ def main() -> None:
     parser.add_argument("--follow", action="store_true")
     parser.add_argument("--poll-interval", type=float, default=1.0)
     args = parser.parse_args()
+    if args.describe_metrics:
+        print(describe_metrics())
+        return
+    if args.input is None:
+        parser.error("--input is required unless --describe-metrics is used")
     if not args.run_id:
         parser.error("--run-id or TELEMETRY_RUN_ID is required")
     if args.metrics_dir is None:

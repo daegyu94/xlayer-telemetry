@@ -26,6 +26,8 @@ Usage:
 The wrapper adds VERL's file logger (and rl_insight when configured), starts the
 step-metric bridge, writes telemetry-manifest.json, and preserves the workload
 exit code. It does not modify VERL source code.
+GPU/host collection and native vLLM/Ray scraping must be started separately.
+--source records manifest metadata; it does not configure Prometheus scraping.
 EOF
 }
 
@@ -268,6 +270,8 @@ if [[ -n "$diagnostics_config" ]]; then
 fi
 
 printf '[telemetry] run_id=%s output=%s\n' "$run_id" "$output_dir"
+printf '[telemetry] bridge=VERL completed steps; execution_mode=%s\n' "$execution_mode"
+echo '[telemetry] GPU/host: node collector required; vLLM/Ray: monitoring server source registration required'
 printf '[telemetry] executing:'
 printf ' %q' "${command[@]}"
 printf '\n'
@@ -293,6 +297,11 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
       --node "$node_name" \
       --history "$step_history_path" \
       --execution-mode "$execution_mode" || echo "[telemetry] final metric export failed" >&2
+  if ! compgen -G "$TELEMETRY_METRICS_DIR/verl-trainer-driver*.json" >/dev/null; then
+    echo '[telemetry] no translated VERL snapshots; check logger keys with python -m xlayer_telemetry.adapters.verl --describe-metrics and logs/telemetry-bridge.log' >&2
+  fi
+else
+  echo '[telemetry] VERL file logger output is missing; ensure trainer.logger includes file and the launcher forwards VERL_FILE_LOGGER_PATH' >&2
 fi
 if [[ -n "$diagnostics_config" ]]; then
   # 3FS ClickHouse distributions can arrive after the workload boundary.

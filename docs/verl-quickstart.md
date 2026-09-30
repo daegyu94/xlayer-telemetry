@@ -21,6 +21,18 @@ VERL bridge > step event JSONL > optional Alloy > Loki > Grafana Step Explorer
 완료 step 하나가 실제로 어떤 이름의 metric과 event가 되는지는 [step 7 예제](architecture.md#follow-one-completed-step)를 확인합니다.
 기본 연결만으로는 vLLM queue·Ray task·3FS service latency·tool event가 생기지 않습니다.
 
+| 연결 방법 | 기본적으로 얻는 정보 | 추가 연결이 필요한 정보 |
+| --- | --- | --- |
+| `run`의 VERL wrapper | 완료 step·stage duration과 file logger에 있는 reward·token/throughput scalar | vLLM queue, GPU, host, storage 지표 |
+| `up`의 node collector | GPU utilization·power·temperature와 host CPU·memory·network·disk·filesystem | Native vLLM/Ray endpoint, 3FS service latency |
+| 선택적 SDK / EventRecorder | 직접 기록한 worker metric·tool span | Application의 직접 계측과 실행 환경에 SDK 설치 |
+
+기본 wrapper는 VERL 환경에 SDK를 설치하지 않아도 file logger를 읽을 수 있습니다.
+Custom tool/worker 내부에서 SDK를 import하려면 그 process의 Python 환경에도 package를 설치해야 합니다.
+Source별 실제 metric 이름, 측정 범위와 producer는 [수집 목록](metrics.md#what-is-actually-collected)에 정리했습니다.
+GPU 없는 node에서 host·application 수집 경로만 확인하려면 config에 `ENABLE_GPU_METRICS=0`을 지정합니다.
+이 설정이 VERL training을 CPU workload로 바꾸지는 않습니다.
+
 ## 1. Prepare One Config File
 
 [README의 checkout 준비](../README.md#prepare-a-checkout)를 마친 뒤 저장소 루트에서 시작합니다.
@@ -39,6 +51,8 @@ cp -n examples/verl-local.conf "$HOME/telemetry/config/verl-local.conf"
 Wrapper가 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 명령 인자에서 찾으면 `trainer.logger=["console","file"]`을 추가합니다.
 별도 Bash launcher 뒤에 VERL 명령을 숨기는 경우에는 launcher가 `VERL_FILE_LOGGER_PATH`를 VERL process에 전달하고 `trainer.logger`에 `file`을 포함하도록 설정해야 합니다.
 직접 `trainer.logger`를 지정한 경우에도 `file`이 빠지면 wrapper가 실행을 거부합니다.
+Async trainer가 Bash launcher 안에 숨겨져 있다면 config에 `EXECUTION_MODE=async`를 지정합니다.
+일반 명령은 기본 `auto`가 trainer mode를 감지하지만 `actor_rollout_ref.rollout.mode=async`만으로 trainer를 async로 분류하지는 않습니다.
 
 ```bash
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" install
@@ -80,11 +94,11 @@ Run Overview의 target 상태를 보고 Agent RL Stage Correlation에서 `cluste
 Stage 시간과 VERL이 기록한 reward·throughput은 step이 완료된 뒤 갱신되고, GPU·host는 별도 주기로 갱신됩니다.
 
 Dashboard 없이도 run 파일을 확인할 수 있습니다.
-아래 경로의 `grpo-001` 역시 자신의 `RUN_ID`로 바꿉니다.
-`RUN_ROOT`를 직접 지정했다면 그 경로를 전달합니다.
+`inspect`는 같은 config의 run 경로와 등록 설정을 보여 주고 저장된 metric·event·진단 결과를 읽습니다.
+Native endpoint의 실시간 접속 상태는 조회하지 않으므로 Prometheus Targets에서 별도로 확인합니다.
 
 ```bash
-python -m xlayer_telemetry.show_run "$HOME/telemetry-runs/grpo-001"
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" inspect
 ```
 
 ```text

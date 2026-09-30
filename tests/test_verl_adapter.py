@@ -1,11 +1,37 @@
 import json
 from pathlib import Path
+import subprocess
+import sys
+
+import pytest
 
 from xlayer_telemetry.adapters.verl import (
     VerlMetricsAdapter,
     bridge_records,
 )
 from xlayer_telemetry.metrics import MetricEmitter
+
+
+@pytest.mark.parametrize("duration,expected", [(None, 8.0), (float("nan"), 8.0), (6.0, 6.0)])
+def test_step_duration_fallback_preserves_primary_metric(duration, expected) -> None:
+    data = {"timing_s/step": 8.0}
+    if duration is not None:
+        data["perf/time_per_step"] = duration
+    samples = VerlMetricsAdapter.translate(data)
+    step = [sample for sample in samples if sample.name == "training_step_time_seconds"]
+    assert len(step) == 1
+    assert step[0].value == expected
+    assert any(sample.name == "rl_stage_duration_seconds" for sample in samples)
+
+
+def test_describe_metrics_without_verl_or_run_environment() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "xlayer_telemetry.adapters.verl", "--describe-metrics"],
+        capture_output=True, text=True, check=True,
+    )
+    assert "timing_s/update_weights -> rl_stage_duration_seconds phase=weight_sync" in result.stdout
+    assert "perf/throughput -> training_tokens_per_second_per_gpu" in result.stdout
+    assert "not automatically exported" in result.stdout
 
 
 def test_translate_verl_stage_and_scalar_metrics() -> None:

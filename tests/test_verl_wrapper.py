@@ -10,6 +10,17 @@ import time
 ROOT = Path(__file__).parents[1]
 
 
+def test_missing_logger_warns_without_hiding_workload_exit(tmp_path: Path) -> None:
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts" / "run_verl_with_telemetry.sh"),
+         "--output", str(tmp_path / "run"), "--", "bash", "-c", "exit 7"],
+        env=os.environ | {"TELEMETRY_PYTHON": sys.executable},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 7
+    assert "VERL_FILE_LOGGER_PATH" in result.stderr
+
+
 def test_wrapper_terminates_owned_workload_children_only(tmp_path: Path) -> None:
     launcher = tmp_path / "launcher.py"
     launcher.write_text(

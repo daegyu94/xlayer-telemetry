@@ -5,6 +5,50 @@ Metric을 여러 계층에서 함께 해석하려면 이름뿐 아니라 단위�
 기존 dashboard를 사용하기만 한다면 [Monitoring Guide](monitoring.md)와 [VERL 연결 가이드](verl-quickstart.md)부터 시작합니다.
 왜 application과 shared resource의 scope를 구분하는지는 [설계 원칙](architecture.md#design-principles)에 설명합니다.
 
+## What Is Actually Collected
+
+VERL wrapper는 file logger를 읽는 bridge를 시작합니다.
+GPU·host collector, native endpoint, custom span은 별도로 연결하며 아래 표에서 실제 producer와 확인할 metric을 구분합니다.
+Endpoint 설정이나 run manifest가 있다는 사실만으로 metric 수집이 성공했다고 판단하지 않습니다.
+
+| 계층 | 실제 signal 예 | Producer와 필요한 설정 | 측정 범위 |
+| --- | --- | --- | --- |
+| VERL trainer | `training_step`, `training_step_time_seconds`, `rl_stage_duration_seconds`, `reward_mean` | Wrapper의 file logger bridge; 원본 key가 기록된 경우만 변환 | Run / trainer worker / 완료 step |
+| VERL rollout 요약 | `rollout_output_tokens_mean`, `agent_turns_mean`, `agent_tool_calls_mean` | VERL logger에 해당 평균값이 있을 때 bridge가 변환 | 완료 step의 평균; 개별 trajectory trace는 아님 |
+| GPU | `telemetry_gpu_utilization_percent`, GPU memory·power | Node collector의 GPU sampler와 `nvidia-smi` | Device; run별 사용률 자동 귀속 없음 |
+| CPU / memory / network / disk | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `node_network_receive_bytes_total`, `node_disk_io_time_seconds_total` | Node Exporter; GPU 없는 node는 `ENABLE_GPU_METRICS=0` | Node / interface / device |
+| RDMA | `node_infiniband_port_data_received_bytes_total`, `node_infiniband_port_data_transmitted_bytes_total` | 지원되는 host의 InfiniBand counter를 Node Exporter가 읽음 | Interface / port; NCCL 호출별 bytes는 아님 |
+| vLLM | `vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total` | VERL/vLLM에서 native metric을 켜고 monitoring server에 endpoint 등록 | Serving engine; metric 이름은 version별 확인 |
+| Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; 전용 Grafana panel 없음 |
+| SSD health | `smartctl_device_*` | 선택적 SMART exporter와 device 접근 권한 | SSD device; local sandbox와 3FS storage node를 구분 |
+| 3FS service | ClickHouse distribution의 p99·mean 등 | Diagnostics의 ClickHouse 설정 | Shared service; 자동 Prometheus 변환 아님 |
+| Tool / sandbox lifecycle | `tool.call`, `sandbox.exec`, `sandbox.resource_sample` | `EventRecorder` / `SandboxRecorder`를 integration 경계에서 호출 | Trace / span; JSONL이며 duration metric 자동 생성 아님 |
+| Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_io_pressure_ratio`, `sandbox_memory_bytes` | Stable worker cgroup v2 경로를 sandbox sampler에 전달 | Worker cgroup; node SSD와의 correlation은 별도 |
+
+Sandbox pool의 `sandbox_active`, `sandbox_queued`, create/reset latency는 runtime이 제공해야 하는 optional contract입니다.
+Docker를 실행했다는 이유만으로 이 값이 자동 생성되지는 않습니다.
+KV offload metric도 해당 vLLM connector와 exporter가 제공하는 경우에만 나타납니다.
+수집 경로와 endpoint 등록 절차는 [Cross-Layer Integration](agent-rl.md#choose-the-next-source)에 있습니다.
+
+### Inspect the VERL Mapping
+
+실행 코드가 지원하는 전체 logger key와 metric 이름은 다음 명령으로 확인합니다.
+VERL 설치나 GPU 없이 사용할 수 있습니다.
+
+```bash
+python -m xlayer_telemetry.adapters.verl --describe-metrics
+```
+
+`timing_s/gen`은 `rl_stage_duration_seconds{phase="rollout",verl_stage="gen"}`으로, `timing_s/update_weights`는 `phase="weight_sync"`로 변환합니다.
+`perf/time_per_step`이 없으면 `timing_s/step`으로 step duration을 채우며 `timing_per_token_ms/*`는 milliseconds를 seconds로 변환합니다.
+`perf/throughput`은 `training_tokens_per_second_per_gpu`이므로 전체 cluster의 tokens/s로 읽지 않습니다.
+Actor·critic loss를 임의로 합쳐 `training_loss`로 변환하지 않으며 지원하지 않는 scalar는 원본 `logs/verl-metrics.jsonl`에 남습니다.
+추가 application metric은 [SDK 예제](application-metrics.md)처럼 의미와 scope를 정해 직접 기록합니다.
+
+Contract의 canonical name과 실제 exporter 이름은 다를 수 있습니다.
+예를 들어 GPU contract의 `gpu_utilization_percent`는 sampler에서 `telemetry_gpu_utilization_percent`로 노출되며 disk 사용률은 `node_disk_io_time_seconds_total`의 rate로 계산합니다.
+Dashboard나 diagnosis query를 추가할 때는 Prometheus에서 실제 metric 이름과 label을 먼저 확인합니다.
+
 ## Understand a Metric
 
 Metric은 시간에 따라 기록하는 수치입니다.

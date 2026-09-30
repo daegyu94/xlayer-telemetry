@@ -49,7 +49,7 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | 영역 | 현재 제공하는 것 | 사용 조건과 해석 범위 |
 | --- | --- | --- |
 | VERL trainer | File logger wrapper, 완료 step scalar·stage 변환, step event와 run manifest | 실행 가능한 VERL 명령이 필요합니다. 완료 전 현재 phase는 표시하지 않고 step 시간 구간은 근사치입니다. |
-| GPU·host | GPU sampler, Node Exporter, Prometheus·Grafana dashboard | NVIDIA GPU와 `nvidia-smi`가 필요합니다. CPU·network·disk 값은 node 전체입니다. |
+| GPU·host | GPU sampler, Node Exporter, Prometheus·Grafana dashboard | GPU 수집은 NVIDIA와 `nvidia-smi`가 필요합니다. GPU 없는 node는 `ENABLE_GPU_METRICS=0`으로 host만 수집합니다. CPU·network·disk 값은 node 전체입니다. |
 | vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Ray 전용 Grafana panel은 없고 공유 engine metric은 run별로 자동 분리되지 않습니다. |
 | Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Node 이름과 clock을 맞춰야 합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Grafana Step Explorer | File 경로와 Loki를 설정해야 합니다. Step Explorer의 경계는 VERL file logger를 바탕으로 추정합니다. |
@@ -60,6 +60,7 @@ Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-
 | 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog를 입력하지 않으며, 자동 호출·Grafana 표시는 아직 없습니다. |
 
 기능별 수집 경로와 설계 이유는 [How XLayer Telemetry Works](docs/architecture.md)에, 실행 순서는 아래 [Start Here](#start-here)에 있습니다.
+자동 수집·native endpoint·SDK 직접 계측의 차이와 실제 metric 이름은 [수집 범위 표](docs/metrics.md#what-is-actually-collected)에서 확인합니다.
 
 ## Start Here
 

@@ -86,6 +86,34 @@ def test_local_config_rejects_placeholder_command(tmp_path: Path) -> None:
     assert "Replace VERL_COMMAND" in result.stderr
 
 
+def test_config_async_launcher_and_inspect_use_the_same_run(tmp_path: Path) -> None:
+    launcher = tmp_path / "launcher.sh"
+    launcher.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' '{\"step\":3,\"data\":{\"timing_s/step\":9.0}}' > \"$VERL_FILE_LOGGER_PATH\"\n"
+    )
+    run = tmp_path / "run"
+    config = tmp_path / "config"
+    config.write_text(
+        f"RUN_ID='hidden-async'\nRUN_ROOT='{run}'\nEXECUTION_MODE=async\n"
+        f"VERL_COMMAND=(bash '{launcher}')\n"
+    )
+    command = ["bash", str(SCRIPT), "--config", str(config)]
+    env = os.environ | {"TELEMETRY_PYTHON": sys.executable}
+    before = subprocess.run(command + ["inspect"], env=env, capture_output=True, text=True, check=True)
+    assert "No run artifacts yet" in before.stdout
+    assert not run.exists()
+    subprocess.run(command + ["run"], env=env, capture_output=True, text=True, check=True)
+    manifest = json.loads((run / "telemetry-manifest.json").read_text())
+    assert manifest["configuration"]["execution_mode"] == "async"
+    history = json.loads((run / "telemetry-events" / "verl-steps.jsonl").read_text().splitlines()[0])
+    assert history["execution_mode"] == "async"
+    after = subprocess.run(command + ["inspect"], env=env, capture_output=True, text=True, check=True)
+    assert "training_step_time_seconds{phase=rl_step}=9.0" in after.stdout
+    assert "Native source registration: not configured" in after.stdout
+    assert "Configuration is not proof" in after.stdout
+
+
 def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> None:
     tools = tmp_path / "tools"
     tools.mkdir()
@@ -200,6 +228,18 @@ def _fake_local_stack(tmp_path: Path, *, node_fails: bool = False) -> tuple[Path
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
     }
     return scripts / "verl_local.sh", config, env
+
+
+def test_cpu_only_config_reaches_node_collector(tmp_path: Path) -> None:
+    script, config, env = _fake_local_stack(tmp_path)
+    config.write_text(config.read_text() + "ENABLE_GPU_METRICS=0\n")
+    (script.parent / "run_telemetry.sh").write_text(
+        '#!/usr/bin/env bash\n'
+        '[[ "$1" == node && "$ENABLE_GPU_METRICS" == 0 ]]\n'
+    )
+    result = subprocess.run(["bash", str(script), "--config", str(config), "node"],
+                            env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_local_up_and_down_manage_only_the_started_stack(tmp_path: Path) -> None:

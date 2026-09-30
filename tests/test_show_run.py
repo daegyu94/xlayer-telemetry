@@ -36,3 +36,15 @@ def test_summarize_notes_missing_sources(tmp_path: Path) -> None:
     output = summarize(tmp_path)
     assert "no run-metadata" in output
     assert "no telemetry-metrics" in output
+
+
+def test_declared_source_is_metadata_and_does_not_expose_url_credentials(tmp_path: Path) -> None:
+    (tmp_path / "telemetry-manifest.json").write_text(json.dumps({
+        "sources": {"vllm": "http://user:secret@gpu:8000/metrics?token=private#fragment"},
+    }))
+    output = summarize(tmp_path)
+    assert "endpoints were not queried" in output
+    assert "vllm: http://gpu:8000/metrics" in output
+    assert "secret" not in output
+    assert "private" not in output
+    assert "metrics were not enabled" not in output

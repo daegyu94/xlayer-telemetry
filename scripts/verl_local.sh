@@ -5,10 +5,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 usage() {
   cat <<'EOF'
-Usage: bash scripts/verl_local.sh --config FILE install|up|run|down|server|node
+Usage: bash scripts/verl_local.sh --config FILE install|up|run|inspect|down|server|node
 
 Use one trusted local Bash config for every command.
 Use up, run, and down in one terminal; server and node remain available for manual runs.
+Use inspect to read this config's run artifacts without typing RUN_ROOT again.
 EOF
 }
 
@@ -193,6 +194,7 @@ case "$action" in
       "NODE_ADDR=$node_addr"
       "NODE_NAME=$node_name"
       "CLUSTER_NAME=$cluster_name"
+      "ENABLE_GPU_METRICS=${ENABLE_GPU_METRICS:-1}"
       "TELEMETRY_METRICS_DIR=$run_root/telemetry-metrics"
       "PYTHON=$telemetry_python"
       "LOKI_PUSH_URL=$loki_push_url"
@@ -217,7 +219,22 @@ case "$action" in
     TELEMETRY_PYTHON="$telemetry_python" \
       bash "$repo_root/scripts/run_verl_with_telemetry.sh" \
         --output "$run_root" --run-id "$RUN_ID" --node "$node_name" \
+        --execution-mode "${EXECUTION_MODE:-auto}" \
         "${extra_args[@]}" -- "${VERL_COMMAND[@]}"
+    ;;
+  inspect)
+    printf 'Configured run: %s (node=%s cluster=%s)\n' "$RUN_ID" "$node_name" "$cluster_name"
+    printf 'Collector snapshots: %s/telemetry-metrics\n' "$run_root"
+    printf 'Native source registration: %s\n' "${TELEMETRY_SOURCES_FILE:-not configured}"
+    printf 'Diagnosis config: %s\n' "${DIAGNOSTICS_CONFIG:-not configured}"
+    printf 'Loki logs/steps: ENABLE_LOGS=%s\n' "$enable_logs"
+    echo 'Configuration is not proof of metric collection; inspect saved values below and live targets in Prometheus.'
+    if [[ ! -d "$run_root" ]]; then
+      echo "No run artifacts yet: $run_root"
+      exit 0
+    fi
+    PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+      "$telemetry_python" -m xlayer_telemetry.show_run "$run_root"
     ;;
   *)
     usage >&2
