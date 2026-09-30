@@ -5,18 +5,44 @@
   "editable": true,
   "links": [
     {
-      "includeTimeRange": false,
-      "keepTime": false,
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here"
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
-      "includeTimeRange": true,
-      "keepTime": true,
       "title": "Run Overview",
       "type": "link",
-      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}"
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Cross-Layer Timeline",
+      "type": "link",
+      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -29,7 +55,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -38,7 +64,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "label_join((telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)), \"node\", \"/\", \"cluster\", \"instance\")",
+          "expr": "label_join((telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)), \"node\", \"/\", \"cluster\", \"nodename\")",
           "format": "table",
           "instant": true
         }
@@ -88,7 +114,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -97,7 +123,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -106,7 +132,14 @@
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "links": [
+            {
+              "title": "이 Node / GPU 확대",
+              "url": "/d/xlayer-compute-communication?var-cluster=${__field.labels.cluster}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&var-node=${__field.labels.nodename}&var-gpu=${__field.labels.gpu}&${log_run_id:queryparam}",
+              "targetBlank": false
+            }
+          ]
         },
         "overrides": []
       },
@@ -126,7 +159,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 10
       },
       "datasource": {
         "type": "prometheus",
@@ -135,7 +168,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_power_watts{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_power_watts{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -162,7 +195,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -171,7 +204,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_temperature_celsius{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_temperature_celsius{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -198,7 +231,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 18
       },
       "datasource": {
         "type": "prometheus",
@@ -207,7 +240,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_sm_clock_mhz{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_sm_clock_mhz{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -235,7 +268,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -244,7 +277,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_process_memory_bytes{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
           "legendFormat": "{{cluster}}/{{instance}} PID {{pid}}"
         }
       ],
@@ -270,7 +303,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 26
       },
       "datasource": {
         "type": "prometheus",
@@ -279,7 +312,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(training_timer_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",run_id=~\"$run_id\"} < $training_max_age)",
+          "expr": "(training_timer_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
           "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}} {{timer}}"
         }
       ],
@@ -306,7 +339,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 34
       },
       "datasource": {
         "type": "prometheus",
@@ -315,12 +348,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} RX"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} TX"
         }
       ],
@@ -347,7 +380,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 34
       },
       "datasource": {
         "type": "prometheus",
@@ -356,12 +389,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}[$__rate_interval]))",
+          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}}/{{port}} RX"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\"}[$__rate_interval]))",
+          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}}/{{port}} TX"
         }
       ],
@@ -388,7 +421,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 42
       },
       "options": {
         "mode": "markdown",
@@ -404,7 +437,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 51
       },
       "datasource": {
         "type": "prometheus",
@@ -413,7 +446,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "label_join((training_gpu_allocation{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",run_id=~\"$run_id\"} and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",run_id=~\"$run_id\"} < $training_max_age)), \"worker\", \"/\", \"cluster\", \"instance\", \"run_id\", \"producer\", \"role\", \"worker_id\")",
+          "expr": "label_join((training_gpu_allocation{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)), \"worker\", \"/\", \"cluster\", \"instance\", \"run_id\", \"producer\", \"role\", \"worker_id\")",
           "format": "table",
           "instant": true
         }
@@ -465,7 +498,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 51
       },
       "datasource": {
         "type": "prometheus",
@@ -506,15 +539,96 @@
       "type": "text",
       "title": "Compute & communication scope",
       "gridPos": {
-        "h": 5,
-        "w": 24,
+        "h": 4,
+        "w": 18,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">Node의 GPU·host·NIC 신호를 같은 시간 구간에서 비교합니다. Allocation은 명시적 snapshot이며 shared GPU·port counter를 특정 Run에 자동 귀속하지 않습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">N/A이면 source 지원 여부와 sample age를 확인합니다. Run 필터는 application timer·allocation에 적용됩니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Compute / Network detail:** GPU matrix와 Resource node·GPU 필터로 범위를 좁혀 같은 시간의 device·NIC를 봅니다.<br>Run은 application timer·allocation에만 적용합니다. Shared GPU·port counter는 특정 Run의 사용량이 아닙니다.</span>"
       }
+    },
+    {
+      "id": 93,
+      "type": "stat",
+      "title": "GPU sample age",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+          "instant": true,
+          "legendFormat": "{{nodename}} {{run_id}} {{role}}/{{worker_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "gray",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 18,
+          "valueSize": 36
+        },
+        "colorMode": "value"
+      },
+      "description": "선택한 node의 가장 오래된 GPU sample입니다. 30초부터 Stale입니다. CPU-only node 또는 sampler 미설정은 N/A이며 GPU idle과 다릅니다."
     }
   ],
   "refresh": "5s",
@@ -549,14 +663,14 @@
       },
       {
         "name": "node",
-        "label": "Node",
+        "label": "Resource node",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"telemetry\", cluster=~\"$cluster\"}, instance)",
-        "query": "label_values(up{job=\"telemetry\", cluster=~\"$cluster\"}, instance)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -567,7 +681,7 @@
           ]
         },
         "refresh": 2,
-        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
       },
       {
         "name": "run_id",
@@ -577,8 +691,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, run_id)",
-        "query": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, run_id)",
+        "definition": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
+        "query": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -603,6 +717,112 @@
         "multi": false,
         "includeAll": false,
         "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "record_id",
+        "label": "Step record ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "선택한 step identity를 상세 화면을 왕복할 때 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "trace_id",
+        "label": "Trace ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Exact span/event의 trace context입니다. Step record와 다른 식별자입니다.",
+        "hide": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "textbox",
+        "query": "rule",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "description": "Rule 또는 수동 LLM 진단의 선택을 화면 이동 시 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "definition": "label_values(telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}, gpu)",
+        "query": "label_values(telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}, gpu)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "GPU index를 선택합니다. UUID·PID와 다른 식별자이며 GPU signal의 device 범위를 좁힙니다."
+      },
+      {
+        "name": "log_run_id",
+        "label": "Log directory",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "Log directory 필터를 telemetry Run과 독립적으로 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
       }
     ]
   },
@@ -614,5 +834,5 @@
   "title": "07 · Compute & Communication",
   "description": "선택한 node의 GPU·host·TCP/Ethernet·RDMA 상태를 조사합니다.",
   "uid": "xlayer-compute-communication",
-  "version": 4
+  "version": 5
 }

@@ -5,18 +5,44 @@
   "editable": true,
   "links": [
     {
-      "includeTimeRange": false,
-      "keepTime": false,
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here"
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
-      "includeTimeRange": true,
-      "keepTime": true,
       "title": "Run Overview",
       "type": "link",
-      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}"
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Cross-Layer Timeline",
+      "type": "link",
+      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -28,7 +54,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -37,12 +63,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "expr": "rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} read"
         },
         {
           "refId": "B",
-          "expr": "rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "expr": "rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} write"
         }
       ],
@@ -69,7 +95,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -78,12 +104,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "expr": "rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} read"
         },
         {
           "refId": "B",
-          "expr": "rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "expr": "rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} write"
         }
       ],
@@ -111,7 +137,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 12
       },
       "datasource": {
         "type": "prometheus",
@@ -120,7 +146,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
           "legendFormat": "{{cluster}}/{{instance}} {{device}}"
         }
       ],
@@ -147,7 +173,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 13
+        "y": 12
       },
       "datasource": {
         "type": "prometheus",
@@ -156,7 +182,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
+          "expr": "1 - node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
           "legendFormat": "{{cluster}}/{{instance}} {{mountpoint}}"
         }
       ],
@@ -185,7 +211,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 21
+        "y": 20
       },
       "datasource": {
         "type": "prometheus",
@@ -194,7 +220,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"$cluster\",instance=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
+          "expr": "node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
           "legendFormat": "{{cluster}}/{{instance}} {{mountpoint}}"
         }
       ],
@@ -221,7 +247,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 21
+        "y": 20
       },
       "options": {
         "mode": "markdown",
@@ -236,7 +262,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 30
+        "y": 29
       },
       "datasource": {
         "type": "prometheus",
@@ -272,7 +298,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 30
+        "y": 29
       },
       "datasource": {
         "type": "prometheus",
@@ -313,14 +339,14 @@
       "type": "text",
       "title": "Device / mount / SSD selection",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Local I/O:** Node · Device · Mount를 선택합니다. **SSD health:** 접힌 SMART 행에서 Storage node · SSD를 확인합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Disk busy는 latency p99가 아닙니다. 3FS service latency는 diagnostics의 ClickHouse evidence로 확인하며 local sandbox NVMe와 구분합니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Storage detail:** Local I/O는 Node · Device · Mount, SMART는 Storage node · SSD를 선택합니다.<br>3FS latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다. Local sandbox NVMe와 shared storage는 서로 다른 scope입니다.</span>"
       }
     },
     {
@@ -333,7 +359,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 37
       },
       "panels": [
         {
@@ -344,7 +370,7 @@
             "h": 4,
             "w": 6,
             "x": 0,
-            "y": 39
+            "y": 38
           },
           "datasource": {
             "type": "prometheus",
@@ -410,7 +436,7 @@
             "h": 4,
             "w": 6,
             "x": 6,
-            "y": 39
+            "y": 38
           },
           "datasource": {
             "type": "prometheus",
@@ -480,7 +506,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 39
+            "y": 38
           },
           "datasource": {
             "type": "prometheus",
@@ -550,7 +576,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 39
+            "y": 38
           },
           "datasource": {
             "type": "prometheus",
@@ -620,7 +646,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 43
+            "y": 42
           },
           "datasource": {
             "type": "prometheus",
@@ -656,7 +682,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 43
+            "y": 42
           },
           "datasource": {
             "type": "prometheus",
@@ -699,7 +725,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 51
+            "y": 50
           },
           "datasource": {
             "type": "prometheus",
@@ -736,7 +762,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 51
+            "y": 50
           },
           "datasource": {
             "type": "prometheus",
@@ -772,7 +798,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 59
+            "y": 58
           },
           "datasource": {
             "type": "prometheus",
@@ -847,14 +873,14 @@
       },
       {
         "name": "node",
-        "label": "Node",
+        "label": "Resource node",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"telemetry\", cluster=~\"$cluster\"}, instance)",
-        "query": "label_values(up{job=\"telemetry\", cluster=~\"$cluster\"}, instance)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -865,7 +891,7 @@
           ]
         },
         "refresh": 2,
-        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
       },
       {
         "name": "device",
@@ -875,8 +901,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(node_disk_read_bytes_total{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, device)",
-        "query": "label_values(node_disk_read_bytes_total{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, device)",
+        "definition": "label_values(node_disk_read_bytes_total{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$node\"}, device)",
+        "query": "label_values(node_disk_read_bytes_total{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$node\"}, device)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -897,8 +923,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(node_filesystem_size_bytes{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\", fstype!~\"tmpfs|overlay\"}, mountpoint)",
-        "query": "label_values(node_filesystem_size_bytes{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\", fstype!~\"tmpfs|overlay\"}, mountpoint)",
+        "definition": "label_values(node_filesystem_size_bytes{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$node\", fstype!~\"tmpfs|overlay\"}, mountpoint)",
+        "query": "label_values(node_filesystem_size_bytes{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$node\", fstype!~\"tmpfs|overlay\"}, mountpoint)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -985,8 +1011,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, run_id)",
-        "query": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", instance=~\"$node\"}, run_id)",
+        "definition": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
+        "query": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -998,6 +1024,102 @@
         },
         "refresh": 2,
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "record_id",
+        "label": "Step record ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "선택한 step identity를 상세 화면을 왕복할 때 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "trace_id",
+        "label": "Trace ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Exact span/event의 trace context입니다. Step record와 다른 식별자입니다.",
+        "hide": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "textbox",
+        "query": "rule",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "description": "Rule 또는 수동 LLM 진단의 선택을 화면 이동 시 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "log_run_id",
+        "label": "Log directory",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "Log directory 필터를 telemetry Run과 독립적으로 유지합니다."
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 GPU 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
       }
     ]
   },
@@ -1009,5 +1131,5 @@
   "title": "08 · Data & Storage",
   "description": "Local device·filesystem·topology와 선택적 SSD SMART 상태를 조사합니다.",
   "uid": "xlayer-data-storage",
-  "version": 5
+  "version": 6
 }

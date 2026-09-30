@@ -5,18 +5,44 @@
   "editable": true,
   "links": [
     {
-      "includeTimeRange": false,
-      "keepTime": false,
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here"
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&var-run_id=${telemetry_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&var-log_run_id=${run_id:percentencode}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
-      "includeTimeRange": true,
-      "keepTime": true,
       "title": "Run Overview",
       "type": "link",
-      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}"
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&var-run_id=${telemetry_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&var-log_run_id=${run_id:percentencode}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&var-run_id=${telemetry_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&var-log_run_id=${run_id:percentencode}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Bottleneck Summary",
+      "type": "link",
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&var-run_id=${telemetry_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&var-log_run_id=${run_id:percentencode}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Cross-Layer Timeline",
+      "type": "link",
+      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&var-run_id=${telemetry_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&var-log_run_id=${run_id:percentencode}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -29,7 +55,7 @@
         "h": 20,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 4
       },
       "id": 1,
       "options": {
@@ -44,7 +70,7 @@
       },
       "targets": [
         {
-          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\"} | unpack | run_id=~\"$run_id\"",
+          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"$run_id\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -58,14 +84,14 @@
       "type": "text",
       "title": "Log source & context",
       "gridPos": {
-        "h": 5,
+        "h": 4,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">Cluster · Node · Workload · Run · 시간 범위를 맞춥니다. Run은 Alloy가 log directory에서 읽은 이름이며 telemetry run_id와 다를 수 있습니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">목록이 비면 Loki·Alloy와 log 경로를 확인합니다. 한 줄의 error만으로 workload 결과를 단정하지 않고 exit code와 run artifact를 함께 봅니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Log detail:** Cluster · Node · Workload · Log directory로 필터합니다. Run context는 조사 중인 application을 유지합니다.<br>Log directory와 telemetry run_id는 다를 수 있습니다. 빈 panel은 정상 판정이 아니며 Loki·Alloy·log 경로를 확인합니다.</span>"
       }
     }
   ],
@@ -142,11 +168,106 @@
           "text": ".*",
           "value": ".*"
         },
-        "label": "Run",
+        "label": "Log directory",
         "name": "run_id",
         "query": ".*",
         "type": "textbox",
-        "description": "Alloy가 log directory에서 추출한 Run입니다. Telemetry run_id와 다를 수 있습니다."
+        "description": "Alloy가 log 경로에서 추출한 directory 이름입니다. 기존 var-run_id URL 필터를 유지합니다. Application의 Run context와 다를 수 있습니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "record_id",
+        "label": "Step record ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "선택한 step identity를 상세 화면을 왕복할 때 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "trace_id",
+        "label": "Trace ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Exact span/event의 trace context입니다. Step record와 다른 식별자입니다.",
+        "hide": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "textbox",
+        "query": "rule",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "description": "Rule 또는 수동 LLM 진단의 선택을 화면 이동 시 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 GPU 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "telemetry_run_id",
+        "label": "Run context",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "조사 중인 application Run입니다. Log directory 필터와 독립적으로 dashboard navigation에서 유지합니다."
       }
     ]
   },
@@ -158,5 +279,5 @@
   "title": "09 · Run Logs",
   "description": "Loki에 수집된 node-local run log를 선택한 시간 구간에서 검색합니다.",
   "uid": "xlayer-run-logs",
-  "version": 3
+  "version": 4
 }

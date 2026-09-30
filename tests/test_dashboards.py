@@ -1,8 +1,11 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -150,9 +153,15 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert step_index["uid"] == "xlayer-step-explorer"
     assert step_detail["uid"] == "xlayer-step-detail"
     assert 'signal="verl_step"' in step_index["panels"][1]["targets"][0]["expr"]
-    step_link = step_index["panels"][1]["fieldConfig"]["overrides"][0]["properties"][0]["value"][0]["url"]
+    step_override = next(item for item in step_index["panels"][1]["fieldConfig"]["overrides"]
+                         if item["matcher"]["options"] == "step" and
+                         any(prop["id"] == "links" for prop in item["properties"]))
+    step_link = next(prop["value"][0]["url"] for prop in step_override["properties"]
+                     if prop["id"] == "links")
     assert all(value in step_link for value in ('window_start_ms', 'window_end_ms', 'record_id'))
-    assert not step_index["panels"][1]["transformations"][1]["options"]["excludeByName"]
+    organize = next(item for item in step_index["panels"][1]["transformations"]
+                    if item["id"] == "organize")
+    assert not organize["options"]["excludeByName"]
     assert {"window_start_ms", "window_end_ms", "record_id"} <= {
         override["matcher"]["options"] for override in step_index["panels"][1]["fieldConfig"]["overrides"]
         if any(property_["id"] == "custom.hidden" for property_ in override["properties"])
@@ -185,12 +194,14 @@ def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
         "08 · Data & Storage",
         "09 · Run Logs",
     ]
-    content = "\n".join(panel["options"]["content"] for panel in start["panels"])
+    content = "\n".join(panel["options"]["content"] for panel in start["panels"]
+                        if panel["type"] == "text")
     for item in payloads:
         assert f"/d/{item['uid']}" in content
         assert len(item["tags"]) == 2
         assert item["links"][0]["title"] == "Start Here"
-        assert item["links"][0]["url"] == "/d/xlayer-start-here"
+        assert item["links"][0]["url"].startswith("/d/xlayer-start-here?")
+        assert item["links"][0]["keepTime"]
     assert "/d/xlayer-step-explorer" in content
 
 
@@ -230,7 +241,10 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
     } == set(DASHBOARDS) | {NAV_DASHBOARD}
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
-    assert any(link["title"] == "Step Explorer" for link in provisioned["links"])
+    assert not any(link["title"] == "Step Explorer" for link in provisioned["links"])
+    start = json.loads((tmp_path / "monitoring/dashboards/start-here.json").read_text())
+    assert "requires Loki" in str(start)
+    assert not re.search(r"\]\(/d/xlayer-step-explorer[?)&]", str(start))
 
 
 def test_server_config_rejects_duplicate_target_names(tmp_path: Path) -> None:
@@ -289,6 +303,30 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
         output / "provisioning/datasources/default.yaml"
     ).read_text()
     assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "run-logs.json", "step-explorer.json", "step-detail.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
+
+
+def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_files(tmp_path):
+    script = ROOT / 'scripts/provision_dashboards.py'
+    import sys
+    subprocess.run([sys.executable, str(script), '--output', str(tmp_path), '--enable-logs'], check=True)
+    assert (tmp_path / 'step-explorer.json').exists()
+    custom = tmp_path / 'my-dashboard.json'
+    custom.write_text('{"uid":"custom"}\n')
+    subprocess.run([sys.executable, str(script), '--output', str(tmp_path)], check=True)
+    assert not (tmp_path / 'step-explorer.json').exists()
+    assert custom.read_text() == '{"uid":"custom"}\n'
+    for path in tmp_path.glob('*.json'):
+        if path == custom:
+            continue
+        dashboard = json.loads(path.read_text())
+        assert not any('/d/xlayer-step-explorer' in link.get('url', '') for link in dashboard['links'])
+        for panel in _panels(dashboard):
+            if panel['type'] == 'text':
+                assert not re.search(r'\]\(/d/xlayer-(?:step|bottleneck|cross-layer|run-logs)',
+                                     panel['options']['content'])
+    subprocess.run([sys.executable, str(script), '--output', str(tmp_path), '--enable-logs'], check=True)
+    agent = json.loads((tmp_path / 'agent-rl-stages.json').read_text())
+    assert any('/d/xlayer-step-explorer' in link['url'] for link in agent['links'])
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:
@@ -561,14 +599,19 @@ def test_healthy_ssd_count_preserves_zero_without_faking_missing_data() -> None:
 def test_investigation_links_preserve_selected_interval_and_identity():
     index = json.loads((ROOT / 'examples/dashboards/step-explorer.json').read_text())
     table = next(panel for panel in _panels(index) if panel['type'] == 'table')
-    step = next(item for item in table['fieldConfig']['overrides']
-                if item['matcher']['options'] == 'step' and any(p['id'] == 'links' for p in item['properties']))
-    links = next(p['value'] for p in step['properties'] if p['id'] == 'links')
-    assert {link['url'].split('?')[0] for link in links} == {
-        '/d/xlayer-step-detail', '/d/xlayer-bottleneck-summary', '/d/xlayer-cross-layer-timeline'}
-    for link in links:
-        for field in ('window_start_ms', 'window_end_ms', 'run_id', 'record_id', 'node'):
-            assert '${__data.fields["' + field + '"]}' in link['url']
+    for field, destination in [('step', 'xlayer-step-detail'),
+                               ('step_duration_seconds', 'xlayer-bottleneck-summary'),
+                               ('stage_summary', 'xlayer-cross-layer-timeline')]:
+        item = next(item for item in table['fieldConfig']['overrides']
+                    if item['matcher']['options'] == field and
+                    any(prop['id'] == 'links' for prop in item['properties']))
+        links = next(prop['value'] for prop in item['properties'] if prop['id'] == 'links')
+        assert len(links) == 1  # Grafana tables use one click for a single link.
+        assert links[0]['url'].split('?')[0] == '/d/' + destination
+        for identity in ('window_start_ms', 'window_end_ms', 'run_id', 'record_id', 'observer_node', 'cluster'):
+            assert '${__data.fields["' + identity + '"]}' in links[0]['url']
+        assert '${node:queryparam}' in links[0]['url']  # Resource node stays separate.
+        assert 'var-source_node=${__data.fields["observer_node"]}' in links[0]['url']
     assert table['options']['sortBy'] == [{'displayName': 'Duration', 'desc': True}]
 
     summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
@@ -583,8 +626,11 @@ def test_investigation_links_preserve_selected_interval_and_identity():
 def test_investigation_ui_distinguishes_missing_evidence_and_respects_trace_filter():
     summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
     row = next(panel for panel in summary['panels'] if panel['type'] == 'row')
-    assert row['collapsed'] and row['panels'][0]['id'] == 6
-    assert 'row_kind="evidence"' in row['panels'][0]['targets'][0]['expr']
+    assert row['collapsed'] and row['panels'][0]['id'] == 4
+    evidence = next(panel for panel in summary['panels'] if panel['id'] == 6)
+    assert 'row_kind="evidence"' in evidence['targets'][0]['expr']
+    assert summary['panels'].index(evidence) == summary['panels'].index(
+        next(panel for panel in summary['panels'] if panel['id'] == 3)) + 1
     verdict = next(item for item in summary['panels'][1]['fieldConfig']['overrides']
                    if item['matcher']['options'] == 'verdict')
     values = next(p['value'] for p in verdict['properties'] if p['id'] == 'mappings')[0]['options']
@@ -614,3 +660,177 @@ def test_readable_panels_and_short_step_samples():
                 assert panel['options']['text']['valueSize'] <= 40
             if path.name in {'step-detail.json', 'cross-layer-timeline.json'} and panel['type'] == 'timeseries':
                 assert panel['fieldConfig']['defaults']['custom']['showPoints'] != 'never'
+
+
+def test_navigation_round_trip_keeps_observer_resource_and_selected_record():
+    paths = sorted((ROOT / 'examples/dashboards').glob('*.json'))
+    dashboards = {item['uid']: item for item in
+                  (json.loads(path.read_text()) for path in paths)}
+    context = {'cluster', 'node', 'source_node', 'record_id', 'trace_id',
+               'diagnosis_method', 'gpu', 'engine', 'sandbox_node'}
+    for dashboard in dashboards.values():
+        variables = {item['name'] for item in dashboard['templating']['list']}
+        assert context <= variables
+        for link in dashboard['links']:
+            assert link['keepTime']
+            for name in context:
+                assert '${' + name + ':queryparam}' in link['url']
+            referenced = set(re.findall(r'\$\{([a-z_]+):', link['url']))
+            assert referenced <= variables, (dashboard['uid'], referenced - variables)
+            if dashboard['uid'] != 'xlayer-run-logs' and '/d/xlayer-run-logs?' not in link['url']:
+                assert '${run_id:queryparam}' in link['url']
+        assert all('var-source_node=${node' not in link['url'] for link in dashboard['links'])
+
+    summary = dashboards['xlayer-bottleneck-summary']
+    for panel in _panels(summary):
+        for target in panel.get('targets', []):
+            assert 'node=~"$source_node"' in target['expr']
+            assert 'node=~"$node"' not in target['expr']
+    evidence = next(panel for panel in summary['panels'] if panel['id'] == 6)
+    for override in evidence['fieldConfig']['overrides']:
+        for property_ in override['properties']:
+            if property_['id'] == 'links':
+                assert all('${node:queryparam}' in link['url'] for link in property_['value'])
+
+
+def test_collection_health_does_not_fabricate_workload_health_or_require_loki():
+    start = json.loads((ROOT / 'examples/dashboards/start-here.json').read_text())
+    assert len(start['panels']) < 9
+    stats = {panel['title']: panel for panel in start['panels'] if panel['type'] == 'stat'}
+    assert set(stats) == {'Collector availability', 'Application sample age',
+                          'GPU sample age', 'Latest completed step'}
+    for panel in start['panels']:
+        if panel['type'] == 'text':
+            continue
+        assert panel['datasource']['uid'] == 'telemetry-prometheus'
+        assert all('or vector(0)' not in target['expr'] for target in panel['targets'])
+        assert panel['fieldConfig']['defaults']['noValue'] == 'N/A'
+    assert stats['GPU sample age']['fieldConfig']['defaults']['thresholds']['steps'][2]['value'] == 30
+    assert stats['Application sample age']['fieldConfig']['defaults']['thresholds']['steps'][2]['value'] == 300
+    overview = json.loads((ROOT / 'examples/dashboards/run-overview.json').read_text())
+    assert not any('GPU utilization matrix' in panel['title'] for panel in _panels(overview))
+    optional = next(panel for panel in overview['panels']
+                    if panel['title'] == 'Application SDK signals (optional)')
+    assert optional['collapsed']
+    assert 'training_tokens_per_second' in str(optional)
+    assert 'training_loss' in str(optional)
+
+
+def test_sandbox_node_and_engine_filters_do_not_change_rollout_context():
+    agent = json.loads((ROOT / 'examples/dashboards/agent-rl-stages.json').read_text())
+    variables = {item['name']: item for item in agent['templating']['list']}
+    assert 'instance)' in variables['engine']['query']
+    row = next(panel for panel in agent['panels'] if panel['type'] == 'row')
+    for panel in row['panels']:
+        assert all('nodename=~"$sandbox_node"' in target['expr'] for target in panel['targets'])
+        assert all('nodename=~"$node"' not in target['expr'] for target in panel['targets'])
+    for panel in agent['panels']:
+        if panel['id'] in {9, 10}:
+            assert all('node=~"$node",instance=~"$engine"' in target['expr']
+                       for target in panel['targets'])
+        if panel['id'] == 4:
+            assert 'nodename=~"$source_node"' in panel['targets'][0]['expr']
+            assert '$sandbox_node' not in panel['targets'][0]['expr']
+
+
+def test_log_directory_and_application_context_remain_independent():
+    logs = json.loads((ROOT / 'examples/dashboards/run-logs.json').read_text())
+    variables = {item['name']: item for item in logs['templating']['list']}
+    assert variables['run_id']['label'] == 'Log directory'  # Existing URLs still filter logs.
+    assert variables['telemetry_run_id']['label'] == 'Run context'
+    assert '| run_id=~"$run_id"' in logs['panels'][0]['targets'][0]['expr']
+    assert 'signal!="xlayer_diagnosis"' in logs['panels'][0]['targets'][0]['expr']
+    assert all('var-run_id=${telemetry_run_id:percentencode}' in link['url']
+               and 'var-log_run_id=${run_id:percentencode}' in link['url'] for link in logs['links'])
+    summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
+    link = next(link for panel in summary['panels'] if panel['type'] == 'text'
+                for link in re.findall(r'\]\((/d/xlayer-run-logs[^)]+)\)', panel['options']['content']))
+    assert 'var-telemetry_run_id=${run_id:percentencode}' in link
+    assert 'var-run_id=${log_run_id:percentencode}' in link
+
+
+def test_annotations_show_observed_completion_without_inventing_phase_boundaries():
+    for name in ('step-detail', 'cross-layer-timeline'):
+        dashboard = json.loads((ROOT / f'examples/dashboards/{name}.json').read_text())
+        annotation, = dashboard['annotations']['list']
+        assert 'approximate' in annotation['name']
+        assert annotation['datasource']['uid'] == 'telemetry-loki'
+        assert annotation['enable'] and not annotation['hide']
+        assert 'signal="verl_step"' in annotation['expr']
+        assert 'record_id=~"$record_id"' in annotation['expr']
+        assert 'node=~"$source_node"' in annotation['expr']
+        assert 'logger observation' in annotation['expr']
+        assert annotation['maxLines'] <= 100
+    # No optional Loki dependency is introduced into metrics-only deployments.
+    for name in (NAV_DASHBOARD, *DASHBOARDS):
+        dashboard = json.loads((ROOT / 'examples/dashboards' / name).read_text())
+        assert not dashboard['annotations']['list']
+
+
+def test_loki_row_pivots_use_stream_cluster_and_collector_identity():
+    for path in (ROOT / 'examples/dashboards').glob('*.json'):
+        dashboard = json.loads(path.read_text())
+        for panel in _panels(dashboard):
+            if panel['type'] != 'table' or panel['datasource']['uid'] != 'telemetry-loki':
+                continue
+            query = panel['targets'][0]['expr']
+            assert '" .cluster .node (__line__)' in query
+            assert panel['transformations'][1]['options']['source'] == 'record'
+            assert not panel['transformations'][1]['options']['replace']
+            for override in panel['fieldConfig']['overrides']:
+                for prop in override['properties']:
+                    if prop['id'] == 'links':
+                        assert all('var-cluster=${__data.fields["cluster"]}' in link['url']
+                                   for link in prop['value'])
+    timeline = json.loads((ROOT / 'examples/dashboards/cross-layer-timeline.json').read_text())
+    for panel in timeline['panels']:
+        if panel['type'] == 'state-timeline':
+            keep = panel['transformations'][-1]
+            assert keep['id'] == 'filterFieldsByName'
+            assert set(keep['options']['include']['names']) == {
+                'Start Time', 'End Time', 'Phase' if panel['id'] == 2 else 'Step'}
+    spans = next(panel for panel in timeline['panels'] if panel['id'] == 9)
+    links = next(prop['value'] for override in spans['fieldConfig']['overrides']
+                 for prop in override['properties'] if prop['id'] == 'links')
+    summary = next(link for link in links if '/d/xlayer-bottleneck-summary?' in link['url'])
+    assert '${__url_time_range}' in summary['url']  # A subspan must not hide its step diagnosis.
+    assert '${record_id:queryparam}' in summary['url']
+    assert '${source_node:queryparam}' in summary['url']
+
+
+def test_start_health_queries_with_real_promtool(tmp_path):
+    tool = os.environ.get('PROMTOOL') or shutil.which('promtool')
+    if not tool:
+        pytest.skip('set PROMTOOL to validate real dashboard PromQL')
+    start = json.loads((ROOT / 'examples/dashboards/start-here.json').read_text())
+    stats = {panel['title']: panel for panel in start['panels'] if panel['type'] == 'stat'}
+
+    def expr(name, run='actual-run'):
+        query = stats[name]['targets'][0]['expr']
+        return query.replace('$cluster', 'cluster-a').replace('$node', 'gpu-0').replace(
+            '$source_node', 'gpu-0').replace('$run_id', run)
+
+    # Different scrape addresses, node names and cluster names are deliberate.
+    lines = ['evaluation_interval: 1m', 'tests:', '  - interval: 1m', '    input_series:']
+    series = [('up', 'cluster-a', 'gpu-0', '', '1+0x20'),
+              ('training_sample_timestamp_seconds', 'cluster-a', 'gpu-0', 'actual-run', '240+0x20'),
+              ('training_sample_timestamp_seconds', 'cluster-b', 'gpu-0', 'actual-run', '0+0x20'),
+              ('training_step', 'cluster-a', 'gpu-0', 'actual-run', '2+0x20')]
+    for metric, cluster, node, run, values in series:
+        labels = f'job="telemetry",cluster="{cluster}",nodename="{node}",instance="10.0.0.1:19100"'
+        if run:
+            labels += f',run_id="{run}"'
+        lines += [f"      - series: '{metric}{{{labels}}}'", f"        values: '{values}'"]
+    lines.append('    promql_expr_test:')
+    cases = [(expr('Application sample age'), 960), (expr('Latest completed step'), 2),
+             (expr('GPU sample age'), None), (expr('Application sample age', 'missing-run'), None)]
+    for query, value in cases:
+        lines += [f"      - expr: '{query}'", '        eval_time: 20m']
+        if value is None:
+            lines.append('        exp_samples: []')
+        else:
+            lines += ['        exp_samples:', "          - labels: '{}'", f'            value: {value}']
+    fixture = tmp_path / 'health-queries.yaml'
+    fixture.write_text('\n'.join(lines) + '\n')
+    result = subprocess.run([tool, 'test', 'rules', str(fixture)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr

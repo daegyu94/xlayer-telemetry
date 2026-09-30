@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "browser": "headless Chrome",
+  "checks": [
+    "Start Here renders observed/stale run rows from actual Prometheus",
+    "Duration single click pins row cluster and opens evidence with observer/resource split",
+    "Summary → Timeline preserves selected record/time, annotation visible",
+    "Existing EventRecorder exact spans render alongside approximate boundaries without metadata lanes",
+    "Trainer stage remains available with GPU resource node and independent dedicated sandbox node",
+    "Step Detail progressively reveals host evidence",
+    "Overview/Compute/Storage return to the same selected diagnosis",
+    "Existing log-directory URL filters logs; navigation retains independent application Run"
+  ],
+  "page_errors": [],
+  "real_backend_queries": 112,
+  "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+  "grafana_image": "grafana/grafana:12.1.0",
+  "baseline": "48b87050d44358cb7c8e4753224382e400eddae2",
+  "unit_tests": {
+    "passed": 357,
+    "dashboard_tests": 26,
+    "promtool_queries": true
+  },
+  "fixture_topology": {
+    "clusters": [
+      "ui-fixture",
+      "other-cluster"
+    ],
+    "observer": "trainer-0",
+    "resource": "gpu-0",
+    "sandbox": "sandbox-0",
+    "physical_hosts": 1,
+    "same_record_id_in_two_clusters": true
+  },
+  "not_exercised": [
+    "Physical multi-node deployment",
+    "GPU/VERL training performance",
+    "New runtime or instrumentation (none added)"
+  ],
+  "screenshots": [
+    "../../../docs/figures/grafana-start-here.png",
+    "../../../docs/figures/bottleneck-summary-synthetic.png"
+  ]
+}

@@ -8,23 +8,42 @@
     {
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here",
-      "includeTimeRange": false,
-      "keepTime": false
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
-      "title": "Agent RL Stage Correlation",
+      "title": "Run Overview",
       "type": "link",
-      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}&var-node=${source_node:percentencode}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
       "title": "Bottleneck Summary",
       "type": "link",
-      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Cross-Layer Timeline",
+      "type": "link",
+      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Agent RL Stage Correlation",
+      "type": "link",
+      "url": "/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -36,11 +55,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 6
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**느린 step 선택 → Candidate + Evidence → Timeline / Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Duration이 긴 step부터 확인하고 **step 번호**의 메뉴에서 Step Detail · Bottleneck Summary · Cross-Layer Timeline을 엽니다. 선택한 run·step·observer node·시간 구간을 유지합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">목록이 비면 step JSONL과 Alloy·Loki를 확인합니다. Boundary는 기록된 시간 품질이며 missing data를 0으로 해석하지 않습니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Select a slow step:** Duration → Bottleneck Summary · Stage → Cross-Layer Timeline · Step → Step Detail.<br>Observer node는 step 기록의 출처입니다. Resource node는 상세 화면에서 별도로 선택하며 Boundary를 확인합니다.</span>"
       }
     },
     {
@@ -49,7 +68,7 @@
       "title": "Completed VERL steps",
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 4,
         "w": 24,
         "h": 18
       },
@@ -60,7 +79,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | window_start_ms != \"\" | __error__=\"\"",
+          "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | window_start_ms != \"\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 1000
         }
@@ -76,18 +95,28 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "run_id": 1,
-              "node": 2,
-              "worker_id": 3,
-              "boundary_scope": 4,
-              "step_duration_seconds": 5,
-              "stage_summary": 6,
-              "record_id": 8
+              "step": 1,
+              "run_id": 2,
+              "node": 3,
+              "worker_id": 4,
+              "boundary_scope": 5,
+              "step_duration_seconds": 6,
+              "stage_summary": 7,
+              "record_id": 9,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -104,34 +133,6 @@
           "links": []
         },
         "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "step"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Step Detail 열기",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}&var-log_run_id=${__data.fields[\"run_id\"]}",
-                    "targetBlank": false
-                  },
-                  {
-                    "title": "Bottleneck Summary 열기",
-                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
-                    "targetBlank": false
-                  },
-                  {
-                    "title": "Cross-Layer Timeline 열기",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
-                    "targetBlank": false
-                  }
-                ]
-              }
-            ]
-          },
           {
             "matcher": {
               "id": "byName",
@@ -285,6 +286,16 @@
               {
                 "id": "custom.width",
                 "value": 75
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Step Detail 열기",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${log_run_id:queryparam}&${diagnosis_method:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
               }
             ]
           },
@@ -329,6 +340,16 @@
               {
                 "id": "unit",
                 "value": "s"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Bottleneck Summary 열기",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
               }
             ]
           },
@@ -348,6 +369,16 @@
                   "type": "auto",
                   "wrapText": true
                 }
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  }
+                ]
               }
             ]
           },
@@ -364,6 +395,46 @@
               {
                 "id": "displayName",
                 "value": "Boundary"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
               },
               {
                 "id": "custom.width",
@@ -387,7 +458,7 @@
           }
         ]
       },
-      "description": "Duration이 긴 step부터 표시합니다. Step 번호를 눌러 Step Detail·Bottleneck Summary·Cross-Layer Timeline을 선택하면 해당 행의 run·record·observer node·시간 구간이 전달됩니다. Resource node는 실제 배치에 맞게 바꿉니다."
+      "description": "Duration이 긴 step부터 표시합니다. Duration은 Bottleneck Summary, Stage는 Cross-Layer Timeline, Step은 Step Detail로 한 번에 이동합니다. 행의 Run·record·observer와 시간 구간 및 선택한 Resource node를 유지합니다."
     }
   ],
   "refresh": "10s",
@@ -446,6 +517,106 @@
           "value": ".*"
         },
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
+      },
+      {
+        "name": "node",
+        "label": "Resource node",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다.",
+        "hide": 2
+      },
+      {
+        "name": "record_id",
+        "label": "Step record ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "선택한 step identity를 상세 화면을 왕복할 때 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "trace_id",
+        "label": "Trace ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Exact span/event의 trace context입니다. Step record와 다른 식별자입니다.",
+        "hide": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "textbox",
+        "query": "rule",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "description": "Rule 또는 수동 LLM 진단의 선택을 화면 이동 시 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "log_run_id",
+        "label": "Log directory",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "Log directory 필터를 telemetry Run과 독립적으로 유지합니다."
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 GPU 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
       }
     ]
   },
@@ -456,5 +627,5 @@
   "timezone": "browser",
   "title": "03 · Step Explorer",
   "uid": "xlayer-step-explorer",
-  "version": 2
+  "version": 3
 }

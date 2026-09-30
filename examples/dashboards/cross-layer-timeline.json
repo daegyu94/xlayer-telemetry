@@ -1,6 +1,19 @@
 {
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "name": "Step completion (approximate)",
+        "datasource": {
+          "type": "loki",
+          "uid": "telemetry-loki"
+        },
+        "enable": true,
+        "hide": false,
+        "iconColor": "#ffb357",
+        "expr": "{signal=\"verl_step\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | run_id=~\"$run_id\" | record_id=~\"$record_id\" | window_start_ms != \"\" | __error__=\"\" | line_format \"Step {{.step}} · {{.boundary_accuracy}} completion (logger observation)\"",
+        "maxLines": 100
+      }
+    ]
   },
   "editable": true,
   "graphTooltip": 1,
@@ -64,7 +77,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다. Dedicated sandbox에서는 sandbox node를 선택합니다."
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
       },
       {
         "name": "record_id",
@@ -89,10 +102,82 @@
         "hide": 0,
         "label": "Trace ID",
         "description": "EventRecorder의 Trace ID입니다. 지정하면 관련 span/event로 좁힙니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "textbox",
+        "query": "rule",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "description": "Rule 또는 수동 LLM 진단의 선택을 화면 이동 시 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "log_run_id",
+        "label": "Log directory",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "Log directory 필터를 telemetry Run과 독립적으로 유지합니다."
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 GPU 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
       }
     ]
   },
-  "version": 2,
+  "version": 3,
   "uid": "xlayer-cross-layer-timeline",
   "title": "05 · Cross-Layer Timeline",
   "description": "Exact span, approximate step 구간, sampled resource metric을 같은 시간축에서 비교합니다.",
@@ -100,23 +185,42 @@
     {
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here",
-      "includeTimeRange": false,
-      "keepTime": false
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Run Overview",
+      "type": "link",
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
       "title": "Bottleneck Summary",
       "type": "link",
-      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
       "title": "Step Detail",
       "type": "link",
-      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/xlayer-step-detail?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -128,11 +232,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 6
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Exact:** EventRecorder가 기록한 span 경계 · **Approximate:** file logger로 추정한 step 구간 · **Sampled:** Prometheus resource metric</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Stage duration의 실행 순서는 알 수 없습니다. Resource node·Trace ID를 맞추고 아래 clock 상태와 sample freshness도 확인합니다. Shared signal의 동시 변화만으로 원인을 확정하지 않습니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Correlate in time:** Exact = span 경계 · Approximate = logger 기반 step 구간 · Sampled = metric.<br>Resource node·Trace ID·clock·freshness를 확인합니다. Stage duration으로 실행 순서를 만들지 않으며 shared signal은 supporting evidence입니다.</span>"
       }
     },
     {
@@ -142,7 +246,7 @@
       "description": "Producer node의 wall clock으로 기록한 실제 span 경계입니다. Node 간 정렬에는 clock 동기화가 필요하며 wall-clock jump가 감지된 span은 제외합니다.",
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 4,
         "w": 24,
         "h": 6
       },
@@ -220,6 +324,18 @@
               "phase": "Phase"
             }
           }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Start Time",
+                "End Time",
+                "Phase"
+              ]
+            }
+          }
         }
       ],
       "fieldConfig": {
@@ -250,7 +366,7 @@
       "description": "관측 시각과 보고된 duration에서 추정한 step 구간입니다. Stage duration은 순서가 있는 phase 경계가 아닙니다.",
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 10,
         "w": 24,
         "h": 5
       },
@@ -321,6 +437,18 @@
               "step": "Step"
             }
           }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Start Time",
+                "End Time",
+                "Step"
+              ]
+            }
+          }
         }
       ],
       "fieldConfig": {
@@ -350,7 +478,7 @@
       "title": "Exact spans: open step, logs, or diagnosis",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 15,
         "w": 24,
         "h": 6
       },
@@ -361,7 +489,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -377,20 +505,30 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "phase": 1,
-              "name": 2,
-              "role": 3,
-              "worker_id": 4,
-              "node": 5,
-              "duration_seconds": 6,
-              "trace_id": 7,
-              "span_id": 8,
-              "boundary_accuracy": 9
+              "step": 1,
+              "phase": 2,
+              "name": 3,
+              "role": 4,
+              "worker_id": 5,
+              "node": 6,
+              "duration_seconds": 7,
+              "trace_id": 8,
+              "span_id": 9,
+              "boundary_accuracy": 10,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -418,19 +556,19 @@
                 "value": [
                   {
                     "title": "Step Detail에서 metric·log 확인",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}"
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-node=${__data.fields[\"node\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
                   },
                   {
-                    "title": "이 구간의 diagnosis 후보 확인",
-                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
+                    "title": "선택한 step의 diagnosis 후보 확인",
+                    "url": "/d/xlayer-bottleneck-summary?${__url_time_range}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&${node:queryparam}&${record_id:queryparam}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
                   },
                   {
                     "title": "관련 log 확인",
-                    "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}"
+                    "url": "/d/xlayer-run-logs?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-telemetry_run_id=${__data.fields[\"run_id\"]}&var-run_id=${log_run_id:percentencode}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}&var-trace_id=${__data.fields[\"trace_id\"]}"
                   },
                   {
                     "title": "같은 trace의 EventRecorder event 확인",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}"
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"start_time_ms\"]}&to=${__data.fields[\"end_time_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-trace_id=${__data.fields[\"trace_id\"]}&${diagnosis_method:queryparam}&${source_node:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${node:queryparam}&${record_id:queryparam}"
                   }
                 ]
               }
@@ -650,6 +788,46 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
           }
         ]
       },
@@ -666,7 +844,7 @@
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 21,
         "w": 12,
         "h": 7
       },
@@ -704,7 +882,7 @@
       "title": "vLLM waiting requests",
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 21,
         "w": 12,
         "h": 7
       },
@@ -742,7 +920,7 @@
       "title": "RDMA bytes per second",
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 28,
         "w": 12,
         "h": 7
       },
@@ -780,7 +958,7 @@
       "title": "Device busy ratio",
       "gridPos": {
         "x": 12,
-        "y": 30,
+        "y": 28,
         "w": 12,
         "h": 7
       },
@@ -818,7 +996,7 @@
       "title": "Related EventRecorder events",
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 35,
         "w": 24,
         "h": 6
       },
@@ -829,7 +1007,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"event\" | trace_id=~\"$trace_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | record_type=\"event\" | trace_id=~\"$trace_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -845,18 +1023,28 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "phase": 1,
-              "name": 2,
-              "attributes": 3,
-              "role": 4,
-              "worker_id": 5,
-              "node": 6,
-              "trace_id": 7
+              "step": 1,
+              "phase": 2,
+              "name": 3,
+              "attributes": 4,
+              "role": 5,
+              "worker_id": 6,
+              "node": 7,
+              "trace_id": 8,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -1023,6 +1211,46 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
           }
         ]
       },
@@ -1041,7 +1269,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 41
       },
       "datasource": {
         "type": "prometheus",
@@ -1082,13 +1310,13 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 57,
+        "y": 55,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">같은 시간 구간과 선택한 node를 유지해 근거를 확인합니다.</span>"
       }
     },
     {
@@ -1097,7 +1325,7 @@
       "title": "Node clock offset from scrape time",
       "gridPos": {
         "x": 0,
-        "y": 50,
+        "y": 48,
         "w": 12,
         "h": 7
       },
@@ -1135,7 +1363,7 @@
       "title": "Node clock synchronization status",
       "gridPos": {
         "x": 12,
-        "y": 50,
+        "y": 48,
         "w": 12,
         "h": 7
       },

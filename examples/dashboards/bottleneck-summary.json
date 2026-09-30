@@ -55,8 +55,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, instance)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
         "includeAll": true,
         "allValue": ".*",
         "refresh": 1,
@@ -64,7 +64,7 @@
           "text": "All",
           "value": "$__all"
         },
-        "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다. Dedicated sandbox에서는 sandbox node를 선택합니다."
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
       },
       {
         "name": "record_id",
@@ -100,10 +100,82 @@
           }
         ],
         "description": "rule은 기존 진단입니다. llm은 선택한 record에 대해 CLI로 명시적으로 실행한 결과만 표시하며 자동 추론하지 않습니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "trace_id",
+        "label": "Trace ID",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Exact span/event의 trace context입니다. Step record와 다른 식별자입니다.",
+        "hide": 2
+      },
+      {
+        "name": "log_run_id",
+        "label": "Log directory",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "Log directory 필터를 telemetry Run과 독립적으로 유지합니다."
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 GPU 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "engine",
+        "label": "vLLM engine",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "sandbox_node",
+        "label": "Sandbox node",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "hide": 2,
+        "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
       }
     ]
   },
-  "version": 3,
+  "version": 4,
   "uid": "xlayer-bottleneck-summary",
   "title": "04 · Bottleneck Summary",
   "description": "Workload 문맥에서 후보와 근거를 확인합니다. Shared signal의 동시 변화는 run별 사용량이나 인과관계의 증명이 아닙니다.",
@@ -111,23 +183,34 @@
     {
       "title": "Start Here",
       "type": "link",
-      "url": "/d/xlayer-start-here",
-      "includeTimeRange": false,
-      "keepTime": false
+      "url": "/d/xlayer-start-here?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
       "title": "Run Overview",
       "type": "link",
-      "url": "/d/telemetry-overview?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "title": "Step Explorer",
+      "type": "link",
+      "url": "/d/xlayer-step-explorer?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     },
     {
       "title": "Cross-Layer Timeline",
       "type": "link",
-      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}",
-      "includeTimeRange": true,
-      "keepTime": true
+      "url": "/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -139,11 +222,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 9
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Step Explorer → Candidate + Evidence → Timeline → Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id} · **Step record:** ${record_id}</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Resource node는 deep dive 대상이며 diagnosis의 observer node와 다를 수 있습니다. `strong_signal`은 rule 조건을 만족한 후보입니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">`no_anomaly_observed`는 관측한 근거의 결과이고, `insufficient_data`·빈 panel은 정상 판정이 아닙니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Method:** rule은 기존 진단, llm은 수동 실행한 별도 hypothesis입니다. Step record ID를 복사한 뒤 `python -m xlayer_telemetry.llm_diagnosis --run-root \"$RUN_ROOT\" --record-id RECORD_ID`를 실행하고 Method=llm을 선택합니다. CLI는 monitoring host에서 실행하며 이 dashboard가 모델을 자동 호출하지 않습니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Diagnose:** Symptom → Candidate → Supporting / Counter / Missing evidence.<br>**Run:** ${run_id:text} · **Record:** ${record_id:text} · **Resource node:** ${node:text}. Signal state는 원인 확정이나 정상 보증이 아닙니다.</span>"
       }
     },
     {
@@ -152,7 +235,7 @@
       "title": "Selected symptom",
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 4,
         "w": 24,
         "h": 6
       },
@@ -163,7 +246,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"summary\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"summary\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -179,24 +262,34 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "step_duration_seconds": 1,
-              "diagnosis_method": 2,
-              "verdict": 3,
-              "summary": 4,
-              "workload_comparability": 5,
-              "primary_candidate": 6,
-              "missing_sources": 7,
-              "generated_at": 8,
-              "data_origin": 9,
-              "candidate_count": 10,
-              "strong_candidate_count": 11,
-              "node": 12,
-              "record_id": 13
+              "step": 1,
+              "step_duration_seconds": 2,
+              "diagnosis_method": 3,
+              "verdict": 4,
+              "summary": 5,
+              "workload_comparability": 6,
+              "primary_candidate": 7,
+              "missing_sources": 8,
+              "generated_at": 9,
+              "data_origin": 10,
+              "candidate_count": 11,
+              "strong_candidate_count": 12,
+              "node": 13,
+              "record_id": 14,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -225,7 +318,7 @@
                 "value": [
                   {
                     "title": "Step Detail 열기",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
                     "targetBlank": false
                   }
                 ]
@@ -401,6 +494,12 @@
               {
                 "id": "custom.hidden",
                 "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               }
             ]
           },
@@ -788,6 +887,12 @@
               {
                 "id": "custom.width",
                 "value": 175
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               }
             ]
           },
@@ -846,6 +951,130 @@
                 "value": "Generated at"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sampling_quality"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sandbox_device_mapping"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query_step_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "range_window_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evaluation_count"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source_age_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "quality_warnings"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
           }
         ]
       },
@@ -863,7 +1092,7 @@
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 10,
         "w": 24,
         "h": 8
       },
@@ -874,7 +1103,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"candidate\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"candidate\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -890,20 +1119,30 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "component": 1,
-              "candidate_id": 2,
-              "state": 3,
-              "summary": 4,
-              "missing_evidence_summary": 5,
-              "observation_scope": 6,
-              "diagnosis_method": 7,
-              "generated_at": 8,
-              "workload_comparability": 9
+              "step": 1,
+              "component": 2,
+              "candidate_id": 3,
+              "state": 4,
+              "summary": 5,
+              "missing_evidence_summary": 6,
+              "observation_scope": 7,
+              "diagnosis_method": 8,
+              "generated_at": 9,
+              "workload_comparability": 10,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -932,7 +1171,7 @@
                 "value": [
                   {
                     "title": "Cross-Layer Timeline 열기",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
                     "targetBlank": false
                   }
                 ]
@@ -1076,6 +1315,12 @@
               {
                 "id": "custom.hidden",
                 "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
               }
             ]
           },
@@ -1464,7 +1709,15 @@
             "properties": [
               {
                 "id": "custom.hidden",
-                "value": true
+                "value": false
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              },
+              {
+                "id": "displayName",
+                "value": "Component"
               }
             ]
           },
@@ -1516,6 +1769,172 @@
               {
                 "id": "custom.width",
                 "value": 155
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sampling_quality"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sandbox_device_mapping"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query_step_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "range_window_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evaluation_count"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source_age_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "quality_warnings"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diagnosis_method"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "generated_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload_comparability"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
               }
             ]
           }
@@ -1535,14 +1954,14 @@
       }
     },
     {
-      "id": 4,
+      "id": 6,
       "type": "table",
-      "title": "Measured changes versus same-run baseline",
+      "title": "Evidence details: supporting, counter, and missing",
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 18,
         "w": 24,
-        "h": 7
+        "h": 9
       },
       "datasource": {
         "type": "loki",
@@ -1551,7 +1970,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"evidence\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -1567,25 +1986,36 @@
           }
         },
         {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "step": 0,
-              "signal": 1,
-              "current": 2,
-              "baseline": 3,
-              "delta_percent": 4,
-              "observation_scope": 5,
-              "baseline_record_id": 6,
-              "diagnosis_method": 7,
-              "generated_at": 8,
-              "workload_comparability": 9,
-              "query_step_seconds": 10,
-              "range_window_seconds": 11,
-              "evaluation_count": 12,
-              "source_age_seconds": 13,
-              "quality_warnings": 14
+              "candidate_id": 1,
+              "evidence_type": 2,
+              "signal": 3,
+              "current": 4,
+              "baseline": 5,
+              "observation_scope": 6,
+              "entity": 7,
+              "source": 8,
+              "diagnosis_method": 9,
+              "generated_at": 10,
+              "workload_comparability": 11,
+              "query_step_seconds": 12,
+              "range_window_seconds": 13,
+              "evaluation_count": 14,
+              "source_age_seconds": 15,
+              "quality_warnings": 16,
+              "cluster": 0
             },
             "renameByName": {}
           }
@@ -1714,163 +2144,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "node"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "candidate_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              },
-              {
-                "id": "custom.filterable",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "component"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "state"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "summary"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "evidence_summary"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "counter_evidence_summary"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "missing_evidence_summary"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "verdict"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "step_duration_seconds"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              },
-              {
-                "id": "displayName",
-                "value": "Duration"
-              },
-              {
-                "id": "unit",
-                "value": "s"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "candidate_count"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "strong_candidate_count"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "missing_sources"
+              "options": "baseline_record_id"
             },
             "properties": [
               {
@@ -1894,12 +2168,76 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "data_origin"
             },
             "properties": [
               {
                 "id": "custom.hidden",
                 "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "이 evidence 구간의 Step Detail 열기",
+                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}"
+                  },
+                  {
+                    "title": "이 구간의 Compute & Communication 열기",
+                    "url": "/d/xlayer-compute-communication?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}"
+                  },
+                  {
+                    "title": "이 구간의 Data & Storage 열기",
+                    "url": "/d/xlayer-data-storage?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 260
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": false
+                }
               }
             ]
           },
@@ -1929,12 +2267,91 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "step_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "candidate_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Candidates"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "strong_candidate_count"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Strong signals"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_sources"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Missing sources"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "primary_candidate"
             },
             "properties": [
               {
                 "id": "displayName",
                 "value": "Primary candidate"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "candidate_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Candidate"
+              },
+              {
+                "id": "custom.width",
+                "value": 230
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
               }
             ]
           },
@@ -1949,12 +2366,48 @@
                 "value": "Scope"
               },
               {
-                "id": "custom.filterable",
-                "value": true
+                "id": "custom.width",
+                "value": 150
               },
               {
-                "id": "custom.width",
-                "value": 135
+                "id": "custom.filterable",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Missing evidence"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "counter_evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Counter evidence"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Evidence"
               }
             ]
           },
@@ -1967,10 +2420,6 @@
               {
                 "id": "displayName",
                 "value": "Change (%)"
-              },
-              {
-                "id": "custom.width",
-                "value": 100
               }
             ]
           },
@@ -1983,6 +2432,21 @@
               {
                 "id": "displayName",
                 "value": "Missing evidence"
+              },
+              {
+                "id": "custom.width",
+                "value": 280
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": false
+                }
               }
             ]
           },
@@ -1999,61 +2463,6 @@
               {
                 "id": "unit",
                 "value": "s"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "signal"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "Current 구간의 Step Detail 열기",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}",
-                    "targetBlank": false
-                  },
-                  {
-                    "title": "Baseline 구간의 Step Detail 열기",
-                    "url": "/d/xlayer-step-detail?from=${__data.fields[\"baseline_start_ms\"]}&to=${__data.fields[\"baseline_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"baseline_record_id\"]}&var-node=${__data.fields[\"node\"]}",
-                    "targetBlank": false
-                  }
-                ]
-              },
-              {
-                "id": "custom.width",
-                "value": 280
-              },
-              {
-                "id": "displayName",
-                "value": "Signal"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "baseline_record_id"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "step"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 60
               }
             ]
           },
@@ -2084,29 +2493,298 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "entity"
+              "options": "evidence_type"
             },
             "properties": [
               {
                 "id": "custom.width",
-                "value": 180
+                "value": 120
               },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "supporting": {
+                        "text": "supporting",
+                        "color": "yellow",
+                        "index": 0
+                      },
+                      "counter": {
+                        "text": "counter",
+                        "color": "blue",
+                        "index": 1
+                      },
+                      "missing": {
+                        "text": "missing",
+                        "color": "gray",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "displayName",
+                "value": "Evidence type"
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sampling_quality"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sandbox_device_mapping"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "generated_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diagnosis_method"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload_comparability"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query_step_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "range_window_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evaluation_count"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source_age_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "quality_warnings"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "entity"
+            },
+            "properties": [
               {
                 "id": "displayName",
                 "value": "Entity"
               },
               {
+                "id": "custom.width",
+                "value": 230
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
+              },
+              {
                 "id": "custom.cellOptions",
                 "value": {
                   "type": "auto",
-                  "wrapText": true
+                  "wrapText": false
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diagnosis_method"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "generated_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload_comparability"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evidence_type"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
               }
             ]
           }
         ]
       },
-      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다.",
+      "description": "Signal별 current·baseline·scope·source와 누락 근거를 확인합니다. Signal link는 해당 evidence 시간 구간의 상세 화면으로 연결됩니다. Evidence type과 candidate ID의 column filter로 좁힙니다. Missing 값은 N/A이며 0이 아닙니다.  이 표는 항상 표시합니다. Candidate·Evidence type의 column filter로 supporting/counter/missing을 선택합니다. Signal 메뉴에서 같은 구간의 상세 화면을 열고 Entity에 맞게 Resource node·device를 선택합니다.",
       "options": {
         "showHeader": true,
         "cellHeight": "lg",
@@ -2119,36 +2797,37 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 27,
         "w": 24,
-        "h": 5
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${run_id:queryparam}&${record_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) · [Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${run_id:queryparam}&${node:queryparam}&${__url_time_range})</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Profile·NCCL artifact는 show_run에서 경로를 확인한 뒤 native profiler로 엽니다. 이 조사 화면의 후보·event에는 diagnostics와 Loki 수집이 필요합니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">[Topology / storage path 확인](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${__url_time_range}) — topology edge는 설정된 관계이며 측정된 per-run traffic이 아닙니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">[Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Step Detail](/d/xlayer-step-detail?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Compute / Network](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [vLLM / Sandbox](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>선택한 Resource node와 시간 구간을 유지합니다. Entity의 실제 node/device와 맞는지 확인합니다.</span>"
       }
     },
     {
       "id": 90,
       "type": "row",
-      "title": "Evidence details (expand to inspect)",
+      "title": "Baseline comparison / sample quality",
+      "description": "Current와 비교 가능한 baseline 및 query 해상도·source freshness를 펼쳐 확인합니다.",
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 31,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 6,
+          "id": 4,
           "type": "table",
-          "title": "Evidence details: supporting, counter, and missing",
+          "title": "Measured changes versus same-run baseline",
           "gridPos": {
             "x": 0,
-            "y": 36,
+            "y": 32,
             "w": 24,
-            "h": 10
+            "h": 9
           },
           "datasource": {
             "type": "loki",
@@ -2157,7 +2836,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"evidence\" | record_id=~\"$record_id\" | __error__=\"\"",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
               "queryType": "range",
               "maxLines": 5000
             }
@@ -2173,18 +2852,26 @@
               }
             },
             {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
               "id": "organize",
               "options": {
                 "excludeByName": {},
                 "indexByName": {
-                  "candidate_id": 0,
-                  "evidence_type": 1,
+                  "step": 1,
                   "signal": 2,
                   "current": 3,
                   "baseline": 4,
-                  "observation_scope": 5,
-                  "entity": 6,
-                  "source": 7,
+                  "delta_percent": 5,
+                  "observation_scope": 6,
+                  "baseline_record_id": 7,
                   "diagnosis_method": 8,
                   "generated_at": 9,
                   "workload_comparability": 10,
@@ -2192,7 +2879,8 @@
                   "range_window_seconds": 12,
                   "evaluation_count": 13,
                   "source_age_seconds": 14,
-                  "quality_warnings": 15
+                  "quality_warnings": 15,
+                  "cluster": 0
                 },
                 "renameByName": {}
               }
@@ -2321,7 +3009,175 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "baseline_record_id"
+                  "options": "node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "candidate_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  },
+                  {
+                    "id": "custom.filterable",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "component"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "state"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "summary"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "evidence_summary"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "counter_evidence_summary"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "missing_evidence_summary"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "verdict"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "step_duration_seconds"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Duration"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "candidate_count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "strong_candidate_count"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "missing_sources"
                 },
                 "properties": [
                   {
@@ -2345,72 +3201,12 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "node"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "step"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "data_origin"
                 },
                 "properties": [
                   {
                     "id": "custom.hidden",
                     "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "signal"
-                },
-                "properties": [
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "title": "이 evidence 구간의 Step Detail 열기",
-                        "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&var-node=${__data.fields[\"node\"]}"
-                      },
-                      {
-                        "title": "이 구간의 Compute & Communication 열기",
-                        "url": "/d/xlayer-compute-communication?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-node=${__data.fields[\"node\"]}"
-                      },
-                      {
-                        "title": "이 구간의 Data & Storage 열기",
-                        "url": "/d/xlayer-data-storage?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${cluster}&var-node=${__data.fields[\"node\"]}"
-                      }
-                    ]
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 260
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "auto",
-                      "wrapText": true
-                    }
                   }
                 ]
               },
@@ -2440,91 +3236,12 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "step_duration_seconds"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Duration"
-                  },
-                  {
-                    "id": "unit",
-                    "value": "s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "candidate_count"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Candidates"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "strong_candidate_count"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Strong signals"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "missing_sources"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Missing sources"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
                   "options": "primary_candidate"
                 },
                 "properties": [
                   {
                     "id": "displayName",
                     "value": "Primary candidate"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "candidate_id"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Candidate"
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 230
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "auto",
-                      "wrapText": true
-                    }
-                  },
-                  {
-                    "id": "custom.filterable",
-                    "value": true
                   }
                 ]
               },
@@ -2539,48 +3256,12 @@
                     "value": "Scope"
                   },
                   {
-                    "id": "custom.width",
-                    "value": 150
-                  },
-                  {
                     "id": "custom.filterable",
                     "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "missing_evidence_summary"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "displayName",
-                    "value": "Missing evidence"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "counter_evidence_summary"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Counter evidence"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "evidence_summary"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Evidence"
+                    "id": "custom.width",
+                    "value": 135
                   }
                 ]
               },
@@ -2593,6 +3274,10 @@
                   {
                     "id": "displayName",
                     "value": "Change (%)"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
                   }
                 ]
               },
@@ -2605,17 +3290,6 @@
                   {
                     "id": "displayName",
                     "value": "Missing evidence"
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 280
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "auto",
-                      "wrapText": true
-                    }
                   }
                 ]
               },
@@ -2632,6 +3306,61 @@
                   {
                     "id": "unit",
                     "value": "s"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "signal"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Current 구간의 Step Detail 열기",
+                        "url": "/d/xlayer-step-detail?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                        "targetBlank": false
+                      },
+                      {
+                        "title": "Baseline 구간의 Step Detail 열기",
+                        "url": "/d/xlayer-step-detail?from=${__data.fields[\"baseline_start_ms\"]}&to=${__data.fields[\"baseline_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"baseline_record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                        "targetBlank": false
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Signal"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "baseline_record_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "step"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 60
                   }
                 ]
               },
@@ -2662,66 +3391,76 @@
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "evidence_type"
+                  "options": "entity"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 120
+                    "value": 180
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Entity"
                   },
                   {
                     "id": "custom.cellOptions",
                     "value": {
-                      "type": "color-text"
+                      "type": "auto",
+                      "wrapText": true
                     }
-                  },
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "record"
+                },
+                "properties": [
                   {
-                    "id": "mappings",
-                    "value": [
-                      {
-                        "type": "value",
-                        "options": {
-                          "supporting": {
-                            "text": "supporting",
-                            "color": "yellow",
-                            "index": 0
-                          },
-                          "counter": {
-                            "text": "counter",
-                            "color": "blue",
-                            "index": 1
-                          },
-                          "missing": {
-                            "text": "missing",
-                            "color": "gray",
-                            "index": 2
-                          }
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "id": "custom.filterable",
+                    "id": "custom.hidden",
                     "value": true
-                  },
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "observer_node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
                   {
                     "id": "displayName",
-                    "value": "Evidence type"
+                    "value": "Cluster"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 130
                   }
                 ]
               }
             ]
           },
-          "description": "Signal별 current·baseline·scope·source와 누락 근거를 확인합니다. Signal link는 해당 evidence 시간 구간의 상세 화면으로 연결됩니다. Evidence type과 candidate ID의 column filter로 좁힙니다. Missing 값은 N/A이며 0이 아닙니다.",
+          "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다.",
           "options": {
             "showHeader": true,
             "cellHeight": "lg",
             "enablePagination": true
           }
         }
-      ],
-      "description": "Supporting・counter・missing evidence를 조사할 때 펼칩니다. Candidate ID와 Evidence type의 column filter로 근거를 좁힙니다.",
-      "options": {}
+      ]
     }
   ]
 }

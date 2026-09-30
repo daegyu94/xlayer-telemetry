@@ -540,10 +540,11 @@ providers:
     options:
       path: $output_dir/dashboards
 EOF
-  cp examples/dashboards/{start-here,run-overview,compute-communication,data-storage,agent-rl-stages}.json "$output_dir/dashboards/"
+  dashboard_args=(--output "$output_dir/dashboards")
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
-    cp examples/dashboards/{run-logs,step-explorer,step-detail,bottleneck-summary,cross-layer-timeline}.json "$output_dir/dashboards/"
+    dashboard_args+=(--enable-logs)
   fi
+  "${PYTHON:-python3}" scripts/provision_dashboards.py "${dashboard_args[@]}"
   if [[ "${SERVER_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   "$tools_dir/prometheus-3.5.0.linux-$release_arch/prometheus" \
     --config.file="$output_dir/prometheus.yml" --storage.tsdb.path="$output_dir/prometheus-data" \
