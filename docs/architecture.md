@@ -45,8 +45,7 @@ XLayer는 이 수치를 workload interval과 측정 scope에 연결해 조사 �
 OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
 XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
 DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비할 수 있는 유용한 signal source이며, XLayer가 그 수집 stack을 다시 만들지는 않습니다.
-Coroot의 dependency map과 evidence 기반 investigation, Darshan/Drishti의 I/O pattern 진단은 UX와 rule 설계의 참고입니다.
-Nsight Systems, PyTorch Profiler, Pyroscope는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
+Nsight Systems·PyTorch Profiler 같은 전문 profiler는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
 
 이 분리는 코드에도 반영됩니다.
@@ -155,11 +154,11 @@ Source마다 저장소와 화면이 달라서 endpoint를 하나 등록하는 �
 | --- | --- | --- |
 | VERL 완료 step | File logger > bridge > snapshot > Node Exporter > Prometheus | Run Overview, Agent RL |
 | GPU·CPU·memory·network·disk | GPU sampler·Node Exporter > Prometheus | Run Overview, Compute, Data & Storage |
-| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | vLLM: Agent RL, Ray: Prometheus Explore·진단 |
+| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | vLLM: Agent RL, Ray: Prometheus query 화면 또는 Grafana Explore·진단 |
 | Workload log·step event | File > Alloy > Loki | Run Logs, Grafana Step Explorer |
 | 3FS FUSE mount·SSD | Node Exporter·선택적 SMART exporter > Prometheus | Data & Storage |
 | 3FS service latency | ClickHouse > 선택적 diagnostics process | `diagnostics/latest.json`, `show_run` |
-| Custom tool span | Application SDK > JSONL event | `show_run`, 원본 event |
+| Custom tool span | Application SDK > JSONL event > 선택적 Alloy/Loki | `show_run`, 원본 event, Cross-Layer Timeline |
 | 진단 후보·timeline | Diagnostics JSON > Alloy > Loki, EventRecorder JSONL > Alloy > Loki | Bottleneck Summary, Cross-Layer Timeline; Loki 없이 JSON·`show_run` |
 
 3FS의 POSIX/FUSE mount 용량과 node disk I/O는 host 관측치입니다.

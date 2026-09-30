@@ -117,6 +117,8 @@ $HOME/telemetry/state/node/        collector state
 
 값이 보이지 않으면 위 순서대로 파일을 확인하고, `application.prom`까지 값이 있다면 Prometheus Targets와 Grafana의 시간·cluster·node·run 선택을 확인합니다.
 Snapshot은 최신 step 하나를 덮어쓰고, 원본 file logger와 event JSONL은 이력을 보관합니다.
+이미 존재하던 logger record를 처음 replay한 경우 step 값은 보존하지만 원래 시각을 복원할 수 없어 시간 범위가 `unknown`입니다.
+이 기록은 Grafana의 시간 기반 step 목록에 나타나지 않으므로, 다음 step이 완료될 때까지 live bridge가 실행 중인지 확인합니다.
 긴 step 동안 완료된 값이 유지되는 것은 정상일 수 있으므로 [Dashboard Guide](dashboards.md#agent-rl-stage-correlation)의 sample age를 함께 봅니다.
 
 ## Add Sources When Needed
@@ -146,7 +148,7 @@ Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인�
 | JSON은 있지만 panel이 비어 있음 | `application.prom`, Prometheus target, 시간·cluster·node·run filter |
 | Stage 값이 없음 | 첫 step 완료 여부, VERL `file` logger 지원, `telemetry-bridge.log` |
 | Step Explorer만 비어 있음 | `ENABLE_LOGS`, step event 파일, Alloy·Loki 수집과 보존 기간 |
-| vLLM·Ray·3FS panel이 `N/A` | 해당 source를 추가했는지와 배포의 실제 metric 이름 |
+| vLLM panel이나 Ray·3FS 진단 근거가 없음 | vLLM·Ray의 native target과 실제 metric 이름; 3FS는 ClickHouse 설정·데이터 |
 
 관측을 마치면 다음 명령으로 server와 node를 종료합니다.
 

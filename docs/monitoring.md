@@ -1,6 +1,6 @@
 # Monitoring Guide
 
-이 문서는 VERL 같은 workload가 실행되는 GPU node의 자원을 관측하고 Grafana에서 확인하는 방법을 설명합니다.
+이 문서는 VERL GPU node와 sandbox·storage host의 자원을 관측하고 Grafana에서 확인하는 방법을 설명합니다.
 먼저 demo 화면을 확인하고, 실제 node 하나를 연결한 뒤 여러 node·log·storage 관측으로 확장합니다.
 VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 이어집니다.
 전체 데이터 흐름과 경로의 역할은 [구현 구조](architecture.md#the-basic-path)에 설명합니다.
@@ -9,7 +9,7 @@ VERL trainer metric 연결은 [VERL 연결 가이드](verl-quickstart.md)에서 
 
 | 구성 | 하는 일 | 실행 위치 |
 | --- | --- | --- |
-| `node` role | GPU sampler와 Node Exporter로 GPU·host 지표 노출 | 각 GPU node |
+| `node` role | GPU sampler와 Node Exporter로 GPU·host 지표 노출 | 각 GPU·sandbox·storage host |
 | `server` role | Prometheus로 metric을 수집하고 Grafana로 표시 | Monitoring host |
 | `storage` role | SMART exporter로 SSD 건강 상태 노출 | 전용 storage node |
 | Alloy / Loki | File log 전송 / 저장; 선택 기능 | Log를 읽는 node / monitoring host |
@@ -23,7 +23,8 @@ Node collector는 metric을 노출하고 monitoring server가 이를 가져가�
 
 [Checkout 준비](../README.md#prepare-a-checkout)를 마치고 저장소 루트에서 실행합니다.
 Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`을 사용합니다.
-실제 `node` role에는 NVIDIA driver와 동작하는 `nvidia-smi`가 필요하며, GPU가 없으면 demo를 사용합니다.
+기본 `node` role은 GPU도 수집하므로 NVIDIA driver와 동작하는 `nvidia-smi`가 필요합니다.
+GPU 없는 sandbox·storage host는 `ENABLE_GPU_METRICS=0`으로 host metric만 수집할 수 있으며, 실제 자원 없이 화면을 익힐 때는 demo를 사용합니다.
 
 아래 예제는 `$HOME/telemetry` 아래에 설치 도구(`tools`), 실행 상태(`state`), server 설정(`config`)을 나누어 저장합니다.
 `state` 아래에서는 역할과 demo별로 `OUTPUT_DIR`을 분리합니다.
@@ -60,8 +61,9 @@ Agent RL Stage Correlation에서 `run_id=verl-agent-demo`, `node=gpu-node-0`을 
 
 ## Monitor One GPU Node
 
-먼저 같은 host에서 collector와 server를 실행합니다.
-각 명령은 서로 다른 terminal에서 실행하고 `OUTPUT_DIR`도 분리합니다.
+VERL을 같은 host에서 실행한다면 [config 기반 `up`](verl-quickstart.md#2-start-server-node-and-verl)으로 한 terminal에서 server·collector를 background로 시작하는 경로를 권장합니다.
+아래는 VERL 없이 자원만 관측하거나 개별 process를 조사할 때 쓰는 수동 경로입니다.
+각 명령은 foreground로 실행하므로 별도 terminal을 사용하고 `OUTPUT_DIR`도 분리합니다.
 
 ### 1. Install the Tools
 
@@ -250,6 +252,9 @@ Target이 up인데 run이 보이지 않는다면 [VERL 연결 가이드](verl-qu
 | Agent RL Stage Correlation | VERL 완료 stage와 등록한 rollout engine 지표 |
 | Compute & Communication | GPU·host·NIC/RDMA와 topology |
 | Data & Storage | Local device·filesystem, storage topology, 선택적 SMART |
+| Step Explorer / Step Detail | Loki의 완료 step을 선택하고 같은 구간의 resource·log 확인 |
+| Bottleneck Summary | 진단 sidecar와 Loki를 연결한 run의 candidate·baseline·evidence |
+| Cross-Layer Timeline | Loki의 span·step band와 Prometheus resource를 같은 시간축에서 확인 |
 | Run Logs | Loki를 활성화했을 때만 제공되는 log 검색 |
 
 각 화면의 필터·패널·측정 범위는 [Dashboard Guide](dashboards.md)에서 설명하고, [실제 실행 GIF](real-verl-demo.md)에서 값이 채워진 예를 볼 수 있습니다.

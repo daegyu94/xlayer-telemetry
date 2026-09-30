@@ -142,9 +142,10 @@ Sandbox rule은 설정의 `sandbox.enabled=true`일 때만 sandbox node와 명�
 `sandbox_io_pressure_ratio`는 sandbox cgroup 안의 여러 block device를 합친 대기이며, `device` busy는 선택한 host block device 전체의 값입니다.
 실제 Docker container가 sampler cgroup 아래에 있는지, `io.stat`의 major:minor가 선택한 backing device와 맞는지 확인하지 않았다면 두 값의 일치를 근거로 귀속을 주장하지 않습니다.
 `sandbox.node`는 dedicated 배치의 node로 지정하고, colocated 배치에서는 생략해 trainer node를 사용합니다.
-Tool duration은 `agent_tool_call_duration_seconds`의 해당 run 표본을 사용합니다.
-이 metric이 없고 `sandbox.events_dir`를 설정했다면 같은 step 시간 구간의 정상 종료 `tool.call` span을 사용하며, baseline도 같은 tool 이름으로 비교합니다.
-이 query는 `run_id`로 tool metric을 고르므로 trainer·rollout node가 달라도 사용할 수 있지만, 여러 rollout worker의 표본이 같은 구간에 섞일 수 있습니다.
+`sandbox.events_dir`에 유효한 `tool.call` span이 있으면 이를 우선 사용하고 baseline도 같은 tool 이름으로 비교합니다.
+진단 process가 이 directory를 읽을 수 있어야 하며 파일명이 `agent`로 시작하고 `attributes.tool`이 있는 정상 종료 span만 대상입니다.
+그 span이 없거나 directory를 설정하지 않았다면 `agent_tool_call_duration_seconds`의 해당 run 표본을 사용합니다.
+Prometheus tool query는 `run_id`로 표본을 고르므로 trainer·rollout node가 달라도 사용할 수 있지만, 여러 rollout worker의 표본이 같은 구간에 섞일 수 있습니다.
 두 scope가 겹쳐도 특정 trajectory의 SSD 사용량이라는 인과 주장은 하지 않습니다.
 
 ## Clock and Node Selection

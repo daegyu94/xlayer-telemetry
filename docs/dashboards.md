@@ -12,50 +12,11 @@ Step Explorer는 Duration이 긴 step부터 표시하고, step 번호의 메뉴�
 Bottleneck Summary의 기본 rule summary는 한국어로 표시하고, candidate ID·signal·state와 원본 diagnosis 데이터는 유지합니다.
 추가된 rule이나 사용자 제공 summary는 등록된 표시 문구가 없으면 원문으로 나타납니다.
 
-## Investigation UX Principles
-
-첫 화면은 수집 상태를 확인하고 조사할 step을 고르는 데 사용합니다.
-Bottleneck Summary에서는 symptom과 candidate를 먼저 읽고, measured changes를 확인한 뒤 `Evidence details (expand to inspect)`를 펼칩니다.
-Candidate ID와 Evidence type의 column filter로 supporting·counter·missing evidence를 좁힙니다.
-Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Step Detail로 열어 같은 context에서 비교하도록 돕습니다.
-
-State는 원본 진단 용어를 유지합니다.
-`strong_signal`은 rule 조건이 관측된 후보이고, `no_anomaly_observed`는 관측한 근거에서 후보를 찾지 못했다는 뜻입니다.
-`insufficient_data`·빈 panel·N/A는 정상이나 0을 뜻하지 않으며, synthetic 결과는 Origin으로 구분합니다.
-색상은 이 구분을 보조하며 인과관계나 정상 상태를 보증하지 않습니다.
-
-Timeline의 Trace ID는 exact span과 related event에 함께 적용합니다.
-Step record는 approximate trainer step을 선택하며 Trace ID와 자동으로 같아지는 개념이 아닙니다.
-같은 Trace ID도 clock synchronization을 보장하지 않으므로 exact·approximate·sampled 경계와 node clock 상태를 따로 확인합니다.
-
-아래 화면은 synthetic fixture를 실제 Grafana 12.1.0에서 렌더링한 예입니다.
-Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합니다.
-
-![Synthetic step의 symptom·candidate·baseline 변화로 이어지는 Bottleneck Summary](figures/bottleneck-summary-synthetic.png)
-
-### Reference Patterns and Decisions
-
-다음 공식 문서의 조사 패턴을 기존 Grafana 구조에 적용했습니다.
-참고 제품을 설치하거나 telemetry backend를 변경하지 않습니다.
-
-| Reference | 참고할 패턴 | XLayer에 적용한 방식 |
-| --- | --- | --- |
-| [Grafana links](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/manage-dashboard-links/) | Context를 유지하는 dashboard·data link | Step 행의 run·record·node·시간 구간으로 이동하고 current/baseline을 따로 열기 |
-| [Coroot inspections](https://docs.coroot.com/inspections/overview/) | Application context에서 상태를 좁혀가는 조사 | Symptom → candidate → measured changes → evidence 순서; missing data를 정상으로 표현하지 않기 |
-| [SigNoz related signals](https://signoz.io/docs/userguide/span-details/) | 선택한 span에서 log·metric으로 이동 | 기존 span link 유지, Trace ID를 span/event에 일관되게 적용, step에서 diagnosis/timeline 바로 열기 |
-| [Perses dashboard model](https://perses.dev/perses/docs/api/dashboard/) | 명시적인 panel·variable·layout 정의 | 기존 dashboard JSON을 source of truth로 유지하고 link·scope·layout 계약을 테스트 |
-| [OpenObserve service graph](https://openobserve.ai/docs/user-guide/data-exploration/traces/service-graph/) | 관계를 따라 조사 대상을 좁히기 | 기존 topology와 evidence entity를 navigation에 사용; 설정된 edge를 실제 traffic이나 causal path로 바꾸지 않기 |
-| [Netdata chart contexts](https://learn.netdata.cloud/docs/dashboards-and-charts/charts) | Node·device context, chart별 측정 범위와 동기화된 탐색 | 기존 resource selector·단위·tooltip을 유지하고 optional evidence를 접이식 row로 단계적으로 공개 |
-
-[Grafana 12.4의 Dynamic Dashboards](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-4/)는 12.4에서 preview로 소개된 기능이며, 현재 검증한 Grafana 12.1.0에서는 사용하지 않습니다.
-Tabs·auto-grid 전환은 지원할 최소 버전과 provisioning 호환성을 검증한 뒤 검토합니다.
-Service health map이나 causal graph도 충분한 entity별 관측 근거가 생기기 전에는 추가하지 않습니다.
-
 ## Start Here
 
 `00 · Start Here`는 조사할 질문에 맞는 화면을 고르는 진입점입니다.
 Collect / Run Health → Correlate / Stage Signals → Select a Step → Diagnose / Candidate & Evidence 순서로 이동하고, Cross-Layer Timeline과 Logs에서 근거를 더 확인합니다.
-`01`부터 `05`까지의 제목은 일반적인 조사 순서이며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
+`01`부터 `06`까지의 제목은 탐색 위치를 구분하며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
 Step Explorer와 Step Detail은 Loki를 활성화했을 때 Grafana에 추가됩니다.
 완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](dashboards.md#open-in-grafana)에 있습니다.
 화면을 처음 열었다면 [필터와 시간 범위](#select-the-context)부터 확인하고, 느린 step을 찾은 뒤 [Step Explorer](#step-explorer)와 [Run Analysis](#run-analysis)로 이어갑니다.
@@ -104,7 +65,7 @@ Reward mean 역시 마지막으로 보고된 값으로, 값 하나만으로 모�
 이 native vLLM 패널은 [endpoint를 등록](agent-rl.md#register-native-endpoints)했을 때만 채워집니다.
 `vLLM KV offload store and load`는 GPU→CPU와 CPU→GPU 전송률을 보여 주며 CPU tier와 filesystem tier를 분리하거나 3FS에 쓴 바이트만 집계하지 않습니다.
 Weight sync, policy lag, tool 시간은 해당 source가 기록된 경우에만 나타납니다.
-Ray endpoint를 등록했더라도 전용 panel은 제공하지 않으므로 Ray task 지표는 Prometheus Explore나 [선택적 진단](agent-rl.md#add-diagnostics)에서 확인합니다.
+Ray endpoint를 등록했더라도 전용 panel은 제공하지 않으므로 Ray task 지표는 Prometheus query 화면·Grafana Explore 또는 [선택적 진단](agent-rl.md#add-diagnostics)에서 확인합니다.
 Sandbox worker sampler를 켰다면 아래의 pool occupancy, I/O pressure, throughput·operations, CPU·memory·OOM panel에서 sandbox node의 상태를 봅니다.
 `Sandbox sample age`가 증가하면 해당 cgroup 그래프는 오래된 textfile 값이므로 현재 상태로 해석하지 않습니다.
 Pool occupancy는 외부 runtime adapter가 `sandbox_active`·`sandbox_queued`를 낼 때만 채워집니다.
@@ -158,7 +119,8 @@ Run Overview에서 target 상태와 sample age를 확인하고, Agent RL에서 �
 
 ## Bottleneck Summary and Cross-Layer Timeline
 
-두 화면은 진단 sidecar와 Loki가 연결된 run에서 동작합니다.
+Bottleneck Summary의 후보 표는 진단 sidecar의 결과를 Loki로 보낸 run에서 채워집니다.
+Cross-Layer Timeline은 Loki의 step event·EventRecorder span과 Prometheus metric을 표시하므로 진단 sidecar 없이도 기록된 실행을 탐색할 수 있습니다.
 Step Explorer에서 느린 step을 선택한 뒤 Bottleneck Summary로 이동하면 같은 run의 baseline, 후보 상태, 근거, 반대 근거와 누락된 근거를 볼 수 있습니다.
 각 행의 scope가 `shared-service`나 `node`라면 해당 수치는 그 run에 귀속된 사용량이 아닙니다.
 
@@ -167,6 +129,26 @@ Sandbox adapter의 `sandbox.queue`·`acquire`·`prepare`·`exec`·`reset`·`rele
 `exact`, `approximate`, `sampled` 구분을 확인하고, stage duration을 시간 순서가 있는 phase bar로 읽지 않습니다.
 Loki가 없으면 `diagnostics/latest.json`과 `show_run`에서 후보를 읽을 수 있습니다.
 사용 순서와 rule 조건은 [Cross-Layer Diagnosis](diagnosis.md)를 따릅니다.
+
+### Read the Investigation Results
+
+Bottleneck Summary에서는 symptom과 candidate를 먼저 읽고, measured changes를 확인한 뒤 `Evidence details (expand to inspect)`를 펼칩니다.
+Candidate ID와 Evidence type의 column filter로 supporting·counter·missing evidence를 좁힙니다.
+Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Step Detail로 열어 같은 context에서 비교하도록 돕습니다.
+
+State는 원본 진단 용어를 유지합니다.
+`strong_signal`은 rule 조건이 관측된 후보이고, `no_anomaly_observed`는 관측한 근거에서 후보를 찾지 못했다는 뜻입니다.
+`insufficient_data`·빈 panel·N/A는 정상이나 0을 뜻하지 않으며, synthetic 결과는 Origin으로 구분합니다.
+색상은 이 구분을 보조하며 인과관계나 정상 상태를 보증하지 않습니다.
+
+Timeline의 Trace ID는 exact span과 related event에 함께 적용합니다.
+Step record는 approximate trainer step을 선택하며 Trace ID와 자동으로 같아지는 개념이 아닙니다.
+같은 Trace ID도 clock synchronization을 보장하지 않으므로 exact·approximate·sampled 경계와 node clock 상태를 따로 확인합니다.
+
+아래 화면은 synthetic fixture를 실제 Grafana 12.1.0에서 렌더링한 예입니다.
+Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합니다.
+
+![Synthetic step의 symptom·candidate·baseline 변화로 이어지는 Bottleneck Summary](figures/bottleneck-summary-synthetic.png)
 
 ## Step Explorer
 

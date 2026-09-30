@@ -48,6 +48,8 @@ SDK와 adapter로 다른 framework나 custom loop에도 이식할 수 있지만,
 
 Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
 공유 GPU·network·storage의 사용량 전체가 특정 run의 사용량이라는 뜻은 아니며, 동시 변화는 원인 후보를 찾는 근거입니다.
+자원을 단독 사용하거나 경쟁 workload를 통제한 실험에서 run과 system signal의 관계를 가장 명확하게 해석할 수 있습니다.
+공유 환경에서도 수집은 가능하지만 사용량 귀속에는 process·cgroup·client 등 추가 근거가 필요합니다.
 3FS ClickHouse 조회 결과는 실행 진단 파일과 `show_run`에서 확인하며, Loki를 연결하면 Bottleneck Summary의 후보 근거로도 볼 수 있습니다.
 3FS 서비스 전용 실시간 Grafana panel은 제공하지 않습니다.
 Source별 수집 경로는 [Agent RL / VERL 신호 흐름](docs/agent-rl.md#how-the-signals-flow)에 정리했습니다.
@@ -83,7 +85,7 @@ VERL에 여러 계층을 연결하려면 아래 순서로 읽고, 각 단계의 
 | 1 | 아래의 [checkout 준비](#prepare-a-checkout) 후 [구현 구조와 설계 원칙](docs/architecture.md)을 읽습니다. | `RUN_ROOT`, collector `OUTPUT_DIR`, monitoring server의 역할을 구분할 수 있습니다. |
 | 2 | [Monitoring Guide의 synthetic demo](docs/monitoring.md#try-the-demo)로 수집과 Grafana를 확인합니다. | Start Here에서 Run Overview를 열고 `Exporter targets up`이 0보다 큽니다. |
 | 3 | 이미 실행 가능한 VERL 명령을 [VERL 연결 가이드](docs/verl-quickstart.md)에 따라 한 GPU node에 붙입니다. | `show_run`에 완료 step이 나오고 Agent RL에서 step·GPU 값이 보입니다. |
-| 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 해당 node의 패널이 채워집니다. |
+| 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM panel 또는 Ray query에서 실제 값이 나옵니다. |
 | 5 | 필요하면 [Loki log·step 수집](docs/monitoring.md#add-run-logs-with-loki), [3FS 진단](docs/agent-rl.md#add-diagnostics)을 추가합니다. | Run Logs·Step Explorer 또는 `diagnostics/latest.json`에서 해당 증거를 확인합니다. |
 | 6 | [Cross-Layer Diagnosis](docs/diagnosis.md)와 [Dashboard Guide](docs/dashboards.md)로 한 느린 구간을 조사합니다. | Baseline, candidate, evidence, missing evidence의 측정 범위를 구분합니다. |
 
@@ -119,7 +121,8 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | Run / `run_id` | 한 번의 workload 실행과 그 식별자 |
 | Worker / rank | workload를 수행하는 process와 분산 실행에서의 번호 |
 | Manifest | 실행 조건, role 배치, endpoint와 산출물 위치를 기록한 JSON |
-| Trace / span | 개별 작업의 시작·종료와 소요 시간을 기록한 상세 증거 |
+| Span | 계측한 작업 하나의 시작·종료, 소요 시간과 상태 |
+| Trace | 같은 `trace_id`를 가진 span과 parent 관계로 연결한 호출 흐름 |
 
 Prometheus는 수치 시계열을 저장하고 Grafana는 이를 시각화합니다.
 Loki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.

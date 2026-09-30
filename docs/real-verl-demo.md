@@ -13,7 +13,8 @@ Data & Storage의 `Mount`는 실제 3FS 마운트이며, Run Logs는 같은 실�
 GIF는 45초 동안 저장된 실제 시계열을 재생합니다.
 그래프의 x축은 2026-09-23 10:40:25–10:43:20(KST)의 수집 시각이며, 처음 12초에는 시간 범위의 끝을 완료 step에 맞춰 이동해 step 1–8을 순서대로 보여 줍니다.
 이후 다섯 대시보드를 스크롤하므로 화면 전환 시각은 학습 단계의 경계가 아닙니다.
-각 화면의 목적과 패널 해석은 [Dashboard Guide](dashboards.md)에 정리했습니다.
+이 기록 이후 추가된 Step Explorer·Bottleneck Summary·Cross-Layer Timeline과 sandbox panel은 GIF에 포함되지 않습니다.
+현재 화면의 목적과 패널 해석은 [Dashboard Guide](dashboards.md)에 정리했습니다.
 
 ## Recorded Run
 
@@ -45,17 +46,21 @@ Run Logs의 `Run` 변수에는 telemetry run ID 대신 lab 결과 디렉터리 �
 Alloy가 `<log-root>/<run-directory>/logs/**/*.log` 경로에서 이 값을 추출하기 때문입니다.
 동일한 실행의 지표와 로그를 비교할 때도 Grafana의 `Run` 값이 두 화면에서 같은 문자열인지 먼저 확인합니다.
 
-## Reproduce the Run
+## Reproduce the Recorded Recipe
+
+이 기록은 당시 `agentic-rl-lab` recipe를 기준으로 하며, 현재 lab 저장소는 [verl-lab](https://github.com/daegyu94/verl-lab)입니다.
+아래 명령은 해당 launcher와 환경 변수 계약을 유지한 checkout에서 사용하는 참고 예시이며, 현재 VERL version 전체의 호환성을 보장하지 않습니다.
+새 배포에서는 `verl-lab`의 설치·dataset 준비 절차를 확인하고 [일반 VERL wrapper](verl-quickstart.md)를 먼저 연결합니다.
 
 3FS가 POSIX FUSE 경로에 마운트돼 있고 KV 파일을 저장할 하위 디렉터리에 쓰기 권한이 있어야 합니다.
-`agentic-rl-lab`의 dataset과 Docker sandbox image는 해당 저장소의 `README.md`에 따라 준비합니다.
+Dataset과 필요한 tool environment는 사용하는 lab checkout의 `README.md`에 따라 준비합니다.
 [Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node collector와 server를 시작하고, 같은 server 설정 파일에 `ENABLE_LOGS=1`, node에는 `LOKI_PUSH_URL`과 `TELEMETRY_LOG_ROOTS`를 지정합니다.
 Node collector의 `TELEMETRY_METRICS_DIR`는 아래 결과 디렉터리의 `telemetry/telemetry-metrics`로 설정합니다.
 `TELEMETRY_LOG_ROOTS`는 `$LAB_ROOT/results`처럼 `$RESULTS_DIR`의 부모를 가리키고, 학습 log를 수집할 collector 한 대에만 설정합니다.
 Wrapper의 `--output`이 `$RESULTS_DIR/telemetry`이므로 Step Explorer가 읽는 event 파일은 `$RESULTS_DIR/telemetry/telemetry-events/verl-steps.jsonl`에 생깁니다.
 
 ```bash
-export LAB_ROOT=/path/to/agentic-rl-lab
+export LAB_ROOT=/path/to/verl-lab
 export THREEFS_MOUNT=/path/to/3fs/poc-mount
 export RESULTS_DIR="$LAB_ROOT/results/xlayer-verl-vllm-3fs-$(date -u +%Y%m%dT%H%M%SZ)"
 export MODEL_ID=Qwen/Qwen2.5-1.5B-Instruct
@@ -77,8 +82,8 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
 
 명령은 xlayer-telemetry 저장소 루트에서 실행합니다.
 이 host에서는 처음 실행 때의 `ncclNetInit()` 충돌을 피하려고 위 NCCL socket 설정을 사용했습니다.
-현재 `agentic-rl-lab` recipe는 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`를 함께 전달합니다.
-다른 VERL recipe를 사용한다면 두 설정을 해당 학습 명령에 추가합니다.
+기록된 실행에서는 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`로 native metrics를 활성화했습니다.
+현재 lab launcher가 이 두 값을 모두 전달한다고 가정하지 말고 사용하는 VERL의 지원 설정을 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 확인합니다.
 이 recipe의 `trainer.v1.trainer_mode`는 `sync`입니다.
 `actor_rollout_ref.rollout.mode=async`는 vLLM server 방식이며 XLayer의 trainer 경계 `--execution-mode`와 다른 설정입니다.
 동적으로 정해지는 vLLM `/metrics` 주소를 학습이 시작된 직후 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 Prometheus의 `native` job에 추가해야 offload·queue 패널을 기록할 수 있습니다.

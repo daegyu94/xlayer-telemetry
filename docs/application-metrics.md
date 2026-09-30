@@ -148,11 +148,11 @@ SDK가 설치된 것만으로 Node Exporter가 설치되지는 않습니다.
 Application과 같은 node의 별도 terminal에서 실행하며, 경로를 앞에서 만든 실제 directory로 바꿉니다.
 
 ```bash
-TOOLS_DIR='/path/to/installed-node-tools' \
+TOOLS_DIR="$HOME/telemetry/tools" \
 NODE_ADDR='127.0.0.1' \
 NODE_NAME='gpu-local' \
-OUTPUT_DIR='/path/to/local-monitoring-state' \
-TELEMETRY_METRICS_DIR='/path/to/artifacts/metrics-demo-001/telemetry-metrics' \
+OUTPUT_DIR="$HOME/telemetry/state/node" \
+TELEMETRY_METRICS_DIR="$PWD/artifacts/metrics-demo-001/telemetry-metrics" \
   bash scripts/run_telemetry.sh node
 ```
 

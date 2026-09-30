@@ -52,7 +52,7 @@ VERL step event는 별도로 Loki에 수집하면 Grafana Step Explorer의 목�
 | 알고 싶은 내용 | 추가할 source | 결과를 볼 위치 |
 | --- | --- | --- |
 | Rollout queue·KV cache·KV offload 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout·KV offload panel |
-| Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Prometheus Explore, 선택적 diagnostics |
+| Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Prometheus query 화면 또는 Grafana Explore, 선택적 diagnostics |
 | 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | 진단 JSON과 `show_run` |
 | Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Resource·SSD dashboard |
 | Workload log | Alloy와 Loki | 선택적인 Logs dashboard |
@@ -63,7 +63,7 @@ Native metric은 배포에서 제공하는 이름과 label에 따라 dashboard q
 자동 변환되는 VERL key와 별도 producer가 필요한 signal은 [실제 수집 범위](metrics.md#what-is-actually-collected)에 정리했습니다.
 System resource와 shared service metric에는 application의 `run_id`가 자동으로 붙지 않습니다.
 처음에는 vLLM·Ray·3FS를 한꺼번에 등록하지 말고, endpoint 하나의 target이 up인지 확인한 뒤 다음 source를 추가합니다.
-Ray는 수집 target과 diagnostics query가 준비되어 있지만 전용 Grafana panel은 제공하지 않으므로 Prometheus Explore에서 실제 metric 이름을 먼저 확인합니다.
+Ray는 수집 target과 diagnostics query가 준비되어 있지만 전용 Grafana panel은 제공하지 않으므로 Prometheus query 화면 또는 Grafana Explore에서 실제 metric 이름을 먼저 확인합니다.
 
 ## Register Native Endpoints
 
@@ -149,13 +149,11 @@ PYTHONPATH=. python -m xlayer_telemetry.manifest \
   --output "$HOME/telemetry-runs/grpo-001/topology-manifest.json" \
   --run-id grpo-001 \
   --role trainer=trainer-0 \
-  --role rollout=rollout-0 \
-  --source vllm=http://10.0.0.11:8000/metrics \
-  --artifact profiles="$HOME/telemetry-runs/grpo-001/profiles" \
-  --set algorithm=grpo
+  --role rollout=rollout-0
 ```
 
 Manifest는 실행 조건과 위치를 기록하는 파일입니다.
+같은 역할의 node가 여러 대면 `--role`을 반복하고, 선택적 endpoint·profile 경로는 `--source`·`--artifact`로 기록할 수 있습니다.
 `--source`를 기록하는 것만으로 Prometheus 수집이 활성화되지는 않으며 `show_run`은 기본적으로 `telemetry-manifest.json`을 읽습니다.
 기본 manifest의 role 정보를 갱신하려면 기존 settings·sources·artifacts를 보존하면서 실제 배치에 맞게 수정합니다.
 Grafana Step Explorer의 `Resource node` 선택은 Prometheus에 등록된 node를 기반으로 하므로 manifest 파일만 만들어도 새로운 node의 그래프가 생기지 않습니다.
@@ -183,7 +181,9 @@ Remote worker의 snapshot을 Grafana에 표시하려면 그 worker node에도 co
 `ENABLE_LOGS=1`과 Alloy/Loki도 연결하면 결과를 Bottleneck Summary와 Cross-Layer Timeline에서 볼 수 있습니다.
 [diagnostics.json](../examples/verl/diagnostics.json)을 별도 파일로 복사하고 Prometheus 주소를 실제 주소로 수정합니다.
 3FS를 사용하지 않으면 `threefs` object를 제거합니다.
-단일 host에서는 `verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 추가하고 새 `RUN_ID`로 `run`을 실행합니다.
+단일 host에서는 `verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 추가하고 새 `RUN_ID`를 지정합니다.
+같은 config로 `down` → `up` → `run`을 실행해 collector가 새 run의 snapshot directory를 읽도록 갱신합니다.
+처음부터 diagnostics를 설정한 경우에는 [기본 시작 절차](verl-quickstart.md#2-start-server-node-and-verl)를 그대로 따릅니다.
 
 3FS를 연결하려면 ClickHouse에 `distributions` 데이터가 있어야 합니다.
 Database와 `mount_name` 등 filter를 실제 배포에 맞추고, 인증이 필요하면 `THREEFS_CLICKHOUSE_USER`와 `THREEFS_CLICKHOUSE_PASSWORD` 환경 변수로 전달합니다.
@@ -199,7 +199,6 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
     --run-id grpo-002 \
     --node gpu-local \
     --diagnostics-config "$HOME/telemetry/config/diagnostics.json" \
-    --diagnostics-interval 10 \
     -- /path/to/verl-env/bin/python -m verl.trainer.main_ppo \
       ...
 ```
@@ -259,21 +258,25 @@ export TELEMETRY_EVENTS_DIR="$HOME/telemetry-runs/grpo-001/telemetry-events"
 `call_tool()`은 application의 실제 함수로 바꿉니다.
 
 ```python
-from pathlib import Path
-
 from xlayer_telemetry.events import EventRecorder
 
 events = EventRecorder.from_env(producer="agent", role="rollout")
 if events is None:
     result = call_tool()
 else:
-    with events.span("tool.call", phase="tool_interaction", step=1):
+    with events.span(
+        "tool.call", phase="tool_interaction", step=1,
+        attributes={"tool": "pytest"},
+    ) as tool_span:
         result = call_tool()
 ```
 
-파일은 기본적으로 `<producer>-<role>-<worker>.jsonl`로 생성됩니다.
+파일명은 `<producer>-<role>-<worker>@NODE@RUN.jsonl`이며 node·run을 포함해 다른 node의 같은 worker 번호와 구분합니다.
+실제 경로는 `events.path`에서 확인하고, 후속 script에서 고정 basename을 가정하지 않습니다.
 식별자 자체에 `-`가 있으면 파일명에서 해당 문자를 `%2D`로 인코딩해 서로 다른 producer tuple의 파일이 충돌하지 않도록 합니다.
-같은 directory의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
+같은 node·run·producer·role의 worker는 서로 다른 ID를 사용해야 하며 기본 worker ID는 `RANK`, 없으면 `0`입니다.
+`attributes.tool`은 실제 tool 이름으로 지정해야 sandbox 진단의 같은-tool baseline 비교에 사용할 수 있습니다.
+`as tool_span`으로 받은 `trace_id`·`span_id`를 하위 sandbox span에 넘기면 호출 관계를 보존합니다.
 Event는 그 자체로 Prometheus metric이 되지 않습니다.
 Loki를 켜고 Alloy가 해당 run root를 읽으면 `xlayer_event` stream으로 전달되어 Cross-Layer Timeline의 exact span에 나타납니다.
 
@@ -307,6 +310,8 @@ Sandbox runtime이 호출하는 코드에 아래처럼 계측을 넣습니다.
 RPC로 dedicated node에 전달할 때도 두 ID를 sandbox worker에 전달합니다.
 
 ```python
+from pathlib import Path
+
 from xlayer_telemetry.events import EventRecorder
 from xlayer_telemetry.sandbox import SandboxRecorder
 
@@ -319,7 +324,7 @@ else:
         deployment="dedicated", sandbox_node="sandbox-0",
     )
     with sandbox.span(
-        "exec", step=127, trajectory_id="trajectory-17", sandbox_id="sandbox-17",
+        "exec", step=1, trajectory_id="trajectory-17", sandbox_id="sandbox-17",
         trace_id=tool_span.trace_id, parent_span_id=tool_span.span_id,
         attributes={"tool": "pytest"},
         cgroup=Path("/sys/fs/cgroup/your-sandbox-container"),
@@ -330,7 +335,9 @@ else:
 지원하는 operation은 `queue`, `acquire`, `prepare`, `exec`, `reset`, `release`이며 runtime에서 실제 실행한 단계만 기록합니다.
 `queue`는 pool에 빈 sandbox가 생기기를 기다리는 구간, `acquire`는 선택된 sandbox를 할당받는 구간입니다.
 Queue가 없는 runtime은 두 구간을 만들어 내지 않고 실제 `exec`만 기록해도 됩니다.
-`tool_span`은 AgentLoop의 기존 `tool.call` span에서 받은 ID이며, dedicated 배치라면 RPC로 전달합니다.
+`tool_span`은 위 tool 예제의 span identity입니다.
+Colocated 호출은 해당 객체를 전달하고, dedicated 호출은 RPC request에 `trace_id`·`parent_span_id` 값과 `run_id`를 넣어 worker에서 사용합니다.
+실제 RPC 전송과 worker의 환경 설정은 외부 runtime이 담당하며 XLayer가 자동 전파하지 않습니다.
 `cgroup`은 선택 사항이며, 개별 sandbox cgroup을 전달하면 span 전후의 I/O bytes·operations 차이와 PSI를 같은 trace의 `sandbox.resource_sample` event에 기록합니다.
 이 event의 `sandbox_id`·`trajectory_id`와 cgroup 범위 값은 Prometheus label이나 worker 전체 집계에 섞이지 않습니다.
 Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node여야 합니다.
@@ -394,7 +401,8 @@ Sandbox worker와 하위 container가 속한 **안정적인 cgroup v2 subtree**�
 `/proc/<worker-pid>/cgroup`의 `0::` 뒤 경로를 호스트의 `/sys/fs/cgroup` 아래에서 확인하되, Docker daemon이 만든 container가 그 경로의 자손인지도 확인합니다.
 안정적으로 유지되는 sandbox parent를 Prometheus 대상으로 사용하고, runtime이 sandbox를 만들 때마다 새로 생성하는 개별 container cgroup은 사용하지 않습니다.
 하나의 node·runtime·filesystem·deployment 조합에 textfile producer 하나를 두어 같은 시계열이 충돌하지 않게 합니다.
-한 node에 둘 이상을 수집한다면 `--textfile-name`을 서로 다른 `.prom` basename으로 설정합니다.
+서로 다른 label 조합의 producer를 같은 textfile directory에 두는 경우 `--textfile-name`도 서로 다른 `.prom` basename으로 지정합니다.
+파일명만 바꾸고 label 조합을 같게 두면 중복 시계열이 되므로, 같은 node·runtime·filesystem·deployment의 여러 container는 공통 parent cgroup 하나로 집계합니다.
 
 ```bash
 python -m xlayer_telemetry.sandbox_sampler \
@@ -438,8 +446,9 @@ Colocated에서 `node`를 생략하면 rollout/trainer record의 node를 사용�
 }
 ```
 
-`events_dir`는 선택 사항입니다.
-지정하면 해당 run의 `agent-*.jsonl`에 기록된 정상 종료 `tool.call` span 중 분석 구간 안에 완전히 포함된 호출의 최대 duration을 사용하고, baseline에서도 같은 tool 이름만 비교합니다.
+`events_dir`는 선택 사항이며 진단 process가 읽을 수 있는 경로여야 합니다.
+이 fallback은 파일명이 `agent`로 시작하는 producer의 span만 읽으므로 위 예제처럼 `producer="agent"`를 사용합니다.
+지정하면 해당 run의 `agent*.jsonl`에 기록된 정상 종료 `tool.call` span 중 분석 구간 안에 완전히 포함된 호출의 최대 duration을 사용하고, baseline에서도 같은 tool 이름만 비교합니다.
 선택한 run의 agent event 파일을 분석할 때마다 읽으므로 장시간·대규모 실행에서는 기존 Prometheus tool duration 지표를 우선 사용합니다.
 해당 span이 없거나 이 설정이 없으면 기존 `agent_tool_call_duration_seconds` Prometheus 지표를 사용합니다.
 첫 step에는 같은 run의 이전 baseline이 없어 tool slowdown을 판단하지 않습니다.
