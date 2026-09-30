@@ -32,6 +32,40 @@ def _iter_snapshots(metrics_dir: Path) -> list[dict]:
     return list(snapshots.values())
 
 
+def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
+                      node: str | None = None, max_age_seconds: float | None = None,
+                      now: float | None = None) -> list[dict]:
+    """Discover immediate run children on every poll; never recurse unboundedly.
+
+    Explicit directories retain legacy behavior unless an age limit is supplied.
+    Run-root discovery excludes runs with a terminal telemetry health record.
+    """
+    now = time.time() if now is None else now
+    discovered = {path.resolve() for root in run_roots
+                  for path in root.glob("*/telemetry-metrics") if path.is_dir()}
+    directories = discovered | {path.resolve() for path in metrics_dirs}
+    selected: dict[tuple[str, ...], dict] = {}
+    for directory in sorted(directories):
+        if directory in discovered:
+            try:
+                health = json.loads((directory.parent / "telemetry-health.json").read_text())
+                if isinstance(health, dict) and health.get("workload", {}).get("status") == "finished":
+                    continue
+            except (OSError, ValueError, AttributeError):
+                pass
+        for snapshot in _iter_snapshots(directory):
+            observed = finite_number(snapshot.get("observed_at"))
+            if node is not None and snapshot["node"] != node:
+                continue
+            if max_age_seconds is not None and (observed is None or not 0 <= now-observed <= max_age_seconds):
+                continue
+            identity = tuple(snapshot[key] for key in ("run_id", "producer", "role", "worker_id", "node"))
+            previous = selected.get(identity)
+            if previous is None or (observed is not None and observed >= (finite_number(previous.get("observed_at")) or 0)):
+                selected[identity] = snapshot
+    return list(selected.values())
+
+
 def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
     metrics = []
     for snapshot in snapshots:
@@ -108,18 +142,26 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--metrics-dir", required=True, type=Path)
+    parser.add_argument("--metrics-dir", action="append", type=Path, default=[])
+    parser.add_argument("--runs-root", action="append", type=Path, default=[], help="Discover ROOT/*/telemetry-metrics")
+    parser.add_argument("--max-age-seconds", type=float, help="Default 300 with runs-root; unlimited for legacy metrics-dir")
+    parser.add_argument("--once", action="store_true")
     parser.add_argument("--textfile-dir", required=True, type=Path)
     parser.add_argument("--interval", type=float, default=2.0)
     parser.add_argument("--node", help="Only publish snapshots for this logical collector node")
     args = parser.parse_args()
-    if args.interval <= 0:
-        parser.error("interval must be positive")
+    if not args.metrics_dir and not args.runs_root:
+        parser.error("at least one --metrics-dir or --runs-root is required")
+    if finite_number(args.interval) is None or args.interval <= 0:
+        parser.error("interval must be finite and positive")
+    max_age = args.max_age_seconds if args.max_age_seconds is not None else (300 if args.runs_root else None)
+    if max_age is not None and (finite_number(max_age) is None or max_age <= 0):
+        parser.error("max-age-seconds must be finite and positive")
     while True:
-        snapshots = _iter_snapshots(args.metrics_dir)
-        if args.node:
-            snapshots = [item for item in snapshots if item.get("node") == args.node]
+        snapshots = collect_snapshots(args.metrics_dir, args.runs_root, node=args.node, max_age_seconds=max_age)
         write_gauges(args.textfile_dir, "application.prom", build_metrics(snapshots))
+        if args.once:
+            break
         time.sleep(args.interval)
 
 

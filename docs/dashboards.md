@@ -164,6 +164,11 @@ Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합�
 
 ![Synthetic step의 symptom·candidate·baseline 변화로 이어지는 Bottleneck Summary](figures/bottleneck-summary-synthetic.png)
 
+Bottleneck Summary의 `Method`는 기본 `rule`이고, 선택한 record에 대한 수동 LLM 실행 결과가 있을 때 `llm`을 선택합니다.
+실행 방법은 [선택한 step 진단](local-llm.md#diagnose-a-selected-grafana-step)을 참고합니다.
+Comparison과 evidence의 `workload_comparability`, `range_window_seconds`, `evaluation_count`, `source_age_seconds`, `quality_warnings`를 함께 확인합니다.
+Evaluation count는 scrape 횟수가 아니며 source age가 비어 있으면 freshness가 확인되지 않은 것입니다.
+
 ## Step Explorer
 
 Step Explorer는 Grafana에서 완료된 VERL step을 고르고 해당 구간의 stage, node 자원 지표와 Loki log를 확인하는 화면입니다.

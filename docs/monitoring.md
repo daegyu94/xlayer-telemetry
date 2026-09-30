@@ -310,6 +310,32 @@ Snapshot이 제공하는 loss·step·timer만 변환되며 collector가 학습 �
 기본 2초 주기는 `TELEMETRY_METRICS_INTERVAL`로 조정합니다.
 Application의 `TELEMETRY_NODE`와 server target 이름을 맞춰 같은 node의 자원 지표를 함께 봅니다.
 
+### Keep the Collector Across Runs
+
+같은 node에서 run을 순차 실행하거나 동시에 실행할 때는 `TELEMETRY_RUNS_ROOT`를 run directory들의 부모로 지정합니다.
+Collector는 매 poll마다 바로 아래의 `*/telemetry-metrics`를 발견하고 기존 node·producer identity로 구분합니다.
+임의의 하위 directory를 재귀 탐색하지 않습니다.
+
+```bash
+TELEMETRY_RUNS_ROOT="$HOME/telemetry-runs" \
+  bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" node
+```
+
+`verl_local.sh`는 기본적으로 설정한 `RUN_ROOT`의 부모를 사용하므로 보통 이 override도 필요 없습니다.
+Run-root 모드의 기본 `TELEMETRY_METRICS_MAX_AGE_SECONDS`는 300초이며, 긴 step은 정상 갱신 간격보다 충분히 큰 값으로 설정합니다.
+오래되었거나 미래 시각의 snapshot, 종료 상태가 기록된 run은 현재 application export에서 제외하지만 JSONL·snapshot과 기존 Prometheus 이력은 보존합니다.
+다른 node의 시각이 어긋난 snapshot도 제외될 수 있으므로 clock 상태를 먼저 확인합니다.
+
+기존 `--metrics-dir`는 유지하며 CLI에서 반복 지정할 수 있습니다.
+직접 지정한 directory만 사용하는 CLI는 `--max-age-seconds`를 생략하면 기존처럼 age 제한 없이 읽습니다.
+
+```bash
+python -m xlayer_telemetry.metrics.textfile \
+  --metrics-dir /path/to/run-a/telemetry-metrics \
+  --metrics-dir /path/to/run-b/telemetry-metrics \
+  --node gpu-0 --max-age-seconds 300 --textfile-dir /path/to/collector/textfile
+```
+
 ## Expand to Multiple Nodes
 
 각 GPU node에는 node 도구와 collector를, monitoring host에는 server 도구를 설치합니다.

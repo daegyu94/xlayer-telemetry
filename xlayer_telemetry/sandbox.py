@@ -5,10 +5,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from pathlib import Path
 import time
+import re
 from typing import Any, Iterator, Mapping
 
 from .events import EventRecorder, SpanIdentity
-from .sandbox_sampler import pressure_ratio, read_cgroup
+from .sandbox_sampler import pressure_ratio, read_cgroup, read_io_devices
 
 
 LIFECYCLE_OPERATIONS = frozenset({"queue", "acquire", "prepare", "exec", "reset", "release"})
@@ -33,7 +34,7 @@ class SandboxRecorder:
              trajectory_id: str | None = None, sandbox_id: str | None = None,
              trace_id: str | None = None, parent_span_id: str | None = None,
              attributes: Mapping[str, Any] | None = None,
-             cgroup: Path | None = None) -> Iterator[SpanIdentity]:
+             cgroup: Path | None = None, device_major_minor: str | None = None) -> Iterator[SpanIdentity]:
         if operation not in LIFECYCLE_OPERATIONS:
             raise ValueError(f"unsupported sandbox operation: {operation!r}")
         details = {**dict(attributes or {}), **self.attributes}
@@ -41,6 +42,9 @@ class SandboxRecorder:
             details["trajectory_id"] = trajectory_id
         if sandbox_id is not None:
             details["sandbox_id"] = sandbox_id
+        if device_major_minor is not None and not re.fullmatch(r"[0-9]+:[0-9]+", device_major_minor):
+            raise ValueError("device_major_minor must be major:minor")
+        devices_before = read_io_devices(cgroup) if cgroup is not None else {}
         before = read_cgroup(cgroup) if cgroup is not None else None
         started = time.monotonic()
         with self.events.span(
@@ -53,7 +57,22 @@ class SandboxRecorder:
             finally:
                 if before is not None:
                     after = read_cgroup(cgroup)
-                    deltas = {}
+                    devices_after = read_io_devices(cgroup)
+                    device_deltas = {
+                        device: {key: value-devices_before[device][key]
+                                 for key, value in values.items()
+                                 if key in devices_before.get(device, {}) and value >= devices_before[device][key]}
+                        for device, values in devices_after.items() if device in devices_before
+                    }
+                    deltas = {
+                        "io_devices": device_deltas,
+                        "device_mapping": {
+                            "configured_major_minor": device_major_minor,
+                            "status": "unconfigured" if device_major_minor is None else "observed" if device_major_minor in device_deltas else "unmatched",
+                            "observed_major_minors": sorted(device_deltas),
+                            "attribution": "cgroup_block_io_not_tool_or_device_ownership",
+                        },
+                    }
                     for key, name in (("rbytes", "io_read_bytes_delta"),
                                       ("wbytes", "io_write_bytes_delta"),
                                       ("rios", "io_read_ops_delta"),
@@ -75,3 +94,37 @@ class SandboxRecorder:
                             trace_id=identity.trace_id, span_id=identity.span_id,
                             attributes={**details, "observation_scope": "cgroup", **deltas},
                         )
+
+
+def device_window(directory: Path, run_id: str, node: str, start: float, end: float,
+                  configured_major_minor: str | None = None) -> dict:
+    """Inspect bounded event evidence, not a sum of overlapping cgroup deltas."""
+    from .fileio import json_objects
+    from .measurements import finite_number
+    observations = []
+    observed_devices = set()
+    observation_count = 0
+    for path in directory.glob("sandbox*.jsonl"):
+        try:
+            for item in json_objects(path):
+                stamp = finite_number(item.get("timestamp_unix_nano"))
+                attributes = item.get("attributes", {})
+                if (item.get("name") != "sandbox.resource_sample" or item.get("run_id") != run_id
+                        or not isinstance(attributes, dict) or attributes.get("sandbox_node") != node
+                        or stamp is None or not start <= stamp/1e9 <= end):
+                    continue
+                devices = attributes.get("io_devices", {})
+                if not isinstance(devices, dict):
+                    continue
+                observation_count += 1
+                observed_devices.update(devices)
+                if len(observations) < 20:
+                    observations.append({"trace_id": item.get("trace_id"), "span_id": item.get("span_id"),
+                                         "io_devices": devices})
+        except OSError:
+            continue
+    return {"configured_major_minor": configured_major_minor,
+            "status": "unconfigured" if not configured_major_minor else "observed" if configured_major_minor in observed_devices else "unmatched" if observed_devices else "unknown",
+            "observed_major_minors": sorted(observed_devices), "observations": observations,
+            "observation_count": observation_count, "truncated": observation_count > len(observations),
+            "scope": "cgroup_event_window", "limitation": "Configured major:minor is supplied by the operator; simultaneous device busy does not prove tool ownership."}

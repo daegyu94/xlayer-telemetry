@@ -18,6 +18,8 @@ from urllib.request import Request, urlopen
 
 from .diagnostics import PrometheusClient
 from .clock_quality import assess_clocks
+from .evidence_quality import quality, check_source, validate_sampling, validate_quality
+from .llm_investigation import selected_report, project_result
 
 
 PROMPT_VERSION = 11
@@ -30,7 +32,7 @@ INFERENCE_OPTIONS = {
 OBSERVATION_FIELDS = {
     "id", "signal", "unit", "observation_scope", "labels", "baseline", "current",
     "delta", "delta_percent", "source", "query", "kind",
-}
+} | {"sampling_quality"}
 STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase", "max_series_delta"}
 
 
@@ -210,7 +212,8 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
             "observation_scope": row.get("scope", "unknown"),
             "labels": row.get("labels", {}),
             "unit": row.get("unit", "unspecified; infer only if unambiguous from signal name"),
-            "source": "saved comparison; raw series and freshness unavailable",
+            "source": "saved comparison; raw series may have been aggregated",
+            "sampling_quality": row.get("sampling_quality"),
         })
     return {
         "schema_version": 1, "record_type": "llm_observation_packet",
@@ -222,6 +225,8 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "clock_quality": report.get("clock_quality", {"status": "unchecked"}),
         "baseline_interval": comparison.get("baseline_interval"),
         "observations": observations,
+        "baseline_comparability": comparison.get("workload_comparability", "unverified"),
+        "workload": {"current": comparison.get("current_workload", {}), "baseline": comparison.get("baseline_workload", {})},
         "missing_sources": report.get("missing_sources", []),
         "limitations": [
             "Saved comparisons may already aggregate/select entities; they are not raw telemetry.",
@@ -240,6 +245,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("source config must be an object")
     if not isinstance(config.get("prometheus_url"), str) or not config["prometheus_url"].strip():
         raise ValueError("source config needs prometheus_url")
+    validate_sampling(config.get("sampling", {}))
     queries = config.get("queries")
     if not isinstance(queries, list) or not 1 <= len(queries) <= 64:
         raise ValueError("queries must contain between 1 and 64 scoped queries")
@@ -290,6 +296,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
     observations, missing = [], []
     for query in queries:
         matrices = []
+        qualities = {}
         for name, window in (("current", current), ("baseline", baseline)):
             if window is None:
                 matrices.append({})
@@ -297,6 +304,8 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
             try:
                 detail = client.query_range_detail(query["query"], window["start"], window["end"], step)
                 series = {json.dumps(item["labels"], sort_keys=True): item for item in detail["series"]}
+                source_sample = check_source(client, query["query"], window["start"], window["end"], step) if config.get("sampling", {}).get("check_source_freshness") else {}
+                qualities[name] = quality(query["query"], window["start"], window["end"], step, detail.get("aggregate"), source=source_sample)
                 if not series:
                     missing.append(f"{name}:{query['signal']}:no_data")
             except (OSError, RuntimeError, ValueError) as error:
@@ -321,6 +330,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 "kind": query.get("kind", "gauge"),
                 "labels": json.loads(identity), "query": query["query"],
                 "current": stats(now), "baseline": stats(before), "source": "prometheus",
+                "sampling_quality": qualities,
             })
     return {
         "schema_version": 1, "record_type": "llm_observation_packet", "data_origin": "observed",
@@ -330,7 +340,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
         "topology": config.get("topology", []), "missing_sources": missing,
         "limitations": [
             f"Statistics summarize query evaluations every {step:g}s, not raw scrape samples.",
-            "PromQL range windows may include data outside the selected interval; source freshness is not independently checked.",
+            "PromQL range windows may include data outside the selected interval; missing source freshness is unknown, not proof of fresh samples.",
             "Labels identify observed entities; shared metrics do not establish per-run ownership.",
             "The preceding window is a temporal baseline, not proof of equivalent workload or a healthy reference.",
         ],
@@ -363,6 +373,7 @@ def validate_packet(packet: dict[str, Any]) -> None:
                 raise ValueError(f"observation {key} must be nonempty text")
         if "kind" in item and item["kind"] not in ("gauge", "counter", "delta"):
             raise ValueError("observation kind must be gauge, counter or delta")
+        validate_quality(item.get("sampling_quality"))
         for key in ("current", "baseline"):
             _validate_measurement(item.get(key))
         for key in ("delta", "delta_percent"):
@@ -392,7 +403,7 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
     preferred = ("id", "signal", "unit", "observation_scope", "labels", "baseline", "current")
     present = set().union(*(item.keys() for item in observations)) if observations else set()
     common = {}
-    for key in ("source", "query", "kind", "unit", "observation_scope", "labels"):
+    for key in ("source", "query", "kind", "unit", "observation_scope", "labels", "sampling_quality"):
         if observations and all(key in item and item[key] == observations[0][key]
                                 for item in observations):
             common[key] = observations[0][key]
@@ -400,7 +411,7 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
     columns = [key for key in preferred if key in present]
     columns.extend(sorted(present - set(columns)))
     metadata = ("data_origin", "context", "current_interval", "baseline_interval",
-                "topology", "clock_quality", "missing_sources", "limitations")
+                "topology", "clock_quality", "missing_sources", "limitations", "baseline_comparability", "workload")
     view = {key: packet[key] for key in metadata if key in packet}
     view.update({"representation": "observation_table_v1", "observation_columns": columns,
                  "observation_rows": [[item.get(key) for key in columns] for item in observations]})
@@ -721,23 +732,35 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="observation packet or saved diagnosis JSON; rule fields are discarded")
+    source.add_argument("--run-root", type=Path, help="Diagnose one saved step explicitly; requires --record-id")
+    parser.add_argument("--record-id", help="Copy Step record ID from Grafana Step Detail/Bottleneck Summary")
     source.add_argument("--source-config", type=Path, help="Prometheus intervals and scoped queries, without diagnosis rules")
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434")
     parser.add_argument("--model", default="qwen3.5:27b")
+    parser.add_argument("--timeout", type=float, default=600)
     parser.add_argument("--collect-only", action="store_true", help="write observations without calling a model")
     args = parser.parse_args()
-    source_path = args.input or args.source_config
+    if args.run_root and not args.record_id:
+        parser.error("--record-id is required with --run-root")
+    if args.record_id and not args.run_root:
+        parser.error("--record-id requires --run-root")
+    if args.output is None:
+        if not args.run_root:
+            parser.error("--output is required without --run-root")
+        import uuid
+        args.output = args.run_root / "diagnostics" / f"llm-{uuid.uuid4().hex}.json"
+    source_path = args.input or args.source_config or args.run_root / "diagnostics/diagnostics.jsonl"
     if source_path.resolve() == args.output.resolve():
         parser.error("output must not overwrite the input")
     packet = None
     try:
-        data = json.loads(source_path.read_text(encoding="utf-8"))
+        data = selected_report(args.run_root, args.record_id) if args.run_root else json.loads(source_path.read_text(encoding="utf-8"))
         packet = collect_packet(data) if args.source_config else (
             packet_from_report(data) if isinstance(data, dict) and data.get("record_type") == "bottleneck_diagnosis" else data
         )
         validate_packet(packet)
-        result = packet if args.collect_only else diagnose(packet, endpoint=args.endpoint, model=args.model)
+        result = packet if args.collect_only else diagnose(packet, endpoint=args.endpoint, model=args.model, timeout=args.timeout)
     except (OSError, RuntimeError, ValueError, KeyError, TypeError) as error:
         # Never pair a failed attempt with the previous successful diagnosis.
         # Only validated input is retained, so malformed/nonfinite data remains a failure record.
@@ -750,6 +773,9 @@ def main() -> None:
         raise SystemExit(1) from error
     write_result(args.output, result)
     print(args.output)
+    if args.run_root and not args.collect_only:
+        projection = project_result(args.run_root, result)
+        print(f"Grafana Bottleneck Summary: select Method=llm and record_id={args.record_id}; projection={projection}")
 
 
 if __name__ == "__main__":

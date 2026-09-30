@@ -9,6 +9,7 @@ node_name="${TELEMETRY_NODE:-$(hostname)}"
 rl_insight_url="${RL_INSIGHT_SERVER_URL:-}"
 diagnostics_config=""
 diagnostics_interval="10"
+health_max_age_seconds="${TELEMETRY_HEALTH_MAX_AGE_SECONDS:-300}"
 execution_mode="auto"
 declare -a sources=()
 declare -a settings=()
@@ -94,6 +95,7 @@ while (($#)); do
   esac
 done
 
+[[ "$health_max_age_seconds" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v value="$health_max_age_seconds" 'BEGIN { exit !(value > 0) }' || { echo "TELEMETRY_HEALTH_MAX_AGE_SECONDS must be positive" >&2; exit 2; }
 [[ -n "$output_dir" ]] || { echo "--output is required" >&2; exit 2; }
 (($#)) || { echo "a VERL command is required after --" >&2; exit 2; }
 [[ "$execution_mode" == auto || "$execution_mode" == sync || "$execution_mode" == async ]] || { echo "--execution-mode must be auto, sync, or async" >&2; exit 2; }
@@ -204,6 +206,20 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
 
 bridge_pid=""
 diagnostics_pid=""
+health_pid=""
+stop_health() {
+  if [[ -n "$health_pid" ]]; then
+    kill "$health_pid" 2>/dev/null || true
+    wait "$health_pid" 2>/dev/null || true
+    health_pid=""
+  fi
+}
+finish_health() {
+  stop_health
+  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
+    --run-root "$output_dir" --finish "$1" --bridge-export "$2" --diagnostics-export "$3" \
+    || echo "[telemetry] health record failed" >&2
+}
 stop_bridge() {
   if [[ -n "$bridge_pid" ]] && kill -0 "$bridge_pid" 2>/dev/null; then
     kill "$bridge_pid" 2>/dev/null || true
@@ -217,6 +233,7 @@ stop_diagnostics() {
   fi
 }
 stop_sidecars() {
+  stop_health
   stop_bridge
   stop_diagnostics
 }
@@ -236,6 +253,9 @@ interrupt_workload() {
     fi
     wait "$workload_pid" 2>/dev/null || true
   fi
+  diagnosis_outcome=disabled
+  [[ -z "$diagnostics_config" ]] || diagnosis_outcome=interrupted
+  finish_health "$status" interrupted "$diagnosis_outcome"
   exit "$status"
 }
 trap stop_sidecars EXIT
@@ -277,8 +297,15 @@ printf ' %q' "${command[@]}"
 printf '\n'
 
 set +e
+health_args=(--run-root "$output_dir" --bridge-pid "$bridge_pid" --max-age-seconds "$health_max_age_seconds")
+[[ -z "$diagnostics_pid" ]] || health_args+=(--diagnostics-pid "$diagnostics_pid")
+PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
+  "${health_args[@]}" --once > "$output_dir/logs/telemetry-health.log" 2>&1
 setsid -- "${command[@]}" &
 workload_pid=$!
+PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
+  "${health_args[@]}" > "$output_dir/logs/telemetry-health.log" 2>&1 &
+health_pid=$!
 wait "$workload_pid"
 workload_status=$?
 workload_pid=""
@@ -287,7 +314,10 @@ set -e
 stop_sidecars
 bridge_pid=""
 diagnostics_pid=""
+bridge_export=missing
+diagnosis_export=disabled
 if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
+  bridge_export=ok
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     "$telemetry_python" -m xlayer_telemetry.adapters.verl \
       --input "$VERL_FILE_LOGGER_PATH" \
@@ -296,14 +326,16 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
       --worker-id driver \
       --node "$node_name" \
       --history "$step_history_path" \
-      --execution-mode "$execution_mode" || echo "[telemetry] final metric export failed" >&2
+      --execution-mode "$execution_mode" || { bridge_export=failed; echo "[telemetry] final metric export failed" >&2; }
   if ! compgen -G "$TELEMETRY_METRICS_DIR/verl-trainer-driver*.json" >/dev/null; then
+    bridge_export=missing
     echo '[telemetry] no translated VERL snapshots; check logger keys with python -m xlayer_telemetry.adapters.verl --describe-metrics and logs/telemetry-bridge.log' >&2
   fi
 else
   echo '[telemetry] VERL file logger output is missing; ensure trainer.logger includes file and the launcher forwards VERL_FILE_LOGGER_PATH' >&2
 fi
 if [[ -n "$diagnostics_config" ]]; then
+  diagnosis_export=ok
   # 3FS ClickHouse distributions can arrive after the workload boundary.
   # Keep the final step pending until its service window has settled.
   settle_seconds=$("$telemetry_python" -c 'import json,sys; c=json.load(open(sys.argv[1])); print(c.get("threefs", {}).get("settle_seconds", 30) if c.get("threefs") else 0)' "$diagnostics_config")
@@ -315,8 +347,11 @@ if [[ -n "$diagnostics_config" ]]; then
       --config "$diagnostics_config" --history "$step_history_path" \
       --output "$output_dir/diagnostics" --run-id "$run_id" \
       --node "$node_name" --execution-mode "$execution_mode" --once --pending-only --finalize-pending \
-      >> "$output_dir/logs/telemetry-diagnostics.log" 2>&1 || echo "[telemetry] final diagnosis failed" >&2
+      >> "$output_dir/logs/telemetry-diagnostics.log" 2>&1 || { diagnosis_export=failed; echo "[telemetry] final diagnosis failed" >&2; }
+  [[ -f "$output_dir/diagnostics/latest.json" ]] || diagnosis_export=missing
 fi
+
+finish_health "$workload_status" "$bridge_export" "$diagnosis_export"
 
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
   "$telemetry_python" -m xlayer_telemetry.show_run "$output_dir" || echo "[telemetry] run summary failed" >&2

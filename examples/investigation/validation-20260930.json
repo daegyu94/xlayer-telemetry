@@ -1,0 +1,86 @@
+{
+  "validated_on": "2026-09-30",
+  "baseline_commit": "68d857806663d711e4b6cedd4532e13488e95544",
+  "real_prometheus": {
+    "status": "passed",
+    "checks": {
+      "two_nodes_same_worker_isolated": true,
+      "new_run_without_collector_restart": true,
+      "real_source_timestamps": {
+        "interval_seconds": 5.000000715255737,
+        "query_step_seconds": 2.0,
+        "range_window_seconds": 0,
+        "evaluation_count": 1.0,
+        "evaluation_count_kind": "query_evaluations_not_scrapes",
+        "observed_source_samples": 1,
+        "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
+        "last_source_timestamp": 1790748557.806,
+        "source_age_seconds": 1.1162197589874268,
+        "freshness": "observed",
+        "source_coverage": "returned_series_only",
+        "warnings": [
+          "fewer_than_two_query_evaluations"
+        ]
+      },
+      "completed_run_removed_from_export": true,
+      "snapshot_expiry": true,
+      "ollama_exit_code": 0,
+      "llm_projection": true
+    },
+    "limitations": [
+      "SDK fixture values, not VERL training.",
+      "Logical nodes share one host.",
+      "No causal storage or GPU bottleneck asserted."
+    ]
+  },
+  "grafana_loki_browser": {
+    "status": "passed",
+    "logql_rule_llm_queries": true,
+    "legacy_rule_projection_compatibility": true,
+    "grafana_provisioning": true,
+    "browser_methods": [
+      "rule",
+      "llm"
+    ],
+    "real_ollama_projection_via_alloy": true,
+    "data": "SDK fixture measurements and actual reviewed Ollama output."
+  },
+  "real_ollama": {
+    "model": "qwen3.5:27b",
+    "model_digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+    "runtime_version": "0.34.4",
+    "assessment": "insufficient_evidence",
+    "review": "revise",
+    "model_input_bytes": 1420,
+    "latency_seconds": 246.973,
+    "projected": true
+  },
+  "real_verl": {
+    "mode": "sync",
+    "workload": "SWE-Bench guided patch and Docker grader",
+    "training_steps": 2,
+    "workload_exit_code": 0,
+    "telemetry_status": "complete",
+    "diagnostics_enabled_during_training": false,
+    "tokens": [
+      4805,
+      3831
+    ],
+    "token_tolerance_10_percent_rejects_different_workload": true,
+    "linked_docker_grader_execs": 3,
+    "tool_calls": 14
+  },
+  "limitations": [
+    "Two logical node exporters share one physical host; no new physical multi-node test.",
+    "Real training verified wrapper, scalar metadata and tool-to-Docker spans, not full live cross-layer collection.",
+    "Prometheus integration and Ollama input used SDK fixture values; no real storage bottleneck is asserted.",
+    "Per-device event delta/mapping uses controlled cgroup-like fixtures; live cgroup v2 parsing also checked.",
+    "Reviewed real Ollama projection was ingested by Alloy into isolated Loki and displayed by Grafana; measurements were SDK fixtures."
+  ],
+  "cpu_validation": {
+    "pytest_passed": 349,
+    "shell_syntax": "passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  }
+}

@@ -188,3 +188,8 @@ bash scripts/check_tools.sh
 CPU 테스트는 외부 training framework 없이 실행할 수 있습니다.
 `check_tools.sh`의 미설치 표시는 해당 선택 기능의 도구가 없다는 뜻입니다.
 Synthetic demo와 smoke test의 수치는 실제 LLM 학습 성능을 나타내지 않습니다.
+
+## Investigation Quality
+
+Collector는 여러 run을 발견할 수 있으며 wrapper의 telemetry completeness를 workload exit code와 구분합니다.
+[Baseline 비교 조건과 sampling quality](docs/diagnosis.md#select-a-comparable-workload), [sandbox device event](docs/agent-rl.md#preserve-device-evidence-in-events), [선택한 step의 optional LLM 진단](docs/local-llm.md#diagnose-a-selected-grafana-step)을 통해 evidence의 비교 가능성과 측정 한계를 확인합니다.

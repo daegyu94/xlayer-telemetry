@@ -181,6 +181,27 @@ python -m xlayer_telemetry.llm_diagnosis \
   --output "$RUN_ROOT/diagnostics/llm.json"
 ```
 
+### Diagnose a Selected Grafana Step
+
+Bottleneck Summary의 `Step record ID`를 복사하고 run 파일에 접근할 수 있는 host에서 명시적으로 실행합니다.
+Ollama가 다른 monitoring host에 있다면 `--endpoint`로 주소를 지정합니다.
+
+```bash
+python -m xlayer_telemetry.llm_diagnosis \
+  --run-root "$RUN_ROOT" --record-id RECORD_ID
+```
+
+선택한 step의 최신 final revision에서 관측값·baseline·sampling quality를 가져오고, rule candidate·threshold는 모델에 전달하지 않습니다.
+기본 output은 run의 `diagnostics/llm-*.json`이며 `--output`으로 변경할 수 있습니다.
+성공한 검토 결과만 기존 Alloy 경로인 `diagnostics/investigation/llm-*.jsonl`에 projection합니다.
+Draft, rejected response와 실패는 Grafana candidate로 내보내지 않습니다.
+
+Bottleneck Summary에서 `Method=llm`을 선택하면 model·생성 시각·hypothesis·evidence ID를 확인할 수 있습니다.
+Rule 결과는 `Method=rule`로 계속 확인하고, LLM hypothesis에 rule의 `strong_signal`이나 numeric confidence를 부여하지 않습니다.
+Alloy가 해당 run root를 읽고 있어야 Grafana에 표시되며 오래된 interval은 Loki retention과 과거 event 수용 설정의 영향을 받습니다.
+CLI와 dashboard는 모델을 자동 호출하지 않습니다.
+`--collect-only`는 선택한 step의 입력만 저장하고 projection하지 않습니다.
+
 ## Exercise Bottlenecks and Negative Cases
 
 평가 명령은 synthetic 메트릭을 만들고 실제 로컬 모델을 호출한 뒤 각 입력과 출력을 저장합니다.

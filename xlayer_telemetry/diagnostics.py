@@ -18,8 +18,10 @@ from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline
+from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline, validate_baseline_policy, workload_matches
 from .clock_quality import assess_clocks
+from .evidence_quality import quality, check_source, validate_sampling
+from .sandbox import device_window
 from .fileio import atomic_write_text, json_objects
 
 
@@ -99,6 +101,13 @@ def _series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None
     }
 
 
+def _finite_string(value: Any) -> bool:
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 @dataclass
 class PrometheusClient:
     url: str
@@ -125,7 +134,9 @@ class PrometheusClient:
         return {
             "aggregate": _series_stats(matrix),
             "series": [
-                {"labels": item.get("metric", {}), "stats": stats}
+                {"labels": item.get("metric", {}), "stats": stats,
+                 **({"source_timestamps": [float(point[1]) for point in item.get("values", [])
+                      if len(point) == 2 and _finite_string(point[1])]} if query.startswith("timestamp(") else {})}
                 for item in matrix
                 if (stats := _series_stats([item])) is not None
             ],
@@ -199,6 +210,8 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("diagnostics config requires a prometheus object")
     if not isinstance(config["prometheus"].get("url"), str):
         raise ValueError("diagnostics config requires prometheus.url")
+    validate_sampling(config.get("sampling", {}))
+    validate_baseline_policy(config.get("baseline", {}))
     thresholds = config.get("thresholds", {})
     if not isinstance(thresholds, dict) or any(
         type(value) not in (int, float) or not math.isfinite(value) or value < 0
@@ -226,6 +239,8 @@ def load_config(path: Path) -> dict[str, Any]:
     for key in ("cluster", "compute_node", "rollout_node", "storage_node", "storage_device"):
         if key in config and (not isinstance(config[key], str) or not config[key]):
             raise ValueError(f"{key} must be a nonempty string")
+    if sandbox and sandbox.get("device_major_minor") is not None and (not isinstance(sandbox["device_major_minor"], str) or not re.fullmatch(r"[0-9]+:[0-9]+", sandbox["device_major_minor"])):
+        raise ValueError("sandbox.device_major_minor must be major:minor")
     clocks = config.get("clock", {})
     if not isinstance(clocks, dict):
         raise ValueError("clock must be an object")
@@ -399,12 +414,15 @@ class DiagnosticEngine:
         cluster = str(self.config.get("cluster", ""))
         run_id = str((current or {}).get("run_id") or self.config.get("run_id", ""))
         execution_mode = str((current or {}).get("execution_mode") or self.config.get("execution_mode", "sync"))
+        baseline_policy = self.config.get("baseline", {})
+        validate_baseline_policy(baseline_policy)
         comparable_history = [
             item for item in history
             if current and item.get("run_id") == current.get("run_id")
             and item.get("node") == current.get("node")
             and item.get("worker_id") == current.get("worker_id")
             and item.get("boundary_scope") == current.get("boundary_scope")
+            and workload_matches(current, item, baseline_policy)
         ]
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
         evidence: dict[str, Any] = {"slow_stages": slow}
@@ -439,12 +457,13 @@ class DiagnosticEngine:
                     if name in queries and name not in self.config["prometheus"].get("queries", {}):
                         queries[name] = queries[name].replace('{', '{cluster="{cluster}",job="telemetry",', 1)
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
-        baseline_record = select_baseline(current, history) if current else None
+        baseline_record = select_baseline(current, history, policy=baseline_policy) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
         baseline_window_valid = (finite(baseline_window.get("start")) is not None
                                  and finite(baseline_window.get("end")) is not None
                                  and baseline_window["start"] < baseline_window["end"])
         baseline_metrics: dict[str, Any] = {}
+        sampling_quality: dict[str, dict] = {}
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
         clock_config = self.config.get("clock", {})
@@ -492,6 +511,8 @@ class DiagnosticEngine:
                          .replace("{sandbox_node}", _escape_prometheus(sandbox_node))
                          .replace("{sandbox_device}", _escape_prometheus(sandbox_device)))
                 stats, series = query_with_detail(query, float(start), end)
+                source_sample = check_source(self.prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample)}
                 if stats is None:
                     missing.append("prometheus:" + name)
                 else:
@@ -502,12 +523,19 @@ class DiagnosticEngine:
                         query, float(baseline_window["start"]),
                         float(baseline_window["end"]),
                     )
+                    baseline_start, baseline_end = float(baseline_window["start"]), float(baseline_window["end"])
+                    prior_source = check_source(self.prometheus, query, baseline_start, baseline_end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                    sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source)
                     if prior is not None:
                         baseline_metrics[name] = prior
                         baseline_series[name] = prior_series
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"prometheus:{name}:{type(exc).__name__}")
 
+        sandbox_device_mapping = None
+        if sandbox_config.get("enabled") and sandbox_config.get("events_dir"):
+            sandbox_device_mapping = device_window(Path(sandbox_config["events_dir"]), run_id, sandbox_node,
+                                                  float(start), end, sandbox_config.get("device_major_minor"))
         tool_event_span = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir") and current:
             directory = Path(sandbox_config["events_dir"])
@@ -708,13 +736,42 @@ class DiagnosticEngine:
             # window as a bottleneck hypothesis for this workload interval.
             candidates = []
             findings = []
+        normalization = None
+        if baseline_policy.get("normalize_by") and current and baseline_record:
+            token_field = baseline_policy["normalize_by"]
+            tokens = finite(current.get("workload", {}).get(token_field))
+            previous_tokens = finite(baseline_record.get("workload", {}).get(token_field))
+            if tokens and previous_tokens and tokens > 0 and previous_tokens > 0:
+                duration = current_signals.get("step_duration_seconds")
+                previous_duration = baseline_signals.get("step_duration_seconds")
+                if duration is not None and previous_duration is not None:
+                    normalization = {"field": token_field, "unit": "seconds/token",
+                                     "current": duration/tokens, "baseline": previous_duration/previous_tokens}
         comparison = {
             "current_interval": window,
             "baseline_interval": baseline_window if baseline_record else None,
             "baseline_record_id": (baseline_record or {}).get("record_id"),
             "selection": "same_run_same_worker_nearest_prior_median" if baseline_record else "unavailable",
             "signals": compare_signals(current_signals, baseline_signals, scopes=signal_scopes, labels=signal_labels),
+            "workload_comparability": "matched_configured_fields" if baseline_record and baseline_policy.get("match_fields") else "unverified" if baseline_record else "unavailable",
+            "match_fields": baseline_policy.get("match_fields", []),
+            "normalization": normalization,
+            "current_workload": (current or {}).get("workload", {}),
+            "baseline_workload": (baseline_record or {}).get("workload", {}),
         }
+        if normalization is not None:
+            normalized_current, normalized_baseline = normalization["current"], normalization["baseline"]
+            comparison["signals"].append({"signal": "step_seconds_per_token", "scope": "application", "labels": {},
+                                          "unit": "seconds/token", "current": normalized_current, "baseline": normalized_baseline,
+                                          "delta": normalized_current-normalized_baseline,
+                                          "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
+        for candidate in candidates:
+            for item in candidate.get("evidence", []):
+                name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
+                item["sampling_quality"] = sampling_quality.get(name)
+        for row in comparison["signals"]:
+            name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
+            row["sampling_quality"] = sampling_quality.get(name)
         external_count = len(evidence) - 1
         verdict = "bottleneck_suspected" if findings or candidates else "no_anomaly_observed"
         if unsafe_timing:
@@ -722,6 +779,10 @@ class DiagnosticEngine:
         if external_count == 0 and not candidates:
             verdict = "insufficient_data"
         limitations = []
+        if comparison["workload_comparability"] == "unverified":
+            limitations.append("Baseline workload comparability is unverified; configure baseline.match_fields before interpreting duration growth as a resource symptom.")
+        elif baseline_policy.get("match_fields") and not baseline_record:
+            missing.append("baseline:comparable_workload")
         if unsafe_timing:
             limitations.append("Clock alignment is unsafe or unknown; cross-layer diagnosis and baseline deltas are withheld. Raw resource windows remain available for inspection.")
         if clock_quality["status"] == "unchecked":
@@ -758,6 +819,9 @@ class DiagnosticEngine:
             "verdict": verdict,
             "findings": findings,
             "evidence": evidence,
+            "sampling_quality": sampling_quality,
+            "sandbox_device_mapping": sandbox_device_mapping,
+            "diagnosis_method": "rule",
             "missing_sources": missing,
             "limitations": limitations,
             "diagnosis_schema_version": 1,
@@ -912,11 +976,22 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         suffix = f":{labels}" if labels else ""
         return f"{item['signal']}={item['value']} ({item['observation_scope']}{suffix})"
 
+    def quality_fields(value):
+        value = (value or {}).get("current", {})
+        return {"query_step_seconds": value.get("query_step_seconds"),
+                "range_window_seconds": value.get("range_window_seconds"),
+                "evaluation_count": value.get("evaluation_count"),
+                "source_age_seconds": value.get("source_age_seconds"),
+                "quality_warnings": ", ".join(value.get("warnings", []))}
+
     window = report.get("analysis_window", {})
     comparison = report.get("comparison", {})
     baseline = comparison.get("baseline_interval") or {}
     common = {
         "schema_version": 1, "run_id": report.get("run_id"), "node": report.get("node"),
+        "diagnosis_method": report.get("diagnosis_method", "rule"), "generated_at": report.get("generated_at"),
+        "workload_comparability": comparison.get("workload_comparability", "unverified"),
+        "sandbox_device_mapping": (report.get("sandbox_device_mapping") or {}).get("status", "not_configured"),
         "data_origin": report.get("data_origin", "observed"),
         "step": report.get("step"), "record_id": report.get("trigger_record_id"),
         "observed_at": window.get("end"), "boundary_accuracy": window.get("accuracy"),
@@ -950,7 +1025,9 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                              "current": item.get("value"), "baseline": item.get("baseline"),
                              "observation_scope": item.get("observation_scope"),
                              "source": item.get("source"),
-                             "entity": ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items())})
+                             "entity": ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items()),
+                             "sampling_quality": json.dumps(item.get("sampling_quality"), separators=(",", ":")),
+                             **quality_fields(item.get("sampling_quality"))})
         for name in candidate.get("missing_evidence", []):
             rows.append({**common, "row_kind": "evidence", "candidate_id": candidate.get("id"),
                          "evidence_type": "missing", "signal": name,
@@ -964,7 +1041,9 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "observation_scope": signal["scope"],
                      "entity": ",".join(f"{key}={value}" for key, value in signal.get("labels", {}).items()),
                      "current": signal["current"],
-                     "baseline": signal["baseline"], "delta_percent": signal["delta_percent"]})
+                     "baseline": signal["baseline"], "delta_percent": signal["delta_percent"],
+                     "sampling_quality": json.dumps(signal.get("sampling_quality"), separators=(",", ":")),
+                     **quality_fields(signal.get("sampling_quality"))})
     return rows
 
 

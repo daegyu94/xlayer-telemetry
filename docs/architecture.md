@@ -122,7 +122,9 @@ VERL logger가 보고한 stage 소요 시간은 실제 stage의 시작·종료 t
 
 `RUN_ROOT`는 한 VERL 실행의 증거이고 `OUTPUT_DIR`은 collector 한 instance의 상태입니다.
 두 경로가 달라도 되지만 node collector의 `TELEMETRY_METRICS_DIR`은 wrapper의 `$RUN_ROOT/telemetry-metrics`를 가리켜야 합니다.
-다른 run을 시작하면 새 `RUN_ROOT`를 만들고 node collector도 새 경로로 재시작합니다.
+`verl_local.sh node`는 기본적으로 `RUN_ROOT`의 부모 아래 `*/telemetry-metrics`를 찾아 run이 바뀌어도 collector를 유지합니다.
+직접 시작하는 collector는 기존 `TELEMETRY_METRICS_DIR` 또는 새 `TELEMETRY_RUNS_ROOT`를 선택할 수 있습니다.
+여러 run을 발견할 때는 기본 300초 freshness와 `telemetry-health.json`의 종료 상태를 확인하며, 원본 파일은 삭제하지 않습니다.
 
 ```text
 $RUN_ROOT/                              $OUTPUT_DIR/
@@ -134,6 +136,7 @@ $RUN_ROOT/                              $OUTPUT_DIR/
     verl-trainer-driver@NODE@RUN.json      alloy-data/         (logs enabled)
   telemetry-events/
     verl-steps.jsonl
+  telemetry-health.json                  (workload outcome + telemetry status)
   diagnostics/
     latest.json
     diagnostics.jsonl

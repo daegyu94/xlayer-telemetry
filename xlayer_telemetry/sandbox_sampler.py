@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import signal
+import re
 import time
 from typing import Mapping
 
@@ -20,16 +21,36 @@ COUNTERS = {"rbytes": "sandbox_io_read_bytes_total", "wbytes": "sandbox_io_write
             "rios": "sandbox_io_read_ops_total", "wios": "sandbox_io_write_ops_total"}
 
 
-def parse_io_stat(raw: str) -> dict[str, int]:
-    totals = {key: 0 for key in COUNTERS}
+def parse_io_devices(raw: str) -> dict[str, dict[str, int]]:
+    devices = {}
     for line in raw.splitlines():
         parts = line.split()
-        if not parts or ":" not in parts[0]:
+        if not parts or not re.fullmatch(r"[0-9]+:[0-9]+", parts[0]):
             continue
+        values = {}
         for part in parts[1:]:
             key, separator, value = part.partition("=")
-            if separator and key in totals:
-                totals[key] += int(value)
+            if separator and key in COUNTERS:
+                number = int(value)
+                if number < 0:
+                    raise ValueError("negative io.stat counter")
+                values[key] = number
+        devices[parts[0]] = values
+    return devices
+
+
+def read_io_devices(directory: Path) -> dict[str, dict[str, int]]:
+    try:
+        return parse_io_devices((directory / "io.stat").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def parse_io_stat(raw: str) -> dict[str, int]:
+    totals = {key: 0 for key in COUNTERS}
+    for values in parse_io_devices(raw).values():
+        for key, value in values.items():
+            totals[key] += value
     return totals
 
 

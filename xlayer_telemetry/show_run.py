@@ -72,6 +72,16 @@ def _recent_events(paths: Iterable[Path], limit: int = 20) -> list[dict[str, Any
 def summarize(output_dir: Path) -> str:
     lines = [f"Run: {output_dir}"]
 
+    health = _load(output_dir / "telemetry-health.json")
+    if health is not None:
+        lines.append(f"\n[telemetry completeness] status={health.get('status')} workload_exit={health.get('workload', {}).get('exit_code')}")
+        for name, item in health.get("sidecars", {}).items():
+            lines.append(f"  {name}: {item.get('status')} last_success_at={item.get('last_success_at')}")
+        lines.append(f"  final_export={health.get('final_export', {})}")
+        if health.get("diagnostics"):
+            lines.append(f"  diagnosis_coverage={health['diagnostics']}")
+        lines.extend(f"  issue: {issue}" for issue in health.get("issues", []))
+
     manifest_path = output_dir / "telemetry-manifest.json"
     manifest = _load(manifest_path)
     if manifest is not None:

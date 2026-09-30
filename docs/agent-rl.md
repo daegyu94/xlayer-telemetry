@@ -480,6 +480,23 @@ Sandbox I/O는 cgroup에 속한 여러 block device의 합계이고 local NVMe b
 특정 tool이 느리고 cgroup pressure와 NVMe busy가 동시에 증가해도 다른 sandbox·process의 부하가 섞일 수 있으므로 [진단 후보](diagnosis.md#baseline-and-rule-state)로만 해석합니다.
 원인을 더 좁혀야 하면 해당 구간에서 VFS syscall, OverlayFS copy-up, fsync 등을 선택적으로 profile할 수 있으며 eBPF는 기본 의존성이 아닙니다.
 
+### Preserve Device Evidence in Events
+
+`SandboxRecorder.span`은 `io.stat`의 major:minor별 counter delta를 `sandbox.resource_sample.attributes.io_devices`에 보존합니다.
+Prometheus는 기존 cgroup 합계와 낮은 cardinality label을 유지합니다.
+Backing device를 운영자가 확인한 경우 `device_major_minor`를 함께 전달합니다.
+
+```python
+with sandbox.span("exec", cgroup=cgroup_path, device_major_minor="259:0"):
+    run_tool()
+```
+
+`device_mapping.status=observed`는 지정한 major:minor가 그 cgroup의 관측 device에 있었다는 뜻입니다.
+`unmatched`는 관측 목록에 없고, `unconfigured`는 매핑을 지정하지 않은 경우입니다.
+이 상태만으로 OverlayFS backing path나 특정 tool의 device ownership이 입증되지는 않습니다.
+Host에서 `lsblk -o NAME,MAJ:MIN`과 실제 workspace backing device를 확인한 뒤 diagnostics의 `sandbox.device_major_minor`에도 같은 값을 설정합니다.
+Diagnostics는 해당 run·sandbox node·시간 구간의 event를 찾아 `sandbox_device_mapping`을 표시하며, 겹치는 cgroup/span의 delta를 합산하지 않습니다.
+
 ### Enable the optional diagnosis rule
 
 기존 [diagnostics 설정](#add-diagnostics)에 sandbox section을 추가합니다.

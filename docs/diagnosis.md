@@ -151,6 +151,50 @@ Sandbox rule은 설정의 `sandbox.enabled=true`일 때만 sandbox node와 명�
 Prometheus tool query는 `run_id`로 표본을 고르므로 trainer·rollout node가 달라도 사용할 수 있지만, 여러 rollout worker의 표본이 같은 구간에 섞일 수 있습니다.
 두 scope가 겹쳐도 특정 trajectory의 SSD 사용량이라는 인과 주장은 하지 않습니다.
 
+### Select a Comparable Workload
+
+기존 baseline 선택은 유지하지만 기본 `workload_comparability`는 `unverified`입니다.
+Token 수·evaluation·checkpoint 차이를 제외하려면 diagnostics config에 비교 조건을 추가합니다.
+
+```json
+"baseline": {
+  "match_fields": ["perf/total_num_tokens", "has_evaluation", "has_checkpoint"],
+  "relative_tolerance": 0.1,
+  "normalize_by": "perf/total_num_tokens"
+}
+```
+
+Bridge는 logger에 존재하는 `perf/total_num_tokens`, `prompt_length/mean`, `response_length/mean`, `data/train_batch_size`, `train_batch_size`, `policy_version`을 history의 `workload`에 보존합니다.
+`has_evaluation`·`has_checkpoint`는 보고된 stage timing에서 계산합니다.
+Logger가 batch나 policy 값을 제공하지 않으면 만들어내지 않으며, 선택한 field가 어느 쪽에든 없으면 해당 baseline은 제외합니다.
+Numeric field는 이전 값 기준 tolerance로 비교하고 boolean field는 정확하게 일치해야 합니다.
+조건을 만족하는 이전 step이 없으면 `baseline:comparable_workload`를 missing evidence로 남깁니다.
+
+Normalization은 양쪽에 유효한 양수 token 수가 있을 때만 `step_seconds_per_token`을 추가합니다.
+단위는 `seconds/token`이고 총 step duration의 기존 rule threshold를 대체하지 않습니다.
+Token 수가 같아도 tool mix·sequence 분포·cache 상태까지 동일하다는 보장은 없으므로 `matched_configured_fields`도 비교 조건의 충족만 의미합니다.
+
+### Read Sampling Quality
+
+Evidence와 comparison은 `sampling_quality.current`·`baseline`에 interval 길이, query step, range window와 evaluation count를 보존합니다.
+예를 들어 6초 step의 `[1m]` rate에는 `range_window_exceeds_interval`이 표시됩니다.
+이 값은 step 전후 활동을 포함할 수 있으므로 해당 step의 정밀한 resource 사용량으로 해석하지 않습니다.
+
+Source freshness를 확인하려면 diagnostics 또는 LLM source config에 다음 설정을 추가합니다.
+
+```json
+"sampling": {"check_source_freshness": true}
+```
+
+선택적 검사는 한 source selector로 해석 가능한 query의 원본 `timestamp(metric{...})`를 추가 조회합니다.
+Computed rate 자체의 timestamp를 원본 freshness로 사용하지 않습니다.
+이 timestamp는 Prometheus가 보존한 raw metric sample의 시각이며 application 내부 event나 snapshot 생성 시각은 아닙니다.
+Collector가 같은 snapshot을 반복 노출할 수 있으므로 application 진행 상태는 `training_sample_timestamp_seconds`와 telemetry health도 함께 확인합니다.
+`source_age_seconds`와 조회 시점에 발견한 고유 source timestamp 수를 기록하지만, 이 수는 전체 scrape 횟수가 아닙니다.
+여러 source가 섞인 query, backend 오류, 검사 비활성화에서는 freshness가 `unknown`입니다.
+`observed`는 timestamp를 확인했다는 뜻이며 age·clock·missing source를 함께 읽어야 합니다.
+검사는 metric query당 current/baseline에 최대 한 번 추가되어 backend query 비용이 늘므로 기본은 비활성화입니다.
+
 ## Clock and Node Selection
 
 Multi-node diagnosis에서는 [설정 예제](../examples/multinode/diagnostics.json)를 복사하여 실제 cluster·node·storage device를 지정합니다.
@@ -216,3 +260,18 @@ GPU 또는 communication candidate가 있으면 [profiler 실행 예제](dashboa
 Communication candidate는 [NCCL baseline](dashboards.md#measure-a-communication-baseline)과 같은 hardware 경로에서 비교합니다.
 Profile 파일은 native PyTorch Profiler/Nsight 도구로 열며, XLayer는 profiler 자체를 구현하거나 상시 full profiling을 켜지 않습니다.
 `show_run`은 run 아래의 확인된 profiler/NCCL artifact 경로를 출력합니다.
+
+## Reproduce the Integration Checks
+
+실제 local Prometheus에서 SDK fixture를 수집하여 새 run 발견·node 필터·종료/age 제외·source timestamp를 검증할 수 있습니다.
+`--output`은 새 directory여야 하며 시작한 Prometheus와 HTTP exporter는 종료 시 정리합니다.
+
+```bash
+python -m examples.investigation.validate \
+  --prometheus "$TOOLS_DIR/prometheus-3.5.0.linux-amd64/prometheus" \
+  --output /path/to/new-validation-directory
+```
+
+Optional Ollama가 이미 실행 중이면 `--ollama`를 추가해 선택한 record의 실제 모델 응답·review·projection까지 확인합니다.
+이 예제는 SDK fixture이며 실제 VERL 학습이나 물리 multi-node, storage 병목 검증을 대신하지 않습니다.
+[검증 기록](../examples/investigation/validation-20260930.json)은 별도 실제 VERL 두-step 실행과 model·Grafana·Loki 확인 범위를 구분합니다.

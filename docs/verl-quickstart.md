@@ -121,6 +121,18 @@ Snapshot은 최신 step 하나를 덮어쓰고, 원본 file logger와 event JSON
 이 기록은 Grafana의 시간 기반 step 목록에 나타나지 않으므로, 다음 step이 완료될 때까지 live bridge가 실행 중인지 확인합니다.
 긴 step 동안 완료된 값이 유지되는 것은 정상일 수 있으므로 [Dashboard Guide](dashboards.md#agent-rl-stage-correlation)의 sample age를 함께 봅니다.
 
+### Check Telemetry Completeness
+
+Wrapper는 workload의 exit code와 별도로 `telemetry-health.json`을 기록합니다.
+Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결과와 진단의 missing source를 `show_run`에서 함께 확인합니다.
+`complete`는 연결한 telemetry 처리의 완료 상태이며 모든 subsystem의 관측이나 workload correctness를 보증하지 않습니다.
+
+`pending`은 아직 첫 output이 없고, `delayed`는 마지막 output이 오래되었다는 뜻입니다.
+긴 step에서도 output 간격은 늘 수 있으므로 `delayed`를 workload stall로 단정하지 않습니다.
+기본 age 기준은 300초이고 wrapper 환경의 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 변경할 수 있습니다.
+`partial`은 sidecar 종료, 최종 export 누락·실패, 또는 진단 evidence 부족을 나타냅니다.
+Telemetry failure가 workload의 성공·실패 exit code를 덮어쓰지 않습니다.
+
 ## Add Sources When Needed
 
 설정 파일에는 자주 쓰는 선택 값이 주석으로 들어 있습니다.

@@ -49,6 +49,9 @@ Contract의 canonical name과 실제 exporter 이름은 다를 수 있습니다.
 예를 들어 GPU contract의 `gpu_utilization_percent`는 sampler에서 `telemetry_gpu_utilization_percent`로 노출되며 disk 사용률은 `node_disk_io_time_seconds_total`의 rate로 계산합니다.
 Dashboard나 diagnosis query를 추가할 때는 Prometheus에서 실제 metric 이름과 label을 먼저 확인합니다.
 
+Workload 비교 field·sampling quality·sandbox major:minor는 JSONL/diagnosis의 evidence metadata로 저장하며 새 Prometheus label로 추가하지 않습니다.
+여러 run 수집은 기존 `run_id` label을 재사용하고 종료·stale snapshot을 제외해 현재 export의 시계열 증가를 제한합니다.
+
 ## Understand a Metric
 
 Metric은 시간에 따라 기록하는 수치입니다.

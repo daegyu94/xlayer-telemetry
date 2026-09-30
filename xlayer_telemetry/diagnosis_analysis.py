@@ -46,14 +46,46 @@ BASELINE_REQUIRED = {
 }
 
 
-def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]]) -> dict[str, Any] | None:
+def validate_baseline_policy(policy: Mapping[str, Any]) -> None:
+    if not isinstance(policy, Mapping):
+        raise ValueError("baseline must be an object")
+    fields = policy.get("match_fields", [])
+    if (not isinstance(fields, list) or len(fields) > 16
+            or any(not isinstance(key, str) or not key for key in fields)
+            or len(fields) != len(set(fields))):
+        raise ValueError("baseline.match_fields must contain at most 16 unique field names")
+    tolerance = finite(policy.get("relative_tolerance", 0))
+    if tolerance is None or not 0 <= tolerance <= 1:
+        raise ValueError("baseline.relative_tolerance must be between 0 and 1")
+    if policy.get("normalize_by") not in {None, "perf/total_num_tokens"}:
+        raise ValueError("baseline.normalize_by only supports perf/total_num_tokens")
+
+
+def workload_matches(current: Mapping[str, Any], prior: Mapping[str, Any], policy: Mapping[str, Any]) -> bool:
+    for key in policy.get("match_fields", []):
+        now, before = current.get("workload", {}).get(key), prior.get("workload", {}).get(key)
+        if now is None or before is None:
+            return False
+        a, b = finite(now), finite(before)
+        if a is not None and b is not None:
+            if abs(a-b) > abs(b) * policy.get("relative_tolerance", 0):
+                return False
+        elif type(now) is not type(before) or now != before:
+            return False
+    return True
+
+
+def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]], *, policy: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
     """Use a recent, same-run peer nearest to the prior step-duration median."""
+    policy = policy or {}
+    validate_baseline_policy(policy)
     observed = finite(current.get("observed_at"))
     if observed is None:
         return None
     eligible = (
         item for item in history
-        if item.get("run_id") == current.get("run_id")
+        if workload_matches(current, item, policy)
+        and item.get("run_id") == current.get("run_id")
         and item.get("node") == current.get("node")
         and item.get("worker_id") == current.get("worker_id")
         and item.get("boundary_scope") == current.get("boundary_scope")

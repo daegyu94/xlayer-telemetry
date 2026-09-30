@@ -320,9 +320,12 @@ EOF
       pids+=("$!")
     fi
   fi
-  if [[ -n "${TELEMETRY_METRICS_DIR:-}" ]]; then
-    "${PYTHON:-python3}" -m xlayer_telemetry.metrics.textfile \
-      --metrics-dir "$TELEMETRY_METRICS_DIR" \
+  if [[ -n "${TELEMETRY_METRICS_DIR:-}" || -n "${TELEMETRY_RUNS_ROOT:-}" ]]; then
+    metric_inputs=()
+    [[ -z "${TELEMETRY_METRICS_DIR:-}" ]] || metric_inputs+=(--metrics-dir "$TELEMETRY_METRICS_DIR")
+    [[ -z "${TELEMETRY_RUNS_ROOT:-}" ]] || metric_inputs+=(--runs-root "$TELEMETRY_RUNS_ROOT")
+    [[ -z "${TELEMETRY_METRICS_MAX_AGE_SECONDS:-}" ]] || metric_inputs+=(--max-age-seconds "$TELEMETRY_METRICS_MAX_AGE_SECONDS")
+    "${PYTHON:-python3}" -m xlayer_telemetry.metrics.textfile "${metric_inputs[@]}" \
       --node "$node_name" \
       --textfile-dir "$output_dir/textfile" --interval "${TELEMETRY_METRICS_INTERVAL:-2}" &
     pids+=("$!")

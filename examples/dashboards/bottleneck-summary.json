@@ -77,10 +77,33 @@
         "hide": 0,
         "label": "Step record ID",
         "description": "Step Explorer에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
+      },
+      {
+        "name": "diagnosis_method",
+        "label": "Method",
+        "type": "custom",
+        "query": "rule,llm",
+        "current": {
+          "text": "rule",
+          "value": "rule"
+        },
+        "options": [
+          {
+            "text": "rule",
+            "value": "rule",
+            "selected": true
+          },
+          {
+            "text": "llm",
+            "value": "llm",
+            "selected": false
+          }
+        ],
+        "description": "rule은 기존 진단입니다. llm은 선택한 record에 대해 CLI로 명시적으로 실행한 결과만 표시하며 자동 추론하지 않습니다."
       }
     ]
   },
-  "version": 2,
+  "version": 3,
   "uid": "xlayer-bottleneck-summary",
   "title": "04 · Bottleneck Summary",
   "description": "Workload 문맥에서 후보와 근거를 확인합니다. Shared signal의 동시 변화는 run별 사용량이나 인과관계의 증명이 아닙니다.",
@@ -116,11 +139,11 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 6
+        "h": 9
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Step Explorer → Candidate + Evidence → Timeline → Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id} · **Step record:** ${record_id}</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Resource node는 deep dive 대상이며 diagnosis의 observer node와 다를 수 있습니다. `strong_signal`은 rule 조건을 만족한 후보입니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">`no_anomaly_observed`는 관측한 근거의 결과이고, `insufficient_data`·빈 panel은 정상 판정이 아닙니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Step Explorer → Candidate + Evidence → Timeline → Deep dive**</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id} · **Step record:** ${record_id}</span>\n\n<span style=\"font-size:16px;line-height:1.65\">Resource node는 deep dive 대상이며 diagnosis의 observer node와 다를 수 있습니다. `strong_signal`은 rule 조건을 만족한 후보입니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">`no_anomaly_observed`는 관측한 근거의 결과이고, `insufficient_data`·빈 panel은 정상 판정이 아닙니다.</span>\n\n<span style=\"font-size:16px;line-height:1.65\">**Method:** rule은 기존 진단, llm은 수동 실행한 별도 hypothesis입니다. Step record ID를 복사한 뒤 `python -m xlayer_telemetry.llm_diagnosis --run-root \"$RUN_ROOT\" --record-id RECORD_ID`를 실행하고 Method=llm을 선택합니다. CLI는 monitoring host에서 실행하며 이 dashboard가 모델을 자동 호출하지 않습니다.</span>"
       }
     },
     {
@@ -129,7 +152,7 @@
       "title": "Selected symptom",
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 9,
         "w": 24,
         "h": 6
       },
@@ -140,7 +163,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | row_kind=\"summary\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"summary\" | record_id=~\"$record_id\" | __error__=\"\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -162,14 +185,18 @@
             "indexByName": {
               "step": 0,
               "step_duration_seconds": 1,
-              "verdict": 2,
-              "primary_candidate": 3,
-              "data_origin": 4,
-              "candidate_count": 5,
-              "strong_candidate_count": 6,
+              "diagnosis_method": 2,
+              "verdict": 3,
+              "summary": 4,
+              "workload_comparability": 5,
+              "primary_candidate": 6,
               "missing_sources": 7,
-              "node": 8,
-              "record_id": 9
+              "generated_at": 8,
+              "data_origin": 9,
+              "candidate_count": 10,
+              "strong_candidate_count": 11,
+              "node": 12,
+              "record_id": 13
             },
             "renameByName": {}
           }
@@ -621,7 +648,7 @@
                 "id": "custom.cellOptions",
                 "value": {
                   "type": "auto",
-                  "wrapText": true
+                  "wrapText": false
                 }
               },
               {
@@ -641,6 +668,10 @@
                     }
                   }
                 ]
+              },
+              {
+                "id": "custom.inspect",
+                "value": true
               }
             ]
           },
@@ -739,6 +770,16 @@
                         "text": "insufficient_data",
                         "color": "gray",
                         "index": 2
+                      },
+                      "insufficient_evidence": {
+                        "text": "insufficient_evidence",
+                        "color": "gray",
+                        "index": 3
+                      },
+                      "no_issue_observed": {
+                        "text": "no_issue_observed",
+                        "color": "blue",
+                        "index": 4
                       }
                     }
                   }
@@ -761,6 +802,50 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "diagnosis_method"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Method"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload_comparability"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Baseline comparability"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "generated_at"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Generated at"
+              }
+            ]
           }
         ]
       },
@@ -769,12 +854,7 @@
         "showHeader": true,
         "cellHeight": "lg",
         "enablePagination": true,
-        "sortBy": [
-          {
-            "displayName": "Duration",
-            "desc": true
-          }
-        ]
+        "sortBy": []
       }
     },
     {
@@ -783,7 +863,7 @@
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 15,
         "w": 24,
         "h": 8
       },
@@ -794,7 +874,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | row_kind=\"candidate\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"candidate\" | record_id=~\"$record_id\" | __error__=\"\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -820,7 +900,10 @@
               "state": 3,
               "summary": 4,
               "missing_evidence_summary": 5,
-              "observation_scope": 6
+              "observation_scope": 6,
+              "diagnosis_method": 7,
+              "generated_at": 8,
+              "workload_comparability": 9
             },
             "renameByName": {}
           }
@@ -1457,7 +1540,7 @@
       "title": "Measured changes versus same-run baseline",
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 23,
         "w": 24,
         "h": 7
       },
@@ -1468,7 +1551,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\"",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -1494,7 +1577,15 @@
               "baseline": 3,
               "delta_percent": 4,
               "observation_scope": 5,
-              "baseline_record_id": 6
+              "baseline_record_id": 6,
+              "diagnosis_method": 7,
+              "generated_at": 8,
+              "workload_comparability": 9,
+              "query_step_seconds": 10,
+              "range_window_seconds": 11,
+              "evaluation_count": 12,
+              "source_age_seconds": 13,
+              "quality_warnings": 14
             },
             "renameByName": {}
           }
@@ -2028,7 +2119,7 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 30,
         "w": 24,
         "h": 5
       },
@@ -2044,7 +2135,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 35,
         "w": 24,
         "h": 1
       },
@@ -2055,7 +2146,7 @@
           "title": "Evidence details: supporting, counter, and missing",
           "gridPos": {
             "x": 0,
-            "y": 33,
+            "y": 36,
             "w": 24,
             "h": 10
           },
@@ -2066,7 +2157,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | row_kind=\"evidence\" | record_id=~\"$record_id\" | __error__=\"\"",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"evidence\" | record_id=~\"$record_id\" | __error__=\"\"",
               "queryType": "range",
               "maxLines": 5000
             }
@@ -2093,7 +2184,15 @@
                   "baseline": 4,
                   "observation_scope": 5,
                   "entity": 6,
-                  "source": 7
+                  "source": 7,
+                  "diagnosis_method": 8,
+                  "generated_at": 9,
+                  "workload_comparability": 10,
+                  "query_step_seconds": 11,
+                  "range_window_seconds": 12,
+                  "evaluation_count": 13,
+                  "source_age_seconds": 14,
+                  "quality_warnings": 15
                 },
                 "renameByName": {}
               }

@@ -110,6 +110,14 @@ class StepHistoryWriter:
             "source_event_time": None,
             "step_duration_seconds": duration,
             "stage_durations_seconds": stages,
+            "workload": {
+                **{key: value for key, value in data.items() if key in {
+                    "perf/total_num_tokens", "prompt_length/mean", "response_length/mean",
+                    "data/train_batch_size", "train_batch_size", "policy_version",
+                } and finite_number(value) is not None and value >= 0},
+                "has_evaluation": stages.get("testing", 0) > 0,
+                "has_checkpoint": stages.get("save_checkpoint", 0) > 0,
+            },
             **dashboard_fields(start, end, stages, "approximate" if start is not None else "unknown"),
             "analysis_window": {
                 "start": start,
