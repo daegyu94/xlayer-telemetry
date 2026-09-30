@@ -6,24 +6,37 @@
 
 ## Why XLayer Exists
 
-XLayer는 generic APM platform이나 새로운 telemetry backend가 아니라 distributed AI/HPC workload를 위한 correlation·diagnosis layer입니다.
-기존 collector, storage, dashboard, profiler의 결과를 run·step·phase 문맥에 연결하고, 느린 구간에서 확인할 bottleneck candidate와 누락된 근거를 제시합니다.
+XLayer의 주된 역할은 VERL과 함께 동작하는 여러 서브시스템의 telemetry를 **Collect → Correlate → Diagnose**하는 것입니다.
+VERL trainer·vLLM·Ray·tool/sandbox와 GPU·host·network·storage source를 기존 관측 도구로 연결하고, run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 누락된 근거를 제시합니다.
+Prometheus·Grafana·Loki는 저장·query·시각화를 담당하고 XLayer는 workload 문맥, baseline 비교, evidence 기반 investigation을 담당합니다.
 
 ```text
-Telemetry sources
-  Application / framework   vLLM / Ray   GPU / host   network / RDMA
-  filesystem / 3FS / SSD    logs         traces       profiles
-  optional sandbox worker cgroup v2 / local NVMe
+1. Collect: VERL and its subsystem telemetry
+  VERL trainer / AgentLoop   vLLM / Ray   tool / sandbox
+  GPU / host   network / RDMA   filesystem / 3FS / SSD
+  configured metrics / logs / events + optional profile artifacts
   |
-  +--> XLayer semantic correlation
+  +--> 2. Correlate: XLayer workload context
        run > step/iteration > phase > span/event
        + node / role / worker / rank / GPU / topology / observation scope
        |
-       +--> XLayer diagnosis
+       +--> 3. Diagnose: XLayer investigation
             symptom > baseline comparison > candidate > evidence / missing evidence
             |
             +--> Existing detail tools: Grafana / Loki / PyTorch Profiler / Nsight / NCCL
 ```
+
+**Collect**는 연결한 source에서 신호를 수집하거나 조회하는 단계입니다.
+VERL wrapper는 file logger bridge를 시작하며 native endpoint, node collector, log 경로와 ClickHouse는 각각 설정해야 합니다.
+XLayer가 VERL의 모든 서브시스템을 자동으로 발견하거나 설치하는 것은 아닙니다.
+
+**Correlate**는 같은 workload interval에 속하는 신호의 시간·identity·측정 범위를 맞추는 단계입니다.
+계측된 event/span에는 `trace_id`와 parent span 관계를 보존하고, system·shared-service metric에는 node·device·topology와 observation scope를 유지합니다.
+Step 경계의 정확도와 multi-node clock 상태도 확인하며, 시간상 동시 변화만으로 특정 run의 자원 사용량을 단정하지 않습니다.
+
+**Diagnose**는 current/baseline 비교와 관측 근거에서 조사할 후보를 만드는 단계입니다.
+기본 rule diagnosis와 선택적 local LLM diagnosis는 각각 검토 가능한 evidence와 missing evidence를 남깁니다.
+Logs와 profile은 관련 상세 증거로 탐색하며, 모든 log·profile 내용이 자동으로 diagnosis engine에 입력되는 것은 아닙니다.
 
 Grafana·Prometheus는 시계열 저장·query·시각화에 쓰지만 training step, rollout, weight sync, worker, rank, KV offload, storage path를 자동으로 같은 실행 단위로 해석하지 않습니다.
 GPU utilization 40%, 3FS p99 15 ms, RDMA 250 Gbps가 같은 시간에 보여도 어느 run의 어느 phase가 왜 느려졌는지는 사용자가 별도로 조사해야 합니다.
@@ -42,6 +55,7 @@ Sandbox runtime은 별도 구현하지 않고 `SandboxRecorder`가 외부 runtim
 `sandbox_sampler.py`는 sandbox worker의 안정적인 cgroup v2 subtree를 읽어 Node Exporter textfile에 기록하며, local NVMe의 node/device 지표와는 scope가 다릅니다.
 Grafana용 projection은 완전한 JSON 진단 결과에서 파생되고 Loki를 사용하지 않는 실행에서도 원본 결과를 읽을 수 있습니다.
 구체적인 schema와 rule, 조사 순서는 [Cross-Layer Diagnosis](diagnosis.md)에 있습니다.
+현재 integration과 사용 가이드는 VERL을 중심으로 제공하지만 SDK와 core의 run·phase·resource·evidence 모델은 다른 framework의 adapter에도 사용할 수 있습니다.
 
 ### When to Revisit eBPF
 

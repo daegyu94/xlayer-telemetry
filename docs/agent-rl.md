@@ -1,6 +1,7 @@
 # Cross-Layer Integration for VERL
 
-[VERL 연결 가이드](verl-quickstart.md)에서 trainer와 GPU 지표를 확인했다면 필요한 계층을 하나씩 추가합니다.
+XLayer는 VERL의 서브시스템에서 생성하는 telemetry를 Collect하고, workload 문맥에서 Correlate한 뒤 Diagnose합니다.
+[VERL 연결 가이드](verl-quickstart.md)에서 trainer와 GPU 지표를 확인했다면 이 문서의 절차로 필요한 계층을 하나씩 추가합니다.
 이 문서는 vLLM·Ray endpoint, 여러 node의 배치 정보, 3FS 진단, custom tool event를 연결하는 방법을 설명합니다.
 모든 기능을 켤 필요는 없으며 조사하려는 질문에 필요한 source부터 연결합니다.
 기본 경로와 source별 저장 위치는 [구현 구조](architecture.md)에 있습니다.

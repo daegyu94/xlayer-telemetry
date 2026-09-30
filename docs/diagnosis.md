@@ -1,7 +1,8 @@
 # Cross-Layer Diagnosis
 
-XLayer는 distributed AI/HPC workload의 느린 실행 구간을 여러 계층의 관측치와 연결해 검토 가능한 bottleneck candidate를 만듭니다.
-Grafana와 Prometheus가 이미 보여 주는 수치를 다시 저장하거나 profiler를 다시 만들지 않고, run·step·phase 문맥과 측정 범위를 결과에 붙입니다.
+Diagnosis는 XLayer의 **Collect → Correlate → Diagnose** 흐름에서 VERL 실행의 느린 구간을 조사하는 단계입니다.
+Trainer·vLLM·Ray·sandbox·GPU·host·storage 등 연결한 source의 관측치를 run·step·phase 문맥과 측정 범위로 해석해 검토 가능한 bottleneck candidate를 만듭니다.
+수집 경로와 correlation 원리는 [구현 구조](architecture.md#why-xlayer-exists)에 설명합니다.
 
 이 문서는 기본 rule diagnosis를 설명합니다.
 수집된 메트릭을 local open-weight 모델이 직접 읽고 진단하도록 하려면 [Optional Local LLM Diagnosis](local-llm.md)를 사용합니다.
@@ -77,18 +78,17 @@ Candidate의 각 evidence는 `source`, `observation_scope`, `window`, `boundary_
 ## Semantic Model and Adapter Boundary
 
 ```text
-Framework adapter                         XLayer core
-VERL update / rollout / reward --+
-PyTorch iteration / backward ------+----> run > step/iteration > phase > span/event
-Megatron TP / PP / checkpoint -----+         + node / role / worker / rank / GPU
-Inference request / prefill -------+         + topology / observation scope
-                                             |
-                                             +> comparison > candidate > evidence
+Primary integration: VERL                 XLayer core
+  update / rollout / reward ------------> run > step/iteration > phase > span/event
+  worker / rank / node / GPU ------------> resource identity + observation scope
+  vLLM / Ray / sandbox / storage --------> related subsystem evidence
+                                          |
+                                          +> comparison > candidate > evidence
 ```
 
 현재 자동 step adapter는 VERL file logger bridge입니다.
-다른 framework를 전부 계측했다는 뜻은 아니며, `diagnosis_analysis.py`는 framework 이름을 모르는 signal과 participant map을 입력으로 받습니다.
-새 adapter는 원래의 step/iteration와 phase 이름을 보존하면서 이 공통 모델에 대응시키면 됩니다.
+`diagnosis_analysis.py`는 framework 이름을 모르는 signal과 participant map을 입력으로 받으므로 다른 framework에도 adapter로 이식할 수 있습니다.
+새 adapter는 원래의 step/iteration와 phase 이름을 보존하면서 이 공통 모델에 대응시키며, 모든 framework의 integration을 제공한다는 뜻은 아닙니다.
 `EventRecorder`의 기존 `trace_id`·`span_id`를 재사용하며 OpenTelemetry Collector는 필수 요소가 아닙니다.
 
 ## Baseline and Rule State

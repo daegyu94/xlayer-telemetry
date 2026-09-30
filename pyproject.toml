@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xlayer-telemetry"
 version = "0.1.0"
-description = "Workload-aware cross-layer performance diagnosis for distributed AI workloads"
+description = "Collect, correlate, and diagnose telemetry across VERL subsystems"
 readme = "README.md"
 requires-python = ">=3.10"
 

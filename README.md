@@ -1,7 +1,8 @@
 # XLayer Telemetry
 
-Distributed AI/HPC workload의 실행 단위를 GPU·host, rollout engine, network, storage 신호와 연결해 bottleneck candidate와 근거를 조사하는 cross-layer diagnosis 도구입니다.
-Collector, application metric SDK, Grafana dashboard와 실행 분석 도구를 제공하며, 사용자가 운영하는 workload와 cluster에 연결해서 사용합니다.
+VERL과 함께 동작하는 여러 서브시스템의 metric·log·event 등 telemetry를 **Collect → Correlate → Diagnose**하는 cross-layer performance diagnosis 프레임워크입니다.
+VERL trainer, vLLM, Ray, tool·sandbox와 GPU·host·network·storage의 관측치를 run·step·phase 문맥에서 연결해, 느린 실행 구간의 bottleneck candidate와 근거를 조사합니다.
+Wrapper, collector, application SDK와 Grafana investigation 화면을 제공하며 사용자가 운영하는 VERL 환경과 관측 도구에 연결해서 사용합니다.
 XLayer는 느린 run/step과 조사할 자원·시간 구간을 찾고, CPU/GPU kernel 수준의 실행 분석은 Nsight Systems·PyTorch Profiler 같은 전문 profiler로 이어 줍니다([설계 배경](docs/architecture.md#why-xlayer-exists)).
 처음 사용한다면 [Start Here](#start-here)에서 synthetic 화면을 확인한 뒤 실제 VERL 실행을 연결합니다.
 
@@ -11,9 +12,18 @@ XLayer는 느린 run/step과 조사할 자원·시간 구간을 찾고, CPU/GPU 
 이 프로젝트는 application의 실행 단계와 같은 시간·node의 자원 지표를 연결해 조사할 범위를 좁힙니다.
 예를 들어 VERL rollout 지연을 vLLM queue 및 GPU 사용률과 비교하고, checkpoint 지연을 3FS latency 및 SSD 상태와 비교할 수 있습니다.
 
+| 단계 | XLayer가 하는 일 | 사용자에게 남는 결과 |
+| --- | --- | --- |
+| **1. Collect** | VERL file logger, native vLLM·Ray endpoint, GPU·host exporter, 선택적 Loki log·event와 3FS ClickHouse source를 연결 | Metric 시계열, log·event, run artifact; source별 설정 필요 |
+| **2. Correlate** | Run·step·phase와 node·role·worker·device·topology를 기준으로 신호를 연결하고, 계측된 span의 trace 관계를 보존 | 같은 실행 구간에서 무엇이 함께 변했는지 조사할 문맥 |
+| **3. Diagnose** | Current/baseline 관측값에서 rule 기반 후보와 supporting·counter·missing evidence를 생성; 선택적으로 local LLM이 메트릭을 직접 분석 | 검토 가능한 bottleneck candidate와 다음 조사 지점 |
+
+Logs와 profiler artifact는 관련 증거를 확인하는 경로이며 모든 log·profile을 자동으로 진단 입력에 넣는 것은 아닙니다.
+서브시스템 간 호출 관계도 계측된 span에 한해 연결하며, endpoint 등록만으로 전체 함수 호출 체인이 생성되지는 않습니다.
+
 다음은 VERL·vLLM과 3FS를 함께 사용하는 배치의 예입니다.
 주된 사용 경로는 기존 VERL 실행에 telemetry를 붙이는 것이며, 3FS와 multi-node 배치는 필요에 따라 추가합니다.
-SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수 있습니다.
+SDK와 adapter로 다른 framework나 custom loop에도 이식할 수 있지만, 주된 integration과 문서 흐름은 VERL을 기준으로 합니다.
 
 ```text
 +------------------------------------+         +--------------------------------+
@@ -27,12 +37,13 @@ SDK를 사용하면 다른 training framework나 custom loop에도 확장할 수
                                  |
 +-------------------------------------------------------------------------------+
 | XLAYER TELEMETRY                                                              |
-| Metrics > Prometheus / Grafana       Logs > Alloy / Loki                      |
-| Events / traces > run artifacts      3FS > ClickHouse queries                 |
-| Match time window + node / role / device + run context                        |
+| 1. Collect   > metrics / logs / events / run artifacts                        |
+| Prometheus / Loki / existing exporters / ClickHouse queries                   |
+| 2. Correlate > run / step / phase + node / role / worker / device / topology  |
+| 3. Diagnose  > baseline > candidate > evidence / missing evidence > deep dive |
 +-------------------------------------------------------------------------------+
                                  |
-                                 +----> Slow stage > related signals > diagnosis
+                                 +----> Grafana investigation / show_run / profiler
 ```
 
 Application에는 `run_id`를 붙이고, system resource와 shared service는 시간 범위와 topology를 기준으로 비교합니다.
