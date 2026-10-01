@@ -43,7 +43,62 @@
       "distribution_rows": 30,
       "numeric_normalization": "passed"
     },
-    "metrics": "Actual VERL snapshots exported through textfile collector and accepted by promtool"
+    "metrics": "Actual VERL snapshots exported through textfile collector and accepted by promtool",
+    "ollama": {
+      "model": "qwen3.5:27b",
+      "input": "synthetic observations; real local model inference",
+      "cases": [
+        {
+          "case": "normal",
+          "repeat": 1,
+          "expected_assessment": "no_issue_observed",
+          "actual_assessment": "no_issue_observed",
+          "assessment_match": true,
+          "primary_evidence_coverage": null,
+          "primary_title": null,
+          "latency_seconds": 378.416,
+          "input_sha256": "c5997cfb477bcd84f2152b0d1907feb3791631e13093406f320f257e33e2718f",
+          "seed": 42,
+          "semantic_review_decision": "revise",
+          "semantic_review_issues": [
+            "Limitations 배열의 첫 번째 항목이 전 영어 문장으로 되어 있어 'Natural Korean prose' 지시사항과 일관되지 않습니다.",
+            "Draft 가 observations.limitations 에 없는 'clock_quality', 'timestamp alignment' 관련 제약 조건을 추가하여 관측 사실만 사용할 원칙에 어긋납니다."
+          ],
+          "semantic_review_required": true
+        },
+        {
+          "case": "storage_device",
+          "repeat": 1,
+          "expected_assessment": "bottleneck_suspected",
+          "actual_assessment": "bottleneck_suspected",
+          "assessment_match": true,
+          "primary_evidence_coverage": true,
+          "primary_title": "Possible Storage I/O Contention on storage-0",
+          "latency_seconds": 449.483,
+          "input_sha256": "fcca99bec621a7c97699df9d67bbf58af05038d44ec0ac2016ef38ea9af29613",
+          "seed": 42,
+          "semantic_review_decision": "revise",
+          "semantic_review_issues": [
+            "후보 설명에서 GPU 활용률 감소를 대기 상태(stall)의 직접적 측정으로 잘못 서술함 (이용률은 대기 시간을 측정하지 않음).",
+            "요약 문장에서 m4 라벨에 없는 노드 소속(storage-0) 을 사실처럼 명시함 (라벨은 'service: 3fs' 이므로 서비스명으로 수정 필요).",
+            "\"attribution\" 용어를 번역하여 'attributable 한지' 로 잘못 사용함 (원어인 attribution 은 유지해야 함)."
+          ],
+          "semantic_review_required": true
+        }
+      ],
+      "note": "Semantic review revised both drafts. Two successful cases do not establish general diagnostic accuracy."
+    },
+    "remote_ci": {
+      "commit": "c75290561bd1b7b62fd020e4962a344fb0c1bd9e",
+      "run": "https://github.com/daegyu94/xlayer-telemetry/actions/runs/36820825346",
+      "matrix": [
+        "Ubuntu 22.04 / Python 3.10",
+        "Ubuntu 24.04 / Python 3.12"
+      ],
+      "result": "Both passed: 440 passed, 2 skipped (promtool absent)",
+      "pages_run": "https://github.com/daegyu94/xlayer-telemetry/actions/runs/36820825389",
+      "pages_result": "Build and deploy succeeded; published site returned HTTP 200"
+    }
   },
   "limitations": [
     "VERL training did not enable diagnostics; no induced real bottleneck diagnosis claimed",
