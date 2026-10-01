@@ -168,6 +168,10 @@ def summarize(output_dir: Path) -> str:
                 )
         if diagnosis.get("query_execution"):
             lines.append(f"  query_execution={diagnosis['query_execution']}")
+        if diagnosis.get("analysis_execution"):
+            lines.append(f"  analysis_execution={diagnosis['analysis_execution']}")
+        if diagnosis.get("jsonl_cache"):
+            lines.append(f"  jsonl_cache={diagnosis['jsonl_cache']}")
         comparison = diagnosis.get("comparison", {})
         if comparison.get("baseline_record_id"):
             lines.append(f"  baseline_record_id={comparison['baseline_record_id']}")

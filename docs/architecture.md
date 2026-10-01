@@ -222,10 +222,11 @@ Bridge는 newline까지 기록된 UTF-8 JSON record를 처리하고 malformed li
 Producer timestamp가 없는 backlog는 정확한 step 시각을 복원할 수 없어 외부 resource correlation을 제한합니다.
 Backend의 일부 표본 누락·일시 오류는 [bounded retry](diagnosis.md#baseline-and-rule-state)로 처리합니다.
 
-SDK 파일 쓰기는 best-effort이지만 synchronous I/O이므로 느린 filesystem에서 지연 자체를 없애지는 못합니다.
+SDK 파일 쓰기는 기본 synchronous이며, [선택적 bounded background writer](application-metrics.md#optional-background-io)로 application 호출의 filesystem 대기를 줄일 수 있습니다.
 Snapshot·event는 node-local 경로에 기록하고, 장시간 run의 artifact 용량을 관리합니다.
-진단은 poll마다 step/report JSONL을 다시 읽고 tool span도 window 조회 시 scan하므로 대규모 이력에서 분석 지연이 늘어납니다.
-현재 구조는 backend query budget·bounded retry·batch 크기로 작업량을 제한하지만 incremental index나 완전한 backpressure queue는 제공하지 않습니다.
+진단 CLI는 [worker deadline과 incremental cache](diagnosis.md#backend-query-budget)로 중단·복구와 반복 JSONL parsing 비용을 관리합니다.
+Cache 한도 초과 시 전체 scan을 사용하며, record 필터링·baseline 선택 비용은 이력 크기에 따라 증가합니다.
+시간 구간별 persistent index는 제공하지 않습니다.
 
 ## Add One Source at a Time
 

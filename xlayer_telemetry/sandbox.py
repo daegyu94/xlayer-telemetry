@@ -111,7 +111,7 @@ class SandboxRecorder:
 
 
 def device_window(directory: Path, run_id: str, node: str, start: float, end: float,
-                  configured_major_minor: str | None = None) -> dict:
+                  configured_major_minor: str | None = None, *, reader=None) -> dict:
     """Inspect bounded event evidence, not a sum of overlapping cgroup deltas."""
     from .fileio import json_objects
     from .measurements import finite_number
@@ -120,7 +120,7 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
     observation_count = 0
     for path in directory.glob("sandbox*.jsonl"):
         try:
-            for item in json_objects(path):
+            for item in (reader or json_objects)(path):
                 stamp = finite_number(item.get("timestamp_unix_nano"))
                 attributes = item.get("attributes", {})
                 if (item.get("name") != "sandbox.resource_sample" or item.get("run_id") != run_id

@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterator, Mapping
 import uuid
 
 from .identity import producer_filename_stem
+from .io_writer import BoundedWriter, settings_from_env
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -106,6 +107,10 @@ class EventRecorder:
         *,
         clock_ns: Callable[[], int] = time.time_ns,
         monotonic_ns: Callable[[], int] | None = None,
+        async_io: bool = False,
+        queue_capacity: int = 256,
+        max_queue_bytes: int = 4 * 1024 * 1024,
+        flush_timeout: float = 1,
     ) -> None:
         self.directory = directory
         self.context = context
@@ -115,6 +120,10 @@ class EventRecorder:
         self.path = directory / (producer_filename_stem(
             context.producer, context.role, context.worker_id,
             node=context.node, run_id=context.run_id) + ".jsonl")
+        if type(async_io) is not bool:
+            raise ValueError("async_io must be boolean")
+        self._writer = BoundedWriter(self._persist, self._disable, capacity=queue_capacity,
+                                     max_bytes=max_queue_bytes, flush_timeout=flush_timeout) if async_io else None
 
     @classmethod
     def from_env(
@@ -142,6 +151,7 @@ class EventRecorder:
                     role=role,
                     worker_id=worker_id,
                 ),
+                **settings_from_env(),
             )
         except ValueError as exc:
             print(f"[events] export disabled: {exc}", file=sys.stderr)
@@ -245,9 +255,33 @@ class EventRecorder:
             return
         try:
             line = json.dumps(record, separators=(",", ":"), sort_keys=True)
-            self.directory.mkdir(parents=True, exist_ok=True)
-            with self.path.open("a", encoding="utf-8") as stream:
-                stream.write(line + "\n")
+            if self._writer is not None:
+                self._writer.submit(line + "\n")
+            else:
+                self._persist(line + "\n")
         except (OSError, TypeError, ValueError) as exc:
-            print(f"[events] export disabled: {exc}", file=sys.stderr)
-            self.disabled = True
+            self._disable(exc)
+
+    def _persist(self, line: str) -> None:
+        self.directory.mkdir(parents=True, exist_ok=True)
+        with self.path.open("a", encoding="utf-8") as stream:
+            stream.write(line)
+
+    def _disable(self, error) -> None:
+        self.disabled = True
+        print(f"[events] export disabled: {error}", file=sys.stderr)
+
+    def io_status(self) -> dict:
+        return self._writer.status() if self._writer is not None else {"mode": "synchronous", "disabled": self.disabled}
+
+    def flush(self, timeout=None) -> bool:
+        return self._writer.flush(timeout) if self._writer is not None else True
+
+    def close(self, timeout=None) -> bool:
+        return self._writer.close(timeout) if self._writer is not None else True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()

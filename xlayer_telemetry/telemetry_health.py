@@ -67,7 +67,7 @@ def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str
     if diagnosis_export == "ok":
         try:
             diagnosis = json.loads((root / "diagnostics/latest.json").read_text())
-            result["diagnostics"] = {key: diagnosis.get(key) for key in ("generated_at", "analysis_status", "verdict", "missing_sources")}
+            result["diagnostics"] = {key: diagnosis.get(key) for key in ("generated_at", "analysis_status", "verdict", "missing_sources", "analysis_execution")}
             history_path = root / "telemetry-events/verl-steps.jsonl"
             reports_path = root / "diagnostics/diagnostics.jsonl"
             if history_path.is_file() and reports_path.is_file():

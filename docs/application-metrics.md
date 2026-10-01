@@ -177,3 +177,50 @@ Run Overview에서 `cluster`, `node`, `run_id`를 선택합니다.
 
 Loss나 step time 변화가 보이면 같은 시간의 자원 지표를 [Run Analysis](dashboards.md#run-analysis)에 따라 비교합니다.
 SDK는 workload의 실행과 종료를 관리하지 않으며, 이 연결 방식은 특정 launcher나 다른 저장소를 요구하지 않습니다.
+
+## Optional Background I/O
+
+기본 SDK는 동기 기록입니다.
+Application 내부의 파일 쓰기 지연을 줄이려면 `from_env()`로 만드는 emitter와 recorder에 다음 설정을 적용합니다.
+VERL file logger bridge는 이미 별도 process이므로 이 옵션의 주 사용처는 application/tool instrumentation입니다.
+
+```bash
+export TELEMETRY_ASYNC_IO=1
+```
+
+Constructor에서는 `async_io=True`를 사용할 수 있습니다.
+Event의 timestamp·span duration·JSON serialization은 호출 시점에 처리하고 filesystem 쓰기만 background thread로 보냅니다.
+Async `emit()`의 반환 경로는 queue 수락을 의미하므로 파일 생성 완료를 확인하려면 `flush()`를 호출합니다.
+
+```python
+from xlayer_telemetry.events import EventRecorder
+
+recorder = EventRecorder.from_env(producer="agent", role="rollout")
+if recorder is not None:
+    try:
+        with recorder.span("tool.call", phase="environment"):
+            run_tool()
+    finally:
+        drained = recorder.close()  # 기본 최대 1초
+        print("drained:", drained, "I/O:", recorder.io_status())
+```
+
+| 대상 | Queue 정책 |
+| --- | --- |
+| Event/span | FIFO; queue가 차거나 record가 byte 한도를 넘으면 새 record를 drop |
+| Metric snapshot | 기록 중인 snapshot은 완료하고 대기 중인 값은 최신 값으로 coalesce |
+
+기본 queue 한도는 256 record·4 MiB이며 in-flight record 하나는 별도입니다.
+필요하면 `TELEMETRY_IO_QUEUE_CAPACITY`, `TELEMETRY_IO_QUEUE_BYTES`, `TELEMETRY_IO_FLUSH_TIMEOUT`을 바꿉니다.
+Constructor의 대응 인자는 `queue_capacity`, `max_queue_bytes`, `flush_timeout`입니다.
+Metric coalescing은 `dropped`에 포함되며 snapshot은 원래 모든 step의 이력을 보존하지 않습니다.
+
+`flush()`는 대기 작업이 모두 처리됐는지를 반환합니다.
+`io_status()`의 `written`, `dropped`, `write_errors`, `queued_bytes`, `flush_timeouts`로 실제 기록·누락을 확인합니다.
+파일 오류는 해당 SDK writer를 비활성화하며 application exception으로 전달하지 않습니다.
+`close()`는 새 수락을 중단하고 제한 시간에 남은 queue를 취소하지만, 이미 filesystem 안에서 대기 중인 write는 나중에 끝날 수 있습니다.
+자동 shutdown flush는 전체 최대 1초의 best-effort이며 SIGKILL·process crash 시에는 실행되지 않으므로 정상 worker 종료 경계에서 직접 `close()`합니다.
+
+Recorder/emitter는 worker 시작 시 만들어 재사용합니다.
+Fork한 자식에서는 부모의 대기 기록과 writer lock을 재사용하지 않으며, 별도 worker identity의 SDK를 새로 만드는 것이 권장됩니다.
+비동기 옵션은 filesystem 대기를 옮기지만 JSON serialization 비용이나 filesystem 자체의 부하는 줄이지 않습니다.

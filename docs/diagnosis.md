@@ -108,6 +108,31 @@ Prometheus의 current·baseline·clock·freshness query와 3FS 조회가 budget�
 생략된 query는 `missing_sources`로 남아 기존 bounded retry 대상이 됩니다.
 이 budget은 새 요청의 admission과 socket timeout을 제한하며 DNS·느리게 이어지는 응답·로컬 파일 I/O를 강제로 중단하는 hard deadline은 아닙니다.
 
+CLI와 VERL wrapper는 별도로 `analysis_deadline_seconds`(기본 60초)를 적용합니다.
+History/report를 읽는 scheduling 요청과 각 interval의 rule analysis는 재사용 가능한 별도 worker process에서 실행합니다.
+제한 시간을 넘으면 worker를 TERM 후 필요시 KILL로 중단하고, 다음 요청에서 새 worker를 시작합니다.
+`analysis_execution`에 상태·소요 시간·deadline을 기록하며 중단 결과는 후보 없이 `insufficient_data`, `missing_sources=["analysis:deadline_exceeded"]`로 남습니다.
+Step 결과는 기존 bounded retry를 따르고 report·Loki projection 저장은 부모 process가 담당합니다.
+
+설정은 scheduling 요청과 개별 analysis의 제한이며 run 전체나 batch 합계의 제한은 아닙니다.
+Worker 정리에는 별도로 최대 0.5초의 grace를 사용하고, 부모의 report 저장 경로는 node-local filesystem을 권장합니다.
+Kernel의 uninterruptible I/O는 즉시 종료를 보장할 수 없으며, 종료되지 않은 worker가 있으면 추가 worker 생성을 억제합니다.
+`analysis_deadline_seconds=0`은 process 격리를 끄는 선택적 설정입니다.
+Python에서 `DiagnosticEngine.analyze()`를 직접 호출하면 in-process로 실행되므로 이 deadline은 적용되지 않습니다.
+
+History/report·tool/sandbox event는 process-local incremental cache로 새 newline까지 추가된 부분만 파싱합니다.
+기본 `jsonl_cache` 한도는 100,000 record·원본 64 MiB·128 file이며 한 worker 내 파일들이 한도를 공유합니다.
+File 교체·축소·감지된 rewrite는 다시 읽고, 한도를 넘는 파일은 전체 scan으로 처리해 evidence를 잘라내지 않습니다.
+Producer는 append-only JSONL을 쓰거나 파일을 atomic replace해야 하며, 기존 파일 중간을 제자리에서 수정하는 방식은 지원하지 않습니다.
+Cache는 재시작 후 원본에서 복원하고 `jsonl_cache` report field에 처리량을 표시합니다.
+`jsonl_cache.enabled=false`로 끌 수 있으며, 이 cache는 시간 구간을 직접 찾는 persistent index가 아니므로 기존 record의 필터링 비용은 남습니다.
+
+CPU fixture로 cold/warm parse 비용을 확인하려면 다음을 실행합니다.
+
+```bash
+python -m examples.investigation.validate_runtime --output artifacts/runtime-validation
+```
+
 ## Baseline and Rule State
 
 기본 baseline은 같은 run·node·worker·boundary scope의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다.

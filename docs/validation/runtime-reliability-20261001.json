@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-01",
+  "baseline_commit": "751e0e6",
+  "scope": "Bounded rule analysis, incremental parsing, optional SDK background writes",
+  "defaults": {
+    "analysis_deadline_seconds": 60,
+    "query_budget_seconds": 30,
+    "jsonl_cache_records": 100000,
+    "jsonl_cache_source_bytes": 67108864,
+    "jsonl_cache_files": 128,
+    "sdk_async_io": false,
+    "sdk_queue_capacity": 256,
+    "sdk_queue_bytes": 4194304,
+    "sdk_flush_timeout_seconds": 1
+  },
+  "tests": {
+    "pytest_passed": 469,
+    "promtool": "3.5.0",
+    "failure_checks": [
+      "Real trickling HTTP response interrupted; same step recovered as a report revision",
+      "Blocked FIFO history read interrupted without worker artifact writes",
+      "SIGTERM of CLI reaped its worker",
+      "Split UTF-8, append, truncate, atomic replace, larger rewrite, delete and cache capacity fallback",
+      "Slow SDK storage, queue record/byte saturation, coalescing, disk write error and bounded close",
+      "Concurrent span writes and fork while parent lock held; no duplicated parent event"
+    ]
+  },
+  "cache_measurement": {
+    "data_origin": "synthetic",
+    "scope": "local JSONL parse/query cost, each file measured separately",
+    "measurements": [
+      {
+        "history": {
+          "records": 10000,
+          "file_bytes": 1907784,
+          "uncached_seconds": 0.0166,
+          "cold_seconds": 0.018911,
+          "warm_seconds": 0.000755,
+          "warm_parsed_bytes": 0,
+          "cache": {
+            "cached_files": 1,
+            "cached_records": 10000,
+            "cached_source_bytes": 1907784,
+            "parsed_bytes": 1907784,
+            "cache_hits": 1,
+            "reloads": 1,
+            "uncached_scans": 0
+          }
+        },
+        "tool_spans": {
+          "records": 10000,
+          "file_bytes": 2745555,
+          "uncached_seconds": 0.024367,
+          "cold_seconds": 0.028172,
+          "warm_seconds": 0.005503,
+          "warm_parsed_bytes": 0,
+          "cache": {
+            "cached_files": 1,
+            "cached_records": 10000,
+            "cached_source_bytes": 2745555,
+            "parsed_bytes": 2745555,
+            "cache_hits": 1,
+            "reloads": 1,
+            "uncached_scans": 0
+          }
+        }
+      },
+      {
+        "history": {
+          "records": 100000,
+          "file_bytes": 19277785,
+          "uncached_seconds": 0.164504,
+          "cold_seconds": 0.193061,
+          "warm_seconds": 0.011307,
+          "warm_parsed_bytes": 0,
+          "cache": {
+            "cached_files": 1,
+            "cached_records": 100000,
+            "cached_source_bytes": 19277785,
+            "parsed_bytes": 19277785,
+            "cache_hits": 1,
+            "reloads": 1,
+            "uncached_scans": 0
+          }
+        },
+        "tool_spans": {
+          "records": 100000,
+          "file_bytes": 27855556,
+          "uncached_seconds": 0.238909,
+          "cold_seconds": 0.375707,
+          "warm_seconds": 0.057638,
+          "warm_parsed_bytes": 0,
+          "cache": {
+            "cached_files": 1,
+            "cached_records": 100000,
+            "cached_source_bytes": 27855556,
+            "parsed_bytes": 27855556,
+            "cache_hits": 1,
+            "reloads": 1,
+            "uncached_scans": 0
+          }
+        }
+      }
+    ],
+    "limitations": [
+      "No network queries or full diagnosis latency measured",
+      "Cache still iterates retained records; this is not an indexed time-window lookup",
+      "Overflow uses full scans; memory budgets are shared across cached files in an engine"
+    ]
+  },
+  "real_verl": {
+    "trainer_mode": "colocate_async",
+    "model": "Qwen2.5-1.5B-Instruct",
+    "training_updates": 3,
+    "rollout_n": 2,
+    "async_sdk_environment": true,
+    "tool_calls": 24,
+    "sandbox_execs": 5,
+    "linked_sandbox_execs": 5,
+    "sandbox_execution_results": 5,
+    "updates": 3,
+    "boundary_scope": "trainer_update",
+    "workload_exit_code": 0,
+    "telemetry_status": "partial",
+    "final_export": {
+      "bridge": "ok",
+      "diagnostics": "ok"
+    },
+    "diagnostic_backend": "deliberately unreachable loopback endpoint; missing evidence retained",
+    "strong_candidates": 0,
+    "snapshot_promtool": "passed",
+    "analysis_isolation": "enabled, 5-second deadline; normal analyses completed"
+  },
+  "documentation": "Strict Sphinx build, compileall and tracked shell syntax passed",
+  "limits": [
+    "Deadlines apply separately to scheduling and each interval analysis, not to a whole batch or run",
+    "Process cleanup adds at most 0.5 seconds of configured waits; kernel uninterruptible I/O and OS scheduling cannot be guaranteed to finish immediately",
+    "Parent report persistence remains synchronous and should use local storage",
+    "JSONL cache requires append-only newline-terminated records or atomic replacement; arbitrary in-place middle edits are unsupported",
+    "Cache limits bound retained decoded record count and source bytes, not exact Python heap usage; overflow preserves results by full scan",
+    "Cache avoids repeated JSON parsing but still filters records; no persistent time-window index",
+    "SDK JSON serialization remains on the caller; async I/O may drop records and in-flight writes can finish after bounded close",
+    "Real VERL test was a small one-host integration fixture with unreachable monitoring backend; no throughput or physical multi-node claim"
+  ]
+}

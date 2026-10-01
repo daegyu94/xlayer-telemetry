@@ -26,6 +26,7 @@ from ..fileio import atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
 from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
+from .jsonl_cache import JSONLCache, from_config as cache_from_config
 
 DEFAULT_QUERIES = {
     "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
@@ -150,6 +151,10 @@ def load_config(path: Path) -> dict[str, Any]:
     if not isinstance(config["prometheus"].get("url"), str):
         raise ValueError("diagnostics config requires prometheus.url")
     QueryBudget(config.get("query_budget_seconds", 30))
+    deadline = config.get("analysis_deadline_seconds", 60)
+    if finite(deadline) is None or deadline < 0:
+        raise ValueError("analysis_deadline_seconds must be finite and nonnegative")
+    cache_from_config(config)
     for backend in ("prometheus", "threefs"):
         settings = config.get(backend)
         if isinstance(settings, dict):
@@ -206,10 +211,10 @@ def load_config(path: Path) -> dict[str, Any]:
     return config
 
 
-def load_history(path: Path) -> list[dict[str, Any]]:
+def load_history(path: Path, *, cache: JSONLCache | None = None) -> list[dict[str, Any]]:
     records = []
     try:
-        for record in json_objects(path):
+        for record in (cache.read(path) if cache is not None else json_objects(path)):
             if (record.get("schema_version") == 1 and record.get("record_type") == "verl_step_observation"
                     and isinstance(record.get("record_id"), str)):
                 records.append(record)
@@ -219,7 +224,7 @@ def load_history(path: Path) -> list[dict[str, Any]]:
 
 
 def tool_span_window(directory: Path, run_id: str, start: float, end: float,
-                     *, tool_name: str | None = None) -> dict[str, Any] | None:
+                     *, tool_name: str | None = None, cache: JSONLCache | None = None) -> dict[str, Any] | None:
     """Use completed tool spans fully inside an analysis interval.
 
     A VERL step interval can be approximate. Time overlap supplies correlation,
@@ -234,7 +239,7 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
         return None
     for path in paths:
         try:
-            for item in json_objects(path):
+            for item in (cache.read(path) if cache is not None else json_objects(path)):
                 if (item.get("schema_version") != 1
                         or item.get("record_type") != "span"
                         or item.get("name") != "tool.call" or item.get("run_id") != run_id
@@ -316,6 +321,7 @@ class DiagnosticEngine:
             )
         self.clock = clock
         self.thresholds = {**DEFAULT_THRESHOLDS, **config.get("thresholds", {})}
+        self.jsonl_cache = cache_from_config(config)
 
     def _queries(self, cluster: str, *, with_sandbox: bool = False) -> dict[str, str]:
         """Build scoped defaults while preserving explicit user query overrides."""
@@ -490,11 +496,12 @@ class DiagnosticEngine:
         sandbox_device_mapping = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir"):
             sandbox_device_mapping = device_window(Path(sandbox_config["events_dir"]), run_id, sandbox_node,
-                                                  float(start), end, sandbox_config.get("device_major_minor"))
+                                                  float(start), end, sandbox_config.get("device_major_minor"),
+                                                  reader=self.jsonl_cache.read if self.jsonl_cache is not None else None)
         tool_event_span = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir") and current:
             directory = Path(sandbox_config["events_dir"])
-            tool_event = tool_span_window(directory, run_id, float(start), end)
+            tool_event = tool_span_window(directory, run_id, float(start), end, cache=self.jsonl_cache)
             if tool_event is not None:
                 evidence["tool_duration_seconds"] = tool_event
                 tool_event_span = tool_event["related_span"]
@@ -506,7 +513,7 @@ class DiagnosticEngine:
                 if tool_event is not None:
                     previous_tool = tool_span_window(
                         directory, run_id, float(baseline_window["start"]),
-                        float(baseline_window["end"]), tool_name=tool_event["tool"],
+                        float(baseline_window["end"]), tool_name=tool_event["tool"], cache=self.jsonl_cache,
                     )
                     if previous_tool is not None:
                         baseline_metrics["tool_duration_seconds"] = previous_tool
@@ -899,10 +906,10 @@ class DiagnosticEngine:
         return findings
 
 
-def _existing_reports(path: Path) -> dict[str, dict[str, Any]]:
+def _existing_reports(path: Path, *, cache: JSONLCache | None = None) -> dict[str, dict[str, Any]]:
     reports: dict[str, dict[str, Any]] = {}
     try:
-        for value in json_objects(path):
+        for value in (cache.read(path) if cache is not None else json_objects(path)):
             record_id = value.get("trigger_record_id")
             if isinstance(record_id, str):
                 reports[record_id] = value
@@ -1007,23 +1014,16 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def run_once(
-    engine: DiagnosticEngine,
-    history_path: Path,
-    output: Path,
-    *,
-    periodic_when_idle: bool = True,
-    max_records: int | None = None,
-    finalize_pending: bool = False,
-) -> int:
-    history = load_history(history_path)
-    reports = _existing_reports(output / "diagnostics.jsonl")
+def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
+                   max_records=None, finalize_pending=False):
+    history = load_history(history_path, cache=engine.jsonl_cache)
+    reports = _existing_reports(output / "diagnostics.jsonl", cache=engine.jsonl_cache)
     settle = float(engine.config.get("threefs", {}).get("settle_seconds", 30)) if engine.threefs else 0.0
     now = engine.clock()
     retry_seconds = float(engine.config.get("retry_seconds", 60))
     retry_interval = float(engine.config.get("retry_interval_seconds", 10))
 
-    def ready(record: Mapping[str, Any]) -> bool:
+    def ready(record):
         window = record.get("analysis_window")
         end = finite(window.get("end")) if isinstance(window, Mapping) else None
         return end is None or now - end >= settle
@@ -1033,31 +1033,59 @@ def run_once(
                   or record.get("record_id") not in reports]
     pending = [record for record in unfinished if ready(record) and (
         finalize_pending or now >= reports.get(record.get("record_id"), {}).get("retry_at", 0))]
-    if pending:
-        batch = pending[:max_records] if max_records is not None else pending
-        for record in batch:
+    batch = pending[:max_records] if max_records is not None else pending
+    return {"pending": [(record, {key: reports.get(record.get("record_id"), {}).get(key)
+                                 for key in ("first_attempt_at", "revision")}) for record in batch],
+            "periodic": periodic_when_idle and not unfinished,
+            "now": now, "retry_seconds": retry_seconds, "retry_interval": retry_interval}, history
+
+
+def run_once(
+    engine: DiagnosticEngine,
+    history_path: Path,
+    output: Path,
+    *,
+    periodic_when_idle: bool = True,
+    max_records: int | None = None,
+    finalize_pending: bool = False,
+    analyzer=None,
+) -> int:
+    options = dict(periodic_when_idle=periodic_when_idle, max_records=max_records,
+                   finalize_pending=finalize_pending)
+    if analyzer is None:
+        plan, history = _prepare_batch(engine, history_path, output, **options)
+    else:
+        plan = analyzer.prepare(history_path, output, **options)
+        history = []
+        if plan.get("record_type") == "bottleneck_diagnosis":
+            write_report(output, plan)  # Failed scheduling cannot finalize any step.
+            return 0
+    now = plan["now"]
+    for record, previous in plan["pending"]:
+        if analyzer is None:
             observed = finite(record.get("observed_at"))
             prior = [item for item in history if observed is not None
                      and finite(item.get("observed_at")) is not None and item["observed_at"] < observed]
-            previous = reports.get(record.get("record_id"), {})
             report = engine.analyze(record, prior)
-            first_attempt = previous.get("first_attempt_at", now)
-            # Empty results can be ingestion lag even when other queries
-            # already succeeded. Bound retries for missing optional sources too.
-            query_incomplete = any(source.startswith(("prometheus:", "threefs:"))
-                                   for source in report["missing_sources"])
-            retryable = (report["verdict"] == "insufficient_data" or query_incomplete) and (
-                "step_event_time" not in report["missing_sources"])
-            provisional = (retryable and not finalize_pending and retry_seconds > 0
-                           and now < first_attempt + retry_seconds)
-            report.update({"analysis_status": "provisional" if provisional else "final",
-                           "revision": int(previous.get("revision", 0)) + 1,
-                           "first_attempt_at": first_attempt,
-                           "retry_at": min(now + retry_interval, first_attempt + retry_seconds) if provisional else None})
-            write_report(output, report)
-    elif periodic_when_idle and not unfinished:
-        write_report(output, engine.analyze(None, history))
-    return len(batch) if pending else 0
+        else:
+            report = analyzer.analyze(record, history_path)
+        first_attempt = previous.get("first_attempt_at")
+        if first_attempt is None:
+            first_attempt = now
+        query_incomplete = any(source.startswith(("prometheus:", "threefs:"))
+                               for source in report["missing_sources"])
+        retryable = (report["verdict"] == "insufficient_data" or query_incomplete) and (
+            "step_event_time" not in report["missing_sources"])
+        provisional = (retryable and not finalize_pending and plan["retry_seconds"] > 0
+                       and now < first_attempt + plan["retry_seconds"])
+        report.update({"analysis_status": "provisional" if provisional else "final",
+                       "revision": int(previous.get("revision") or 0) + 1,
+                       "first_attempt_at": first_attempt,
+                       "retry_at": min(now + plan["retry_interval"], first_attempt + plan["retry_seconds"]) if provisional else None})
+        write_report(output, report)
+    if plan["periodic"]:
+        write_report(output, analyzer.analyze(None, history_path) if analyzer is not None else engine.analyze(None, history))
+    return len(plan["pending"])
 
 
 def main() -> None:
@@ -1088,18 +1116,31 @@ def main() -> None:
         return
     if args.history is None or args.output is None:
         parser.error("--history and --output are required unless --check-config is used")
-    while True:
-        run_once(
-            engine,
-            args.history,
-            args.output,
-            periodic_when_idle=not args.pending_only,
-            max_records=None if args.once else 20,
-            finalize_pending=args.finalize_pending,
-        )
-        if args.once:
-            return
-        time.sleep(args.interval)
+    from .deadline import IsolatedAnalyzer
+    import signal
+    deadline = float(config.get("analysis_deadline_seconds", 60))
+    analyzer = IsolatedAnalyzer(config, seconds=deadline) if deadline else None
+    def interrupted(signum, frame):
+        raise SystemExit(128 + signum)
+    previous_term = signal.signal(signal.SIGTERM, interrupted)
+    try:
+        while True:
+            run_once(
+                engine,
+                args.history,
+                args.output,
+                periodic_when_idle=not args.pending_only,
+                max_records=None if args.once else 20,
+                finalize_pending=args.finalize_pending,
+                analyzer=analyzer,
+            )
+            if args.once:
+                return
+            time.sleep(args.interval)
+    finally:
+        if analyzer is not None:
+            analyzer.close()
+        signal.signal(signal.SIGTERM, previous_term)
 
 
 if __name__ == "__main__":

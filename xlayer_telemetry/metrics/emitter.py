@@ -15,6 +15,7 @@ from typing import Callable, Iterable, Mapping
 from xlayer_telemetry.identity import producer_filename_stem
 from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.measurements import finite_number
+from xlayer_telemetry.io_writer import BoundedWriter, settings_from_env
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -41,7 +42,7 @@ class Metric:
 
 
 class MetricEmitter:
-    """Write one producer worker's latest metrics without blocking its workload."""
+    """Best-effort latest snapshots, optionally with background filesystem I/O."""
 
     def __init__(
         self,
@@ -57,6 +58,10 @@ class MetricEmitter:
         gpu: str | None = None,
         cuda_visible_devices: str | None = None,
         clock: Callable[[], float] = time.time,
+        async_io: bool = False,
+        queue_capacity: int = 256,
+        max_queue_bytes: int = 4 * 1024 * 1024,
+        flush_timeout: float = 1,
     ) -> None:
         identifiers = {"run_id": run_id, "producer": producer, "role": role, "worker_id": worker_id}
         for name, value in identifiers.items():
@@ -81,6 +86,10 @@ class MetricEmitter:
         self.cuda_visible_devices = cuda_visible_devices
         self.clock = clock
         self.disabled = False
+        if type(async_io) is not bool:
+            raise ValueError("async_io must be boolean")
+        self._writer = BoundedWriter(self._persist, self._disable, capacity=queue_capacity,
+                                     max_bytes=max_queue_bytes, flush_timeout=flush_timeout, latest_only=True) if async_io else None
 
     @classmethod
     def from_env(
@@ -121,6 +130,7 @@ class MetricEmitter:
                 local_rank=local_rank,
                 gpu=gpu,
                 cuda_visible_devices=visible_devices,
+                **settings_from_env(),
             )
         except ValueError as exc:
             print(f"[metrics] export disabled: {exc}", file=sys.stderr)
@@ -150,16 +160,43 @@ class MetricEmitter:
                 "observed_at": self.clock(),
                 "samples": encoded,
             }
-            self.directory.mkdir(parents=True, exist_ok=True)
             filename = producer_filename_stem(self.producer, self.role, self.worker_id,
                                               node=self.node, run_id=self.run_id) + ".json"
             destination = self.directory / filename
-            atomic_write_text(destination, json.dumps(snapshot, separators=(",", ":"), allow_nan=False) + "\n")
+            encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False) + "\n"
+            if self._writer is not None:
+                if not self._writer.submit((destination, encoded)):
+                    return None
+            else:
+                self._persist((destination, encoded))
             return destination
         except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
-            print(f"[metrics] export disabled: {exc}", file=sys.stderr)
-            self.disabled = True
+            self._disable(exc)
             return None
+
+    @staticmethod
+    def _persist(item) -> None:
+        destination, encoded = item
+        atomic_write_text(destination, encoded)
+
+    def _disable(self, error) -> None:
+        self.disabled = True
+        print(f"[metrics] export disabled: {error}", file=sys.stderr)
+
+    def io_status(self) -> dict:
+        return self._writer.status() if self._writer is not None else {"mode": "synchronous", "disabled": self.disabled}
+
+    def flush(self, timeout=None) -> bool:
+        return self._writer.flush(timeout) if self._writer is not None else True
+
+    def close(self, timeout=None) -> bool:
+        return self._writer.close(timeout) if self._writer is not None else True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     @staticmethod
     def _encode(metric: Metric) -> dict[str, object]:

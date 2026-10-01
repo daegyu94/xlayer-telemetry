@@ -66,7 +66,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Run Overview의 완료 step 목록과 Timeline | File 경로와 Loki를 설정해야 합니다. Step 경계는 VERL file logger를 바탕으로 추정합니다. |
 | Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
 | Agent sandbox | 선택적 lifecycle span, sandbox worker cgroup v2 I/O·CPU·memory, local SSD와의 진단 후보 | 외부 runtime 계측과 안정적인 worker cgroup이 필요합니다. 개별 sandbox의 SSD 사용량으로 자동 귀속하지 않습니다. |
-| 운영·분석 | 선택적 Grafana alert rule, `show_run`, diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
+| 운영·분석 | 선택적 Grafana alert rule, `show_run`, worker deadline·incremental cache를 사용하는 diagnostics, 짧은 profiler·NCCL 예제 | Alert 수신처는 별도 설정합니다. Cache 한도 초과 시 전체 scan을 사용합니다. Profiler trace는 Grafana에 자동으로 들어가지 않습니다. |
 | Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
 | 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog 없이 명시적으로 호출하며, 선택한 step의 검토된 결과는 Loki를 통해 Grafana에 표시할 수 있습니다. 자동 호출은 하지 않습니다. |
 

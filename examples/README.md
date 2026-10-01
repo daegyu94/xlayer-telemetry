@@ -20,6 +20,7 @@ Optional dependency는 해당 예제를 사용할 때만 필요합니다.
 | Docker tool을 VERL AgentLoop에 연결 | [sandbox/verl_lab_swebench_tools.py](sandbox/verl_lab_swebench_tools.py), [calculator_tools.py](sandbox/calculator_tools.py) | verl-lab·모델·dataset·grader image와 Docker가 필요합니다. [sandbox guide](../docs/agent-rl.md#observe-an-agent-sandbox)를 먼저 읽습니다. |
 | 실제 sandbox trace/cgroup 확인 | [sandbox/validate_smoke.py](sandbox/validate_smoke.py), [validate_docker_cgroup.py](sandbox/validate_docker_cgroup.py) | 전자는 저장된 smoke 결과를 읽고 후자는 실제 임시 Docker container를 실행합니다. |
 | Collector run discovery·freshness 확인 | [investigation/validate.py](investigation/validate.py) | Prometheus 실행 파일이 필요합니다. CPU SDK fixture로 logical node 두 개를 검사합니다. |
+| JSONL cache 비용 확인 | [investigation/validate_runtime.py](investigation/validate_runtime.py) | CPU fixture로 1만·10만 record의 cold/warm 조회를 비교합니다. 전체 diagnosis 지연 측정은 아닙니다. |
 | GPU·clock·multi-node correlation 확인 | [multinode/validate_local.py](multinode/validate_local.py) | GPU 2개·Node Exporter·Prometheus가 필요합니다. 한 host의 logical node이며 물리 multi-node 학습 검증이 아닙니다. |
 | 별도 guest kernel·clock·collector 검증 | [multinode/validate_vms.py](multinode/validate_vms.py) | KVM·QEMU·cloud-localds와 Ubuntu cloud image가 필요합니다. GPU 없이 VM 두 개에서 collector와 clock failure/recovery를 검사합니다. |
 | 작은 GPU instrumentation smoke | [verl/gpu_smoke.py](verl/gpu_smoke.py) | PyTorch·CUDA가 필요합니다. 작은 REINFORCE loop이며 실제 VERL benchmark가 아닙니다. |
