@@ -385,11 +385,24 @@ bash examples/sandbox/run_verl_lab_smoke.sh
 python -m examples.sandbox.validate_smoke "$RUN_ROOT" --require-sandbox
 ```
 
+최근 Docker adapter의 outcome과 async update 기록도 확인하려면 다음을 사용합니다.
+`--require-results`는 각 `sandbox.exec`에 같은 run/trace/span의 outcome이 하나씩 있는지 검사합니다.
+Nonzero exit가 기록돼도 trace 연결 검증은 통과할 수 있으며, 실행 성공 여부는 outcome을 별도로 확인합니다.
+
+```bash
+python -m examples.sandbox.validate_smoke "$RUN_ROOT" \
+  --require-sandbox --require-results --execution-mode async --min-updates 3
+```
+
+Sync run에는 `--execution-mode sync`를 사용합니다.
+Async의 경계는 `trainer_update`이며, 모든 rollout/tool span이 해당 시간 구간 안에 포함된다고 가정하지 않습니다.
+
 이 옵션은 grader의 `docker run`에 `--cgroup-parent`를 전달합니다.
 호스트에서 실제 container PID의 `/proc/<pid>/cgroup`을 확인해 지정한 parent 아래에 생성됐는지 검증해야 합니다.
 `docker run --rm` grader는 매우 짧게 실행될 수 있으므로, container가 없을 때 parent가 유지되는지도 확인하고 sampler interval만으로 모든 grader 호출이 포착된다고 가정하지 않습니다.
 실제 Docker container 2개 이상의 parent I/O 합산을 별도로 검사하려면 로컬에 grader image가 있는 호스트에서 `python -m examples.sandbox.validate_docker_cgroup`을 실행합니다.
 이 검사는 임시 container를 만들고 종료하며, veRL smoke의 개별 trajectory 귀속까지 검증하지는 않습니다.
+실행 중 parent/child counter를 동시에 읽을 수 없으므로, child scan 전후의 parent 값을 사용해 합산 범위를 검사합니다.
 
 ### Real validation coverage
 

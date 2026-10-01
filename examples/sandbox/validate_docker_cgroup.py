@@ -41,12 +41,18 @@ def validate(parent_name: str, image: str, count: int) -> dict[str, object]:
         parent = parents.pop()
         before = read_cgroup(parent)
         child_before = [read_cgroup(path) for path in paths]
+        before_end = read_cgroup(parent)
         time.sleep(2)
         after = read_cgroup(parent)
         child_after = [read_cgroup(path) for path in paths]
+        after_end = read_cgroup(parent)
         required = {"wbytes", "cpu_usage_usec", "memory_current", "io_some_total_usec"}
         if not required <= after.keys():
             raise RuntimeError(f"missing cgroup v2 sources: {sorted(required - after.keys())}")
+        if any("wbytes" not in sample for sample in (before, before_end, after_end)):
+            raise RuntimeError("parent cgroup I/O source disappeared during observation")
+        if not before["wbytes"] <= before_end["wbytes"] <= after["wbytes"] <= after_end["wbytes"]:
+            raise RuntimeError("parent cgroup write counter reset during observation")
         parent_write = after.get("wbytes", 0) - before.get("wbytes", 0)
         parent_cpu = after["cpu_usage_usec"] - before.get("cpu_usage_usec", 0)
         child_writes = [now.get("wbytes", 0) - prior.get("wbytes", 0)
@@ -55,12 +61,19 @@ def validate(parent_name: str, image: str, count: int) -> dict[str, object]:
                       for item in ids)
         if not running or any(value <= 0 for value in child_writes):
             raise RuntimeError("not all Docker children produced live cgroup I/O")
-        if parent_write != sum(child_writes):
-            raise RuntimeError("parent cgroup write bytes did not match its children")
+        # Parent and children cannot be read atomically while I/O is running.
+        # Bracket each child scan with parent reads instead of requiring an
+        # exact equality between counters observed at different instants.
+        parent_write_min = max(0, after["wbytes"] - before_end["wbytes"])
+        parent_write_max = after_end["wbytes"] - before["wbytes"]
+        if not parent_write_min <= sum(child_writes) <= parent_write_max:
+            raise RuntimeError("child write bytes fall outside parent observation bounds")
         if parent_cpu <= 0 or after["memory_current"] <= 0:
             raise RuntimeError("parent cgroup did not observe CPU or memory use")
         return {"containers": count, "parent_cgroup": str(parent),
                 "parent_write_bytes_delta": parent_write,
+                "parent_write_bytes_delta_bounds": [parent_write_min, parent_write_max],
+                "comparison": "parent reads bracket non-atomic child scans",
                 "children_write_bytes_delta": child_writes,
                 "parent_cpu_usage_usec_delta": parent_cpu,
                 "parent_memory_current_bytes": after["memory_current"]}

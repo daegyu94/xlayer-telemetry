@@ -135,3 +135,85 @@ def test_smoke_validator_rejects_empty_or_unhashable_trace_identity(tmp_path, id
         'trace_id': identity, 'span_id': 'parent'}) + '\n')
     with pytest.raises(ValueError, match='invalid run/trace/span identity'):
         validate(tmp_path)
+
+
+def test_smoke_validator_checks_outcome_links_and_async_boundaries(tmp_path):
+    from examples.sandbox.validate_smoke import validate, validate_updates
+    records = [
+        {'record_type': 'span', 'name': 'tool.call', 'run_id': 'r',
+         'trace_id': 'trace', 'span_id': 'tool'},
+        {'record_type': 'span', 'name': 'sandbox.exec', 'run_id': 'r',
+         'trace_id': 'trace', 'span_id': 'exec', 'parent_span_id': 'tool'},
+        {'record_type': 'event', 'name': 'sandbox.exec_result', 'run_id': 'r',
+         'trace_id': 'trace', 'span_id': 'exec',
+         'attributes': {'outcome': 'nonzero_exit', 'exit_code': 2}},
+    ]
+    path = tmp_path / 'sandbox-worker.jsonl'
+    def write(rows):
+        path.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+    write(records)
+    assert validate(tmp_path, require_results=True)['sandbox_execution_results'] == 1
+    # Missing, duplicate, mismatched and contradictory outcomes must not pass.
+    for rows, message in [(records[:2], 'no outcome'),
+                          (records + [records[-1]], 'no unique matching')]:
+        write(rows)
+        with pytest.raises(ValueError, match=message):
+            validate(tmp_path, require_results=True)
+    records[-1]['run_id'] = 'another-run'
+    write(records)
+    with pytest.raises(ValueError, match='no unique matching'):
+        validate(tmp_path, require_results=True)
+    records[-1]['run_id'] = 'r'
+    records[-1]['attributes']['exit_code'] = 0
+    write(records)
+    with pytest.raises(ValueError, match='contradicts'):
+        validate(tmp_path, require_results=True)
+    records[-1]['span_id'] = {}
+    write(records)
+    with pytest.raises(ValueError, match='invalid identity'):
+        validate(tmp_path, require_results=True)
+
+    history = tmp_path / 'verl-steps.jsonl'
+    update = {'record_type': 'verl_step_observation', 'record_id': 'one',
+              'execution_mode': 'async', 'boundary_scope': 'trainer_update'}
+    history.write_text(json.dumps(update) + '\n')
+    assert validate_updates(tmp_path, 'async')['updates'] == 1
+    with pytest.raises(ValueError, match='expected at least'):
+        validate_updates(tmp_path, 'async', 3)
+    with pytest.raises(ValueError, match='boundary_scope'):
+        validate_updates(tmp_path, 'sync')
+    history.write_text((json.dumps(update) + '\n') * 2)
+    with pytest.raises(ValueError, match='duplicated'):
+        validate_updates(tmp_path, 'async')
+
+
+@pytest.mark.parametrize('final_parent', [260, 245])
+def test_docker_cgroup_validation_brackets_concurrent_io(monkeypatch, final_parent):
+    from examples.sandbox import validate_docker_cgroup as module
+    created = []
+    def docker(*args):
+        if args[0] == 'run':
+            created.append(str(len(created) + 1))
+            return created[-1]
+        if args[0] == 'inspect':
+            return args[-1] if args[2] == '{{.State.Pid}}' else 'true'
+        return ''
+    monkeypatch.setattr(module, 'docker', docker)
+    monkeypatch.setattr(Path, 'read_text', lambda self: f'0::/parent/{self.parent.name}\n')
+    monkeypatch.setattr(module.time, 'sleep', lambda _: None)
+    monkeypatch.setattr(module.subprocess, 'run', lambda *a, **k: None)
+    # Parent: [100,120] -> [240,260]. Child sum = 150 is within
+    # [120,160], although it differs from the old parent delta of 140.
+    values = iter([100, 60, 50, 120, 240, 140, 120, final_parent])
+    def read(_):
+        value = next(values)
+        return {'wbytes': value, 'cpu_usage_usec': value,
+                'memory_current': 100, 'io_some_total_usec': 0}
+    monkeypatch.setattr(module, 'read_cgroup', read)
+    if final_parent == 260:
+        result = module.validate('parent', 'image', 2)
+        assert sum(result['children_write_bytes_delta']) == 150
+        assert result['parent_write_bytes_delta_bounds'] == [120, 160]
+    else:
+        with pytest.raises(RuntimeError, match='outside parent observation bounds'):
+            module.validate('parent', 'image', 2)

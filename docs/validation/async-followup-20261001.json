@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-01",
+  "code_baseline": "ae04ff8",
+  "model": "Qwen2.5-1.5B-Instruct",
+  "workload": "SWE-Bench guided patch integration fixture with Docker grader",
+  "training_updates_per_mode": 3,
+  "rollout_n": 2,
+  "physical_nodes": 1,
+  "cases": [
+    {
+      "trainer_mode": "colocate_async",
+      "visible_gpus": [
+        1
+      ],
+      "tool_calls": 24,
+      "sandbox_execs": 5,
+      "linked_sandbox_execs": 5,
+      "sandbox_execution_results": 5,
+      "updates": 3,
+      "boundary_scope": "trainer_update",
+      "workload_exit_code": 0,
+      "telemetry_health": "complete",
+      "final_export": {
+        "bridge": "ok",
+        "diagnostics": "disabled"
+      },
+      "outcomes": [
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "durations_seconds": [
+        7.95083543099463,
+        5.009903847239912,
+        5.213241286575794
+      ],
+      "boundary_accuracy": [
+        "approximate"
+      ],
+      "snapshot_promtool": "passed"
+    },
+    {
+      "trainer_mode": "separate_async",
+      "visible_gpus": [
+        0,
+        1
+      ],
+      "tool_calls": 24,
+      "sandbox_execs": 5,
+      "linked_sandbox_execs": 5,
+      "sandbox_execution_results": 5,
+      "updates": 3,
+      "boundary_scope": "trainer_update",
+      "workload_exit_code": 0,
+      "telemetry_health": "complete",
+      "final_export": {
+        "bridge": "ok",
+        "diagnostics": "disabled"
+      },
+      "outcomes": [
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "durations_seconds": [
+        8.726730316877365,
+        2.727806778624654,
+        4.712063503451645
+      ],
+      "boundary_accuracy": [
+        "approximate"
+      ],
+      "snapshot_promtool": "passed"
+    }
+  ],
+  "docker_cgroup": {
+    "children_write_bytes_delta": [
+      25165824,
+      25165824
+    ],
+    "comparison": "parent reads bracket non-atomic child scans",
+    "containers": 2,
+    "parent_cgroup": "/sys/fs/cgroup/xlayer.slice/xlayer-async.slice/xlayer-async-validation.slice",
+    "parent_cpu_usage_usec_delta": 15768,
+    "parent_memory_current_bytes": 64585728,
+    "parent_write_bytes_delta": 50331648,
+    "parent_write_bytes_delta_bounds": [
+      50331648,
+      50331648
+    ]
+  },
+  "limitations": [
+    "Small integration fixture; not a benchmark score or sustained-throughput evaluation",
+    "Both GPUs are on one physical host; no multi-node GPU training or RDMA validation",
+    "No Prometheus/Loki server or diagnosis configuration attached to these runs; exporter output checked using actual promtool",
+    "Async spans are linked by identity; trainer-update windows do not enclose all rollout work",
+    "File logger update boundaries remain approximate",
+    "Per-trajectory cgroup ownership and infrastructure/model failure classification were not inferred",
+    "Hard wall-clock cancellation, persistent history indexing and asynchronous SDK writes remain deferred"
+  ],
+  "tests": {
+    "pytest_passed": 445,
+    "promtool": "3.5.0",
+    "regressions": [
+      "missing/duplicate/cross-run sandbox outcomes",
+      "exit code/outcome mismatch",
+      "async update scope and duplicate history",
+      "non-atomic parent/child cgroup reads"
+    ]
+  },
+  "verl_lab_commit": "ca9eced4153e89e23784e6dbc1a1d17256ab0b14",
+  "verl_commit": "896a9bba5c5ccd3f000d3d2f7c99d921cfd49236"
+}
