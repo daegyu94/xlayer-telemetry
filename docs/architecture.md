@@ -212,6 +212,21 @@ JSON snapshot은 최신 상태를 빠르게 노출하기 위한 것이므로 모
 Prometheus에는 scrape에 잡힌 시계열만 남고 기본 보존 기간은 1일입니다.
 Run artifact와 collector state는 별도 로컬 파일이므로 두 경로의 용량과 보존 기간을 각각 관리합니다.
 
+## Failure Boundaries and Operating Limits
+
+Wrapper는 workload exit code와 `telemetry-health.json`의 수집 상태를 별도로 남깁니다.
+진단 설정이 실행 중 사라지거나 최종 export가 실패해도 workload 결과를 덮지 않습니다.
+동일한 run 디렉터리의 동시 wrapper 실행은 `flock`으로 거부하며 완료한 경로도 재사용하지 않습니다.
+
+Bridge는 newline까지 기록된 UTF-8 JSON record를 처리하고 malformed line은 건너뜁니다.
+Producer timestamp가 없는 backlog는 정확한 step 시각을 복원할 수 없어 외부 resource correlation을 제한합니다.
+Backend의 일부 표본 누락·일시 오류는 [bounded retry](diagnosis.md#baseline-and-rule-state)로 처리합니다.
+
+SDK 파일 쓰기는 best-effort이지만 synchronous I/O이므로 느린 filesystem에서 지연 자체를 없애지는 못합니다.
+Snapshot·event는 node-local 경로에 기록하고, 장시간 run의 artifact 용량을 관리합니다.
+진단은 poll마다 step/report JSONL을 다시 읽고 tool span도 window 조회 시 scan하므로 대규모 이력에서 분석 지연이 늘어납니다.
+현재 구조는 bounded retry와 batch 크기로 작업량을 제한하지만 incremental index나 완전한 backpressure queue는 제공하지 않습니다.
+
 ## Add One Source at a Time
 
 기본 경로가 정상인 뒤 추가 source를 연결합니다.

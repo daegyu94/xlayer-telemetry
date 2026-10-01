@@ -1,0 +1,282 @@
+{
+  "review_baseline": "82f937069bfee228ffa2c1e1b9b405cd523f1698",
+  "review_scope": [
+    "SDK and event emission",
+    "VERL wrapper and bridge",
+    "node collectors and source discovery",
+    "Prometheus and ClickHouse queries",
+    "step history, baseline, entity and clock correlation",
+    "rule and optional LLM evidence validation",
+    "Grafana/Loki projection, alerting and navigation contracts",
+    "configuration, deployment scripts, examples, tests and documentation"
+  ],
+  "fixes": [
+    {
+      "priority": "P1",
+      "issue": "Partial backend results were finalized before missing queries arrived",
+      "change": "Retry attempted missing sources within the existing deadline"
+    },
+    {
+      "priority": "P1",
+      "issue": "Split UTF-8 or malformed encoding could stop the VERL bridge",
+      "change": "Read bytes through the newline boundary; decode completed records and skip malformed lines"
+    },
+    {
+      "priority": "P1",
+      "issue": "Sandbox sampler cleanup could unlink outside the textfile directory before validating the basename",
+      "change": "Validate output basename and finite interval before cleanup"
+    },
+    {
+      "priority": "P1",
+      "issue": "Missing shutdown diagnostics config replaced the workload exit code",
+      "change": "Capture settle policy before starting the workload"
+    },
+    {
+      "priority": "P1",
+      "issue": "ClickHouse quoted numeric cells were ignored; malformed/null latency rows could terminate analysis",
+      "change": "Validate and normalize external numeric fields, retain missing latency as unavailable"
+    },
+    {
+      "priority": "P1",
+      "issue": "Concurrent wrappers could both initialize the same run directory",
+      "change": "Hold a per-output flock across the check-and-create sequence and run lifecycle"
+    },
+    {
+      "priority": "P2",
+      "issue": "Repository CI covered documentation only",
+      "change": "Add CPU regression and syntax workflow for Ubuntu 22.04/Python 3.10 and Ubuntu 24.04/Python 3.12"
+    }
+  ],
+  "validation": {
+    "python": "3.12.3",
+    "baseline_pytest": {
+      "passed": 407,
+      "skipped": 2,
+      "seconds": 11.71
+    },
+    "final_pytest": {
+      "passed": 419,
+      "skipped": 0,
+      "seconds": 11.23,
+      "promtool": "3.5.0"
+    },
+    "new_regression_cases": 10,
+    "shell_syntax": "passed for tracked shell scripts",
+    "compileall": "passed for xlayer_telemetry and examples",
+    "sphinx": "strict nitpicky HTML build passed",
+    "real_prometheus": {
+      "status": "passed",
+      "checks": {
+        "two_nodes_same_worker_isolated": true,
+        "new_run_without_collector_restart": true,
+        "real_source_timestamps": {
+          "interval_seconds": 5.000000476837158,
+          "query_step_seconds": 2.0,
+          "range_window_seconds": 0,
+          "evaluation_count": 1.0,
+          "evaluation_count_kind": "query_evaluations_not_scrapes",
+          "observed_source_samples": 1,
+          "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
+          "last_source_timestamp": 1790816397.54,
+          "source_age_seconds": 1.1749398708343506,
+          "freshness": "observed",
+          "source_coverage": "returned_series_only",
+          "warnings": [
+            "fewer_than_two_query_evaluations"
+          ]
+        },
+        "completed_run_removed_from_export": true,
+        "snapshot_expiry": true
+      },
+      "limitations": [
+        "SDK fixture values, not VERL training.",
+        "Logical nodes share one host.",
+        "No causal storage or GPU bottleneck asserted."
+      ]
+    },
+    "logical_multinode": {
+      "status": "passed",
+      "physical_hosts": 1,
+      "logical_nodes": [
+        "gpu-a",
+        "gpu-b",
+        "storage-a"
+      ],
+      "limitations": [
+        "No distributed VERL training or independent remote clocks tested.",
+        "Clock skew is injected into an HTTP evidence proxy; system clocks are unchanged.",
+        "Node Exporter host counters share one physical machine.",
+        "No local SSD or 3FS bottleneck is asserted."
+      ],
+      "checks": {
+        "scrape_relative_alignment_without_ntp_requirement": {
+          "status": "aligned",
+          "nodes": {
+            "gpu-a": [],
+            "gpu-b": [],
+            "storage-a": []
+          }
+        },
+        "strict_sync_check": {
+          "status": "unsafe",
+          "nodes": {
+            "gpu-a": [
+              "clock_unsynchronized"
+            ],
+            "gpu-b": [
+              "clock_unsynchronized"
+            ],
+            "storage-a": [
+              "clock_unsynchronized"
+            ]
+          }
+        },
+        "real_gpu_series": [
+          {
+            "labels": {
+              "__name__": "telemetry_gpu_utilization_percent",
+              "cluster": "multinode-validation",
+              "gpu": "0",
+              "gpu_uuid": "GPU-0534a4e6-92ae-2748-94ab-e25a3b687c37",
+              "instance": "gpu-a",
+              "job": "telemetry",
+              "nodename": "gpu-a"
+            },
+            "stats": {
+              "min": 1.0,
+              "mean": 1.0,
+              "max": 1.0,
+              "last": 1.0,
+              "max_series_delta": 0.0,
+              "sample_count": 4.0
+            }
+          },
+          {
+            "labels": {
+              "__name__": "telemetry_gpu_utilization_percent",
+              "cluster": "multinode-validation",
+              "gpu": "1",
+              "gpu_uuid": "GPU-37645592-fd93-bde9-a00e-3cc501f15a9c",
+              "instance": "gpu-b",
+              "job": "telemetry",
+              "nodename": "gpu-b"
+            },
+            "stats": {
+              "min": 0.0,
+              "mean": 0.0,
+              "max": 0.0,
+              "last": 0.0,
+              "max_series_delta": 0.0,
+              "sample_count": 4.0
+            }
+          }
+        ],
+        "node_local_worker_snapshots": [
+          {
+            "__name__": "validation_file_duration_seconds",
+            "cluster": "multinode-validation",
+            "instance": "gpu-a",
+            "job": "telemetry",
+            "node": "gpu-a",
+            "nodename": "gpu-a",
+            "producer": "agent",
+            "role": "rollout",
+            "run_id": "local-validation",
+            "worker_id": "0"
+          },
+          {
+            "__name__": "validation_file_duration_seconds",
+            "cluster": "multinode-validation",
+            "instance": "gpu-b",
+            "job": "telemetry",
+            "node": "gpu-b",
+            "nodename": "gpu-b",
+            "producer": "agent",
+            "role": "rollout",
+            "run_id": "local-validation",
+            "worker_id": "0"
+          },
+          {
+            "__name__": "validation_file_duration_seconds",
+            "cluster": "multinode-validation",
+            "instance": "storage-a",
+            "job": "telemetry",
+            "node": "storage-a",
+            "nodename": "storage-a",
+            "producer": "agent",
+            "role": "storage",
+            "run_id": "local-validation",
+            "worker_id": "0"
+          }
+        ],
+        "storage_host_metrics": true,
+        "cross_node_trace_parent_links": true,
+        "diagnosis_three_node_query": true,
+        "synthetic_plus_12s_clock_skew": {
+          "status": "unsafe",
+          "nodes": {
+            "gpu-a": [],
+            "gpu-b": [],
+            "storage-a": [
+              "scrape_relative_clock_offset"
+            ]
+          }
+        },
+        "real_backend_diagnosis_withheld_for_skew": true,
+        "stopped_storage_source": {
+          "status": "unknown",
+          "nodes": {
+            "gpu-a": [],
+            "gpu-b": [],
+            "storage-a": [
+              "missing_clock_evidence"
+            ]
+          }
+        }
+      }
+    },
+    "history_scaling": {
+      "data_origin": "synthetic",
+      "backend": "in-process constant response; no network latency",
+      "scope": "one new step after completed history; one local host; no GPU training",
+      "measurements": [
+        {
+          "history_records": 10000,
+          "new_steps": 1,
+          "wall_seconds": 0.056,
+          "query_calls": 22,
+          "history_bytes": 2905676
+        },
+        {
+          "history_records": 100000,
+          "new_steps": 1,
+          "wall_seconds": 0.666,
+          "query_calls": 22,
+          "history_bytes": 29455705
+        }
+      ]
+    }
+  },
+  "compatibility": {
+    "public_sdk": "unchanged",
+    "metric_labels": "unchanged; no cardinality increase",
+    "stored_schemas": "unchanged",
+    "retry_behavior": "partial data remains provisional until recovery or the existing deadline",
+    "wrapper_dependency": "Linux flock (util-linux), already used by verl_local.sh"
+  },
+  "not_validated": [
+    "Real VERL/vLLM training in this review",
+    "Physical multi-host training or independent host clock synchronization",
+    "Live 3FS ClickHouse or Docker cgroup workload",
+    "Ollama model inference",
+    "Remote execution of the new GitHub Actions matrix"
+  ],
+  "remaining_limits": [
+    "History, report and tool span queries scan local JSONL; no incremental index",
+    "Backend query timeout is per request, not a total analysis budget",
+    "SDK writes are synchronous; best-effort error isolation does not bound filesystem latency",
+    "Collector malformed-record skips do not expose comprehensive per-source drop counters",
+    "Docker SWE grader check=False return code is not a separate span outcome; model/test failures and infrastructure outcomes need an explicit adapter contract"
+  ],
+  "external_reference": "https://clickhouse.com/resources/engineering/convert-csv-to-jsonl"
+}

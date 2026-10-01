@@ -187,6 +187,8 @@ bash scripts/check_tools.sh
 ```
 
 CPU 테스트는 외부 training framework 없이 실행할 수 있습니다.
+CPU regression workflow는 Ubuntu 22.04/Python 3.10과 Ubuntu 24.04/Python 3.12에서 테스트·syntax 검사를 실행하도록 구성합니다.
+실제 GPU·backend 통합 검증 범위는 [Validation Records](docs/validation/README.md)에 별도로 기록합니다.
 `check_tools.sh`의 미설치 표시는 해당 선택 기능의 도구가 없다는 뜻입니다.
 Synthetic demo와 smoke test의 수치는 실제 LLM 학습 성능을 나타내지 않습니다.
 

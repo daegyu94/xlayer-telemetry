@@ -138,19 +138,19 @@ def iter_file_records(
         if not follow:
             raise FileNotFoundError(path)
         time.sleep(poll_interval)
-    with path.open(encoding="utf-8") as stream:
+    with path.open("rb") as stream:
         backlog_end = path.stat().st_size if existed_at_start or not follow else 0
         while True:
             position = stream.tell()
             line = stream.readline()
-            if line and not line.endswith(chr(10)) and follow:
+            if line and not line.endswith(b"\n") and follow:
                 stream.seek(position)
                 time.sleep(poll_interval)
                 continue
             if line:
                 try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
+                    record = json.loads(line.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
                 if isinstance(record, dict):
                     yield FileRecord(record, live=follow and position >= backlog_end)

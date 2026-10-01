@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [review-20261001.json](review-20261001.json) | 전체 구조·실행 경로 리뷰, failure regression 10개, 실제 Prometheus·logical multi-node와 이력 scan 비용; 실학습 검증과 구분 |
 | [core-refactor-20261001.json](core-refactor-20261001.json) | 공통 Prometheus parser·snapshot 선택·VERL bridge의 회귀 검증 |
 | [examples-20261001.json](examples-20261001.json) | CPU SDK 예제·공통 Compose dashboard·target 설정·문서 링크와 기존 테스트 검증 |
 | [sandbox/validation-20260930.json](sandbox/validation-20260930.json) | 실제 VERL Agent RL의 workload·trainer mode matrix와 Docker tool·native metrics·span 연결 |

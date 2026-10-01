@@ -13,6 +13,7 @@ import re
 import time
 from typing import Mapping
 
+from ..measurements import finite_number
 from ..metrics.prometheus import GaugeSample, write_gauges
 
 
@@ -142,7 +143,9 @@ def main() -> None:
     parser.add_argument("--interval", type=float, default=2.0)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
-    if args.interval <= 0 or not args.cgroup.is_dir():
+    if Path(args.textfile_name).name != args.textfile_name or not args.textfile_name.endswith(".prom"):
+        parser.error("textfile-name must be a .prom basename")
+    if finite_number(args.interval) is None or args.interval <= 0 or not args.cgroup.is_dir():
         parser.error("interval must be positive and cgroup must be a directory")
     labels = {"node": args.node, "role": args.role, "runtime": args.runtime,
               "filesystem": args.filesystem, "deployment": args.deployment}

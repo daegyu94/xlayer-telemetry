@@ -18,7 +18,7 @@ Multi-node에서는 monitoring host에서 각 node의 `:19100`에 접근할 수 
 
 ## Prepare the Host
 
-Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `curl`, `tar`, `unzip`을 사용합니다.
+Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `flock`(util-linux), `curl`, `tar`, `unzip`을 사용합니다.
 기본 `node` role은 GPU도 수집하므로 NVIDIA driver와 동작하는 `nvidia-smi`가 필요합니다.
 GPU 없는 sandbox·storage host는 `ENABLE_GPU_METRICS=0`으로 host metric만 수집할 수 있으며, 실제 자원 없이 화면을 익힐 때는 demo를 사용합니다.
 

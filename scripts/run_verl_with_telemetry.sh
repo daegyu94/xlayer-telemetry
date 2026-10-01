@@ -106,6 +106,8 @@ if [[ -n "$diagnostics_config" ]]; then
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
       --config "$diagnostics_config" --check-config
+  # Capture validated shutdown policy before the workload starts.
+  settle_seconds=$("$telemetry_python" -c 'import json,sys; c=json.load(open(sys.argv[1])); print(c.get("threefs", {}).get("settle_seconds", 30) if c.get("threefs") else 0)' "$diagnostics_config")
 fi
 if [[ -z "$run_id" ]]; then
   run_id="verl-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -113,6 +115,10 @@ fi
 
 mkdir -p "$output_dir/logs" "$output_dir/telemetry-metrics" "$output_dir/telemetry-events"
 output_dir="$(cd "$output_dir" && pwd -P)"
+# Serialize the check-and-create sequence, including concurrent launchers.
+command -v flock >/dev/null || { echo "flock is required (util-linux)" >&2; exit 2; }
+exec 9>"$output_dir/.telemetry-run.lock"
+flock -n 9 || { echo "output already has an active run wrapper" >&2; exit 2; }
 if [[ -e "$output_dir/telemetry-manifest.json" || -e "$output_dir/logs/verl-metrics.jsonl" ]]; then
   echo "output already contains a run; choose a new --output directory" >&2
   exit 2
@@ -338,7 +344,6 @@ if [[ -n "$diagnostics_config" ]]; then
   diagnosis_export=ok
   # 3FS ClickHouse distributions can arrive after the workload boundary.
   # Keep the final step pending until its service window has settled.
-  settle_seconds=$("$telemetry_python" -c 'import json,sys; c=json.load(open(sys.argv[1])); print(c.get("threefs", {}).get("settle_seconds", 30) if c.get("threefs") else 0)' "$diagnostics_config")
   if awk -v value="$settle_seconds" 'BEGIN { exit !(value > 0) }'; then
     sleep "$settle_seconds"
   fi

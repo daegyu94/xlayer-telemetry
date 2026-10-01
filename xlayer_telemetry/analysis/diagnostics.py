@@ -116,10 +116,26 @@ class ThreeFSClient:
         with urlopen(request, timeout=self.timeout) as response:
             rows = [json.loads(line) for line in response if line.strip()]
         for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("metricName"), str):
+                raise ValueError("invalid ClickHouse distribution row")
             if "sample_count" in row:
                 row["count"] = row.pop("sample_count")
             if "max_value" in row:
                 row["max"] = row.pop("max_value")
+            # JSONEachRow can quote 64-bit integers. Normalize only known
+            # numeric fields; unavailable cells remain absent, never zero.
+            for key in ("count", "weighted_mean", "max", "max_observed_p99"):
+                value = row.get(key)
+                if value is None:
+                    continue
+                if isinstance(value, str):
+                    try:
+                        value = int(value) if key == "count" else float(value)
+                    except ValueError as error:
+                        raise ValueError(f"invalid ClickHouse {key}") from error
+                if finite(value) is None or (key == "count" and (value < 0 or value != int(value))):
+                    raise ValueError(f"invalid ClickHouse {key}")
+                row[key] = value
         return rows
 
 
@@ -814,8 +830,9 @@ class DiagnosticEngine:
                     target = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
                     signals[target] = value / 100 if name in {"vllm_kv_cache_usage", "gpu_memory_usage_ratio"} and value > 1 else value
         latencies = [finite(row.get("max_observed_p99")) for row in threefs_rows if _LATENCY_NAME.search(str(row.get("metricName", ""))) and finite(row.get("count")) and float(row["count"]) > 0]
+        latencies = [value for value in latencies if value is not None]
         if latencies:
-            signals["threefs_p99_latency"] = max(value for value in latencies if value is not None)
+            signals["threefs_p99_latency"] = max(latencies)
         return signals
 
     def _findings(
@@ -1009,10 +1026,11 @@ def run_once(
             previous = reports.get(record.get("record_id"), {})
             report = engine.analyze(record, prior)
             first_attempt = previous.get("first_attempt_at", now)
-            query_failed = any(source.startswith("prometheus:") and source.count(":") >= 2
-                               or source.startswith("threefs:") and source != "threefs:no_data"
-                               for source in report["missing_sources"])
-            retryable = (report["verdict"] == "insufficient_data" or query_failed) and (
+            # Empty results can be ingestion lag even when other queries
+            # already succeeded. Bound retries for missing optional sources too.
+            query_incomplete = any(source.startswith(("prometheus:", "threefs:"))
+                                   for source in report["missing_sources"])
+            retryable = (report["verdict"] == "insufficient_data" or query_incomplete) and (
                 "step_event_time" not in report["missing_sources"])
             provisional = (retryable and not finalize_pending and retry_seconds > 0
                            and now < first_attempt + retry_seconds)

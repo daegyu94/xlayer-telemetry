@@ -119,7 +119,7 @@ def test_no_data_diagnosis_retries_and_finalizes_after_scrape(tmp_path: Path) ->
     assert json.loads((output / "latest.json").read_text())["analysis_status"] == "provisional"
     assert not (output / "investigation").exists()
     assert run_once(engine, history, output, periodic_when_idle=False) == 0
-    prom.values = {"gpu_utilization": {"mean": 50}}
+    prom.values = {"": {"mean": 50}}  # Every attempted source has arrived.
     clock[0] = 106.0
     assert run_once(engine, history, output, periodic_when_idle=False) == 1
     report = json.loads((output / "latest.json").read_text())
