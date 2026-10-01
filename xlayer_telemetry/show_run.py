@@ -166,6 +166,8 @@ def summarize(output_dir: Path) -> str:
                 lines.append(
                     f"  {finding.get('component')}: {finding.get('candidate')}"
                 )
+        if diagnosis.get("query_execution"):
+            lines.append(f"  query_execution={diagnosis['query_execution']}")
         comparison = diagnosis.get("comparison", {})
         if comparison.get("baseline_record_id"):
             lines.append(f"  baseline_record_id={comparison['baseline_record_id']}")

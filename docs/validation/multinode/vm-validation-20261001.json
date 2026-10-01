@@ -1,0 +1,194 @@
+{
+  "status": "passed",
+  "image_sha256": "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2",
+  "guests": [
+    {
+      "name": "vm-rollout",
+      "kernel": "6.8.0-142-generic",
+      "boot_id": "727f617a-9f91-4142-981c-4211195258e4"
+    },
+    {
+      "name": "vm-storage",
+      "kernel": "6.8.0-142-generic",
+      "boot_id": "830b98fe-11e4-4405-a474-3e8509ce0fcb"
+    }
+  ],
+  "checks": {
+    "independent_guest_kernels": true,
+    "cross_guest_trace_parent": true,
+    "real_collectors_and_prometheus": true,
+    "initial_clock_alignment": {
+      "reference": "prometheus_scrape_clock",
+      "max_skew_seconds": 3.0,
+      "max_sample_age_seconds": 30.0,
+      "require_sync": false,
+      "nodes": {
+        "vm-rollout": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -1.1088736057281494,
+            "mean": -1.1088736057281494,
+            "max": -1.1088736057281494,
+            "last": -1.1088736057281494,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sample_age_seconds": {
+            "min": 0.2890000343322754,
+            "mean": 0.2890000343322754,
+            "max": 0.2890000343322754,
+            "last": 0.2890000343322754,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          }
+        },
+        "vm-storage": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -1.12495756149292,
+            "mean": -1.12495756149292,
+            "max": -1.12495756149292,
+            "last": -1.12495756149292,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sample_age_seconds": {
+            "min": 0.7840001583099365,
+            "mean": 0.7840001583099365,
+            "max": 0.7840001583099365,
+            "last": 0.7840001583099365,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          }
+        }
+      },
+      "status": "aligned"
+    },
+    "guest_clock_skew_withholds_diagnosis": {
+      "reference": "prometheus_scrape_clock",
+      "max_skew_seconds": 3.0,
+      "max_sample_age_seconds": 30.0,
+      "require_sync": false,
+      "nodes": {
+        "vm-rollout": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -1.1088736057281494,
+            "mean": -1.1088736057281494,
+            "max": -1.1088736057281494,
+            "last": -1.1088736057281494,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sample_age_seconds": {
+            "min": 0.9670000076293945,
+            "mean": 0.9670000076293945,
+            "max": 0.9670000076293945,
+            "last": 0.9670000076293945,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          }
+        },
+        "vm-storage": {
+          "status": "unsafe",
+          "issues": [
+            "scrape_relative_clock_offset"
+          ],
+          "offset_seconds": {
+            "min": -1.12495756149292,
+            "mean": 13.875102996826172,
+            "max": 28.875163555145264,
+            "last": 28.875163555145264,
+            "max_series_delta": 30.000121116638184,
+            "sample_count": 2.0
+          },
+          "sample_age_seconds": {
+            "min": 0.46200013160705566,
+            "mean": 0.46200013160705566,
+            "max": 0.46200013160705566,
+            "last": 0.46200013160705566,
+            "max_series_delta": 0.0,
+            "sample_count": 2.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": 0.0,
+            "sample_count": 2.0
+          }
+        }
+      },
+      "status": "unsafe"
+    },
+    "clock_recovery": true,
+    "guest_loss_detected": true
+  },
+  "limitations": [
+    "Two VMs share one physical host.",
+    "CPU fixture workload; no VERL training, GPU passthrough, RDMA or 3FS.",
+    "Trace context transported via SSH for this fixture.",
+    "Clock alignment is scrape-relative; NTP synchronization not asserted."
+  ],
+  "validation_baseline": "ec3f8d1",
+  "guest_os": "Ubuntu 24.04.5 LTS",
+  "physical_hosts": 1,
+  "resources": {
+    "per_guest_vcpus": 1,
+    "per_guest_ram_mib": 1024,
+    "per_guest_overlay_virtual_gib": 6,
+    "overlay_allocated_mib_approx": [
+      76,
+      77
+    ]
+  },
+  "image_source": "https://cloud-images.ubuntu.com/noble/current/",
+  "regression": {
+    "pytest_passed": 435,
+    "pytest_skipped": 0,
+    "new_tests": 16,
+    "promtool": "3.5.0",
+    "shell_syntax": "passed",
+    "compileall": "passed",
+    "strict_docs": "passed"
+  },
+  "backend_improvements": [
+    "Shared per-analysis backend query budget; default 30 seconds",
+    "Per-backend suppression after connection failure, timeout, HTTP 429/5xx; reset on next analysis",
+    "Request/failure/skip metadata in query_execution and show_run",
+    "Current 3FS evidence preserved when baseline fails; missing baseline queries remain retryable"
+  ],
+  "remaining_limits": [
+    "Query admission and socket timeout budget is not a hard wall-clock cancellation mechanism.",
+    "JSONL scans remain linear; no incremental index added.",
+    "No automatic inference of model/test versus infrastructure failure from sandbox exit codes."
+  ]
+}

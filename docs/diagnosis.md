@@ -94,6 +94,20 @@ Primary integration: VERL                 XLayer core
 새 adapter는 원래의 step/iteration와 phase 이름을 보존하면서 이 공통 모델에 대응시키며, 모든 framework의 integration을 제공한다는 뜻은 아닙니다.
 `EventRecorder`의 기존 `trace_id`·`span_id`를 재사용하며 OpenTelemetry Collector는 필수 요소가 아닙니다.
 
+## Backend Query Budget
+
+`query_budget_seconds`는 한 번의 rule analysis가 backend 요청에 사용할 budget이며 기본 30초입니다.
+Prometheus의 current·baseline·clock·freshness query와 3FS 조회가 budget을 공유합니다.
+남은 시간보다 긴 HTTP timeout은 줄이고 budget이 소진되면 추가 요청을 생략합니다.
+
+연결 오류·timeout·HTTP 429/5xx가 발생한 backend에는 같은 analysis에서 재요청하지 않습니다.
+다른 backend 조회는 남은 budget으로 진행하며, 다음 analysis에서 다시 연결합니다.
+빈 결과·잘못된 query·malformed JSON은 backend 전체의 연결 장애로 취급하지 않습니다.
+
+`query_execution`에 backend별 `attempted`·`failed`·`skipped`와 `unavailable`, 소요 시간을 기록하고 `show_run`에도 표시합니다.
+생략된 query는 `missing_sources`로 남아 기존 bounded retry 대상이 됩니다.
+이 budget은 새 요청의 admission과 socket timeout을 제한하며 DNS·느리게 이어지는 응답·로컬 파일 I/O를 강제로 중단하는 hard deadline은 아닙니다.
+
 ## Baseline and Rule State
 
 기본 baseline은 같은 run·node·worker·boundary scope의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다.
@@ -101,7 +115,8 @@ Primary integration: VERL                 XLayer core
 
 3FS는 ingest 지연을 고려해 기본 30초(`threefs.settle_seconds`) 후 조회하며 wrapper도 마지막 step을 기다립니다.
 표본 부재·backend 오류는 `analysis_status=provisional`로 남기고 기본 10초 간격·최대 60초 재시도합니다(`retry_interval_seconds`, `retry_seconds`).
-일부 source만 먼저 도착해도 누락된 query 결과는 같은 제한 시간 안에서 재조회합니다.
+일부 source만 먼저 도착하거나 baseline 표본이 없을 때도 누락된 query 결과를 같은 제한 시간 안에서 재조회합니다.
+Baseline 조회 실패로 이미 수집한 current evidence를 버리지는 않습니다.
 영구적으로 비어 있는 optional source도 deadline까지 기다리므로 `provisional` 자체가 backend 장애를 뜻하지는 않습니다.
 종료 시 wrapper는 한 번 더 조회해 `final`로 확정합니다.
 `diagnostics.jsonl`은 같은 `trigger_record_id`의 revision을 보존하고 Loki projection은 final 결과만 생성합니다.

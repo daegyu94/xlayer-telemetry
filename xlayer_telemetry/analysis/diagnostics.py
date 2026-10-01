@@ -25,7 +25,7 @@ from ..sandbox import device_window
 from ..fileio import atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
 from ..prometheus import PrometheusClient, escape_label
-
+from .query_budget import QueryBudget
 
 DEFAULT_QUERIES = {
     "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
@@ -149,6 +149,13 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("diagnostics config requires a prometheus object")
     if not isinstance(config["prometheus"].get("url"), str):
         raise ValueError("diagnostics config requires prometheus.url")
+    QueryBudget(config.get("query_budget_seconds", 30))
+    for backend in ("prometheus", "threefs"):
+        settings = config.get(backend)
+        if isinstance(settings, dict):
+            value = settings.get("timeout_seconds", 5)
+            if finite(value) is None or value <= 0:
+                raise ValueError(f"{backend}.timeout_seconds must be finite and positive")
     validate_sampling(config.get("sampling", {}))
     validate_baseline_policy(config.get("baseline", {}))
     thresholds = config.get("thresholds", {})
@@ -345,6 +352,9 @@ class DiagnosticEngine:
         return queries
 
     def analyze(self, current: Mapping[str, Any] | None, history: list[dict[str, Any]]) -> dict[str, Any]:
+        budget = QueryBudget(self.config.get("query_budget_seconds", 30))
+        prometheus = budget.wrap(self.prometheus, "prometheus", configurable_timeout=isinstance(self.prometheus, PrometheusClient))
+        threefs = budget.wrap(self.threefs, "threefs", configurable_timeout=isinstance(self.threefs, ThreeFSClient)) if self.threefs is not None else None
         now = self.clock()
         lookback = float(self.config.get("lookback_seconds", 60))
         raw_window = (current or {}).get("analysis_window", {})
@@ -423,7 +433,7 @@ class DiagnosticEngine:
                 clock_nodes.add(sandbox_node)
             clock_nodes.update(self.config.get("threefs", {}).get("clock_nodes", []))
             clock_quality = assess_clocks(
-                self.prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                prometheus.query_range, cluster=cluster, nodes=clock_nodes,
                 start=float(start), end=end,
                 max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
                 max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
@@ -433,7 +443,7 @@ class DiagnosticEngine:
                 missing.extend(f"clock:{name}:{item['status']}" for name, item in clock_quality["nodes"].items() if item["status"] != "aligned")
             if baseline_window_valid:
                 clock_quality["baseline"] = assess_clocks(
-                    self.prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                    prometheus.query_range, cluster=cluster, nodes=clock_nodes,
                     start=float(baseline_window["start"]), end=float(baseline_window["end"]),
                     max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
                     max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
@@ -443,10 +453,10 @@ class DiagnosticEngine:
                     missing.append("clock:baseline:unaligned")
 
         def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]]]:
-            if hasattr(self.prometheus, "query_range_detail"):
-                detail = self.prometheus.query_range_detail(query, window_start, window_end, step)
+            if hasattr(prometheus, "query_range_detail"):
+                detail = prometheus.query_range_detail(query, window_start, window_end, step)
                 return detail["aggregate"], detail["series"]
-            return self.prometheus.query_range(query, window_start, window_end, step), []
+            return prometheus.query_range(query, window_start, window_end, step), []
 
         for name, template in queries.items():
             try:
@@ -454,7 +464,7 @@ class DiagnosticEngine:
                 for key, value in query_context.items():
                     query = query.replace("{" + key + "}", escape_label(value))
                 stats, series = query_with_detail(query, float(start), end)
-                source_sample = check_source(self.prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                source_sample = check_source(prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
                 sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample)}
                 if stats is None:
                     missing.append("prometheus:" + name)
@@ -467,11 +477,13 @@ class DiagnosticEngine:
                         float(baseline_window["end"]),
                     )
                     baseline_start, baseline_end = float(baseline_window["start"]), float(baseline_window["end"])
-                    prior_source = check_source(self.prometheus, query, baseline_start, baseline_end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                    prior_source = check_source(prometheus, query, baseline_start, baseline_end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
                     sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source)
                     if prior is not None:
                         baseline_metrics[name] = prior
                         baseline_series[name] = prior_series
+                    else:
+                        missing.append(f"prometheus:{name}:baseline_no_data")
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"prometheus:{name}:{type(exc).__name__}")
 
@@ -501,18 +513,21 @@ class DiagnosticEngine:
 
         threefs_rows: list[dict[str, Any]] = []
         threefs_baseline: list[dict[str, Any]] = []
-        if self.threefs is not None:
+        if threefs is not None:
             try:
                 duration = end - float(start)
-                threefs_rows = self.threefs.query_window(float(start), end)
-                baseline_start = float(baseline_window["start"]) if baseline_window_valid else float(start) - duration
-                baseline_end = float(baseline_window["end"]) if baseline_window_valid else float(start)
-                threefs_baseline = self.threefs.query_window(baseline_start, baseline_end)
+                threefs_rows = threefs.query_window(float(start), end)
                 if threefs_rows:
                     evidence["threefs_distributions"] = threefs_rows
-                    evidence["threefs_baseline_distributions"] = threefs_baseline
                 else:
                     missing.append("threefs:no_data")
+                baseline_start = float(baseline_window["start"]) if baseline_window_valid else float(start) - duration
+                baseline_end = float(baseline_window["end"]) if baseline_window_valid else float(start)
+                threefs_baseline = threefs.query_window(baseline_start, baseline_end)
+                if threefs_baseline:
+                    evidence["threefs_baseline_distributions"] = threefs_baseline
+                elif baseline_window_valid:
+                    missing.append("threefs:baseline_no_data")
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"threefs:{type(exc).__name__}")
 
@@ -730,7 +745,7 @@ class DiagnosticEngine:
             limitations.append("Clock alignment is unsafe or unknown; cross-layer diagnosis and baseline deltas are withheld. Raw resource windows remain available for inspection.")
         if clock_quality["status"] == "unchecked":
             limitations.append("Clock alignment was not checked. Configure cluster to enable Node Exporter clock checks.")
-        if self.threefs is not None and not self.config.get("threefs", {}).get("clock_nodes"):
+        if threefs is not None and not self.config.get("threefs", {}).get("clock_nodes"):
             limitations.append("3FS producer clocks were not checked; shared-service timestamp alignment requires threefs.clock_nodes covering its producers.")
             for candidate in candidates:
                 if any(item.get("signal", "").startswith("threefs_") for item in candidate.get("evidence", [])):
@@ -763,6 +778,7 @@ class DiagnosticEngine:
             "findings": findings,
             "evidence": evidence,
             "sampling_quality": sampling_quality,
+            "query_execution": budget.summary(),
             "sandbox_device_mapping": sandbox_device_mapping,
             "diagnosis_method": "rule",
             "missing_sources": missing,

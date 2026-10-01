@@ -13,6 +13,28 @@
     "data_origin": {"enum": ["observed", "synthetic"]},
     "diagnosis_method": {"const": "rule"},
     "sampling_quality": {"type": "object"},
+    "query_execution": {
+      "type": "object",
+      "required": ["budget_seconds", "elapsed_seconds", "budget_exhausted", "sources"],
+      "properties": {
+        "budget_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "elapsed_seconds": {"type": "number", "minimum": 0},
+        "budget_exhausted": {"type": "boolean"},
+        "sources": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["attempted", "failed", "skipped", "unavailable"],
+            "properties": {
+              "attempted": {"type": "integer", "minimum": 0},
+              "failed": {"type": "integer", "minimum": 0},
+              "skipped": {"type": "integer", "minimum": 0},
+              "unavailable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
     "sandbox_device_mapping": {"type": ["object", "null"]},
     "analysis_status": {"enum": ["provisional", "final"]},
     "revision": {"type": "integer", "minimum": 1},

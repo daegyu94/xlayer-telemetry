@@ -215,6 +215,31 @@ Host와 kernel이 NTP unsynchronized를 보고하여 strict check는 `unsafe`였
 물리 host는 하나였으며 host counter도 공유합니다.
 독립된 GPU/storage 서버, 실제 distributed VERL training, RDMA/NCCL, remote 3FS producer clock과 Loki 전송은 이 검증의 완료 항목이 아닙니다.
 
+### Validate Separate VM Kernels
+
+물리 node가 없으면 `examples/multinode/validate_vms.py`로 KVM guest 두 개를 실행할 수 있습니다.
+각 VM에서 기존 node collector와 CPU SDK fixture를 실행하고 host의 임시 Prometheus가 수집합니다.
+Trace parent 연결, guest clock skew에 따른 진단 보류·복구, VM 중단 감지를 확인하며 host clock은 변경하지 않습니다.
+
+Linux KVM 접근 권한, `qemu-system-x86_64`, `qemu-img`, `cloud-localds`, OpenSSH가 필요합니다.
+[Ubuntu cloud image](https://cloud-images.ubuntu.com/noble/current/)의 amd64 `.img`와 publisher의 SHA256을 준비합니다.
+Guest는 각각 RAM 1GiB·vCPU 1개·6GiB sparse overlay를 사용하며 base image를 수정하지 않습니다.
+
+```bash
+python -m examples.multinode.validate_vms \
+  --image /path/to/ubuntu-cloud.img \
+  --image-sha256 PUBLISHER_SHA256 \
+  --node-exporter "$TOOLS_DIR/node_exporter-1.9.1.linux-amd64/node_exporter" \
+  --prometheus "$TOOLS_DIR/prometheus-3.5.0.linux-amd64/prometheus" \
+  --output artifacts/vm-validation
+```
+
+SSH·metrics는 임시 loopback port로 전달하며 검사 종료 시 생성한 VM과 Prometheus를 종료합니다.
+Output에는 log·overlay·임시 SSH key가 남으므로 결과를 보존한 뒤 해당 검증 디렉터리를 정리합니다.
+이 검증은 독립 guest kernel과 clock을 사용하지만 물리 NIC·SSD 분리, GPU passthrough, distributed VERL·RDMA·3FS 성능을 검증하지 않습니다.
+[2026-10-01 검증](validation/multinode/vm-validation-20261001.json)은 Ubuntu 24.04.5 guest 두 개에서 통과했습니다.
+NTP를 끈 guest에 의도적으로 clock skew를 넣었으므로 `require_sync=false`·허용 offset 3초로 검사했으며 운영 기본값의 NTP 검증을 대신하지 않습니다.
+
 ## Open the Dashboards
 
 같은 host의 browser에서 `http://127.0.0.1:13000`을 엽니다.
