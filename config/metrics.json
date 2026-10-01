@@ -1013,6 +1013,30 @@
       "scope": "rollout replica",
       "source": "weight apply completion event",
       "policy": "separate rollout and training"
+    },
+    {
+      "name": "telemetry_application_snapshot_reads_total",
+      "category": "host",
+      "unit": "operations",
+      "scope": "collector process",
+      "source": "application textfile collector",
+      "policy": "always; cumulative scan operations, not unique lost records"
+    },
+    {
+      "name": "telemetry_application_snapshot_rejections_total",
+      "category": "host",
+      "unit": "operations",
+      "scope": "collector process",
+      "source": "application textfile collector",
+      "policy": "always; cumulative scan operations, not unique lost records"
+    },
+    {
+      "name": "telemetry_application_sample_rejections_total",
+      "category": "host",
+      "unit": "operations",
+      "scope": "collector process",
+      "source": "application textfile collector",
+      "policy": "always; cumulative scan operations, not unique lost records"
     }
   ],
   "$schema": "./metrics.schema.json",

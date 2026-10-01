@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-01",
+  "scope": "Collector health and sandbox execution outcome follow-up",
+  "changes": [
+    "Three cumulative collector operation counters without additional labels",
+    "Sandbox execution outcomes correlated by existing trace/span identity; original subprocess behavior preserved"
+  ],
+  "validation": {
+    "cpu_tests": {
+      "passed": 442,
+      "promtool": "3.5.0"
+    },
+    "documentation": "Sphinx nitpicky warnings-as-errors build passed",
+    "syntax": "compileall and bash -n passed",
+    "docker_cgroup": {
+      "children_write_bytes_delta": [
+        24117248,
+        25165824
+      ],
+      "containers": 2,
+      "parent_cgroup": "/sys/fs/cgroup/xlayer.slice/xlayer-sandbox.slice/xlayer-sandbox-validation.slice",
+      "parent_cpu_usage_usec_delta": 19341,
+      "parent_memory_current_bytes": 66433024,
+      "parent_write_bytes_delta": 49283072
+    },
+    "verl": {
+      "mode": "sync",
+      "training_steps": 2,
+      "rollout_n": 2,
+      "exit_code": 0,
+      "tool_calls": 12,
+      "sandbox_execs": 3,
+      "linked_sandbox_execs": 3,
+      "execution_results": 3,
+      "outcomes": [
+        "completed"
+      ],
+      "model": "Qwen2.5-1.5B-Instruct"
+    },
+    "threefs": {
+      "backend": "existing live ClickHouse",
+      "window_seconds": 600,
+      "distribution_rows": 30,
+      "numeric_normalization": "passed"
+    },
+    "metrics": "Actual VERL snapshots exported through textfile collector and accepted by promtool"
+  },
+  "limitations": [
+    "VERL training did not enable diagnostics; no induced real bottleneck diagnosis claimed",
+    "3FS query reads shared-service telemetry, not per-run attribution",
+    "Only sync training rerun in this follow-up",
+    "Physical multi-node training was not tested; separate VM record covers collector isolation and clock checks",
+    "Sandbox nonzero/timeout/launch failures verified through regression fixtures; actual training graders returned zero",
+    "Collector counters count repeated operations, not unique lost records",
+    "Hard wall-clock cancellation, persistent history index and asynchronous SDK filesystem writes remain outside this change"
+  ]
+}

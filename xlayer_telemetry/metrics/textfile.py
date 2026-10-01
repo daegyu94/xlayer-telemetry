@@ -11,6 +11,10 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, wr
 from xlayer_telemetry.measurements import finite_number
 
 
+_COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_rejections", "sample_rejections")
+_COLLECTOR_METRICS = {f"telemetry_application_{key}_total" for key in _COLLECTOR_COUNTER_KEYS}
+
+
 _IDENTITY_FIELDS = ("run_id", "producer", "role", "worker_id", "node")
 
 
@@ -23,22 +27,28 @@ def _select_latest(selected: dict, snapshot: dict) -> None:
         selected[identity] = snapshot
 
 
-def _iter_snapshots(metrics_dir: Path) -> list[dict]:
+def _iter_snapshots(metrics_dir: Path, *, counters: dict | None = None) -> list[dict]:
     snapshots: dict[tuple[str, ...], dict] = {}
     for path in sorted(metrics_dir.glob("*.json")):
+        if counters is not None:
+            counters["snapshot_reads"] = counters.get("snapshot_reads", 0) + 1
         try:
             value = json.loads(path.read_text(encoding="utf-8"))
             if (isinstance(value, dict) and value.get("schema_version") == 2
                     and all(isinstance(value.get(key), str) for key in _IDENTITY_FIELDS)):
                 _select_latest(snapshots, value)
+            elif counters is not None:
+                counters["snapshot_rejections"] = counters.get("snapshot_rejections", 0) + 1
         except (OSError, ValueError):
+            if counters is not None:
+                counters["snapshot_rejections"] = counters.get("snapshot_rejections", 0) + 1
             continue
     return list(snapshots.values())
 
 
 def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                       node: str | None = None, max_age_seconds: float | None = None,
-                      now: float | None = None) -> list[dict]:
+                      now: float | None = None, counters: dict | None = None) -> list[dict]:
     """Discover immediate run children on every poll; never recurse unboundedly.
 
     Explicit directories retain legacy behavior unless an age limit is supplied.
@@ -57,7 +67,7 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                     continue
             except (OSError, ValueError, AttributeError):
                 pass
-        for snapshot in _iter_snapshots(directory):
+        for snapshot in _iter_snapshots(directory, counters=counters):
             observed = finite_number(snapshot.get("observed_at"))
             if node is not None and snapshot["node"] != node:
                 continue
@@ -67,10 +77,14 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
     return list(selected.values())
 
 
-def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
+def build_metrics(snapshots: list[dict], *, counters: dict | None = None) -> list[GaugeSample]:
     metrics = []
+    def rejected():
+        if counters is not None:
+            counters["sample_rejections"] = counters.get("sample_rejections", 0) + 1
     for snapshot in snapshots:
         if not isinstance(snapshot, dict) or not isinstance(snapshot.get("samples"), list):
+            rejected()
             continue
         labels = {
             "run_id": str(snapshot.get("run_id", "")),
@@ -111,10 +125,15 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
         if type(step) is int:
             metrics.append(GaugeSample("training_step", "Latest reported training step.", step, labels))
         for sample in snapshot["samples"]:
+            if isinstance(sample, dict) and str(sample.get("name", "")) in _COLLECTOR_METRICS:
+                rejected()
+                continue
             if (not isinstance(sample, dict) or not isinstance(sample.get("labels", {}), dict)
                     or finite_number(sample.get("value")) is None):
+                rejected()
                 continue
             if set(sample.get("labels", {})) & labels.keys():
+                rejected()
                 continue
             metrics.append(GaugeSample(
                 str(sample.get("name", "")),
@@ -130,10 +149,12 @@ def build_metrics(snapshots: list[dict]) -> list[GaugeSample]:
         try:
             validate_sample(sample)
         except (TypeError, ValueError):
+            rejected()
             continue
         definition = (sample.help, sample.kind)
         identity = (sample.name, tuple(sorted(sample.labels.items())))
         if (sample.name in definitions and definitions[sample.name] != definition) or identity in identities:
+            rejected()
             continue
         definitions[sample.name] = definition
         identities.add(identity)
@@ -158,9 +179,16 @@ def main() -> None:
     max_age = args.max_age_seconds if args.max_age_seconds is not None else (300 if args.runs_root else None)
     if max_age is not None and (finite_number(max_age) is None or max_age <= 0):
         parser.error("max-age-seconds must be finite and positive")
+    counters = {}
     while True:
-        snapshots = collect_snapshots(args.metrics_dir, args.runs_root, node=args.node, max_age_seconds=max_age)
-        write_gauges(args.textfile_dir, "application.prom", build_metrics(snapshots))
+        snapshots = collect_snapshots(args.metrics_dir, args.runs_root, node=args.node,
+                                      max_age_seconds=max_age, counters=counters)
+        metrics = build_metrics(snapshots, counters=counters)
+        for key in _COLLECTOR_COUNTER_KEYS:
+            metrics.append(GaugeSample(f"telemetry_application_{key}_total",
+                "Cumulative collector operations; repeated scans count again.",
+                counters.get(key, 0), {}, "counter"))
+        write_gauges(args.textfile_dir, "application.prom", metrics)
         if args.once:
             break
         time.sleep(args.interval)

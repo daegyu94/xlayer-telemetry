@@ -183,3 +183,19 @@ python -m pytest -q tests/test_schema.py
 [Schema validator](https://github.com/daegyu94/xlayer-telemetry/blob/main/xlayer_telemetry/schema.py)는 필수 field, 허용된 이름·분류, 중복 등을 확인합니다.
 검사 통과가 실제 endpoint의 가용성이나 값의 의미까지 보증하지는 않습니다.
 기존 metric의 단위·의미를 바꾸면 consumer에 영향을 주므로 adapter와 query를 함께 검토합니다.
+
+## Collector Health
+
+Application textfile collector는 다음 counter를 `application.prom`에 함께 내보냅니다.
+Prometheus target의 instance·cluster가 collector를 구분하며 파일명이나 worker ID를 추가 label로 사용하지 않습니다.
+
+| Metric | 의미 |
+| --- | --- |
+| `telemetry_application_snapshot_reads_total` | Snapshot 파일 읽기 시도 |
+| `telemetry_application_snapshot_rejections_total` | 읽기·JSON·최상위 identity/schema 검증 실패 |
+| `telemetry_application_sample_rejections_total` | Samples 구조·값·label·중복·metric definition 검증 실패 |
+
+Counter는 collector 시작 이후의 처리 횟수이며 재시작하면 reset됩니다.
+동일한 불량 파일을 매 poll마다 읽으면 계속 증가하므로 고유 record 손실 개수가 아닙니다.
+Node/freshness 필터로 정상 제외한 snapshot은 오류로 집계하지 않습니다.
+이 이름들은 collector 전용이며 application snapshot이 같은 이름을 보내면 거부합니다.

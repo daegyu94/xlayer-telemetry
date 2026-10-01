@@ -91,8 +91,21 @@ class _ObservedSubprocess:
                     parent_span_id=parent.span_id if parent else None,
                     attributes={"tool": _ACTIVE_TOOL_NAME.get() or "reward_grader",
                                 **({"cgroup_parent": parent_cgroup} if parent_cgroup else {})},
-                ):
-                    return subprocess.run(command, *args, **kwargs)
+                ) as identity:
+                    try:
+                        result = subprocess.run(command, *args, **kwargs)
+                    except subprocess.TimeoutExpired:
+                        sandbox.execution_result(identity, outcome="timeout")
+                        raise
+                    except subprocess.CalledProcessError as error:
+                        sandbox.execution_result(identity, outcome="nonzero_exit", exit_code=error.returncode)
+                        raise
+                    except OSError as error:
+                        sandbox.execution_result(identity, outcome="launch_error", error_type=type(error).__name__)
+                        raise
+                    sandbox.execution_result(identity, outcome="completed" if result.returncode == 0 else "nonzero_exit",
+                                             exit_code=result.returncode)
+                    return result
         return subprocess.run(command, *args, **kwargs)
 
 

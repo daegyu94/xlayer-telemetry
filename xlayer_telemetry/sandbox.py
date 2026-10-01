@@ -29,6 +29,20 @@ class SandboxRecorder:
         self.attributes = {"runtime": runtime, "filesystem": filesystem,
                            "deployment": deployment, "sandbox_node": sandbox_node}
 
+    def execution_result(self, identity: SpanIdentity, *, outcome: str,
+                         exit_code: int | None = None, error_type: str | None = None,
+                         step: int | None = None) -> None:
+        """Record runtime facts separately from tool correctness or reward."""
+        if outcome not in {"completed", "nonzero_exit", "timeout", "launch_error", "oom", "infra_failure", "test_failure", "model_failure"}:
+            raise ValueError("unsupported sandbox execution outcome")
+        if exit_code is not None and type(exit_code) is not int:
+            raise ValueError("exit_code must be an integer")
+        self.events.event("sandbox.exec_result", phase="environment", step=step,
+            trace_id=identity.trace_id, span_id=identity.span_id,
+            attributes={**self.attributes, "outcome": outcome,
+                        **({"exit_code": exit_code} if exit_code is not None else {}),
+                        **({"error_type": error_type} if error_type else {})})
+
     @contextmanager
     def span(self, operation: str, *, step: int | None = None,
              trajectory_id: str | None = None, sandbox_id: str | None = None,

@@ -506,3 +506,25 @@ Wrapper는 `rl_insight` logger를 추가하며 실제 logger 지원과 서비스
 
 상세 실행 구간이 필요하면 [Run Analysis](dashboards.md#run-analysis)의 선택적 profiling을 사용합니다.
 [CUDA smoke example](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/gpu_smoke.py)은 telemetry 경로를 확인하는 작은 workload이며 실제 VERL 학습 성능을 측정하는 도구가 아닙니다.
+
+## Record Sandbox Execution Outcomes
+
+`sandbox.exec`의 `status=ok`는 Python 호출이 예외 없이 반환됐다는 뜻입니다.
+Grader가 성공했거나 model의 답이 맞았다는 의미는 아닙니다.
+Runtime adapter는 같은 trace/span에 별도 `sandbox.exec_result`를 기록할 수 있습니다.
+
+```python
+with sandbox.span("exec") as identity:
+    result = run_external_tool()
+    sandbox.execution_result(
+        identity,
+        outcome="completed" if result.returncode == 0 else "nonzero_exit",
+        exit_code=result.returncode,
+    )
+```
+
+VERL-lab Docker adapter는 exit code, timeout, 실행 시작 오류를 자동 기록하며 기존 반환값과 예외를 그대로 전달합니다.
+`oom`, `infra_failure`, `test_failure`, `model_failure`는 runtime이 명시적인 증거로 구분한 경우에만 전달합니다.
+Exit code 137만으로 OOM을 추정하거나 nonzero exit를 model failure로 자동 분류하지 않습니다.
+Result는 event JSONL/Run Logs에서 span ID로 연결하며 stdout·stderr·명령 인자는 저장하지 않습니다.
+Reward, retry, trajectory 제외 정책은 외부 runtime/trainer가 결정합니다.
