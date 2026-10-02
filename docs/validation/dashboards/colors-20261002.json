@@ -24,7 +24,8 @@
   "limitations": [
     "Synthetic query data, not a training benchmark",
     "Color choice is URL-scoped, not a shared preference",
-    "Color changes reload the page; View transitions retain native navigation"
+    "Color changes reload the page; View transitions retain native navigation",
+    "Existing local Prometheus is unavailable; live Grafana displays datasource errors independently of the selected theme."
   ],
   "artifacts": "artifacts/colors-20261002",
   "live_install": {
@@ -34,6 +35,6 @@
       "All three Color links clicked without manual reload",
       "Expected canvas color and Overview panel rendering confirmed for Dark/Sapphire/Desert"
     ],
-    "data": "Existing local dashboard data; no new training run"
+    "data": "Color application and panel layout only. Existing Prometheus datasource health returns connection refused; metric values were validated with isolated synthetic backends."
   }
 }
