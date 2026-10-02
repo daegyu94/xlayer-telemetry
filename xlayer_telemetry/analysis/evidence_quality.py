@@ -10,13 +10,26 @@ from ..measurements import finite_number
 _DURATION = re.compile(r"\[([^]:]+)(?::[^\]]*)?\]")
 _DURATION_PART = re.compile(r"(\d+(?:\.\d+)?)(ms|s|m|h|d|w|y)")
 _SCALE = {"ms": .001, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
-_SELECTOR = re.compile(r"[A-Za-z_:][A-Za-z0-9_:]*\{[^{}]*\}")
+_SELECTOR = re.compile(r'[A-Za-z_:][A-Za-z0-9_:]*\{(?:[^{}"\\]|"(?:\\.|[^"\\])*")*\}')
+_SOURCE_WRAPPERS = re.compile(
+    r'\b(?:sum|avg|min|max|count|stddev|stdvar|rate|irate|increase|delta|idelta|'
+    r'clamp_min|clamp_max|abs|ceil|floor|round|sqrt|ln|log2|log10)\s*(?=\()')
 
 
 def timestamp_query(query: str) -> str | None:
     """Only inspect a single explicit source; never timestamp a computed rate."""
     selectors = set(_SELECTOR.findall(query))
     if len(selectors) == 1:
+        remainder = _SELECTOR.sub("", query)
+        # Do not silently discard temporal modifiers or an additional bare
+        # metric. This is a deliberately narrow extractor, not a PromQL parser.
+        if re.search(r'\boffset\b|@|\[[^\]]*:', remainder):
+            return None
+        remainder = _DURATION.sub("", remainder)
+        remainder = re.sub(r'\b(?:by|without)\s*\([A-Za-z0-9_,\s]*\)', "", remainder)
+        remainder = _SOURCE_WRAPPERS.sub("", remainder)
+        if re.search(r'[A-Za-z_:"\'`{}]', remainder):
+            return None
         return f"timestamp({next(iter(selectors))})"
     if not selectors and re.fullmatch(r"[A-Za-z_:][A-Za-z0-9_:]*", query):
         return f"timestamp({query})"
@@ -38,7 +51,8 @@ def quality(query: str, start: float, end: float, query_step: float,
     evaluations = finite_number((stats or {}).get("sample_count"))
     source = source or {}
     last = finite_number(source.get("last_source_timestamp"))
-    age = max(0, end-last) if last is not None else None
+    future = last is not None and last > end
+    age = end-last if last is not None and not future else None
     warnings = []
     if lookback is None:
         warnings.append("range_window_unknown")
@@ -50,13 +64,15 @@ def quality(query: str, start: float, end: float, query_step: float,
         warnings.append("fewer_than_two_query_evaluations")
     if last is None:
         warnings.append("source_freshness_unknown")
+    if future:
+        warnings.append("source_timestamp_in_future")
     return {"interval_seconds": duration, "query_step_seconds": query_step,
             "range_window_seconds": lookback, "evaluation_count": evaluations,
             "evaluation_count_kind": "query_evaluations_not_scrapes",
             "observed_source_samples": source.get("observed_source_samples"),
             "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
             "last_source_timestamp": last, "source_age_seconds": age,
-            "freshness": "observed" if last is not None else "unknown",
+            "freshness": "observed" if last is not None and not future else "unknown",
             "source_coverage": "returned_series_only" if last is not None else "unknown",
             "warnings": warnings}
 
@@ -98,7 +114,8 @@ def validate_quality(value: Any) -> None:
             if number is not None and (finite_number(number) is None or number < 0):
                 raise ValueError("sampling quality measurements must be finite nonnegative numbers")
         allowed_warnings = {"range_window_exceeds_interval", "query_step_exceeds_interval",
-                            "fewer_than_two_query_evaluations", "source_freshness_unknown", "range_window_unknown"}
+                            "fewer_than_two_query_evaluations", "source_freshness_unknown", "range_window_unknown",
+                            "source_timestamp_in_future"}
         warnings = item.get("warnings", [])
         if not isinstance(warnings, list) or any(not isinstance(warning, str) or warning not in allowed_warnings for warning in warnings):
             raise ValueError("invalid sampling quality warnings")

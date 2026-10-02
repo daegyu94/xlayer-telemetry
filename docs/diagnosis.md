@@ -223,6 +223,11 @@ Token 수가 같아도 tool mix·sequence 분포·cache 상태까지 동일하�
 
 ### Read Sampling Quality
 
+Source freshness는 단일 source가 명확한 query에서만 확인합니다.
+Custom query에 `offset`·`@`·subquery나 추가 bare metric이 있으면 원래 시점을 생략한 timestamp query를 만들지 않고 freshness를 `unknown`으로 남깁니다.
+허용한 단순 aggregation·rate 이외의 복잡한 식도 자동 해석하지 않습니다.
+Source timestamp가 분석 구간 종료보다 미래이면 `source_timestamp_in_future`를 표시하고 age를 0으로 보정하지 않습니다.
+
 Evidence와 comparison은 `sampling_quality.current`·`baseline`에 interval 길이, query step, range window와 evaluation count를 보존합니다.
 예를 들어 6초 step의 `[1m]` rate에는 `range_window_exceeds_interval`이 표시됩니다.
 이 값은 step 전후 활동을 포함할 수 있으므로 해당 step의 정밀한 resource 사용량으로 해석하지 않습니다.
