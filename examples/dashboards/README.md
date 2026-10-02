@@ -4,7 +4,7 @@
 기본 도입 경로는 [Monitoring Guide](../../docs/monitoring.md)이며, 이 예제는 collector·VERL·vLLM·sandbox runtime을 설치하지 않습니다.
 
 Grafana 화면은 상위 directory의 공통 JSON template에서 `scripts/provision_dashboards.py`가 생성합니다.
-별도 resource dashboard 복사본을 유지하지 않으며 metrics-only 화면 5개를 사용합니다.
+별도 resource dashboard 복사본을 유지하지 않으며 기존 metrics-only 화면 5개와 선택 가능한 Overview·Focus workspace 2개를 생성합니다.
 이 Compose는 Loki를 실행하지 않으므로 완료 step 목록·Bottleneck Summary·Timeline·Run Logs가 필요하면 [Loki를 포함한 기본 server](../../docs/monitoring.md#add-run-logs-with-loki)를 사용합니다.
 
 ## Configure Targets

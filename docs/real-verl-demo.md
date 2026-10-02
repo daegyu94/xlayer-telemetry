@@ -1,6 +1,6 @@
 # Real VERL Agent RL Demo
 
-실제 VERL Agent RL의 저장 데이터를 **현재 Grafana dashboard 8개**로 재생한 GIF입니다.
+실제 VERL Agent RL의 저장 데이터를 **기본 조사용 Grafana dashboard 8개**로 재생한 GIF입니다.
 학습은 2026-09-30, 캡처는 2026-10-01이며 새로운 학습·측정은 아닙니다.
 처음 연결한다면 [VERL Quickstart](verl-quickstart.md)를 따릅니다.
 

@@ -62,7 +62,7 @@ def test_compose_uses_current_metrics_dashboards_and_selected_mounts(tmp_path):
     assert config['grafana']['ports'][0]['published'] == '23000'
     assert config['prometheus']['ports'][0]['published'] == '29090'
     files = list(dashboards.glob('*.json'))
-    assert len(files) == 5
+    assert len(files) == 7
     for path in files:
         assert 'telemetry-loki' not in path.read_text()
     datasource = (ROOT / 'examples/dashboards/grafana/provisioning/datasources/prometheus.yaml').read_text()

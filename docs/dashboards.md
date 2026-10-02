@@ -12,9 +12,31 @@ Signal 링크에서 각 interval을 열며 Baseline 이동은 현재 step의 Tra
 Sample quality와 comparability는 비교 표의 오른쪽 필드에서 확인합니다.
 Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자 summary는 원문으로 표시됩니다.
 
+## Choose a View
+
+화면 상단의 **View: Guided / Overview / Focus** 버튼으로 UI 구성을 즉시 전환합니다.
+색상 테마와 독립적인 선택이며, 동일한 telemetry를 다른 배치와 탐색 방식으로 보여 줍니다.
+
+| View | 화면 구성 | 사용 시점 |
+| --- | --- | --- |
+| Guided | 기존 Run → Step → Candidate → Evidence 흐름 | 느린 step의 원인을 순서대로 조사할 때 |
+| Overview | VERL·vLLM·Ray·Compute·local storage·sandbox의 3열 요약 | 여러 subsystem의 상태를 한눈에 비교할 때 |
+| Focus | Subsystem별 펼침 row와 전체 폭 graph | 원하는 subsystem을 큰 화면으로 읽을 때 |
+
+전환은 Grafana 안에서 바로 이루어지며 서버 재시작이나 수집 설정 변경이 필요 없습니다.
+Cluster·Run·observer/resource node·step record·시간 범위를 URL로 전달합니다.
+Logs의 directory와 telemetry Run은 별도로 전달하며, 각 화면에서 사용하는 추가 filter만 적용합니다.
+View 선택은 공유 설정을 바꾸지 않으므로 사용자끼리 영향을 주지 않습니다.
+선호하는 View를 bookmark하거나 Grafana Home dashboard로 지정할 수 있습니다.
+
+Overview와 Focus의 **Open details**는 기존 subsystem dashboard로 연결합니다.
+두 화면은 provisioning 시 기존 panel에서 생성하므로 query·unit·scope 정의를 중복 관리하지 않습니다.
+3FS ClickHouse 통계와 log는 기존 조회 경로를 사용하며, 새 화면이 없는 telemetry를 생성하지는 않습니다.
+기존 설치에는 업데이트된 provisioning을 한 번 적용해야 View 버튼이 나타납니다.
+
 ## Dashboard Inventory
 
-기본 monitoring server는 metrics-only 구성에서 5개, Loki 구성에서 8개의 dashboard를 설치합니다.
+기본 monitoring server는 metrics-only 구성에서 7개, Loki 구성에서 10개의 dashboard를 설치합니다.
 완료 step 선택은 Run Overview에, 이전 Step Detail의 구간 요약과 자원 비교는 Timeline에 통합했습니다.
 상세 GPU memory·KV offload·log는 각각 Compute·Stage Correlation·Run Logs로 이동하므로 같은 내용을 별도 step 화면에 반복하지 않습니다.
 
@@ -28,6 +50,8 @@ Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자
 | 05 · Compute & Communication | GPU·process·network·allocation 상세 | 아니요 |
 | 06 · Data & Storage | Local device·filesystem·SMART 상세 | 아니요 |
 | 07 · Run Logs | Workload log 검색 | 예 |
+| Workspace · Overview | Subsystem 비교형 UI | 아니요 |
+| Workspace · Focus | Subsystem 집중형 UI | 아니요 |
 
 Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `step-detail.json`을 제거하고 통합 화면을 설치합니다.
 다른 이름의 사용자 dashboard는 유지합니다.
@@ -35,7 +59,7 @@ Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `st
 이전 두 UID는 redirect dashboard로 남기지 않으므로 bookmark를 갱신해야 합니다.
 
 `targets/*.json`은 Prometheus의 scrape target 목록이며 dashboard 개수에 포함되지 않습니다.
-[Docker Compose 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 5개를 생성합니다.
+[Docker Compose 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 7개를 생성합니다.
 별도 legacy resource dashboard는 설치하지 않습니다.
 
 ### Readability

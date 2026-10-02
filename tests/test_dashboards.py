@@ -242,7 +242,7 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
     assert "nodename: storage-0" in config
     assert {
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
-    } == set(DASHBOARDS) | {NAV_DASHBOARD}
+    } == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "workspace-focus.json"}
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
     assert not any(link["title"] == "Bottleneck Summary" for link in provisioned["links"])
     start = json.loads((tmp_path / "monitoring/dashboards/start-here.json").read_text())
@@ -305,7 +305,7 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     assert "url: http://192.168.0.1:13100" in (
         output / "provisioning/datasources/default.yaml"
     ).read_text()
-    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
+    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "workspace-focus.json", "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
 
 
 def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_files(tmp_path):
@@ -313,7 +313,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     import sys
     subprocess.run([sys.executable, str(script), '--output', str(tmp_path), '--enable-logs'], check=True)
     assert (tmp_path / 'bottleneck-summary.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 8
+    assert len(list(tmp_path.glob('*.json'))) == 10
     for retired in ('step-explorer.json', 'step-detail.json'):
         (tmp_path / retired).write_text('{"uid":"retired"}\n')
     custom = tmp_path / 'my-dashboard.json'
@@ -322,7 +322,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert not (tmp_path / 'bottleneck-summary.json').exists()
     assert not (tmp_path / 'step-explorer.json').exists()
     assert not (tmp_path / 'step-detail.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 6  # Five owned plus the custom file.
+    assert len(list(tmp_path.glob('*.json'))) == 8  # Seven owned plus the custom file.
     assert custom.read_text() == '{"uid":"custom"}\n'
     for path in tmp_path.glob('*.json'):
         if path == custom:
@@ -340,7 +340,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert any('/d/xlayer-bottleneck-summary' in link['url'] for link in agent['links'])
     overview = json.loads((tmp_path / 'run-overview.json').read_text())
     assert any(panel['id'] == 20 for panel in overview['panels'])
-    assert len(list(tmp_path.glob('*.json'))) == 9  # Eight owned plus custom.
+    assert len(list(tmp_path.glob('*.json'))) == 11  # Ten owned plus custom.
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:
@@ -931,3 +931,43 @@ def test_subsystem_rows_work_without_run_and_preserve_native_semantics():
     assert variables['cluster']['query'] == 'label_values(up, cluster)'
     assert 'job="native"' in variables['node']['query']
     assert 'nodename' in variables['node']['query']
+
+
+@pytest.mark.parametrize('logs', [False, True])
+def test_generated_views_reuse_panels_and_switch_context(tmp_path, logs):
+    import sys
+    subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
+                    '--output', str(tmp_path)] + (['--enable-logs'] if logs else []), check=True)
+    dashboards = [json.loads(p.read_text()) for p in tmp_path.glob('*.json')]
+    by_uid = {d['uid']: d for d in dashboards}
+    for dashboard in dashboards:
+        links = dashboard['links'][:3]
+        assert [l['title'] for l in links] == ['View: Guided', 'View: Overview', 'View: Focus']
+        for link in links:
+            assert link['keepTime'] and not link['targetBlank']
+            assert link['url'].split('?')[0].split('/')[2] in by_uid
+            assert '${cluster:queryparam}' in link['url']
+            assert '${node:queryparam}' in link['url']
+            assert '${record_id:queryparam}' in link['url']
+            if dashboard['uid'] == 'xlayer-run-logs':
+                assert 'var-run_id=${telemetry_run_id:percentencode}' in link['url']
+            else:
+                assert '${run_id:queryparam}' in link['url']
+    for style in ['overview', 'focus']:
+        dashboard = by_uid['xlayer-workspace-' + style]
+        flat = list(_panels(dashboard))
+        assert len({p['id'] for p in flat}) == len(flat)
+        variables = {v['name'] for v in dashboard['templating']['list']}
+        for panel in flat:
+            for target in panel.get('targets', []):
+                referenced = set(re.findall(r'\$([a-z][a-z_]+)', target['expr']))
+                assert referenced <= variables
+            if panel['type'] == 'timeseries':
+                original = next(p for p in _panels(by_uid[panel['links'][0]['url'].split('?')[0].split('/')[2]])
+                                if p.get('targets') == panel['targets'])
+                assert panel['fieldConfig'] == original['fieldConfig']
+        series = [p for p in flat if p['type'] == 'timeseries']
+        assert len(series) == 6
+        assert {p['gridPos']['w'] for p in series} == ({8} if style == 'overview' else {24})
+        if style == 'focus':
+            assert sum(p.get('collapsed', False) for p in flat) == 5

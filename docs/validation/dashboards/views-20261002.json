@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "6b22ac966868be9e03ec66ced12fd7a4e2c39426",
+  "status": "passed",
+  "full_stack": {
+    "status": "passed",
+    "checks": [
+      "Guided → Overview preserves cluster, run, observer/resource node, record and absolute time via actual click",
+      "Overview → Focus retains context; vLLM row expands a full-width graph",
+      "Focus → Guided returns to original Run context",
+      "Both layouts fit 1600px and 1024px viewports without page horizontal overflow",
+      "Logs → workspace preserves distinct log directory and telemetry Run"
+    ],
+    "page_errors": [],
+    "real_backend_queries": 139,
+    "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+    "grafana_image": "grafana/grafana:12.1.0"
+  },
+  "tests": {
+    "full_suite": "518 passed in 19.64s with promtool",
+    "documentation": "Strict Sphinx build passed",
+    "provisioning": "Loki enabled/disabled, panel reuse, variable and log-directory mappings tested"
+  },
+  "live_install": {
+    "url": "http://127.0.0.1:13000",
+    "verified_uids": [
+      "xlayer-workspace-overview",
+      "xlayer-workspace-focus",
+      "telemetry-overview"
+    ],
+    "method": "Regenerated existing mounted dashboard files; Grafana automatic provisioning, no service restart"
+  },
+  "limitations": [
+    "Browser query samples are synthetic; no new training benchmark",
+    "Layouts change workspace presentation; Grafana global navigation remains native",
+    "View selection is URL/bookmark based, not a new persisted user preference"
+  ],
+  "screenshots": "artifacts/views-20261002"
+}
