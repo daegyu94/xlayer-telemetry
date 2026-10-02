@@ -208,8 +208,14 @@ xltel down --role node
 `status --role node`는 local collector ownership·freshness와 configured monitoring endpoint 및 해당 node의 scrape 상태를 확인합니다.
 Backend에 닿지 않거나 target이 등록되지 않으면 process가 실행 중이어도 degraded로 표시합니다.
 Server의 Prometheus·Grafana는 계속 loopback에 bind하며 조회용 URL 설정이 listen address를 바꾸지는 않습니다.
+같은 host에서 검증 stack을 함께 실행하려면 `PROMETHEUS_PORT`, `GRAFANA_PORT`, `LOKI_PORT`를 각각 지정합니다.
+기본 port는 `19090`·`13000`·`13100`이며 URL을 별도로 설정하지 않으면 선택한 local port에 맞춰 조회 주소도 변경됩니다.
+Grafana datasource, startup health check와 Loki 설정도 같은 port를 사용합니다.
 Remote node에서 health query가 필요하면 private SSH tunnel 등으로 monitoring endpoint에 접근할 경로를 준비합니다.
 Collector `:19100`과 remote Loki `:13100`은 신뢰 가능한 private network에서만 노출합니다.
+CLI stack은 native dashboard에 불필요한 Grafana plugin의 자동 다운로드를 기본으로 끕니다.
+추가 plugin이 필요하면 `GF_PLUGINS_PREINSTALL_DISABLED=false`를 environment에 설정하며 설치·종료 시간이 늘어날 수 있습니다.
+Plugin 파일은 공유 tool directory 대신 각 stack의 `state/server/grafana-plugins/`에 저장합니다.
 
 이 CLI는 현재 host만 제어하며 SSH 일괄 배포·remote process 종료·systemd 관리·clock 동기화를 수행하지 않습니다.
 Workload context 전달과 clock alignment는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)을 따릅니다.

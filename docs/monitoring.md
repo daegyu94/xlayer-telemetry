@@ -242,6 +242,15 @@ Output에는 log·overlay·임시 SSH key가 남으므로 결과를 보존한 �
 [2026-10-01 검증](validation/multinode/vm-validation-20261001.json)은 Ubuntu 24.04.5 guest 두 개에서 통과했습니다.
 NTP를 끈 guest에 의도적으로 clock skew를 넣었으므로 `require_sync=false`·허용 offset 3초로 검사했으며 운영 기본값의 NTP 검증을 대신하지 않습니다.
 
+최신 CLI lifecycle과 log 전달까지 검사하려면 같은 명령에 `--cli-tools-dir "$TOOLS_DIR"`를 추가합니다.
+이 directory에는 Prometheus·Grafana·Loki·Alloy가 모두 있어야 합니다.
+Host의 `xltel up --role server`와 VM의 `xltel up --role node`를 public CLI의 module entrypoint로 실행하며, 전체 stack은 검증용 port와 state를 사용합니다.
+VM metric은 `127.0.0.2:19100`·`127.0.0.3:19100`으로 전달하므로 해당 주소·port가 비어 있어야 합니다.
+Host/guest health, Loki event 수집, collector 재시작, VM 중단의 degraded 표시와 중복 `up/down`을 함께 확인합니다.
+기존 monitoring service는 종료하지 않으며 출력에는 검증 결과와 실패 시 `failure.json`을 남깁니다.
+[2026-10-02 CLI 검증](validation/multinode/xltel-vm-validation-20261002.json)은 이 경로에서 Grafana datasource의 metric·trace log 조회와 종료 cleanup까지 통과했습니다.
+Application은 CPU SDK fixture이며 실제 VERL·vLLM 학습이나 3FS workload를 VM에서 실행한 결과는 아닙니다.
+
 ## Open the Dashboards
 
 같은 host의 browser에서 `http://127.0.0.1:13000`을 엽니다.

@@ -1,0 +1,228 @@
+{
+  "status": "passed",
+  "image_sha256": "6a81c37564db9b1ee84e141922625e1d7c5b389b99bb3c572e0243607d5bb4d2",
+  "guests": [
+    {
+      "name": "vm-rollout",
+      "kernel": "6.8.0-142-generic",
+      "os": "Ubuntu 24.04.5 LTS",
+      "boot_id": "164824b5-1497-4194-918f-3c1cc4052138"
+    },
+    {
+      "name": "vm-storage",
+      "kernel": "6.8.0-142-generic",
+      "os": "Ubuntu 24.04.5 LTS",
+      "boot_id": "027732a9-eb06-46e8-91f7-9189308e2ca1"
+    }
+  ],
+  "checks": {
+    "independent_guest_kernels": true,
+    "cross_guest_trace_parent": true,
+    "cli_role_start_idempotent": true,
+    "real_collectors_and_prometheus": true,
+    "cli_host_and_guest_health": true,
+    "cross_guest_loki_events": [
+      "vm-rollout",
+      "vm-storage"
+    ],
+    "grafana_datasource_metric_and_trace_log_queries": true,
+    "cli_stopped_collector_not_reported_healthy": true,
+    "cli_collector_restart": true,
+    "initial_clock_alignment": {
+      "reference": "prometheus_scrape_clock",
+      "max_skew_seconds": 3.0,
+      "max_sample_age_seconds": 30.0,
+      "require_sync": false,
+      "nodes": {
+        "vm-rollout": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -0.8211832046508789,
+            "mean": -0.8209270636240641,
+            "max": -0.8204147815704346,
+            "last": -0.8204147815704346,
+            "max_series_delta": 0.0007684230804443359,
+            "sample_count": 3.0
+          },
+          "sample_age_seconds": {
+            "min": 0.8480000495910645,
+            "mean": 1.1813333829243977,
+            "max": 1.8480000495910645,
+            "last": 0.8480000495910645,
+            "max_series_delta": 1.8480000495910645,
+            "sample_count": 3.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": 0.0,
+            "sample_count": 3.0
+          }
+        },
+        "vm-storage": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -0.8179850578308105,
+            "mean": -0.8179850578308105,
+            "max": -0.8179850578308105,
+            "last": -0.8179850578308105,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sample_age_seconds": {
+            "min": 0.6089999675750732,
+            "mean": 0.6089999675750732,
+            "max": 0.6089999675750732,
+            "last": 0.6089999675750732,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": null,
+            "sample_count": 1.0
+          }
+        }
+      },
+      "status": "aligned"
+    },
+    "guest_clock_skew_withholds_diagnosis": {
+      "reference": "prometheus_scrape_clock",
+      "max_skew_seconds": 3.0,
+      "max_sample_age_seconds": 30.0,
+      "require_sync": false,
+      "nodes": {
+        "vm-rollout": {
+          "status": "aligned",
+          "issues": [],
+          "offset_seconds": {
+            "min": -0.8222699165344238,
+            "mean": -0.8210331598917643,
+            "max": -0.8204147815704346,
+            "last": -0.8222699165344238,
+            "max_series_delta": -0.8222699165344238,
+            "sample_count": 3.0
+          },
+          "sample_age_seconds": {
+            "min": 0.5450000762939453,
+            "mean": 0.8783334096272787,
+            "max": 1.5450000762939453,
+            "last": 0.5450000762939453,
+            "max_series_delta": 1.5450000762939453,
+            "sample_count": 3.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": 0.0,
+            "sample_count": 3.0
+          }
+        },
+        "vm-storage": {
+          "status": "unsafe",
+          "issues": [
+            "scrape_relative_clock_offset"
+          ],
+          "offset_seconds": {
+            "min": -0.8179850578308105,
+            "mean": 9.18245800336202,
+            "max": 29.18334412574768,
+            "last": 29.18334412574768,
+            "max_series_delta": 30.00132918357849,
+            "sample_count": 3.0
+          },
+          "sample_age_seconds": {
+            "min": 0.3059999942779541,
+            "mean": 0.6393333276112875,
+            "max": 1.305999994277954,
+            "last": 0.3059999942779541,
+            "max_series_delta": 1.305999994277954,
+            "sample_count": 3.0
+          },
+          "sync_status": {
+            "min": 0.0,
+            "mean": 0.0,
+            "max": 0.0,
+            "last": 0.0,
+            "max_series_delta": 0.0,
+            "sample_count": 3.0
+          }
+        }
+      },
+      "status": "unsafe"
+    },
+    "clock_recovery": true,
+    "guest_loss_detected": true,
+    "cli_server_reports_vm_loss": true,
+    "cli_role_stop_idempotent": true
+  },
+  "limitations": [
+    "Two VMs share one physical host.",
+    "CPU fixture workload; no VERL training, GPU passthrough, RDMA or 3FS.",
+    "Trace context transported via SSH for this fixture.",
+    "Clock alignment is scrape-relative; NTP synchronization not asserted."
+  ],
+  "cli_mode": true,
+  "cli_entrypoint": "python -m xlayer_telemetry.cli",
+  "resources": {
+    "physical_hosts": 1,
+    "per_guest_ram_mib": 1024,
+    "per_guest_vcpus": 1,
+    "per_guest_overlay_virtual_gib": 6,
+    "allocated_overlays": [
+      {
+        "node": "vm-rollout",
+        "allocated_mib": 604.6
+      },
+      {
+        "node": "vm-storage",
+        "allocated_mib": 604.3
+      }
+    ]
+  },
+  "date": "2026-10-02",
+  "validation_baseline": "5be799e with the server port, plugin isolation, and CLI VM fixture changes in this commit",
+  "deployment": "One physical host runs a separate xltel server; two KVM guests run node collectors.",
+  "versions": {
+    "prometheus": "3.5.0",
+    "grafana": "12.1.0",
+    "loki": "3.7.3",
+    "alloy": "1.19.2"
+  },
+  "regression": {
+    "python_3_12_full_tests_passed": 582,
+    "python_3_10_cli_related_tests_passed": 83,
+    "strict_docs": "passed",
+    "shell_syntax": "passed",
+    "compileall": "passed"
+  },
+  "fixes_verified": [
+    "Non-default server ports reach the same Prometheus/Loki datasource and startup health endpoints.",
+    "Grafana automatic plugin preinstall is disabled by default; plugin state is isolated per stack.",
+    "The previous real down failure during Grafana plugin downloads no longer occurs.",
+    "Missing VM and stopped collector are reported degraded instead of healthy."
+  ],
+  "existing_services": {
+    "prometheus": "healthy after validation",
+    "grafana": "healthy after validation",
+    "loki": "ready after validation"
+  },
+  "initial_failure": {
+    "stage": "Host xltel down --role server",
+    "cause": "Grafana default background plugin downloads continued after shutdown began and exceeded the 10-second lifecycle wait.",
+    "resolved_by": "Disable optional automatic plugin preinstall by default; isolate plugin directory under server state."
+  },
+  "cleanup": {
+    "verification_vms_and_server": "stopped",
+    "existing_monitoring": "preserved"
+  }
+}

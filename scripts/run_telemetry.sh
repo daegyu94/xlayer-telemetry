@@ -346,6 +346,14 @@ EOF
 elif [[ "$role" == storage ]]; then
   start_smartctl_exporter
 elif [[ "$role" == server ]]; then
+  prometheus_port="${PROMETHEUS_PORT:-19090}"
+  grafana_port="${GRAFANA_PORT:-13000}"
+  loki_port="${LOKI_PORT:-13100}"
+  for service_port in "$prometheus_port" "$grafana_port" "$loki_port"; do
+    if [[ ! "$service_port" =~ ^[0-9]{1,5}$ ]] || (( 10#$service_port < 1 || 10#$service_port > 65535 )); then
+      echo 'Server ports must be integers from 1 to 65535' >&2; exit 2
+    fi
+  done
   cluster_name="${CLUSTER_NAME:-telemetry-cluster}"
   if [[ ! "$cluster_name" =~ ^[A-Za-z0-9_.-]+$ ]]; then
     echo "CLUSTER_NAME must contain only letters, digits, dots, underscores, or hyphens" >&2
@@ -474,7 +482,7 @@ datasources:
     uid: telemetry-prometheus
     type: prometheus
     access: proxy
-    url: http://127.0.0.1:19090
+    url: http://127.0.0.1:$prometheus_port
     isDefault: true
     jsonData:
       timeInterval: 2s
@@ -490,13 +498,13 @@ EOF
     uid: telemetry-loki
     type: loki
     access: proxy
-    url: http://$loki_listen_addr:13100
+    url: http://$loki_listen_addr:$loki_port
 EOF
     cat > "$output_dir/loki.yaml" <<EOF
 auth_enabled: false
 server:
   http_listen_address: $loki_listen_addr
-  http_listen_port: 13100
+  http_listen_port: $loki_port
   grpc_listen_address: 127.0.0.1
   grpc_listen_port: 0
 common:
@@ -555,7 +563,7 @@ EOF
   if [[ "${SERVER_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   "$tools_dir/prometheus-3.5.0.linux-$release_arch/prometheus" \
     --config.file="$output_dir/prometheus.yml" --storage.tsdb.path="$output_dir/prometheus-data" \
-    --storage.tsdb.retention.time=1d --web.listen-address=127.0.0.1:19090 > "$output_dir/prometheus.log" 2>&1 &
+    --storage.tsdb.retention.time=1d --web.listen-address="127.0.0.1:$prometheus_port" > "$output_dir/prometheus.log" 2>&1 &
   pids+=("$!")
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     "$loki" -config.file="$output_dir/loki.yaml" > "$output_dir/loki.log" 2>&1 &
@@ -565,24 +573,28 @@ EOF
   if [[ -n "${GRAFANA_ADMIN_PASSWORD:-}" ]]; then
     export GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_ADMIN_PASSWORD"
   fi
-  export GF_SERVER_HTTP_ADDR=127.0.0.1 GF_SERVER_HTTP_PORT=13000
+  export GF_SERVER_HTTP_ADDR=127.0.0.1 GF_SERVER_HTTP_PORT="$grafana_port"
   export GF_PATHS_DATA="$output_dir/grafana-data" GF_PATHS_LOGS="$output_dir/grafana-logs"
+  # XLayer uses native panels. Avoid unrelated plugin network installs extending
+  # shutdown beyond the owned lifecycle's grace period; opt in explicitly.
+  export GF_PLUGINS_PREINSTALL_DISABLED="${GF_PLUGINS_PREINSTALL_DISABLED:-true}"
+  export GF_PATHS_PLUGINS="$output_dir/grafana-plugins"
   export GF_PATHS_PROVISIONING="$output_dir/provisioning"
   "$tools_dir/grafana-v12.1.0/bin/grafana" server \
     --homepath="$tools_dir/grafana-v12.1.0" > "$output_dir/grafana.log" 2>&1 &
   pids+=("$!")
   validation_args=(
     validate-stack
-    --prometheus-url http://127.0.0.1:19090
-    --grafana-url http://127.0.0.1:13000
+    --prometheus-url "http://127.0.0.1:$prometheus_port"
+    --grafana-url "http://127.0.0.1:$grafana_port"
     --output "$output_dir/startup-summary.json"
     --timeout "${SERVER_START_TIMEOUT:-60}"
   )
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
-    validation_args+=(--loki-url "http://$loki_listen_addr:13100")
+    validation_args+=(--loki-url "http://$loki_listen_addr:$loki_port")
   fi
   "${PYTHON:-python3}" -m xlayer_telemetry.stack "${validation_args[@]}"
-  printf 'Monitoring server ready: Prometheus=http://127.0.0.1:19090 Grafana=http://127.0.0.1:13000\n'
+  printf 'Monitoring server ready: Prometheus=http://127.0.0.1:%s Grafana=http://127.0.0.1:%s\n' "$prometheus_port" "$grafana_port"
 else
   echo 'Use node, storage, or server' >&2
   exit 2

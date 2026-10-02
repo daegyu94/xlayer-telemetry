@@ -55,3 +55,22 @@ def test_server_config_rejects_missing_file_and_other_roles(tmp_path: Path) -> N
     )
     assert other_role.returncode == 2
     assert "Usage: run_telemetry.sh server" in other_role.stderr
+
+
+def test_server_ports_match_datasources_and_loki_config(tmp_path):
+    loki = tmp_path / 'loki'
+    loki.write_text('#!/usr/bin/env bash\nexit 0\n')
+    loki.chmod(0o755)
+    env = os.environ | {'SERVER_CONFIG_ONLY':'1', 'OUTPUT_DIR':str(tmp_path/'server'),
+        'TELEMETRY_TARGETS':'fixture=127.0.0.1', 'ENABLE_LOGS':'1', 'LOKI':str(loki),
+        'PROMETHEUS_PORT':'39090', 'GRAFANA_PORT':'33000', 'LOKI_PORT':'33100'}
+    result = subprocess.run(['bash',str(SCRIPT),'server'],cwd=ROOT,env=env,capture_output=True,text=True,timeout=10)
+    assert result.returncode == 0, result.stderr
+    source = (tmp_path/'server/provisioning/datasources/default.yaml').read_text()
+    assert 'url: http://127.0.0.1:39090' in source
+    assert 'url: http://127.0.0.1:33100' in source
+    assert 'http_listen_port: 33100' in (tmp_path/'server/loki.yaml').read_text()
+    for value in ('0','65536','99999999999999999999','bad'):
+        result = subprocess.run(['bash',str(SCRIPT),'server'],cwd=ROOT,env=env | {'PROMETHEUS_PORT':value},
+                                capture_output=True,text=True,timeout=10)
+        assert result.returncode == 2 and 'Server ports' in result.stderr

@@ -239,6 +239,9 @@ case "$action" in
     ENABLE_ALERTS="${ENABLE_ALERTS:-0}" \
     ENABLE_LOGS="$enable_logs" \
     LOKI_LISTEN_ADDR="${LOKI_LISTEN_ADDR:-127.0.0.1}" \
+    PROMETHEUS_PORT="${PROMETHEUS_PORT:-19090}" \
+    GRAFANA_PORT="${GRAFANA_PORT:-13000}" \
+    LOKI_PORT="${LOKI_PORT:-13100}" \
     PYTHON="$telemetry_python" \
       bash "$repo_root/scripts/run_telemetry.sh" server
     ;;

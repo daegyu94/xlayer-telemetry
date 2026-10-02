@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [multinode/xltel-vm-validation-20261002.json](multinode/xltel-vm-validation-20261002.json) | Host server·KVM guest 두 개의 CLI lifecycle, 실제 metric·Loki event·Grafana datasource 조회, clock skew·VM 중단·collector 재시작·종료; 회귀 테스트 582개 |
 | [review-20261002.json](review-20261002.json) | Log rotation·retry 시각·SDK 오류 격리, bounded snapshot cache, 회귀 테스트 490개·실제 Prometheus와 CPU 비용 측정 |
 | [runtime-reliability-20261001.json](runtime-reliability-20261001.json) | Worker deadline·incremental cache·선택적 SDK background I/O, failure tests와 실제 VERL async·backend 실패 검증 |
 | [async-followup-20261001.json](async-followup-20261001.json) | 실제 colocate/separate async 각 3 update, sandbox outcome·final export와 cgroup 관측 범위 검증 |

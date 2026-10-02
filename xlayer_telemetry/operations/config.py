@@ -26,6 +26,7 @@ KEYS = (
     "TELEMETRY_HEALTH_MAX_AGE_SECONDS", "TELEMETRY_LOG_ROOTS",
     "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME",
     "TELEMETRY_TARGETS", "LOKI_LISTEN_ADDR",
+    "PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT",
 )
 
 PATH_KEYS = {"TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
@@ -33,6 +34,7 @@ PATH_KEYS = {"TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NO
              "TELEMETRY_PYTHON"}
 BOOL_KEYS = {"ENABLE_LOGS", "ENABLE_GPU_METRICS", "ENABLE_ALERTS"}
 AGE_KEYS = {"TELEMETRY_METRICS_MAX_AGE_SECONDS", "TELEMETRY_HEALTH_MAX_AGE_SECONDS"}
+PORT_KEYS = {"PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT"}
 
 
 class ConfigError(ValueError):
@@ -70,6 +72,7 @@ def defaults() -> dict[str, str]:
         "LOKI_URL": "http://127.0.0.1:13100", "TELEMETRY_METRICS_MAX_AGE_SECONDS": "300",
         "TELEMETRY_HEALTH_MAX_AGE_SECONDS": "300", "GF_FEATURE_TOGGLES_ENABLE": "extraThemes",
         "GF_USERS_DEFAULT_THEME": "dark",
+        "PROMETHEUS_PORT": "19090", "GRAFANA_PORT": "13000", "LOKI_PORT": "13100",
     }
 
 
@@ -137,11 +140,13 @@ def _read_toml(path: Path) -> tuple[dict[str, str], list[str], dict[str, str]]:
             raw[key] = "1" if value else "0"
         elif key in AGE_KEYS and type(value) in {int, float}:
             raw[key] = format(Decimal(str(value)), "f")
+        elif key in PORT_KEYS and type(value) is int:
+            raw[key] = str(value)
         elif isinstance(value, str):
             raw[key] = str(Path(value).expanduser()) if key in PATH_KEYS and value else value
         else:
             raise ConfigError(f"{key} must be a string" + (", boolean or 0/1 string." if key in BOOL_KEYS else
-                             " or positive number." if key in AGE_KEYS else "."))
+                             " or positive number." if key in AGE_KEYS else " or integer." if key in PORT_KEYS else "."))
     workload = document.get("workload", {})
     if set(workload) - {"command"}:
         raise ConfigError("[workload] supports only command = [\"executable\", \"argument\", ...].")
@@ -177,11 +182,18 @@ def load_config(path: Path) -> tuple[dict[str, str], list[str]]:
     config.setdefault("TELEMETRY_RUNS_ROOT", str(Path(config["RUN_ROOT"]).parent))
     config.setdefault("SERVER_OUTPUT_DIR", str(home / "state/server"))
     config.setdefault("NODE_OUTPUT_DIR", str(home / "state/node"))
+    for service in ("PROMETHEUS", "GRAFANA", "LOKI"):
+        url_key = service + "_URL"
+        if url_key not in raw and url_key not in os.environ:
+            config[url_key] = "http://127.0.0.1:" + config[service + "_PORT"]
     validate(config)
     return config, command
 
 
 def validate(config: dict[str, str]) -> None:
+    for key in PORT_KEYS:
+        if config.get(key) and (not config[key].isdigit() or not 1 <= int(config[key]) <= 65535):
+            raise ConfigError(f"{key} must be an integer port from 1 to 65535.")
     for key in ("RUN_ID", "NODE_NAME", "CLUSTER_NAME"):
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", config[key]):
             raise ConfigError(f"{key} must be 1-64 letters, digits, dots, underscores, or hyphens.")
