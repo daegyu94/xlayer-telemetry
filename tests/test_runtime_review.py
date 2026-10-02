@@ -133,7 +133,7 @@ def test_snapshot_cache_bounds_and_completed_run_eviction(tmp_path):
     assert not cache._entries
 
 
-def test_snapshot_cache_invalidates_same_size_rewrite_and_stat_failure(tmp_path, monkeypatch):
+def test_snapshot_cache_invalidates_same_size_replacement_and_stat_failure(tmp_path, monkeypatch):
     path = tmp_path / "worker.json"
     value = snapshot()
     path.write_text(json.dumps(value))
@@ -141,7 +141,9 @@ def test_snapshot_cache_invalidates_same_size_rewrite_and_stat_failure(tmp_path,
     assert cache.read(path, counts)["samples"][0]["value"] == 1
     original = path.stat()
     value["samples"][0]["value"] = 9
-    path.write_text(json.dumps(value))
+    atomic_write_text(path, json.dumps(value))
+    # Atomic replacement changes inode even when filesystem timestamp
+    # granularity gives both writes the same ctime and mtime is preserved.
     os.utime(path, ns=(original.st_atime_ns, original.st_mtime_ns))
     assert cache.read(path, counts)["samples"][0]["value"] == 9
     assert counts["snapshot_reads"] == 2

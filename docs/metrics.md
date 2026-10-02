@@ -205,4 +205,5 @@ CLI collector는 최대 1,024개 파일·원본 크기 합계 16 MiB의 decoded 
 이 한도는 Python 객체의 실제 메모리 사용량 한도가 아니며, 초과 파일도 cache 없이 정상 수집합니다.
 매 poll의 directory 탐색·metadata 확인·node/freshness 필터·sample 검증은 유지하고, 파일 identity·크기·mtime·ctime이 바뀌면 JSON을 다시 읽습니다.
 Producer는 SDK처럼 atomic replace로 snapshot을 갱신하며, 삭제되거나 종료된 run의 cache는 제거합니다.
+Identity·크기·mtime·ctime이 모두 같은 제자리 수정은 감지할 수 없으므로 외부 producer도 이 갱신 계약을 따릅니다.
 Cache hit는 `snapshot_reads_total`에 포함하지 않고 rejection counter는 계속 검증 시도마다 증가합니다.
