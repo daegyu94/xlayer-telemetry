@@ -971,3 +971,32 @@ def test_generated_views_reuse_panels_and_switch_context(tmp_path, logs):
         assert {p['gridPos']['w'] for p in series} == ({8} if style == 'overview' else {24})
         if style == 'focus':
             assert sum(p.get('collapsed', False) for p in flat) == 5
+
+
+@pytest.mark.parametrize('logs', [False, True])
+def test_color_presets_preserve_context_and_drilldown(tmp_path, logs):
+    import sys
+    subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
+                    '--output', str(tmp_path)] + (['--enable-logs'] if logs else []), check=True)
+    for path in tmp_path.glob('*.json'):
+        dashboard = json.loads(path.read_text())
+        theme = next(v for v in dashboard['templating']['list'] if v['name'] == 'xlayer_theme')
+        assert theme['hide'] == 2 and theme['current']['value'] == ''
+        header = next(p for p in dashboard['panels'] if p['type'] == 'text' and p['gridPos']['y'] == 0)
+        colors = [(name, url) for url, name in re.findall(
+            r'<a target="_top" href="([^"]+)">Color: ([^<]+)</a>', header['options']['content'])]
+        assert [name for name, url in colors] == ['Dark', 'Sapphire', 'Desert']
+        for (_, url), value in zip(colors, ['dark', 'sapphiredusk', 'desertbloom']):
+            assert url.startswith('/d/' + dashboard['uid'] + '?')
+            assert f'&theme={value}&var-xlayer_theme={value}' in url
+            assert url.count('var-xlayer_theme=') == 1
+            assert '${run_id:queryparam}' in url and '${node:queryparam}' in url
+            assert '${__url_time_range}' in url
+        for link in dashboard['links']:
+            if link['url'].startswith('/d/'):
+                assert '&theme=${xlayer_theme:percentencode}' in link['url']
+                assert '${xlayer_theme:queryparam}' in link['url']
+        for panel in _panels(dashboard):
+            for link in panel.get('links', []):
+                if link['url'].startswith('/d/'):
+                    assert '${xlayer_theme:queryparam}' in link['url']

@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "42fd02628dcc47e14d19af0b29c8e4117e23e353",
+  "status": "passed",
+  "full_stack": {
+    "status": "passed",
+    "checks": [
+      "Empty color selection preserves configured Sapphire default across View navigation",
+      "Dark applies anonymously and survives all three View transitions with run/time context",
+      "Sapphire applies anonymously and survives all three View transitions with run/time context",
+      "Desert applies anonymously and survives all three View transitions with run/time context",
+      "Desert persists into detailed Timeline",
+      "Color buttons fit 1024px viewport"
+    ],
+    "real_backend_queries": 139,
+    "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+    "grafana_image": "grafana/grafana:12.1.0"
+  },
+  "tests": {
+    "pytest": "520 passed in 19.71s with promtool",
+    "docs": "Strict Sphinx build passed"
+  },
+  "behavior": "Color uses sanitized target=_top anchors for automatic same-tab reload. Native SPA dashboard links alone do not reinitialize URL theme. View/detail navigation carries the selected theme. No manual reload was used in final browser validation.",
+  "limitations": [
+    "Synthetic query data, not a training benchmark",
+    "Color choice is URL-scoped, not a shared preference",
+    "Color changes reload the page; View transitions retain native navigation"
+  ],
+  "artifacts": "artifacts/colors-20261002",
+  "live_install": {
+    "url": "http://127.0.0.1:13000",
+    "status": "passed",
+    "checks": [
+      "All three Color links clicked without manual reload",
+      "Expected canvas color and Overview panel rendering confirmed for Dark/Sapphire/Desert"
+    ],
+    "data": "Existing local dashboard data; no new training run"
+  }
+}

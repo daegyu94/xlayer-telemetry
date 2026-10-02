@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from dashboard_views import add_view_links, build_views
+from dashboard_views import add_color_links, add_view_links, build_views
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples" / "dashboards"
@@ -20,6 +20,7 @@ def provision(output, enable_logs=False):
     dashboards.update({SOURCE / name: view for name, view in build_views(dashboards).items()})
     for dashboard in dashboards.values():
         add_view_links(dashboard)
+        add_color_links(dashboard)
     enabled = {path: value for path, value in dashboards.items()
                if enable_logs or path.stem in METRICS}
     unavailable = {value["uid"] for path, value in dashboards.items() if path not in enabled}

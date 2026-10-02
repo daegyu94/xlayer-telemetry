@@ -4,6 +4,7 @@ Queries, units and evidence scope remain owned by the original dashboards.
 Only presentation and navigation are changed here.
 """
 from copy import deepcopy
+import re
 
 VIEWS = (
     ('Guided', 'telemetry-overview'),
@@ -116,3 +117,52 @@ def build_views(dashboards):
                 y += 1
         result[f'workspace-{style.lower()}.json'] = view
     return result
+
+
+COLOR_PRESETS = (('Dark', 'dark'), ('Sapphire', 'sapphiredusk'), ('Desert', 'desertbloom'))
+
+
+def add_color_links(dashboard):
+    """Carry URL-scoped color choices without changing shared/user preferences."""
+    variable = 'xlayer_theme'
+    dashboard['templating']['list'].append({
+        'name': variable, 'label': 'Color theme', 'type': 'textbox', 'hide': 2,
+        'query': '', 'current': {'text': '', 'value': ''},
+        'description': 'Color 링크의 선택을 화면 이동 시 유지합니다. 빈 값은 Grafana 기본 preference를 따릅니다.',
+    })
+    suffix = '&theme=${xlayer_theme:percentencode}&${xlayer_theme:queryparam}'
+
+    def carry(url):
+        if not url.startswith('/d/'):
+            return url
+        return url + ('?' if '?' not in url else '&') + suffix.lstrip('&')
+
+    def walk(item):
+        if isinstance(item, dict):
+            for key, value in item.items():
+                if key == 'url' and isinstance(value, str):
+                    item[key] = carry(value)
+                elif key == 'content' and isinstance(value, str):
+                    item[key] = re.sub(r'\]\((/d/[^)]+)\)',
+                                       lambda match: '](' + carry(match[1]) + ')', value)
+                else:
+                    walk(value)
+        elif isinstance(item, list):
+            for child in item:
+                walk(child)
+    walk(dashboard)
+    context = '&'.join('${' + v['name'] + ':queryparam}'
+                       for v in dashboard['templating']['list'] if v['name'] != variable)
+    # Explicit top-level anchors perform normal same-tab navigation. Dashboard LinkButtons
+    # use the SPA router, which does not reinitialize Grafana's URL theme.
+    colors = [f'<a target="_top" href="/d/{dashboard["uid"]}?{context}&theme={theme}'
+              f'&var-xlayer_theme={theme}&${{__url_time_range}}">Color: {name}</a>'
+              for name, theme in COLOR_PRESETS]
+    header = next(p for p in dashboard['panels']
+                  if p['type'] == 'text' and p['gridPos']['y'] == 0)
+    header['options']['content'] = ' · '.join(colors) + '\n\n' + header['options']['content']
+    for panel in _panels(dashboard['panels']):
+        if panel['gridPos']['y'] == 0:
+            panel['gridPos']['h'] += 1
+        else:
+            panel['gridPos']['y'] += 1

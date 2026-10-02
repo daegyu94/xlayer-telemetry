@@ -543,30 +543,35 @@ UI 구조 검토와 적용 범위는 [Grafana Investigation UX Review](grafana-u
 
 ## Theme Selection
 
-로그인 후 Profile 메뉴의 **Change theme**에서 Grafana 기본 테마를 미리 보고 선택합니다.
+UI 구성은 **View**, 색상은 상단 안내의 **Color: Dark / Sapphire / Desert** 링크로 따로 선택합니다.
+Color 링크는 로그인 없이 현재 화면을 다시 열어 배색을 적용하며 Run·Node·시간 범위를 유지합니다.
+Grafana 12.1은 URL theme를 페이지를 열 때 적용하므로 색상 전환 시에만 같은 탭에서 자동 reload합니다.
+View 전환과 상세 dashboard 이동에도 선택을 전달하며, 사용자나 조직의 preference를 변경하지 않습니다.
+
+| 빠른 선택 | Grafana theme ID | 배색 |
+| --- | --- | --- |
+| Dark | `dark` | 기본 어두운 중성 배경 |
+| Sapphire | `sapphiredusk` | 푸른 배경의 Dark 대안 |
+| Desert | `desertbloom` | 따뜻한 배경의 Light 대안 |
+
+아직 Color를 선택하지 않았다면 Grafana의 기존 theme preference를 따릅니다.
+선택은 URL에 저장되므로 원하는 View와 Color를 함께 bookmark할 수 있습니다.
+주소 없이 새로 접속할 때도 같은 테마를 쓰려면 로그인 후 Profile의 **Change theme**에서 개인 preference로 저장합니다.
+그 메뉴의 Tron·Gilded grove·Gloom 등 다른 Grafana 테마도 계속 사용할 수 있습니다.
+Color 링크를 선택한 URL에서는 URL의 색상이 개인 preference보다 우선합니다.
+
 Monitoring server와 Compose 설정은 `extraThemes`를 활성화하며 기본 화면은 기존 Dark를 유지합니다.
 추가 테마는 Grafana 12.1의 experimental 기능으로, 별도 plugin이나 CSS를 설치하지 않습니다.
-
-| Theme | 용도 |
-| --- | --- |
-| Sapphire dusk | 푸른 배경의 Dark 대안 |
-| Gloom | 무채색에 가까운 어두운 배경 |
-| Desert bloom | 따뜻한 배경의 Light 대안 |
-| Tron | 짙은 남색 배경과 cyan 강조 (`tron`) |
-| Gilded grove | 짙은 녹색 배경과 gold 강조 (`gildedgrove`) |
-| Dark / Light / System | 표준 테마 또는 OS 설정 |
-
-로그인한 사용자의 선택은 개인 preference에 저장되어 다른 사용자에게 영향을 주지 않습니다.
-Anonymous 사용자는 URL에 `theme=gloom` 등의 query parameter를 추가해 볼 수 있습니다.
-이 선택은 preference에 저장되지 않으므로 기본 테마를 유지하려면 server config를 바꿉니다.
+Server 기본값을 바꾸려면 config에 지정합니다.
 
 ```bash
-GF_USERS_DEFAULT_THEME='sapphiredusk'  # 또는 tron, gildedgrove
+GF_USERS_DEFAULT_THEME='sapphiredusk'
 GF_FEATURE_TOGGLES_ENABLE='extraThemes'
 ```
 
 Server를 재시작하면 적용되며 기존 user·team·organization preference가 server default보다 우선합니다.
-추가 테마 선택지를 숨기려면 toggle 목록에서 `extraThemes`만 제거합니다. 다른 toggle이 없다면 빈 문자열을 사용합니다.
+Profile 메뉴의 추가 테마 목록을 숨기려면 toggle 목록에서 `extraThemes`만 제거합니다.
+이는 XLayer의 Color 바로가기와는 별개이며, 다른 toggle이 없다면 빈 문자열을 사용합니다.
 테마는 화면 배색만 바꾸며 metric, query, diagnosis 의미는 변경하지 않습니다.
 
 참고: [Grafana 12 themes](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-0/), [preference 우선순위](https://grafana.com/docs/grafana/latest/administration/organization-preferences/), [Ray metric 의미](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html), [vLLM native metrics](https://docs.vllm.ai/en/latest/usage/metrics/).
