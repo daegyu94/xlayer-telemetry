@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "a894e832e0528fd7e869ce8501419070a716cee7",
+  "status": "passed",
+  "full_stack": {
+    "status": "passed",
+    "checks": [
+      "sources CLI matches two synthetic native targets against real Prometheus discovery",
+      "ray Explore link renders real Prometheus fixture metrics without run/step",
+      "vllm Explore link renders real Prometheus fixture metrics without run/step",
+      "server default Sapphire dusk applied without theme URL parameter",
+      "sapphiredusk native theme renders expected background",
+      "gloom native theme renders expected background",
+      "desertbloom native theme renders expected background",
+      "new subsystem rows provision and expand in Grafana",
+      "subsystem rows fit 1024px viewport without page horizontal overflow",
+      "native extraThemes picker feature enabled in actual frontend settings"
+    ],
+    "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+    "real_backend_queries": 117,
+    "grafana_image": "grafana/grafana:12.1.0"
+  },
+  "tests": {
+    "pytest": "514 passed in 19.41s",
+    "docs": "Sphinx strict build passed",
+    "shell": "bash -n passed",
+    "python": "compileall passed"
+  },
+  "coverage": [
+    "New vLLM/Ray panel queries return synthetic samples from real Prometheus",
+    "Malformed/backend unavailable source inspection",
+    "3FS standalone query/filter/settle against an HTTP fixture",
+    "Atomic source refresh and uninitialized native job rejection",
+    "Custom subsystem log roots and theme configuration validation"
+  ],
+  "limitations": [
+    "No VERL training rerun; native source samples are synthetic",
+    "Local 3FS ClickHouse responds to ping but unauthenticated query returns HTTP 401; authenticated production distributions not validated",
+    "Theme persistence follows native Grafana preferences; login persistence not browser-tested",
+    "Existing monitoring services were not restarted; provisioning/theme defaults apply on restart"
+  ],
+  "artifacts": "artifacts/subsystems-20261002 (local screenshots and validation output)"
+}

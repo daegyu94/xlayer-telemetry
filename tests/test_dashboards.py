@@ -910,3 +910,24 @@ def test_compute_prioritizes_memory_and_communication_before_hardware_detail():
     dashboard = json.loads((ROOT / "examples/dashboards/compute-communication.json").read_text())
     panels = {panel["id"]: panel for panel in dashboard["panels"]}
     assert panels[6]["gridPos"]["y"] < panels[8]["gridPos"]["y"] < panels[4]["gridPos"]["y"]
+
+
+def test_subsystem_rows_work_without_run_and_preserve_native_semantics():
+    dashboard = json.loads((ROOT / 'examples/dashboards/agent-rl-stages.json').read_text())
+    panels = {p['id']: p for p in _panels(dashboard)}
+    for panel_id in range(20, 27):
+        panel = panels[panel_id]
+        for target in panel['targets']:
+            assert 'run_id' not in target['expr']
+            assert 'cluster=~"$cluster"' in target['expr']
+            assert 'node=~"$node"' in target['expr']
+        assert panel['fieldConfig']['defaults']['noValue'] == 'N/A'
+    assert 'histogram_quantile' in str(panels[21]['targets'])
+    assert 'instance, model_name, le' in str(panels[21]['targets'])
+    assert all('rate(' not in str(panels[i]['targets']) for i in [22, 23, 24, 25])
+    assert 'Name=~"CPU|GPU"' in panels[24]['targets'][0]['expr']
+    assert panels[25]['fieldConfig']['defaults']['unit'] == 'bytes'
+    variables = {v['name']: v for v in dashboard['templating']['list']}
+    assert variables['cluster']['query'] == 'label_values(up, cluster)'
+    assert 'job="native"' in variables['node']['query']
+    assert 'nodename' in variables['node']['query']

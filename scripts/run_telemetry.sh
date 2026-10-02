@@ -545,6 +545,13 @@ EOF
     dashboard_args+=(--enable-logs)
   fi
   "${PYTHON:-python3}" scripts/provision_dashboards.py "${dashboard_args[@]}"
+  # Grafana's built-in theme picker; an explicit empty toggle list opts out.
+  export GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-extraThemes}"
+  export GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-dark}"
+  case "$GF_USERS_DEFAULT_THEME" in
+    dark|light|system|sapphiredusk|gloom|desertbloom|tron|gildedgrove|aubergine|mars|matrix|synthwave|victorian|zen) ;;
+    *) echo "Unsupported GF_USERS_DEFAULT_THEME: $GF_USERS_DEFAULT_THEME" >&2; exit 2 ;;
+  esac
   if [[ "${SERVER_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   "$tools_dir/prometheus-3.5.0.linux-$release_arch/prometheus" \
     --config.file="$output_dir/prometheus.yml" --storage.tsdb.path="$output_dir/prometheus-data" \

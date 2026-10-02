@@ -31,7 +31,7 @@ vLLM / Ray metrics endpoints ----------------------> Prometheus
                                                           v
                                                   Grafana metric dashboards
 
-3FS service latency > ClickHouse > Run diagnostics / show_run
+3FS service latency > ClickHouse > diagnostics / standalone threefs query
 Prometheus ----------------------> Run diagnostics / show_run
 Tool call spans > Run event JSONL / show_run
 Workload log files > Alloy > Loki > Grafana Run Logs
@@ -40,7 +40,7 @@ VERL step events > JSONL > Alloy > Loki > Grafana Step Explorer
 
 Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 변환하고, GPU sampler와 host 지표도 Node Exporter를 거쳐 Prometheus에 수집됩니다.
 Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
-3FS FUSE mount의 filesystem 지표는 node 자원 경로로 볼 수 있지만 3FS 서비스 latency는 ClickHouse를 조회하는 실행 진단에 기록됩니다.
+3FS FUSE mount의 filesystem 지표는 node 자원 경로로 보고, 3FS 서비스 latency는 ClickHouse 단독 조회 또는 실행 진단에서 확인합니다.
 Tool span은 JSONL event로 남고 workload log는 Alloy·Loki를 거쳐 Grafana Run Logs에 표시됩니다.
 VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 목록에서 Timeline의 상세 구간을 엽니다.
 
@@ -49,8 +49,8 @@ VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 
 | 알고 싶은 내용 | 추가할 source | 결과를 볼 위치 |
 | --- | --- | --- |
 | Rollout queue·KV cache·KV offload 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout·KV offload panel |
-| Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Prometheus query 화면 또는 Grafana Explore, 선택적 diagnostics |
-| 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | 진단 JSON과 `show_run` |
+| Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Stage Correlation의 Ray row, Explore |
+| 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | 단독 `threefs` 조회, 진단 JSON과 `show_run` |
 | Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Resource·SSD dashboard |
 | Workload log | Alloy와 Loki | 선택적인 Logs dashboard |
 | Custom tool 호출의 대기 시간 | `EventRecorder`로 기록한 span | JSONL event와 `show_run` |
@@ -58,7 +58,52 @@ VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 
 VERL·vLLM·Ray·3FS 설치와 endpoint discovery는 외부 배포가 담당합니다.
 Native metric 이름·label은 실제 exporter와 맞추고 [수집 범위](metrics.md#what-is-actually-collected)를 확인합니다.
 System·shared-service metric에 `run_id`가 자동으로 붙지는 않습니다.
-Endpoint 하나의 target부터 확인하며 Ray는 전용 panel 대신 Prometheus/Grafana Explore·diagnostics를 사용합니다.
+Endpoint 하나의 target부터 확인한 뒤 Stage Correlation의 vLLM·Ray row를 사용합니다.
+
+## Inspect One Subsystem
+
+Cross-layer diagnosis나 완료 step 없이 subsystem 자체를 조사할 수 있습니다.
+Start Here의 `Subsystem only`에서 GPU·network·storage·logs로 이동하고, vLLM은 Stage Correlation의 native panel에서 Resource node·engine을 선택합니다.
+Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine의 단독 사용량을 뜻하지 않습니다.
+
+| Subsystem | 단독 조회 경로 | 필요한 연결 |
+| --- | --- | --- |
+| VERL | Run Overview의 training 지표, Stage Correlation의 stage·reward·throughput | File logger bridge |
+| vLLM | Stage Correlation의 queue·KV·offload·token throughput·request latency p95 | Native endpoint 등록 |
+| Ray | Stage Correlation의 task·actor state, logical CPU/GPU, object store, OOM eviction | Native endpoint 등록 |
+| 기타 native exporter | `sources`의 endpoint별 Explore 링크 | Native endpoint 등록 |
+| GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector, SSD는 선택적 SMART exporter |
+| 3FS service metrics | `threefs` 명령의 시간 구간별 distributions | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
+| Subsystem log | Run Logs의 Workload·Node·Log directory | `ENABLE_LOGS=1`과 실제 log 파일 등록 |
+
+```bash
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sources
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" threefs
+```
+
+`sources`는 Prometheus Targets를 한 번 조회해 등록한 endpoint별 `up`, `down`, 첫 scrape 전 `unknown`, `not_discovered`, backend `unavailable`을 구분합니다.
+출력의 `metrics_url`을 열면 cluster·component·instance가 선택된 Explore에서 현재 metric을 볼 수 있습니다.
+처음에는 instant table로 열리며 필요한 metric을 골라 range query로 바꿉니다.
+`up`은 마지막 scrape 성공을 뜻하며 workload health는 아닙니다. `last_scrape`도 함께 확인합니다.
+
+`threefs`는 기본 30초의 ingestion 여유를 두고 직전 5분을 조회하며 run·step·baseline·diagnosis를 만들지 않습니다.
+기존 `threefs.filters`, `settle_seconds`, timeout과 credential 환경변수를 그대로 사용합니다.
+각 metricName의 sample count·weighted mean·max·max_observed_p99를 반환합니다.
+Distributions에 없는 IOPS·throughput을 임의로 추론하지 않습니다.
+출력은 shared-service 범위이고 `max_observed_p99`는 global p99가 아니며 단위는 3FS producer 정의를 따릅니다.
+ClickHouse는 여기서 **3FS metric 저장소**입니다. ClickHouse 자체의 query 성능·DB 운영 지표를 수집하는 기능은 별도 exporter 연결이 필요합니다.
+
+Subsystem별 log가 필요하면 같은 config에서 기존 Alloy log root를 추가합니다.
+아래 root들은 `<root>/<session>/logs/**/*.log` 구조이며 XLayer가 Ray·vLLM의 내부 log 경로를 자동 변경하거나 Docker log를 가져오지는 않습니다.
+각 runtime의 log 출력 또는 배포 측 archive를 이 구조에 맞춘 뒤 node collector를 재시작합니다.
+
+```bash
+ENABLE_LOGS=1
+TELEMETRY_LOG_ROOTS="verl=$HOME/telemetry-runs,ray=$HOME/ray-log-archives"
+```
+
+Run Logs에서 `Workload=ray`를 선택하고 `Log directory`는 해당 session 또는 `.*`로 지정합니다.
+VERL stdout에 섞인 vLLM/Ray log는 별도 source label이 없으므로 component별로 자동 분리되지 않습니다.
 
 ## Register Native Endpoints
 
@@ -96,17 +141,16 @@ Monitoring Guide의 수동 경로를 사용했다면 `server.conf`에 같은 값
 시작 시 설정 형식을 검증하고 Prometheus의 `native` job에 사용할 target 파일을 만듭니다.
 설정 검증 성공이 endpoint 접속 성공을 의미하지는 않으므로 Prometheus Targets에서 상태를 확인합니다.
 `target`은 scheme과 path 없는 `host:port`이며 HTTPS라면 `scheme`을 `https`로 지정합니다.
-Source 파일을 고치면 생성된 target 파일이 저절로 바뀌지 않으므로 monitoring server를 다시 시작합니다.
-짧은 VERL 실행 중 server를 재시작하기 어렵다면, 이미 `TELEMETRY_SOURCES_FILE`로 `native` job을 켠 server에서 다음 명령으로 생성된 target 파일만 갱신합니다.
+Source 파일 수정 후 이미 `native` job이 활성화된 server에서는 같은 config로 target 파일만 갱신합니다.
+최초 연결로 `native` job을 추가할 때는 monitoring server를 재시작합니다.
 
 ```bash
-python -m xlayer_telemetry.source_discovery \
-  --input "$HOME/telemetry/config/native-sources.json" \
-  --output "$HOME/telemetry/state/server/native-targets.json"
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" refresh-sources
 ```
 
 Prometheus의 file discovery가 기본 30초 안에 새 target을 읽습니다.
-Server의 `OUTPUT_DIR`를 기본값에서 바꿨다면 `--output`도 해당 directory의 `native-targets.json`으로 바꿉니다.
+`refresh-sources`는 config의 `SERVER_OUTPUT_DIR`를 사용하고, 이어서 `sources`로 실제 scrape 상태를 확인합니다.
+수동 server 배포는 기존 `python -m xlayer_telemetry.source_discovery --input FILE --output SERVER_OUTPUT_DIR/native-targets.json`을 사용할 수 있습니다.
 학습 종료 후 endpoint가 사라지면 Prometheus Targets의 현재 상태는 down으로 바뀌어도 과거 표본은 남습니다.
 
 `kind`는 수집된 metric의 `telemetry_source`, `name`은 `component` label이 됩니다.

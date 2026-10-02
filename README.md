@@ -61,7 +61,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | --- | --- | --- |
 | VERL trainer | File logger wrapper, 완료 step scalar·stage 변환, step event와 run manifest | 실행 가능한 VERL 명령이 필요합니다. 완료 전 현재 phase는 표시하지 않고 step 시간 구간은 근사치입니다. |
 | GPU·host | GPU sampler, Node Exporter, Prometheus·Grafana dashboard | GPU 수집은 NVIDIA와 `nvidia-smi`가 필요합니다. GPU 없는 node는 `ENABLE_GPU_METRICS=0`으로 host만 수집합니다. CPU·network·disk 값은 node 전체입니다. |
-| vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Ray 전용 Grafana panel은 없고 공유 engine metric은 run별로 자동 분리되지 않습니다. |
+| vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Stage Correlation의 subsystem row로 단독 조회하며 공유 engine metric은 run별로 자동 분리되지 않습니다. |
 | Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Node 이름과 clock을 맞춰야 합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Run Overview의 완료 step 목록과 Timeline | File 경로와 Loki를 설정해야 합니다. Step 경계는 VERL file logger를 바탕으로 추정합니다. |
 | Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
@@ -82,7 +82,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | 1 | 아래의 [checkout 준비](#prepare-a-checkout) 후 [구현 구조와 설계 원칙](docs/architecture.md)을 읽습니다. | `RUN_ROOT`, collector `OUTPUT_DIR`, monitoring server의 역할을 구분할 수 있습니다. |
 | 2 | [Monitoring Guide의 synthetic demo](docs/monitoring.md#try-the-demo)로 수집과 Grafana를 확인합니다. | Start Here에서 Run Overview를 열고 `Exporter targets up`이 0보다 큽니다. |
 | 3 | 이미 실행 가능한 VERL 명령을 [VERL 연결 가이드](docs/verl-quickstart.md)에 따라 한 GPU node에 붙입니다. | `show_run`에 완료 step이 나오고 Agent RL에서 step·GPU 값이 보입니다. |
-| 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM panel 또는 Ray query에서 실제 값이 나옵니다. |
+| 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM·Ray panel에서 실제 값이 나옵니다. |
 | 5 | 필요하면 [Loki log·step 수집](docs/monitoring.md#add-run-logs-with-loki), [3FS 진단](docs/agent-rl.md#add-diagnostics)을 추가합니다. | Run Logs·Step Explorer 또는 `diagnostics/latest.json`에서 해당 증거를 확인합니다. |
 | 6 | [Cross-Layer Diagnosis](docs/diagnosis.md)와 [Dashboard Guide](docs/dashboards.md)로 한 느린 구간을 조사합니다. | Baseline, candidate, evidence, missing evidence의 측정 범위를 구분합니다. |
 

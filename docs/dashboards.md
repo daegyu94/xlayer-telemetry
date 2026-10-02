@@ -51,6 +51,14 @@ Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
 외부 Prometheus를 연결했다면 datasource의 Scrape interval을 실제 수집 주기에 맞춥니다.
 Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback이 정밀한 step trace로 바뀌지는 않습니다.
 
+## Subsystem-only Inspection
+
+Step 선택이나 diagnosis 없이 node·engine·device를 조사할 수 있습니다.
+Start Here의 `Subsystem only` 링크와 Stage Correlation의 vLLM native panel을 사용합니다.
+Stage Correlation의 접힌 vLLM·Ray row에서 subsystem별 상세 지표를 확인합니다.
+그 밖의 native metric은 `sources` 명령의 endpoint별 Explore 링크로 조회합니다.
+3FS ClickHouse 단독 조회와 subsystem log 연결은 [Subsystem inspection](agent-rl.md#inspect-one-subsystem)에 있습니다.
+
 ## Start Here
 
 `00 · Start Here`에서 Cluster · Node · Run을 고르고 collector 연결과 application/GPU sample age를 먼저 확인합니다.
@@ -161,7 +169,11 @@ Reward mean 하나도 모델 품질 추이를 증명하지 않습니다.
 Service/engine signal을 함께 보되 서로 다른 engine의 queue·KV·preemption을 하나의 engine 상태로 읽지 않습니다.
 `vLLM KV offload store and load`는 GPU→CPU와 CPU→GPU 전송률을 보여 주며 CPU tier와 filesystem tier를 분리하거나 3FS에 쓴 바이트만 집계하지 않습니다.
 Weight sync, policy lag, tool 시간은 해당 source가 기록된 경우에만 나타납니다.
-Ray endpoint를 등록했더라도 전용 panel은 제공하지 않으므로 Ray task 지표는 Prometheus query 화면·Grafana Explore 또는 [선택적 진단](agent-rl.md#add-diagnostics)에서 확인합니다.
+`vLLM throughput & latency`는 prompt/generation tokens/s와 TTFT·queue·E2E latency p95를 engine·model별로 보여 줍니다.
+`Ray orchestration`은 task·actor state, logical CPU/GPU 자원, object store 위치별 bytes와 OOM eviction rate를 보여 줍니다.
+Ray state는 분산 delta를 합산하므로 cluster 전체를 보려면 Resource node를 `All`로 둡니다.
+Logical resource는 물리 utilization이 아니며 native metric을 제공하지 않는 version·설정에서는 N/A가 정상입니다.
+Histogram p95와 counter rate는 `$__rate_interval` 구간의 값이며 step 단위 측정이 아닙니다.
 Sandbox worker sampler를 켰다면 아래의 pool occupancy, I/O pressure, throughput·operations, CPU·memory·OOM panel에서 sandbox node의 상태를 봅니다.
 `Sandbox sample age`가 증가하면 해당 cgroup 그래프는 오래된 textfile 값이므로 현재 상태로 해석하지 않습니다.
 Pool occupancy는 외부 runtime adapter가 `sandbox_active`·`sandbox_queued`를 낼 때만 채워집니다.
@@ -504,3 +516,31 @@ Diagnosis의 clock guard가 current 또는 baseline을 unsafe·unknown으로 판
 Grafana의 수동 timeline은 자동으로 시간축을 이동시키지 않으므로 clock 상태를 확인한 후 overlap을 해석합니다.
 
 UI 구조 검토와 적용 범위는 [Grafana Investigation UX Review](grafana-ui-ux-review.md)에 정리했습니다.
+
+## Theme Selection
+
+로그인 후 Profile 메뉴의 **Change theme**에서 Grafana 기본 테마를 미리 보고 선택합니다.
+Monitoring server와 Compose 설정은 `extraThemes`를 활성화하며 기본 화면은 기존 Dark를 유지합니다.
+추가 테마는 Grafana 12.1의 experimental 기능으로, 별도 plugin이나 CSS를 설치하지 않습니다.
+
+| Theme | 용도 |
+| --- | --- |
+| Sapphire dusk | 푸른 배경의 Dark 대안 |
+| Gloom | 무채색에 가까운 어두운 배경 |
+| Desert bloom | 따뜻한 배경의 Light 대안 |
+| Dark / Light / System | 표준 테마 또는 OS 설정 |
+
+로그인한 사용자의 선택은 개인 preference에 저장되어 다른 사용자에게 영향을 주지 않습니다.
+Anonymous 사용자는 URL에 `theme=gloom` 등의 query parameter를 추가해 볼 수 있습니다.
+이 선택은 preference에 저장되지 않으므로 기본 테마를 유지하려면 server config를 바꿉니다.
+
+```bash
+GF_USERS_DEFAULT_THEME='sapphiredusk'
+GF_FEATURE_TOGGLES_ENABLE='extraThemes'
+```
+
+Server를 재시작하면 적용되며 기존 user·team·organization preference가 server default보다 우선합니다.
+추가 테마 선택지를 숨기려면 toggle 목록에서 `extraThemes`만 제거합니다. 다른 toggle이 없다면 빈 문자열을 사용합니다.
+테마는 화면 배색만 바꾸며 metric, query, diagnosis 의미는 변경하지 않습니다.
+
+참고: [Grafana 12 themes](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-0/), [preference 우선순위](https://grafana.com/docs/grafana/latest/administration/organization-preferences/), [Ray metric 의미](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html), [vLLM native metrics](https://docs.vllm.ai/en/latest/usage/metrics/).

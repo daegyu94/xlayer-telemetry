@@ -18,7 +18,7 @@ Endpoint 설정이나 run manifest가 있다는 사실만으로 metric 수집이
 | CPU / memory / network / disk | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `node_network_receive_bytes_total`, `node_disk_io_time_seconds_total` | Node Exporter; GPU 없는 node는 `ENABLE_GPU_METRICS=0` | Node / interface / device |
 | RDMA | `node_infiniband_port_data_received_bytes_total`, `node_infiniband_port_data_transmitted_bytes_total` | 지원되는 host의 InfiniBand counter를 Node Exporter가 읽음 | Interface / port; NCCL 호출별 bytes는 아님 |
 | vLLM | `vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total` | VERL/vLLM에서 native metric을 켜고 monitoring server에 endpoint 등록 | Serving engine; metric 이름은 version별 확인 |
-| Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; 전용 Grafana panel 없음 |
+| Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; Stage Correlation의 Ray row |
 | SSD health | `smartctl_device_*` | 선택적 SMART exporter와 device 접근 권한 | SSD device; local sandbox와 3FS storage node를 구분 |
 | 3FS service | ClickHouse distribution의 p99·mean 등 | Diagnostics의 ClickHouse 설정 | Shared service; 자동 Prometheus 변환 아님 |
 | Tool / sandbox lifecycle | `tool.call`, `sandbox.exec`, `sandbox.resource_sample` | `EventRecorder` / `SandboxRecorder`를 integration 경계에서 호출 | Trace / span; JSONL이며 duration metric 자동 생성 아님 |

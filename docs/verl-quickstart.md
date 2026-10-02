@@ -101,7 +101,7 @@ Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluste
 Stage·reward·throughput은 step 완료 시, GPU·host는 별도 주기로 갱신됩니다.
 
 `inspect`는 같은 config의 run 경로와 등록 설정을 보여 주고 저장된 metric·event·진단 결과를 읽습니다.
-Native endpoint의 실시간 접속 상태는 조회하지 않으므로 Prometheus Targets에서 별도로 확인합니다.
+Native endpoint의 실시간 수집 상태는 같은 config의 `sources` 명령으로 확인합니다.
 
 ```bash
 bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" inspect
@@ -138,6 +138,19 @@ Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결
 기본 age 기준 300초는 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 바꿉니다.
 `partial`은 sidecar 종료·최종 export 실패/누락·evidence 부족이며 workload exit code는 유지합니다.
 
+## Inspect or Refresh a Subsystem
+
+Run 결과는 `inspect`, native endpoint의 scrape 상태와 Explore 링크는 `sources`로 확인합니다.
+Run이나 step이 없어도 `sources`와 `threefs`를 사용할 수 있습니다.
+
+```bash
+bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sources
+```
+
+vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `refresh-sources`를 실행합니다.
+이미 native job이 있는 server는 재시작하지 않아도 됩니다. 최초 연결은 `down` → `up`이 필요합니다.
+3FS 단독 조회와 subsystem log 설정은 [Subsystem inspection](agent-rl.md#inspect-one-subsystem)을 참고합니다.
+
 ## Add Sources When Needed
 
 설정 파일에는 자주 쓰는 선택 값이 주석으로 들어 있습니다.
@@ -146,7 +159,7 @@ Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결
 | 원하는 기능 | Config에서 추가할 값 | 이어서 읽을 문서 |
 | --- | --- | --- |
 | Run Logs와 Run Overview의 완료 step 목록 | `ENABLE_LOGS=1`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
-| vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; server 재시작 | [Native endpoint](agent-rl.md#register-native-endpoints) |
+| vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; 최초 server 재시작, 이후 `refresh-sources` | [Native endpoint](agent-rl.md#register-native-endpoints) |
 | 자동 진단과 선택적 3FS ClickHouse | `DIAGNOSTICS_CONFIG`; 새 run 시작 | [Diagnostics](agent-rl.md#add-diagnostics) |
 | 다른 저장 위치·node 이름 | 절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME` | [구현 구조](architecture.md#what-each-file-is-for) |
 

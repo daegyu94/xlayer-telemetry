@@ -114,7 +114,8 @@ def test_config_async_launcher_and_inspect_use_the_same_run(tmp_path: Path) -> N
     assert "Configuration is not proof" in after.stdout
 
 
-def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> None:
+@pytest.mark.parametrize("extra_logs", [False, True])
+def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path, extra_logs: bool) -> None:
     tools = tmp_path / "tools"
     tools.mkdir()
     arch = "arm64" if platform.machine() in {"aarch64", "arm64"} else "amd64"
@@ -122,6 +123,8 @@ def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> Non
     alloy.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
     alloy.chmod(0o755)
     run = tmp_path / "runs" / "grpo-001"
+    ray_root = tmp_path / "ray-logs"
+    ray_root.mkdir()
     config = tmp_path / "verl-local.conf"
     config.write_text(
         f"RUN_ID='grpo-001'\nRUN_ROOT='{run}'\n"
@@ -130,6 +133,9 @@ def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> Non
         "VERL_COMMAND=(/path/to/verl-env/bin/python)\n",
         encoding="utf-8",
     )
+    if extra_logs:
+        with config.open("a") as stream:
+            stream.write(f'TELEMETRY_LOG_ROOTS="verl={run.parent},ray={ray_root}"\n')
     result = subprocess.run(
         ["bash", str(SCRIPT), "--config", str(config), "node"],
         cwd=ROOT,
@@ -147,6 +153,10 @@ def test_local_config_keeps_metric_and_log_roots_together(tmp_path: Path) -> Non
     assert f"{run.parent}/*/telemetry-events/verl-steps*.jsonl" in alloy_config
     assert f"{run.parent}/*/logs/**/*.log" in alloy_config
     assert 'node = "gpu-local"' in alloy_config
+
+    if extra_logs:
+        assert f'{ray_root}/*/logs/**/*.log' in alloy_config
+        assert 'workload = "ray"' in alloy_config
 
 
 @pytest.mark.parametrize("action", ["server", "node"])
@@ -330,3 +340,16 @@ def test_local_down_ignores_previous_boot_and_lifecycle_lock(tmp_path: Path) -> 
     down = subprocess.run(command + ["down"], env=env, capture_output=True, text=True, timeout=5)
     assert down.returncode == 0, down.stderr
     assert not (stack_dir / "server.pid").exists()
+
+
+@pytest.mark.parametrize('theme,expected', [('sapphiredusk', 0), ('gloom', 0), ('desertbloom', 0), ('unknown-theme', 2)])
+def test_local_server_theme_configuration(tmp_path, theme, expected):
+    config = tmp_path / 'local.conf'
+    config.write_text(f'RUN_ID=test\nTELEMETRY_HOME="{tmp_path}/state"\nGF_USERS_DEFAULT_THEME={theme}\nGF_FEATURE_TOGGLES_ENABLE="extraThemes"\n')
+    result = subprocess.run(['bash', str(SCRIPT), '--config', str(config), 'server'],
+                            cwd=ROOT, env=os.environ | {'TELEMETRY_PYTHON': sys.executable,
+                                                       'SERVER_CONFIG_ONLY': '1'},
+                            capture_output=True, text=True)
+    assert result.returncode == expected, result.stderr
+    if expected:
+        assert 'Unsupported GF_USERS_DEFAULT_THEME' in result.stderr

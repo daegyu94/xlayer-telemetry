@@ -5,11 +5,13 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 usage() {
   cat <<'EOF'
-Usage: bash scripts/verl_local.sh --config FILE install|up|status|run|inspect|down|server|node
+Usage: bash scripts/verl_local.sh --config FILE install|up|status|run|inspect|sources|refresh-sources|threefs|down|server|node
 
 Use one trusted local Bash config for every command.
 Use up, run, and down in one terminal; server and node remain available for manual runs.
 Use inspect to read this config's run artifacts without typing RUN_ROOT again.
+Use sources for native target status and Grafana Explore links; threefs reads a standalone storage window.
+Use refresh-sources after changing registered native endpoints (no server restart if native job exists).
 Use status to check managed processes; live telemetry health is shown in Grafana.
 EOF
 }
@@ -199,6 +201,8 @@ case "$action" in
     exec env TOOLS_DIR="$tools_dir" \
     OUTPUT_DIR="${SERVER_OUTPUT_DIR:-$telemetry_home/state/server}" \
     CLUSTER_NAME="$cluster_name" \
+    GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-extraThemes}" \
+    GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-dark}" \
     TELEMETRY_TARGETS="$node_name=$node_addr" \
     TELEMETRY_SOURCES_FILE="${TELEMETRY_SOURCES_FILE:-}" \
     ENABLE_ALERTS="${ENABLE_ALERTS:-0}" \
@@ -213,7 +217,7 @@ case "$action" in
     telemetry_log_roots=''
     if [[ "$enable_logs" == 1 ]]; then
       loki_push_url='http://127.0.0.1:13100/loki/api/v1/push'
-      telemetry_log_roots="verl=$(dirname "$run_root")"
+      telemetry_log_roots="${TELEMETRY_LOG_ROOTS:-verl=$(dirname "$run_root")}"
     fi
     node_args=(
       "TOOLS_DIR=$tools_dir"
@@ -250,6 +254,28 @@ case "$action" in
         --output "$run_root" --run-id "$RUN_ID" --node "$node_name" \
         --execution-mode "${EXECUTION_MODE:-auto}" \
         "${extra_args[@]}" -- "${VERL_COMMAND[@]}"
+    ;;
+  sources|threefs)
+    args=(--cluster "$cluster_name" --prometheus "${PROMETHEUS_URL:-http://127.0.0.1:19090}"
+          --grafana "${GRAFANA_URL:-http://127.0.0.1:13000}")
+    [[ -z "${TELEMETRY_SOURCES_FILE:-}" ]] || args+=(--sources "$TELEMETRY_SOURCES_FILE")
+    [[ -z "${DIAGNOSTICS_CONFIG:-}" ]] || args+=(--diagnostics-config "$DIAGNOSTICS_CONFIG")
+    [[ "$action" != threefs ]] || args+=(--threefs)
+    PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+      "$telemetry_python" -m xlayer_telemetry.subsystems "${args[@]}"
+    ;;
+  refresh-sources)
+    : "${TELEMETRY_SOURCES_FILE:?Set TELEMETRY_SOURCES_FILE in the config}"
+    server_output="${SERVER_OUTPUT_DIR:-$telemetry_home/state/server}"
+    if [[ ! -f "$server_output/native-targets.json" ]] || \
+       ! grep -Eq '^[[:space:]]*-[[:space:]]+job_name:[[:space:]]+native[[:space:]]*$' "$server_output/prometheus.yml" 2>/dev/null; then
+      echo 'Native discovery is not initialized; start server with TELEMETRY_SOURCES_FILE first' >&2
+      exit 2
+    fi
+    PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+      "$telemetry_python" -m xlayer_telemetry.source_discovery \
+        --input "$TELEMETRY_SOURCES_FILE" --output "$server_output/native-targets.json"
+    echo 'Native targets updated; allow 30 seconds for discovery, then use sources to check scrape status.'
     ;;
   inspect)
     printf 'Configured run: %s (node=%s cluster=%s)\n' "$RUN_ID" "$node_name" "$cluster_name"
