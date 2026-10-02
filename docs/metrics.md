@@ -192,6 +192,7 @@ Prometheus target의 instance·cluster가 collector를 구분하며 파일명이
 | Metric | 의미 |
 | --- | --- |
 | `telemetry_application_snapshot_reads_total` | Snapshot 파일 읽기 시도 |
+| `telemetry_application_snapshot_cache_hits_total` | 변경되지 않은 snapshot의 파일 읽기·JSON parsing을 생략한 횟수 |
 | `telemetry_application_snapshot_rejections_total` | 읽기·JSON·최상위 identity/schema 검증 실패 |
 | `telemetry_application_sample_rejections_total` | Samples 구조·값·label·중복·metric definition 검증 실패 |
 
@@ -199,3 +200,9 @@ Counter는 collector 시작 이후의 처리 횟수이며 재시작하면 reset�
 동일한 불량 파일을 매 poll마다 읽으면 계속 증가하므로 고유 record 손실 개수가 아닙니다.
 Node/freshness 필터로 정상 제외한 snapshot은 오류로 집계하지 않습니다.
 이 이름들은 collector 전용이며 application snapshot이 같은 이름을 보내면 거부합니다.
+
+CLI collector는 최대 1,024개 파일·원본 크기 합계 16 MiB의 decoded snapshot을 process-local cache에 보관합니다.
+이 한도는 Python 객체의 실제 메모리 사용량 한도가 아니며, 초과 파일도 cache 없이 정상 수집합니다.
+매 poll의 directory 탐색·metadata 확인·node/freshness 필터·sample 검증은 유지하고, 파일 identity·크기·mtime·ctime이 바뀌면 JSON을 다시 읽습니다.
+Producer는 SDK처럼 atomic replace로 snapshot을 갱신하며, 삭제되거나 종료된 run의 cache는 제거합니다.
+Cache hit는 `snapshot_reads_total`에 포함하지 않고 rejection counter는 계속 검증 시도마다 증가합니다.

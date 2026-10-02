@@ -9,6 +9,8 @@ import signal
 import time
 from pathlib import Path
 
+from ..measurements import finite_number
+
 
 _stop = False
 
@@ -70,8 +72,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--interval", type=float, default=0.2)
     args = parser.parse_args()
-    if args.interval <= 0:
-        raise SystemExit("--interval must be positive")
+    if finite_number(args.interval) is None or args.interval <= 0:
+        parser.error("--interval must be finite and positive")
     if not args.target.is_dir():
         raise SystemExit(f"--target must be an existing directory: {args.target}")
     args.output.parent.mkdir(parents=True, exist_ok=True)

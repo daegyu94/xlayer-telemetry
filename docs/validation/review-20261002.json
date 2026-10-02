@@ -1,0 +1,243 @@
+{
+  "date": "2026-10-02",
+  "baseline_commit": "2e0d98712ee346ab8a483edf04b27956e1e45714",
+  "scope": "Repository architecture/call-path review and targeted reliability/performance improvements",
+  "architecture": {
+    "flow": [
+      "Application/VERL file logger and SDK",
+      "Bridge step history, metric snapshots and EventRecorder spans",
+      "Node collectors/native exporters; Prometheus and Alloy/Loki",
+      "Rule diagnosis and optional LLM evidence review",
+      "JSON artifacts, show_run and Grafana investigation"
+    ],
+    "reviewed_boundaries": [
+      "SDK synchronous/asynchronous persistence and failure reporting",
+      "VERL follower, timing provenance and step deduplication",
+      "Collector snapshot discovery, node filtering, freshness and textfile publication",
+      "Sandbox lifecycle/cgroup/device observation scope",
+      "Prometheus and 3FS query budgets, baseline identity and retry scheduling",
+      "Analysis worker deadline, JSONL cache and report projection",
+      "Wrapper owned process groups and final telemetry health",
+      "Config/metric contracts, dashboard navigation tests, docs and CI"
+    ],
+    "preserved": [
+      "Correlation is not attribution",
+      "Existing backend integrations and SDK public interfaces",
+      "No new runtime dependency",
+      "No high-cardinality Prometheus label added"
+    ]
+  },
+  "findings": [
+    {
+      "priority": "P1",
+      "area": "VERL bridge",
+      "problem": "Follower remains on orphaned inode or old offset after replacement/truncation",
+      "change": "Reopen at EOF/partial record when inode changes or shrink is observed; replacement backlog retains unknown time",
+      "baseline_reproduction": "Four rotation/truncation regressions fail on baseline"
+    },
+    {
+      "priority": "P1",
+      "area": "Diagnosis retry",
+      "problem": "Batch-start timestamps make later steps inherit elapsed retry time and schedule retries before analysis completion",
+      "change": "Record per-step attempt start and calculate next retry after completion within the original deadline",
+      "baseline_reproduction": "Both slow-batch regressions fail on baseline"
+    },
+    {
+      "priority": "P1",
+      "area": "SDK error isolation",
+      "problem": "Export error written to closed stderr masks workload exception or raises in background writer",
+      "change": "Best-effort error reporting for event and metric writers",
+      "baseline_reproduction": "Synchronous regression fails; asynchronous case emits unhandled-thread warnings on baseline"
+    },
+    {
+      "priority": "P1",
+      "area": "Collector read/parse cost",
+      "problem": "Unchanged per-worker JSON is reopened and parsed on every poll",
+      "change": "Metadata-validated process-local cache, bounded to 1024 files and 16 MiB of source bytes; filters/validation remain active",
+      "validation": "Identical collection results, expiry/deletion/rewrite/failure/overflow regressions and local benchmark"
+    },
+    {
+      "priority": "P2",
+      "area": "CLI configuration",
+      "problem": "NaN/Infinity intervals are accepted until polling fails after side effects",
+      "change": "Reject nonfinite/nonpositive values in diagnosis/topology/resource CLIs before I/O",
+      "validation": "Nine CLI cases reject with exit code 2"
+    }
+  ],
+  "validation": {
+    "baseline_suite": {
+      "passed": 469,
+      "seconds": 16.08
+    },
+    "baseline_regressions": {
+      "failed": 7,
+      "passed": 1,
+      "note": "New boundary tests run against an isolated archive of baseline; asynchronous case also emitted thread warnings"
+    },
+    "final_suite": {
+      "passed": 490,
+      "seconds": 15.45,
+      "promtool_enabled": true
+    },
+    "compileall": "passed: xlayer_telemetry, examples, tests",
+    "shell_syntax": "passed: all tracked shell scripts",
+    "metric_contract": {
+      "passed": true,
+      "metrics": 125
+    },
+    "docs": "strict Sphinx build passed",
+    "diff_check": "passed",
+    "lint_type_check": "No standalone lint/type-check gate is configured in this repository",
+    "prometheus_integration": {
+      "status": "passed",
+      "checks": {
+        "two_nodes_same_worker_isolated": true,
+        "new_run_without_collector_restart": true,
+        "real_source_timestamps": {
+          "interval_seconds": 5.000000715255737,
+          "query_step_seconds": 2.0,
+          "range_window_seconds": 0,
+          "evaluation_count": 1.0,
+          "evaluation_count_kind": "query_evaluations_not_scrapes",
+          "observed_source_samples": 1,
+          "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
+          "last_source_timestamp": 1790908701.511,
+          "source_age_seconds": 1.1134769916534424,
+          "freshness": "observed",
+          "source_coverage": "returned_series_only",
+          "warnings": [
+            "fewer_than_two_query_evaluations"
+          ]
+        },
+        "completed_run_removed_from_export": true,
+        "snapshot_expiry": true
+      },
+      "limitations": [
+        "SDK fixture values, not VERL training.",
+        "Logical nodes share one host.",
+        "No causal storage or GPU bottleneck asserted."
+      ]
+    },
+    "benchmark": {
+      "data_origin": "synthetic",
+      "scope": "local JSONL and snapshot read/parse cost",
+      "measurements": [
+        {
+          "history": {
+            "records": 10000,
+            "file_bytes": 1907784,
+            "uncached_seconds": 0.016542,
+            "cold_seconds": 0.019382,
+            "warm_seconds": 0.000756,
+            "warm_parsed_bytes": 0,
+            "cache": {
+              "cached_files": 1,
+              "cached_records": 10000,
+              "cached_source_bytes": 1907784,
+              "parsed_bytes": 1907784,
+              "cache_hits": 1,
+              "reloads": 1,
+              "uncached_scans": 0
+            }
+          },
+          "tool_spans": {
+            "records": 10000,
+            "file_bytes": 2745555,
+            "uncached_seconds": 0.024634,
+            "cold_seconds": 0.028103,
+            "warm_seconds": 0.005436,
+            "warm_parsed_bytes": 0,
+            "cache": {
+              "cached_files": 1,
+              "cached_records": 10000,
+              "cached_source_bytes": 2745555,
+              "parsed_bytes": 2745555,
+              "cache_hits": 1,
+              "reloads": 1,
+              "uncached_scans": 0
+            }
+          }
+        },
+        {
+          "history": {
+            "records": 100000,
+            "file_bytes": 19277785,
+            "uncached_seconds": 0.167588,
+            "cold_seconds": 0.191281,
+            "warm_seconds": 0.01084,
+            "warm_parsed_bytes": 0,
+            "cache": {
+              "cached_files": 1,
+              "cached_records": 100000,
+              "cached_source_bytes": 19277785,
+              "parsed_bytes": 19277785,
+              "cache_hits": 1,
+              "reloads": 1,
+              "uncached_scans": 0
+            }
+          },
+          "tool_spans": {
+            "records": 100000,
+            "file_bytes": 27855556,
+            "uncached_seconds": 0.236297,
+            "cold_seconds": 0.378885,
+            "warm_seconds": 0.056183,
+            "warm_parsed_bytes": 0,
+            "cache": {
+              "cached_files": 1,
+              "cached_records": 100000,
+              "cached_source_bytes": 27855556,
+              "parsed_bytes": 27855556,
+              "cache_hits": 1,
+              "reloads": 1,
+              "uncached_scans": 0
+            }
+          }
+        }
+      ],
+      "snapshots": {
+        "files": 1000,
+        "polls": 5,
+        "signals_per_file": 64,
+        "uncached_median_seconds": 0.069178,
+        "cold_seconds": 0.05755,
+        "warm_median_seconds": 0.008579,
+        "uncached_file_reads": 5000,
+        "warm_file_reads": 0,
+        "warm_cache_hits": 5000,
+        "cache_retained_traced_bytes": 33089222,
+        "limitations": [
+          "Local filesystem fixture; no training throughput claim",
+          "Traced Python allocations are not process RSS",
+          "Directory/stat calls, validation and Prometheus formatting still run"
+        ]
+      },
+      "limitations": [
+        "No network queries or full diagnosis latency measured",
+        "Cache still iterates retained records; this is not an indexed time-window lookup",
+        "Overflow uses full scans; memory budgets are shared across cached files in an engine"
+      ]
+    }
+  },
+  "limitations": [
+    "Real VERL/vLLM learning, Docker cgroups, 3FS, Ollama and physical multi-node were not rerun in this review",
+    "Prometheus integration uses CPU SDK fixture values and two logical nodes on one host",
+    "Snapshot timings exclude sample validation, formatting, backend queries and training; retained traced allocations are not RSS",
+    "Cache byte limits count source bytes, not decoded Python object size; overflowing working sets still require reads",
+    "Polling cannot reliably detect truncate-and-regrow past the previous offset between polls; use rename/create log rotation",
+    "Files removed before the bridge reads them cannot be recovered",
+    "No new remote CI run was triggered"
+  ],
+  "future_work": {
+    "now": [
+      "Keep failure regressions and use existing telemetry-health/cache counters"
+    ],
+    "next": [
+      "Measure full collector and backend query cost on actual high-worker runs before further caching or batching"
+    ],
+    "later": [
+      "Consider persistent interval indexes only after measuring JSONL filter/baseline scan cost",
+      "Physical multi-node validation when hardware is available"
+    ]
+  }
+}

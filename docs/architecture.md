@@ -219,6 +219,8 @@ Wrapper는 workload exit code와 `telemetry-health.json`의 수집 상태를 별
 동일한 run 디렉터리의 동시 wrapper 실행은 `flock`으로 거부하며 완료한 경로도 재사용하지 않습니다.
 
 Bridge는 newline까지 기록된 UTF-8 JSON record를 처리하고 malformed line은 건너뜁니다.
+Follow 중 inode 교체나 파일 축소를 감지하면 다시 열고, 새 파일에 이미 있던 record는 event time을 모르는 backlog로 처리합니다.
+Polling 사이에 truncate 후 기존 크기 이상으로 다시 쓴 파일은 축소를 놓칠 수 있으므로, log rotation은 rename 후 새 파일을 만드는 방식을 사용합니다.
 Producer timestamp가 없는 backlog는 정확한 step 시각을 복원할 수 없어 외부 resource correlation을 제한합니다.
 Backend의 일부 표본 누락·일시 오류는 [bounded retry](diagnosis.md#baseline-and-rule-state)로 처리합니다.
 

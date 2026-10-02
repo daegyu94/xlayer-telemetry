@@ -4,10 +4,53 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import statistics
 import time
+import tracemalloc
 
 from xlayer_telemetry.analysis.diagnostics import load_history, tool_span_window
 from xlayer_telemetry.analysis.jsonl_cache import JSONLCache
+from xlayer_telemetry.metrics.textfile import SnapshotCache, collect_snapshots
+
+
+def measure_snapshots(root, count=1000, polls=5):
+    root.mkdir(parents=True, exist_ok=True)
+    for worker in range(count):
+        (root / f"{worker}.json").write_text(json.dumps({
+            "schema_version": 2, "run_id": "fixture", "node": "cpu", "producer": "app",
+            "role": "worker", "worker_id": str(worker), "observed_at": 100,
+            "samples": [{"name": f"signal_{i}", "value": i, "labels": {"phase": "rollout"}}
+                        for i in range(64)]}))
+    def run(cache, counters):
+        times = []
+        for _ in range(polls):
+            started = time.perf_counter()
+            values = collect_snapshots([root], [], cache=cache, counters=counters, now=101)
+            times.append(time.perf_counter()-started)
+        return values, statistics.median(times)
+    reads, hits = {}, {}
+    original, uncached = run(None, reads)
+    cache = SnapshotCache()
+    started = time.perf_counter()
+    cold = collect_snapshots([root], [], cache=cache, counters=hits, now=101)
+    cold_seconds = time.perf_counter()-started
+    cached, warm = run(cache, hits)
+    assert original == cold == cached
+    assert hits['snapshot_reads'] == count and hits['snapshot_cache_hits'] == count*polls
+    # Measure the cache's allocation separately, outside timed polling loops.
+    allocation_cache = SnapshotCache()
+    tracemalloc.start()
+    collect_snapshots([root], [], cache=allocation_cache, now=101)
+    retained, _ = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    return {'files': count, 'polls': polls, 'signals_per_file': 64,
+            'uncached_median_seconds': round(uncached, 6), 'cold_seconds': round(cold_seconds, 6),
+            'warm_median_seconds': round(warm, 6), 'uncached_file_reads': reads['snapshot_reads'],
+            'warm_file_reads': hits['snapshot_reads']-count, 'warm_cache_hits': hits['snapshot_cache_hits'],
+            'cache_retained_traced_bytes': retained,
+            'limitations': ['Local filesystem fixture; no training throughput claim',
+                           'Traced Python allocations are not process RSS',
+                           'Directory/stat calls, validation and Prometheus formatting still run']}
 
 
 def measure(load, path, count):
@@ -55,8 +98,9 @@ def main():
         rows.append({'history':measure(lambda cache:load_history(history,cache=cache),history,count),
                      'tool_spans':measure(lambda cache:tool_span_window(root,'fixture',0,count,
                                          cache=cache),events,count)})
-    record = {'data_origin':'synthetic','scope':'local JSONL parse/query cost, each file measured separately',
-              'measurements':rows,'limitations':['No network queries or full diagnosis latency measured',
+    record = {'data_origin':'synthetic','scope':'local JSONL and snapshot read/parse cost',
+              'measurements':rows,'snapshots':measure_snapshots(args.output/'snapshots'),
+              'limitations':['No network queries or full diagnosis latency measured',
               'Cache still iterates retained records; this is not an indexed time-window lookup',
               'Overflow uses full scans; memory budgets are shared across cached files in an engine']}
     (args.output/'summary.json').write_text(json.dumps(record,indent=2)+'\n')

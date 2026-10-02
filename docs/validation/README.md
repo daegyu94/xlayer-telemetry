@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [review-20261002.json](review-20261002.json) | Log rotation·retry 시각·SDK 오류 격리, bounded snapshot cache, 회귀 테스트 490개·실제 Prometheus와 CPU 비용 측정 |
 | [runtime-reliability-20261001.json](runtime-reliability-20261001.json) | Worker deadline·incremental cache·선택적 SDK background I/O, failure tests와 실제 VERL async·backend 실패 검증 |
 | [async-followup-20261001.json](async-followup-20261001.json) | 실제 colocate/separate async 각 3 update, sandbox outcome·final export와 cgroup 관측 범위 검증 |
 | [followup-20261001.json](followup-20261001.json) | Collector health·sandbox outcome, 실제 VERL sync 2 step·Docker cgroup·3FS query와 회귀 테스트 442개 |

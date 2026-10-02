@@ -19,7 +19,7 @@ from urllib.request import urlopen
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, PrometheusClient, write_report
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.prometheus import format_gauges
-from xlayer_telemetry.metrics.textfile import collect_snapshots, build_metrics
+from xlayer_telemetry.metrics.textfile import SnapshotCache, collect_snapshots, build_metrics
 from xlayer_telemetry.telemetry_health import finish
 
 
@@ -57,9 +57,11 @@ def main():
     checks={}
     try:
         def handler(node):
+            cache, lock = SnapshotCache(), threading.Lock()
             class Handler(BaseHTTPRequestHandler):
                 def do_GET(self):
-                    snapshots=collect_snapshots([], [runs], node=node, max_age_seconds=30)
+                    with lock:
+                        snapshots=collect_snapshots([], [runs], node=node, max_age_seconds=30, cache=cache)
                     body=format_gauges(build_metrics(snapshots)).encode()
                     self.send_response(200); self.send_header("Content-Type", "text/plain; version=0.0.4"); self.end_headers(); self.wfile.write(body)
                 def log_message(self,*_args): pass

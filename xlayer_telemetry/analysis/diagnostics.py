@@ -1060,8 +1060,8 @@ def run_once(
         if plan.get("record_type") == "bottleneck_diagnosis":
             write_report(output, plan)  # Failed scheduling cannot finalize any step.
             return 0
-    now = plan["now"]
     for record, previous in plan["pending"]:
+        attempted_at = engine.clock()
         if analyzer is None:
             observed = finite(record.get("observed_at"))
             prior = [item for item in history if observed is not None
@@ -1071,17 +1071,18 @@ def run_once(
             report = analyzer.analyze(record, history_path)
         first_attempt = previous.get("first_attempt_at")
         if first_attempt is None:
-            first_attempt = now
+            first_attempt = attempted_at
+        completed_at = engine.clock()
         query_incomplete = any(source.startswith(("prometheus:", "threefs:"))
                                for source in report["missing_sources"])
         retryable = (report["verdict"] == "insufficient_data" or query_incomplete) and (
             "step_event_time" not in report["missing_sources"])
         provisional = (retryable and not finalize_pending and plan["retry_seconds"] > 0
-                       and now < first_attempt + plan["retry_seconds"])
+                       and completed_at < first_attempt + plan["retry_seconds"])
         report.update({"analysis_status": "provisional" if provisional else "final",
                        "revision": int(previous.get("revision") or 0) + 1,
                        "first_attempt_at": first_attempt,
-                       "retry_at": min(now + plan["retry_interval"], first_attempt + plan["retry_seconds"]) if provisional else None})
+                       "retry_at": min(completed_at + plan["retry_interval"], first_attempt + plan["retry_seconds"]) if provisional else None})
         write_report(output, report)
     if plan["periodic"]:
         write_report(output, analyzer.analyze(None, history_path) if analyzer is not None else engine.analyze(None, history))
@@ -1102,8 +1103,8 @@ def main() -> None:
     parser.add_argument("--execution-mode", choices=("sync", "async"))
     parser.add_argument("--interval", type=float, default=10)
     args = parser.parse_args()
-    if args.interval <= 0:
-        parser.error("--interval must be positive")
+    if finite(args.interval) is None or args.interval <= 0:
+        parser.error("--interval must be finite and positive")
     config = load_config(args.config)
     if args.run_id:
         config["run_id"] = args.run_id

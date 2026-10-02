@@ -1023,6 +1023,14 @@
       "policy": "always; cumulative scan operations, not unique lost records"
     },
     {
+      "name": "telemetry_application_snapshot_cache_hits_total",
+      "category": "host",
+      "unit": "operations",
+      "scope": "collector process",
+      "source": "application textfile collector",
+      "policy": "always; unchanged snapshot reads avoided"
+    },
+    {
       "name": "telemetry_application_snapshot_rejections_total",
       "category": "host",
       "unit": "operations",

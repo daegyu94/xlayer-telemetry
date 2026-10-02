@@ -133,7 +133,14 @@ CPU fixture로 cold/warm parse 비용을 확인하려면 다음을 실행합니�
 python -m examples.investigation.validate_runtime --output artifacts/runtime-validation
 ```
 
+같은 명령은 1,000-worker snapshot fixture의 cache 미사용·첫 poll·반복 poll 비용과 실제 파일 읽기 횟수도 비교합니다.
+Local filesystem 측정이며 전체 collector latency나 학습 throughput 개선을 뜻하지 않습니다.
+
 ## Baseline and Rule State
+
+Retry 기간은 batch 시작이 아닌 각 step의 첫 분석 시작 시각부터 계산합니다.
+다음 시도는 해당 분석이 끝난 뒤 `retry_interval_seconds`를 두되, 원래 retry deadline을 넘기지 않습니다.
+분석 자체가 retry 기간을 모두 사용하면 결과를 final로 남겨 즉시 재시도가 반복되지 않게 합니다.
 
 기본 baseline은 같은 run·node·worker·boundary scope의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다.
 파일 기록 순서가 아닌 관측 시각을 사용합니다.

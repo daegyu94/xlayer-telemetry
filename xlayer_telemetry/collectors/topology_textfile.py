@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
+from xlayer_telemetry.measurements import finite_number
 
 
 def build_gauges(directory: Path) -> list[GaugeSample]:
@@ -51,8 +52,8 @@ def main() -> None:
     parser.add_argument("--textfile-dir", type=Path, required=True)
     parser.add_argument("--interval", type=float, default=10)
     args = parser.parse_args()
-    if args.interval <= 0:
-        parser.error("interval must be positive")
+    if finite_number(args.interval) is None or args.interval <= 0:
+        parser.error("interval must be finite and positive")
     while True:
         write_gauges(args.textfile_dir, "topology.prom", build_gauges(args.topology_dir))
         time.sleep(args.interval)

@@ -269,7 +269,10 @@ class EventRecorder:
 
     def _disable(self, error) -> None:
         self.disabled = True
-        print(f"[events] export disabled: {error}", file=sys.stderr)
+        try:
+            print(f"[events] export disabled: {error}", file=sys.stderr)
+        except (OSError, ValueError):
+            pass  # A closed log stream must not replace the workload exception.
 
     def io_status(self) -> dict:
         return self._writer.status() if self._writer is not None else {"mode": "synchronous", "disabled": self.disabled}

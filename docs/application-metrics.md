@@ -218,6 +218,7 @@ Metric coalescing은 `dropped`에 포함되며 snapshot은 원래 모든 step의
 `flush()`는 대기 작업이 모두 처리됐는지를 반환합니다.
 `io_status()`의 `written`, `dropped`, `write_errors`, `queued_bytes`, `flush_timeouts`로 실제 기록·누락을 확인합니다.
 파일 오류는 해당 SDK writer를 비활성화하며 application exception으로 전달하지 않습니다.
+오류 메시지를 쓰는 `stderr`까지 닫혔거나 실패해도 workload의 원래 exception을 유지합니다.
 `close()`는 새 수락을 중단하고 제한 시간에 남은 queue를 취소하지만, 이미 filesystem 안에서 대기 중인 write는 나중에 끝날 수 있습니다.
 자동 shutdown flush는 전체 최대 1초의 best-effort이며 SIGKILL·process crash 시에는 실행되지 않으므로 정상 worker 종료 경계에서 직접 `close()`합니다.
 

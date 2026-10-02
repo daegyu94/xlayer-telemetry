@@ -181,7 +181,10 @@ class MetricEmitter:
 
     def _disable(self, error) -> None:
         self.disabled = True
-        print(f"[metrics] export disabled: {error}", file=sys.stderr)
+        try:
+            print(f"[metrics] export disabled: {error}", file=sys.stderr)
+        except (OSError, ValueError):
+            pass  # Export failure reporting is best-effort as well.
 
     def io_status(self) -> dict:
         return self._writer.status() if self._writer is not None else {"mode": "synchronous", "disabled": self.disabled}

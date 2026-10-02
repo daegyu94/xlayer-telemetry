@@ -138,26 +138,44 @@ def iter_file_records(
         if not follow:
             raise FileNotFoundError(path)
         time.sleep(poll_interval)
-    with path.open("rb") as stream:
-        backlog_end = path.stat().st_size if existed_at_start or not follow else 0
-        while True:
-            position = stream.tell()
-            line = stream.readline()
-            if line and not line.endswith(b"\n") and follow:
-                stream.seek(position)
-                time.sleep(poll_interval)
-                continue
-            if line:
-                try:
-                    record = json.loads(line.decode("utf-8"))
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    continue
-                if isinstance(record, dict):
-                    yield FileRecord(record, live=follow and position >= backlog_end)
-                continue
+    backlog = existed_at_start or not follow
+    while True:
+        try:
+            stream = path.open("rb")
+        except FileNotFoundError:
             if not follow:
-                return
+                raise
             time.sleep(poll_interval)
+            continue
+        with stream:
+            opened = os.fstat(stream.fileno())
+            backlog_end = opened.st_size if backlog else 0
+            while True:
+                position = stream.tell()
+                line = stream.readline()
+                if line and (line.endswith(b"\n") or not follow):
+                    try:
+                        record = json.loads(line.decode("utf-8"))
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        continue
+                    if isinstance(record, dict):
+                        yield FileRecord(record, live=follow and position >= backlog_end)
+                    continue
+                if not follow:
+                    return
+                # Keep incomplete UTF-8/JSON for the next poll, but do not keep
+                # following an orphaned inode forever after logger rotation.
+                stream.seek(position)
+                try:
+                    current = path.stat()
+                except FileNotFoundError:
+                    current = None
+                if current is not None and (
+                        (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+                        or current.st_size < position + len(line)):
+                    backlog = True  # Replacement contents have unknown event time.
+                    break
+                time.sleep(poll_interval)
 
 
 def bridge_records(

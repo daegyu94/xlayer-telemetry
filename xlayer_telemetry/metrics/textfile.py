@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from collections import OrderedDict
 import json
+import os
 import time
 from pathlib import Path
 
@@ -11,11 +13,62 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, wr
 from xlayer_telemetry.measurements import finite_number
 
 
-_COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_rejections", "sample_rejections")
+_COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_cache_hits", "snapshot_rejections", "sample_rejections")
 _COLLECTOR_METRICS = {f"telemetry_application_{key}_total" for key in _COLLECTOR_COUNTER_KEYS}
 
 
 _IDENTITY_FIELDS = ("run_id", "producer", "role", "worker_id", "node")
+
+
+class SnapshotCache:
+    """Reuse immutable snapshots, with bounded retained source bytes and files.
+
+    Producers atomically replace snapshots. Metadata changes invalidate cached
+    JSON; filtering and validation still run on every poll. No cached value is
+    served after a stat/read failure.
+    """
+
+    def __init__(self, *, max_files=1024, max_bytes=16 * 1024 * 1024):
+        if any(type(value) is not int or value <= 0 for value in (max_files, max_bytes)):
+            raise ValueError("snapshot cache limits must be positive integers")
+        self.max_files, self.max_bytes = max_files, max_bytes
+        self._entries = OrderedDict()
+        self._bytes = 0
+
+    @staticmethod
+    def _signature(stat):
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+    def read(self, path, counters):
+        previous = self._entries.pop(path, None)
+        if previous is not None:
+            self._bytes -= previous[0][2]
+        stamp = self._signature(path.stat())
+        if previous is not None and previous[0] == stamp:
+            self._entries[path] = previous
+            self._bytes += stamp[2]
+            if counters is not None:
+                counters["snapshot_cache_hits"] = counters.get("snapshot_cache_hits", 0) + 1
+            return previous[1]
+        if counters is not None:
+            counters["snapshot_reads"] = counters.get("snapshot_reads", 0) + 1
+        with path.open("r", encoding="utf-8") as stream:
+            before = self._signature(os.fstat(stream.fileno()))
+            value = json.load(stream)
+            after = self._signature(os.fstat(stream.fileno()))
+        if before == after and after[2] <= self.max_bytes:
+            while self._entries and (len(self._entries) >= self.max_files
+                                    or self._bytes + after[2] > self.max_bytes):
+                _, evicted = self._entries.popitem(last=False)
+                self._bytes -= evicted[0][2]
+            self._entries[path] = (after, value)
+            self._bytes += after[2]
+        return value
+
+    def retain(self, paths):
+        for path in self._entries.keys() - paths:
+            stamp, _ = self._entries.pop(path)
+            self._bytes -= stamp[2]
 
 
 def _select_latest(selected: dict, snapshot: dict) -> None:
@@ -27,13 +80,14 @@ def _select_latest(selected: dict, snapshot: dict) -> None:
         selected[identity] = snapshot
 
 
-def _iter_snapshots(metrics_dir: Path, *, counters: dict | None = None) -> list[dict]:
+def _iter_snapshots(metrics_dir: Path, *, counters: dict | None = None,
+                    cache: SnapshotCache | None = None, paths=None) -> list[dict]:
     snapshots: dict[tuple[str, ...], dict] = {}
-    for path in sorted(metrics_dir.glob("*.json")):
-        if counters is not None:
+    for path in sorted(metrics_dir.glob("*.json") if paths is None else paths):
+        if counters is not None and cache is None:
             counters["snapshot_reads"] = counters.get("snapshot_reads", 0) + 1
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = cache.read(path, counters) if cache is not None else json.loads(path.read_text(encoding="utf-8"))
             if (isinstance(value, dict) and value.get("schema_version") == 2
                     and all(isinstance(value.get(key), str) for key in _IDENTITY_FIELDS)):
                 _select_latest(snapshots, value)
@@ -48,7 +102,8 @@ def _iter_snapshots(metrics_dir: Path, *, counters: dict | None = None) -> list[
 
 def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                       node: str | None = None, max_age_seconds: float | None = None,
-                      now: float | None = None, counters: dict | None = None) -> list[dict]:
+                      now: float | None = None, counters: dict | None = None,
+                      cache: SnapshotCache | None = None) -> list[dict]:
     """Discover immediate run children on every poll; never recurse unboundedly.
 
     Explicit directories retain legacy behavior unless an age limit is supplied.
@@ -59,6 +114,7 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                   for path in root.glob("*/telemetry-metrics") if path.is_dir()}
     directories = discovered | {path.resolve() for path in metrics_dirs}
     selected: dict[tuple[str, ...], dict] = {}
+    active_paths = set()
     for directory in sorted(directories):
         if directory in discovered:
             try:
@@ -67,13 +123,17 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                     continue
             except (OSError, ValueError, AttributeError):
                 pass
-        for snapshot in _iter_snapshots(directory, counters=counters):
+        paths = list(directory.glob("*.json"))
+        active_paths.update(paths)
+        for snapshot in _iter_snapshots(directory, counters=counters, cache=cache, paths=paths):
             observed = finite_number(snapshot.get("observed_at"))
             if node is not None and snapshot["node"] != node:
                 continue
             if max_age_seconds is not None and (observed is None or not 0 <= now-observed <= max_age_seconds):
                 continue
             _select_latest(selected, snapshot)
+    if cache is not None:
+        cache.retain(active_paths)
     return list(selected.values())
 
 
@@ -180,9 +240,10 @@ def main() -> None:
     if max_age is not None and (finite_number(max_age) is None or max_age <= 0):
         parser.error("max-age-seconds must be finite and positive")
     counters = {}
+    cache = SnapshotCache()
     while True:
         snapshots = collect_snapshots(args.metrics_dir, args.runs_root, node=args.node,
-                                      max_age_seconds=max_age, counters=counters)
+                                      max_age_seconds=max_age, counters=counters, cache=cache)
         metrics = build_metrics(snapshots, counters=counters)
         for key in _COLLECTOR_COUNTER_KEYS:
             metrics.append(GaugeSample(f"telemetry_application_{key}_total",
