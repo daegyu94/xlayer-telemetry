@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-02",
+  "base_commit": "913423e45b8808aa8cda29c3415aef0564cea469",
+  "status": "passed",
+  "environment": "Isolated Grafana 12.1.0 container, actual local Prometheus and Loki; headless Chrome",
+  "data_origin": "synthetic fixtures, not a training benchmark",
+  "full_stack": {
+    "status": "passed",
+    "browser": "headless Chrome",
+    "checks": [
+      "Collection health still renders without fabricated healthy/no-data states",
+      "Integrated Run Overview Duration → candidate/evidence pins row cluster, record, time and observer/resource nodes",
+      "Summary → integrated Timeline includes selected step and approximate completion context",
+      "Collapsed span/event row preserves exact EventRecorder evidence",
+      "Former Step Detail host/network/storage evidence expands inside Timeline",
+      "Timeline sandbox selector preserves independent dedicated node",
+      "Clock quality remains available through progressive disclosure",
+      "Step single click opens integrated Timeline with exact record context",
+      "Compute/Storage/Stage retain return navigation to selected diagnosis",
+      "Log directory and application run remain separate after consolidation",
+      "Baseline pivot clears current Trace ID while retaining resource and observer",
+      "1600px and 1024px viewports have no page-level horizontal overflow; wide tables scroll internally",
+      "Unknown run/node renders N/A rather than zero/healthy"
+    ],
+    "page_errors": [],
+    "real_backend_queries": 106,
+    "data_origin": "synthetic UI fixtures; actual Grafana/Prometheus/Loki services",
+    "grafana_image": "grafana/grafana:12.1.0"
+  },
+  "metrics_only": {
+    "status": "passed",
+    "checks": [
+      "xlayer-start-here provisioned and rendered without Loki datasource or dangling links",
+      "Start Here observed run cell opens Run Overview with row run and observer",
+      "telemetry-overview provisioned and rendered without Loki datasource or dangling links",
+      "agent-rl-stage-correlation provisioned and rendered without Loki datasource or dangling links",
+      "xlayer-compute-communication provisioned and rendered without Loki datasource or dangling links",
+      "xlayer-data-storage provisioned and rendered without Loki datasource or dangling links"
+    ],
+    "configured_datasources": [
+      "telemetry-prometheus"
+    ]
+  },
+  "tests": {
+    "command": "PROMTOOL=<promtool> python -m pytest -q",
+    "passed": 502,
+    "duration_seconds": 16.37
+  },
+  "screenshots": {
+    "before": {
+      "path": "docs/figures/grafana-comparison-before.png",
+      "sha256": "9cdea55483b0e23148a77b818cc33e302f64116ea688a086a4f2447363bd7102"
+    },
+    "after": {
+      "path": "docs/figures/grafana-comparison-after.png",
+      "sha256": "687c9876a39e7f0bb040b5b4624d325f8997a3076d75c2fa22636fae433bf6f8"
+    }
+  },
+  "limitations": [
+    "No real VERL/GPU training or physical multi-node rerun.",
+    "Browser snapshots cover desktop widths 1600 and 1024; wide tables require internal scrolling or panel View.",
+    "Existing running monitoring stack was not restarted; validation used isolated services.",
+    "Device/mount/SSD and role/worker filters remain local to their detail dashboards."
+  ],
+  "scenes_decision": "Keep dashboard JSON. Existing links resolve the verified workflow without a new app build/deployment."
+}

@@ -68,4 +68,5 @@ Architecture / Design <architecture>
 Metrics / Scope <metrics>
 Real VERL Demo <real-verl-demo>
 검증 기록 <validation/README>
+Grafana UX Review <grafana-ui-ux-review>
 ```

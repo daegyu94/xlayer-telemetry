@@ -639,8 +639,10 @@ def test_investigation_links_preserve_selected_interval_and_identity():
 
 def test_investigation_ui_distinguishes_missing_evidence_and_respects_trace_filter():
     summary = json.loads((ROOT / 'examples/dashboards/bottleneck-summary.json').read_text())
-    row = next(panel for panel in summary['panels'] if panel['type'] == 'row')
-    assert row['collapsed'] and row['panels'][0]['id'] == 4
+    assert not any(panel['type'] == 'row' for panel in summary['panels'])
+    comparison = next(panel for panel in summary['panels'] if panel['id'] == 4)
+    assert comparison['gridPos']['y'] < next(
+        panel for panel in summary['panels'] if panel['id'] == 3)['gridPos']['y']
     evidence = next(panel for panel in summary['panels'] if panel['id'] == 6)
     assert 'row_kind="evidence"' in evidence['targets'][0]['expr']
     assert summary['panels'].index(evidence) == summary['panels'].index(
@@ -886,3 +888,25 @@ def test_start_health_queries_with_real_promtool(tmp_path):
     fixture.write_text('\n'.join(lines) + '\n')
     result = subprocess.run([tool, 'test', 'rules', str(fixture)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_baseline_pivot_clears_current_trace_without_losing_resource_context():
+    dashboard = json.loads((ROOT / "examples/dashboards/bottleneck-summary.json").read_text())
+    comparison = next(panel for panel in _panels(dashboard) if panel["id"] == 4)
+    signal = next(item for item in comparison["fieldConfig"]["overrides"]
+                  if item["matcher"]["options"] == "signal")
+    current, baseline = next(p["value"] for p in signal["properties"] if p["id"] == "links")
+    assert "${trace_id:queryparam}" in current["url"]
+    assert "${trace_id:queryparam}" not in baseline["url"]
+    assert "var-trace_id=.*" in baseline["url"]
+    assert "baseline_record_id" in baseline["url"]
+    for key in ("node", "gpu", "engine", "sandbox_node"):
+        assert "${" + key + ":queryparam}" in baseline["url"]
+    order = comparison["transformations"][-1]["options"]["indexByName"]
+    assert [order[key] for key in ("signal", "current", "baseline", "delta_percent")] == list(range(4))
+
+
+def test_compute_prioritizes_memory_and_communication_before_hardware_detail():
+    dashboard = json.loads((ROOT / "examples/dashboards/compute-communication.json").read_text())
+    panels = {panel["id"]: panel for panel in dashboard["panels"]}
+    assert panels[6]["gridPos"]["y"] < panels[8]["gridPos"]["y"] < panels[4]["gridPos"]["y"]

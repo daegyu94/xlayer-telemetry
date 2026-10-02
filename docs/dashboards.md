@@ -7,6 +7,9 @@ Start Here에서 수집 상태를 확인하고 완료 step → candidate → evi
 Panel의 info 아이콘에서 scope·optional source를 확인하고 긴 table cell은 inspect로 읽습니다.
 완료 step 목록은 Duration 내림차순이며 Duration → Bottleneck Summary, Step·Stage → Timeline으로 이동합니다.
 Run·record·observer·시간을 유지하고 Resource node는 실제 배치로 선택합니다.
+Bottleneck Summary는 Current · Baseline · Change (%)를 기본 화면에 표시합니다.
+Signal 링크에서 각 interval을 열며 Baseline 이동은 현재 step의 Trace ID를 초기화합니다.
+Sample quality와 comparability는 비교 표의 오른쪽 필드에서 확인합니다.
 Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자 summary는 원문으로 표시됩니다.
 
 ## Dashboard Inventory
@@ -229,7 +232,8 @@ Loki가 없으면 `diagnostics/latest.json`과 `show_run`에서 후보를 읽을
 ### Read the Investigation Results
 
 Bottleneck Summary에서는 symptom → candidate → supporting/counter/missing evidence 순서로 읽습니다.
-Evidence table은 candidate 바로 아래에 항상 표시하며, `Baseline comparison / sample quality`는 필요한 경우 펼칩니다.
+`Measured changes versus same-run baseline`은 symptom 다음에 기본으로 표시됩니다.
+Evidence table은 candidate 바로 아래에서 supporting·counter·missing을 구분합니다.
 Candidate ID와 Evidence type의 column filter로 supporting·counter·missing evidence를 좁힙니다.
 Comparison의 Signal 메뉴는 current와 baseline의 각 시간 구간을 Timeline으로 열어 같은 context에서 비교하도록 돕습니다.
 Evidence의 Signal 메뉴는 선택한 Resource node와 해당 record의 시간 구간을 유지해 Timeline·Compute·Storage로 이동합니다.
@@ -317,7 +321,7 @@ Annotation control로 marker를 끌 수 있으며, metrics-only dashboard에는 
 Run Overview의 완료 step 목록에서 조사할 행을 선택합니다.
 Timeline의 선택 record·step·시작/종료 시각과 경계 정확도를 먼저 확인한 뒤 reported stage, exact span, resource graph를 읽습니다.
 같은 구간의 log는 Run Logs 링크로 확인합니다.
-Current-vs-baseline 비교는 Bottleneck Summary의 `Baseline comparison / sample quality`에서 확인하며, Signal 메뉴로 각 interval의 Timeline을 열 수 있습니다.
+Current-vs-baseline 비교는 Bottleneck Summary의 `Measured changes versus same-run baseline`에서 확인하며, Signal 메뉴로 각 interval의 Timeline을 열 수 있습니다.
 Dashboard link는 `record_id`와 run·node·시간 범위를 전달하므로 선택한 context를 유지하며 조사합니다.
 
 VERL logger의 `approximate` step은 bridge 관측 완료 시각에서 reported duration을 뺀 구간입니다.
@@ -498,3 +502,5 @@ Current와 baseline 모두 [clock check](monitoring.md#check-clock-alignment-bef
 Diagnosis의 clock guard가 current 또는 baseline을 unsafe·unknown으로 판정하면 resource delta를 비교 결과에서 제외합니다.
 불확실한 clock은 missing evidence로 남기며 Timeline의 raw metric/log는 조사용으로 확인할 수 있습니다.
 Grafana의 수동 timeline은 자동으로 시간축을 이동시키지 않으므로 clock 상태를 확인한 후 overlap을 해석합니다.
+
+UI 구조 검토와 적용 범위는 [Grafana Investigation UX Review](grafana-ui-ux-review.md)에 정리했습니다.

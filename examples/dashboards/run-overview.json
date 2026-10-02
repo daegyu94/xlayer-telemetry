@@ -381,7 +381,7 @@
         "x": 0,
         "y": 8,
         "w": 24,
-        "h": 10
+        "h": 7
       },
       "datasource": {
         "type": "prometheus",
@@ -422,7 +422,7 @@
       "title": "Completed steps · select to investigate",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 15,
         "w": 24,
         "h": 10
       },
@@ -820,7 +820,7 @@
       "title": "Next investigation",
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 25,
         "w": 24,
         "h": 4
       },
@@ -837,7 +837,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 29,
         "w": 24,
         "h": 1
       },
@@ -848,7 +848,7 @@
           "title": "Training throughput (tokens/s)",
           "gridPos": {
             "x": 0,
-            "y": 33,
+            "y": 30,
             "w": 12,
             "h": 8
           },
@@ -884,7 +884,7 @@
           "title": "Training loss",
           "gridPos": {
             "x": 12,
-            "y": 33,
+            "y": 30,
             "w": 12,
             "h": 8
           },
@@ -924,7 +924,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 30,
         "w": 24,
         "h": 1
       },
@@ -935,7 +935,7 @@
           "title": "Host available memory by node",
           "gridPos": {
             "x": 0,
-            "y": 34,
+            "y": 31,
             "w": 12,
             "h": 8
           },
@@ -992,7 +992,7 @@
           "title": "Host swap used by node",
           "gridPos": {
             "x": 12,
-            "y": 34,
+            "y": 31,
             "w": 12,
             "h": 8
           },
@@ -1028,7 +1028,7 @@
           "title": "Host swap I/O pages per second",
           "gridPos": {
             "x": 0,
-            "y": 42,
+            "y": 39,
             "w": 12,
             "h": 8
           },

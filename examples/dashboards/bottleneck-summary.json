@@ -218,7 +218,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Diagnose:** Symptom → Candidate → Supporting / Counter / Missing evidence.<br>**Run:** ${run_id:text} · **Record:** ${record_id:text} · **Resource node:** ${node:text}. Signal state는 원인 확정이나 정상 보증이 아닙니다.</span>"
+        "content": "<span style=\"font-size:16px;line-height:1.65\">**Diagnose:** Symptom → Current / Baseline → Candidate → Supporting / Counter / Missing evidence.<br>**Run:** ${run_id:text} · **Record:** ${record_id:text} · **Resource node:** ${node:text}. Signal state는 원인 확정이나 정상 보증이 아닙니다.</span>"
       }
     },
     {
@@ -229,7 +229,7 @@
         "x": 0,
         "y": 4,
         "w": 24,
-        "h": 6
+        "h": 4
       },
       "datasource": {
         "type": "loki",
@@ -1079,14 +1079,686 @@
       }
     },
     {
+      "id": 4,
+      "type": "table",
+      "title": "Measured changes versus same-run baseline",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 7
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+          "queryType": "range",
+          "maxLines": 5000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "record",
+            "format": "json",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "signal": 0,
+              "current": 1,
+              "baseline": 2,
+              "delta_percent": 3,
+              "observation_scope": 4,
+              "workload_comparability": 5,
+              "entity": 6,
+              "cluster": 7,
+              "step": 8,
+              "baseline_record_id": 9,
+              "diagnosis_method": 10,
+              "generated_at": 11,
+              "query_step_seconds": 12,
+              "range_window_seconds": 13,
+              "evaluation_count": 14,
+              "source_age_seconds": 15,
+              "quality_warnings": 16
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "links": [],
+          "noValue": "N/A"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "schema_version"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "row_kind"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observed_at"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline_start_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline_end_ms"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "candidate_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "component"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "state"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "summary"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "counter_evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_evidence_summary"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "verdict"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "candidate_count"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "strong_candidate_count"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_sources"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "data_origin"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "labels"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 280
+              },
+              {
+                "id": "displayName",
+                "value": "Entity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "primary_candidate"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Primary candidate"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observation_scope"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Scope"
+              },
+              {
+                "id": "custom.filterable",
+                "value": true
+              },
+              {
+                "id": "custom.width",
+                "value": 135
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "delta_percent"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Change (%)"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_reason"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Missing evidence"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline_duration_seconds"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Baseline duration"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Current 구간의 Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "targetBlank": false
+                  },
+                  {
+                    "title": "Baseline 구간의 Cross-Layer Timeline 열기",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"baseline_start_ms\"]}&to=${__data.fields[\"baseline_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"baseline_record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*",
+                    "targetBlank": false
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 280
+              },
+              {
+                "id": "displayName",
+                "value": "Signal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline_record_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              },
+              {
+                "id": "displayName",
+                "value": "Current"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              },
+              {
+                "id": "displayName",
+                "value": "Baseline"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "entity"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              },
+              {
+                "id": "displayName",
+                "value": "Entity"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto",
+                  "wrapText": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "record"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "observer_node"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cluster"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cluster"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "workload_comparability"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Comparability"
+              },
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          }
+        ]
+      },
+      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다. Baseline으로 이동하면 현재 step의 Trace ID 필터를 초기화합니다. Quality 필드는 표 오른쪽에서 확인합니다.",
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "enablePagination": true,
+        "sortBy": [
+          {
+            "displayName": "Signal",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
       "id": 3,
       "type": "table",
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 15,
         "w": 24,
-        "h": 8
+        "h": 7
       },
       "datasource": {
         "type": "loki",
@@ -1951,7 +2623,7 @@
       "title": "Evidence details: supporting, counter, and missing",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 22,
         "w": 24,
         "h": 9
       },
@@ -2789,7 +3461,7 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 31,
         "w": 24,
         "h": 4
       },
@@ -2797,662 +3469,6 @@
         "mode": "markdown",
         "content": "<span style=\"font-size:16px;line-height:1.65\">[Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Compute / Network](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [vLLM / Sandbox](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>선택한 Resource node와 시간 구간을 유지합니다. Entity의 실제 node/device와 맞는지 확인합니다.</span>"
       }
-    },
-    {
-      "id": 90,
-      "type": "row",
-      "title": "Baseline comparison / sample quality",
-      "description": "Current와 비교 가능한 baseline 및 query 해상도·source freshness를 펼쳐 확인합니다.",
-      "collapsed": true,
-      "gridPos": {
-        "x": 0,
-        "y": 31,
-        "w": 24,
-        "h": 1
-      },
-      "panels": [
-        {
-          "id": 4,
-          "type": "table",
-          "title": "Measured changes versus same-run baseline",
-          "gridPos": {
-            "x": 0,
-            "y": 32,
-            "w": 24,
-            "h": 9
-          },
-          "datasource": {
-            "type": "loki",
-            "uid": "telemetry-loki"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | row_kind=\"comparison\" | record_id=~\"$record_id\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
-              "queryType": "range",
-              "maxLines": 5000
-            }
-          ],
-          "transformations": [
-            {
-              "id": "extractFields",
-              "options": {
-                "source": "Line",
-                "format": "json",
-                "replace": true,
-                "keepTime": false
-              }
-            },
-            {
-              "id": "extractFields",
-              "options": {
-                "source": "record",
-                "format": "json",
-                "replace": false,
-                "keepTime": false
-              }
-            },
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {},
-                "indexByName": {
-                  "step": 1,
-                  "signal": 2,
-                  "current": 3,
-                  "baseline": 4,
-                  "delta_percent": 5,
-                  "observation_scope": 6,
-                  "baseline_record_id": 7,
-                  "diagnosis_method": 8,
-                  "generated_at": 9,
-                  "workload_comparability": 10,
-                  "query_step_seconds": 11,
-                  "range_window_seconds": 12,
-                  "evaluation_count": 13,
-                  "source_age_seconds": 14,
-                  "quality_warnings": 15,
-                  "cluster": 0
-                },
-                "renameByName": {}
-              }
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
-                }
-              },
-              "links": [],
-              "noValue": "N/A"
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "schema_version"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "row_kind"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "run_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "observed_at"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "boundary_accuracy"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "window_start_ms"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "window_end_ms"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "baseline_start_ms"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "baseline_end_ms"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "node"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "candidate_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  },
-                  {
-                    "id": "custom.filterable",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "component"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "state"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "color-text"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "summary"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "evidence_summary"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "counter_evidence_summary"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "missing_evidence_summary"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "verdict"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "color-text"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "step_duration_seconds"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  },
-                  {
-                    "id": "displayName",
-                    "value": "Duration"
-                  },
-                  {
-                    "id": "unit",
-                    "value": "s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "candidate_count"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "strong_candidate_count"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "missing_sources"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "record_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "data_origin"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "labels"
-                },
-                "properties": [
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "auto",
-                      "wrapText": true
-                    }
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 280
-                  },
-                  {
-                    "id": "displayName",
-                    "value": "Entity"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "primary_candidate"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Primary candidate"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "observation_scope"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Scope"
-                  },
-                  {
-                    "id": "custom.filterable",
-                    "value": true
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 135
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "delta_percent"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Change (%)"
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 100
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "missing_reason"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Missing evidence"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "baseline_duration_seconds"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Baseline duration"
-                  },
-                  {
-                    "id": "unit",
-                    "value": "s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "signal"
-                },
-                "properties": [
-                  {
-                    "id": "links",
-                    "value": [
-                      {
-                        "title": "Current 구간의 Cross-Layer Timeline 열기",
-                        "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
-                        "targetBlank": false
-                      },
-                      {
-                        "title": "Baseline 구간의 Cross-Layer Timeline 열기",
-                        "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"baseline_start_ms\"]}&to=${__data.fields[\"baseline_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"baseline_record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
-                        "targetBlank": false
-                      }
-                    ]
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 280
-                  },
-                  {
-                    "id": "displayName",
-                    "value": "Signal"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "baseline_record_id"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "step"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 60
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "current"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 85
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "baseline"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 85
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "entity"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 180
-                  },
-                  {
-                    "id": "displayName",
-                    "value": "Entity"
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "auto",
-                      "wrapText": true
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "record"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "observer_node"
-                },
-                "properties": [
-                  {
-                    "id": "custom.hidden",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "cluster"
-                },
-                "properties": [
-                  {
-                    "id": "displayName",
-                    "value": "Cluster"
-                  },
-                  {
-                    "id": "custom.width",
-                    "value": 130
-                  }
-                ]
-              }
-            ]
-          },
-          "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다.",
-          "options": {
-            "showHeader": true,
-            "cellHeight": "lg",
-            "enablePagination": true
-          }
-        }
-      ]
     }
   ]
 }

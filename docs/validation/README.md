@@ -17,6 +17,7 @@
 | [multinode/vm-validation-20261001.json](multinode/vm-validation-20261001.json) | KVM guest 두 개의 실제 collector·clock 변경/복구·VM 중단·trace 연결; backend budget과 회귀 테스트 435개 |
 | [multinode/validation.json](multinode/validation.json) | 한 host의 GPU·logical node·clock screening; 물리 multi-node 학습과 구분 |
 | [investigation/validation-20260930.json](investigation/validation-20260930.json) | Collector run discovery·freshness·별도 실제 VERL 및 explicit LLM investigation의 검증 범위 |
+| [dashboards/ux-20261002.json](dashboards/ux-20261002.json) | Baseline pivot·비교 표, 실제 Grafana 12.1.0의 Loki on/off·106 query·1600/1024px browser 검증 |
 | [dashboards/investigation-20260930.json](dashboards/investigation-20260930.json) | Grafana·Prometheus·Loki fixture의 investigation navigation |
 | [dashboards/consolidation-20260930.json](dashboards/consolidation-20260930.json) | Dashboard 통합, metrics-only provisioning, observer/resource context 유지 |
 | [dashboards/recordings-20261001.json](dashboards/recordings-20261001.json) | 최신 GIF의 context·재생 시간·checksum; 실제 수집 데이터의 재생과 synthetic fixture 구분 |
