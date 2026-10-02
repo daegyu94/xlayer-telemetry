@@ -27,13 +27,16 @@ Python 3.10 이상과 `venv`가 필요합니다.
 ```bash
 git clone https://github.com/daegyu94/xlayer-telemetry.git
 cd xlayer-telemetry
-bash scripts/setup.sh
+python3 -m venv .venv
 . .venv/bin/activate
+python -m pip install -e .
+xltel init
 ```
 
-`setup.sh`는 telemetry SDK와 CPU test 환경을 준비합니다.
+`xltel`은 공식 운영 CLI입니다.
+`doctor` → `install-tools` → `up` → `run` → `inspect` → `down` 순서로 연결합니다.
 VERL·CUDA·monitoring 도구는 별도 환경을 사용하며 [VERL 연결 가이드](verl-quickstart.md)에서 이어갑니다.
-명령의 기준 경로는 저장소 루트입니다.
+`xltel`은 저장소 밖에서도 사용하며, advanced script 예제는 저장소 루트를 기준으로 합니다.
 
 ```{toctree}
 :hidden:
@@ -41,6 +44,7 @@ VERL·CUDA·monitoring 도구는 별도 환경을 사용하며 [VERL 연결 가�
 
 Monitoring / Demo <monitoring>
 VERL 연결 <verl-quickstart>
+CLI Reference <cli>
 ```
 
 ```{toctree}

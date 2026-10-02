@@ -9,5 +9,14 @@ description = "Collect, correlate, and diagnose telemetry across VERL subsystems
 readme = "README.md"
 requires-python = ">=3.10"
 
+[project.scripts]
+xltel = "xlayer_telemetry.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["xlayer_telemetry*"]
+
+# Runtime launchers and dashboard sources also work outside an editable checkout.
+[tool.setuptools.data-files]
+"share/xlayer-telemetry/scripts" = ["scripts/verl_local.sh", "scripts/run_telemetry.sh", "scripts/run_verl_with_telemetry.sh", "scripts/install_telemetry_tools.sh", "scripts/provision_dashboards.py", "scripts/dashboard_views.py"]
+"share/xlayer-telemetry/examples/dashboards" = ["examples/dashboards/*.json"]
+"share/xlayer-telemetry/config" = ["config/*.json"]

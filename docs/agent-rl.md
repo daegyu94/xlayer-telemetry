@@ -77,8 +77,8 @@ Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine�
 | Subsystem log | Run Logs의 Workload·Node·Log directory | `ENABLE_LOGS=1`과 실제 log 파일 등록 |
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sources
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" threefs
+xltel sources
+xltel sources threefs
 ```
 
 `sources`는 Prometheus Targets를 한 번 조회해 등록한 endpoint별 `up`, `down`, 첫 scrape 전 `unknown`, `not_discovered`, backend `unavailable`을 구분합니다.
@@ -145,7 +145,7 @@ Source 파일 수정 후 이미 `native` job이 활성화된 server에서는 같
 최초 연결로 `native` job을 추가할 때는 monitoring server를 재시작합니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" refresh-sources
+xltel sources refresh
 ```
 
 Prometheus의 file discovery가 기본 30초 안에 새 target을 읽습니다.

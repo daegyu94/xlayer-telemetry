@@ -1,28 +1,21 @@
 # Checkout Scripts
 
-기본 VERL 연결에는 `setup.sh`와 config 기반 `verl_local.sh`만 사용합니다.
-나머지 스크립트는 개별 collector 실행, 선택 기능 또는 검증을 위한 entrypoint입니다.
-Script는 Python package에 포함되지 않으므로 checkout을 유지합니다.
+기본 사용자 interface는 `xltel`입니다.
+설치·config·health·run 조회는 [CLI Reference](../docs/cli.md), VERL 연결은 [Quickstart](../docs/verl-quickstart.md)를 따릅니다.
+아래 script는 기존 사용자와 role별 배포를 위한 advanced/internal entrypoint로 유지합니다.
+CLI에 필요한 launcher와 dashboard는 package에도 포함됩니다.
 
-## Common Path
+## Compatibility Path
 
 ```bash
-bash scripts/setup.sh
-. .venv/bin/activate
-
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" install
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" up
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" status
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" run
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" inspect
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" down
+bash scripts/verl_local.sh --config /absolute/path/verl-local.conf up
+bash scripts/verl_local.sh --config /absolute/path/verl-local.conf status
+bash scripts/verl_local.sh --config /absolute/path/verl-local.conf down
 ```
 
-Config 준비와 VERL 명령 작성은 [VERL Quickstart](../docs/verl-quickstart.md)를 따릅니다.
-`status`는 server·node process가 살아 있는지 확인하며, sample freshness나 subsystem 수집을 보증하지 않습니다.
-두 process 모두 실행 중이면 exit code 0, 하나라도 실행 중이 아니면 1을 반환합니다.
-`inspect`는 저장된 run 결과를 읽고, 실시간 수집 상태는 Grafana와 Prometheus Targets에서 확인합니다.
-`up`·`down`은 같은 상태 directory에서 동시에 실행되지 않도록 `flock`을 사용합니다.
+기존 script의 `status`는 process 생존만 확인하며, backend·freshness 확인은 `xltel status`를 사용합니다.
+기존 config는 `xltel --config FILE ...`로 재사용합니다.
+Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanup을 공유합니다.
 서로 다른 config라도 `TELEMETRY_HOME`이 같으면 같은 local stack을 가리킵니다.
 
 ## Script Selection
@@ -31,7 +24,7 @@ Config 준비와 VERL 명령 작성은 [VERL Quickstart](../docs/verl-quickstart
 | --- | --- | --- |
 | `setup.sh` | Checkout의 `.venv`에 SDK를 editable 설치하고 CPU test 환경 준비 | 최초 준비; `PYTHON`으로 Python 3.10 이상 선택 |
 | `check_tools.sh` | Telemetry 환경에서 PATH의 선택 도구 설치 여부 조회 | 설치 점검; 누락된 선택 도구를 자동 설치하지 않음 |
-| `verl_local.sh` | 단일 host의 config 기반 install/up/status/run/inspect/down | 기본 VERL 연결; server·node를 background로 관리 |
+| `verl_local.sh` | 단일 host의 config 기반 install/up/status/run/inspect/down | CLI가 재사용하는 local lifecycle; server·node를 background로 관리 |
 | `install_telemetry_tools.sh` | Linux ARM64/x86_64 monitoring binary 다운로드 | 개별 host 준비; `TOOLS_DIR` 지정 |
 | `run_telemetry.sh` | node/server/storage role 실행 | Multi-node 배포 또는 개별 process 조사; foreground |
 | `run_verl_with_telemetry.sh` | 기존 VERL 명령에 file logger·bridge·선택 diagnostics 연결 | 기존 launcher에서 직접 wrapper 호출; foreground |

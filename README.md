@@ -127,20 +127,37 @@ Loki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.
 
 ## Prepare a Checkout
 
-Shell script와 dashboard를 사용하려면 이 저장소를 직접 checkout합니다.
+기존 source를 수정하거나 예제를 실행하려면 checkout을 준비합니다.
 
 ```bash
 git clone https://github.com/daegyu94/xlayer-telemetry.git
 cd xlayer-telemetry
-bash scripts/setup.sh
+python3 -m venv .venv
 . .venv/bin/activate
+python -m pip install -e .
+xltel init
+xltel doctor
+xltel install-tools
+xltel up
+xltel status
 ```
 
 Python 3.10 이상과 `venv`가 필요합니다.
-`setup.sh`는 telemetry SDK를 editable 설치하고 CPU test 환경을 준비합니다.
+`xltel`은 공식 운영 CLI이며 `up`이 monitoring을 시작하고 `run`이 기존 workload를 감쌉니다.
+설치 후에는 저장소 밖에서도 호출할 수 있습니다.
 GPU driver·VERL·CUDA와 monitoring 도구는 별도이며, [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어갑니다.
 
-문서의 shell 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
+Advanced script 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
+
+VERL 명령은 기존 training 환경에서 실행합니다.
+
+```bash
+xltel run -- /path/to/verl-env/bin/python -m verl.trainer.main_ppo ...
+xltel inspect
+xltel down
+```
+
+[CLI Reference](docs/cli.md)에서 config·health·logs·source 명령과 기존 Bash config 호환성을 확인합니다.
 
 ## Python Package Usage
 
@@ -152,7 +169,8 @@ python -m pip install /path/to/xlayer-telemetry
 
 Source를 수정하면서 사용하려면 `python -m pip install -e /path/to/xlayer-telemetry`로 설치합니다.
 설치 없이 import하려면 해당 process의 `PYTHONPATH`에 저장소 루트를 추가합니다.
-Shell script, dashboard와 demo fixture는 Python package에 포함되지 않으므로 checkout에서 실행합니다.
+CLI runtime script와 dashboard는 Python package에 포함됩니다.
+Synthetic demo·profiling 예제와 개발 test는 checkout에서 사용합니다.
 
 ## Scope and Layout
 
@@ -167,6 +185,7 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | `xlayer_telemetry/adapters/` | Hugging Face Trainer와 VERL file logger 연결 |
 | `xlayer_telemetry/collectors/` | GPU·host·sandbox cgroup·topology 수집 구현 |
 | `xlayer_telemetry/analysis/` | Rule·선택적 LLM 진단, baseline·clock·evidence 품질과 investigation projection |
+| `xlayer_telemetry/cli.py`·`operations/` | `xltel` entrypoint, config·health·운영 조회와 기존 launcher 연결 |
 | `xlayer_telemetry/demos/` | Synthetic metric·diagnosis 생성기 |
 | `xlayer_telemetry/` | 공개 event·sandbox SDK, manifest·step 이력, 공통 helper와 조회·실행 도구 |
 | [scripts/](scripts/README.md) | 기본 실행 경로와 선택 스크립트 안내; 도구 설치·관측 process·profile·통신 baseline |

@@ -38,13 +38,17 @@ GPU 없는 collector는 `ENABLE_GPU_METRICS=0`을 사용하며 이 값이 VERL t
 아래 예제는 server·node collector·VERL이 같은 machine에서 실행되는 경우입니다.
 
 ```bash
-mkdir -p "$HOME/telemetry/config"
-cp -n examples/verl-local.conf "$HOME/telemetry/config/verl-local.conf"
+xltel init
+xltel config path
+xltel doctor
+xltel install-tools
 ```
 
-`RUN_ID`와 `VERL_COMMAND`를 수정합니다.
-`VERL_COMMAND`는 Bash 배열로 VERL Python 또는 기존 launcher 뒤에 평소 model·data·batch·GPU 인자를 넣습니다.
-Config는 Bash로 실행하므로 자신이 관리하는 파일을 사용합니다.
+기본 config는 `$HOME/.config/xlayer/config.conf`이며 `init`은 기존 설정을 유지합니다.
+기존 `verl-local.conf`는 `xltel --config FILE ...` 또는 `XLAYER_CONFIG`로 지정합니다.
+새 config는 실행마다 Run ID를 자동 생성하며, config의 `VERL_COMMAND=(...)` 배열에 기존 launcher를 저장하면 `xltel run`만으로 실행할 수도 있습니다.
+Config는 trusted Bash 파일입니다.
+설정 우선순위와 전체 명령은 [CLI Reference](cli.md)에 있습니다.
 
 Wrapper가 명령에서 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 찾으면 `trainer.logger=["console","file"]`을 추가합니다.
 Bash launcher는 `VERL_FILE_LOGGER_PATH` 전달과 `trainer.logger`의 `file` 설정을 담당하며 `file`이 빠진 명시적 logger는 거부됩니다.
@@ -52,11 +56,7 @@ Trainer mode를 숨긴 launcher는 `EXECUTION_MODE=async`로 지정합니다.
 
 기본 `auto`는 trainer mode를 감지하고 rollout server의 `mode=async`만으로 판정하지 않습니다.
 
-```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" install
-```
-
-`install`은 `$HOME/telemetry/tools`에 node와 server 도구를 준비합니다.
+`install-tools`는 `$HOME/telemetry/tools`에 node와 server 도구를 준비합니다.
 처음 한 번만 실행하면 되고, NVIDIA driver·VERL·3FS는 설치하지 않습니다.
 
 ## 2. Start Server, Node, and VERL
@@ -65,30 +65,30 @@ Script가 monitoring server와 GPU node collector를 background로 시작하고 
 실패하면 시작한 process를 정리하고 `$HOME/telemetry/state/verl-local/`의 log 경로를 알려줍니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" up
+xltel up
 ```
 
 `Monitoring ready`가 출력되면 같은 terminal에서 기존 VERL 명령을 telemetry wrapper와 함께 실행합니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" run
+xltel run -- /path/to/verl-env/bin/python -m verl.trainer.main_ppo ...
 ```
 
-기본값은 `NODE_NAME=gpu-local`, `CLUSTER_NAME=training-cluster`, `RUN_ROOT=$HOME/telemetry-runs/<RUN_ID>`입니다.
+새 config의 기본값은 `NODE_NAME=gpu-local`, `CLUSTER_NAME=training-cluster`, run parent `$HOME/telemetry/runs`입니다.
 Script가 target·snapshot 경로·run/node 이름을 맞춥니다.
 `run`은 마지막 telemetry export 후 원래 VERL exit code를 반환합니다.
 
-Run 경로는 재사용할 수 없어 매 학습의 `RUN_ID`를 바꿉니다.
+`RUN_ID=auto`는 매 실행의 고유 ID를 만들며, 고정 ID를 설정한 경우 새 학습마다 변경합니다.
 Collector는 같은 parent의 새 run을 발견하므로 ID만 바뀌면 재시작할 필요가 없습니다.
 Server·collector는 학습 종료 후에도 유지되고 새 terminal에서도 같은 config로 `down`할 수 있습니다.
 
 Process 기록·log는 `$HOME/telemetry/state/verl-local/`에 있습니다.
 Run parent나 collector 입력을 바꿨다면 `down` → `up`으로 갱신합니다.
 
-`status`는 process 생존만 확인하며 telemetry freshness는 Grafana에서 별도로 확인합니다.
+`status`는 managed process, backend 응답, target과 GPU·VERL sample freshness를 구분하며 `--json`도 제공합니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" status
+xltel status
 ```
 
 `up`·`down`은 Linux `flock`으로 동시 실행을 막고, 새 PID 기록에는 process 시작 시각과 boot ID를 함께 저장합니다.
@@ -97,18 +97,18 @@ bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sta
 ## 3. Check the First Completed Step
 
 `http://127.0.0.1:13000`을 열고 원격 접속은 [SSH tunnel](monitoring.md#open-the-dashboards)을 사용합니다.
-Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluster·Node·Run을 고릅니다(예제: `training-cluster`·`gpu-local`·`grpo-001`).
+Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluster·Node·Run을 고릅니다(기본 Cluster·Node: `training-cluster`·`gpu-local`; Run ID는 실행 출력에 표시됩니다).
 Stage·reward·throughput은 step 완료 시, GPU·host는 별도 주기로 갱신됩니다.
 
-`inspect`는 같은 config의 run 경로와 등록 설정을 보여 주고 저장된 metric·event·진단 결과를 읽습니다.
+`inspect`는 configured/latest run의 metric·event·진단 결과를 읽으며 `xltel inspect RUN_ID`로 다른 run도 선택합니다.
 Native endpoint의 실시간 수집 상태는 같은 config의 `sources` 명령으로 확인합니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" inspect
+xltel inspect
 ```
 
 ```text
-$HOME/telemetry-runs/grpo-001/     one VERL run
+$HOME/telemetry/runs/<RUN_ID>/     one VERL run
   logs/verl-metrics.jsonl          original completed step records
   logs/telemetry-bridge.log        bridge errors
   telemetry-metrics/*.json         latest step snapshot
@@ -141,13 +141,13 @@ Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결
 ## Inspect or Refresh a Subsystem
 
 Run 결과는 `inspect`, native endpoint의 scrape 상태와 Explore 링크는 `sources`로 확인합니다.
-Run이나 step이 없어도 `sources`와 `threefs`를 사용할 수 있습니다.
+Run이나 step이 없어도 `sources`와 `sources threefs`를 사용할 수 있습니다.
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" sources
+xltel sources
 ```
 
-vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `refresh-sources`를 실행합니다.
+vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `sources refresh`를 실행합니다.
 이미 native job이 있는 server는 재시작하지 않아도 됩니다. 최초 연결은 `down` → `up`이 필요합니다.
 3FS 단독 조회와 subsystem log 설정은 [Subsystem inspection](agent-rl.md#inspect-one-subsystem)을 참고합니다.
 
@@ -159,13 +159,13 @@ vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `refresh-source
 | 원하는 기능 | Config에서 추가할 값 | 이어서 읽을 문서 |
 | --- | --- | --- |
 | Run Logs와 Run Overview의 완료 step 목록 | `ENABLE_LOGS=1`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
-| vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; 최초 server 재시작, 이후 `refresh-sources` | [Native endpoint](agent-rl.md#register-native-endpoints) |
+| vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; 최초 server 재시작, 이후 `sources refresh` | [Native endpoint](agent-rl.md#register-native-endpoints) |
 | 자동 진단과 선택적 3FS ClickHouse | `DIAGNOSTICS_CONFIG`; 새 run 시작 | [Diagnostics](agent-rl.md#add-diagnostics) |
 | 다른 저장 위치·node 이름 | 절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME` | [구현 구조](architecture.md#what-each-file-is-for) |
 
-`verl_local.sh`는 단일 host 편의 스크립트입니다.
+`xltel`의 local lifecycle은 단일 host 편의 interface입니다.
 다른 host에 collector를 배치할 때는 [Monitoring Guide](monitoring.md#expand-to-multiple-nodes)와 [node mapping](agent-rl.md#map-multiple-nodes-to-a-run)의 주소·port·label 설정을 사용합니다.
-Wrapper의 자세한 옵션은 `bash scripts/run_verl_with_telemetry.sh --help`에서 확인합니다.
+기본 wrapper 옵션은 `xltel run --help`, 추가 source metadata 등 advanced 옵션은 `bash scripts/run_verl_with_telemetry.sh --help`에서 확인합니다.
 Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인에는 필요하지 않습니다.
 
 ## If Data Is Missing
@@ -181,7 +181,7 @@ Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인�
 | vLLM panel이나 Ray·3FS 진단 근거가 없음 | vLLM·Ray의 native target과 실제 metric 이름; 3FS는 ClickHouse 설정·데이터 |
 
 ```bash
-bash scripts/verl_local.sh --config "$HOME/telemetry/config/verl-local.conf" down
+xltel down
 ```
 
-Server와 node를 따로 조사해야 할 때에는 기존 `server`·`node` 명령을 각각 foreground로 실행할 수도 있습니다.
+Server와 node를 따로 조사할 때에는 기존 `verl_local.sh --config FILE server|node`를 foreground로 실행합니다.

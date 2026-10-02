@@ -147,6 +147,10 @@ case "$action" in
       exit 2
     fi
     mkdir -p "$stack_dir"
+    if role_running server && role_running node && [[ "${XLAYER_CLI:-0}" == 1 ]]; then
+      echo 'XLayer Telemetry is already running; use xltel status to check health.'
+      exit 0
+    fi
     if role_running server || role_running node; then
       echo "Monitoring is already running; use down before up" >&2
       exit 1
