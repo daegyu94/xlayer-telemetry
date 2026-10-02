@@ -60,6 +60,12 @@ if [[ "$action" != install && "$action" != down && "$action" != status && ! -x "
 fi
 
 stack_dir="$telemetry_home/state/verl-local"
+managed_role="${XLAYER_MANAGED_ROLE:-all}"
+case "$managed_role" in
+  all) managed_roles=(server node) ;;
+  server|node) managed_roles=("$managed_role") ;;
+  *) echo 'Managed role must be all, server, or node' >&2; exit 2 ;;
+esac
 # Serialize lifecycle changes; children must not inherit the lock descriptor.
 if [[ "$action" == up || "$action" == down ]]; then
   command -v flock >/dev/null || { echo 'flock (util-linux) is required for up/down' >&2; exit 2; }
@@ -82,6 +88,7 @@ role_running() {
   [[ -f "$stack_dir/$1.pid" ]] || return 1
   read -r pid started boot < "$stack_dir/$1.pid" || return 1
   [[ "$pid" =~ ^[0-9]+$ && "$started" =~ ^[0-9]+$ ]] || return 1
+  (( pid > 1 )) || return 1
   # Accept old two-field records; all newly started services include boot identity.
   [[ -z "$boot" || "$boot" == "$(cat /proc/sys/kernel/random/boot_id)" ]] || return 1
   current="$(process_start_time "$pid")" || return 1
@@ -124,7 +131,7 @@ start_role() {
 case "$action" in
   status)
     status=0
-    for role in server node; do
+    for role in "${managed_roles[@]}"; do
       if role_running "$role"; then
         read -r pid _ < "$stack_dir/$role.pid"
         printf '%s: running (PID %s)\n' "$role" "$pid"
@@ -138,8 +145,9 @@ case "$action" in
     exit "$status"
     ;;
   install)
-    TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" node
-    TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" server
+    for role in "${managed_roles[@]}"; do
+      TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" "$role"
+    done
     ;;
   up)
     if ! command -v curl >/dev/null 2>&1; then
@@ -147,34 +155,52 @@ case "$action" in
       exit 2
     fi
     mkdir -p "$stack_dir"
-    if role_running server && role_running node && [[ "${XLAYER_CLI:-0}" == 1 ]]; then
+    all_running=1
+    any_running=0
+    for role in "${managed_roles[@]}"; do
+      if role_running "$role"; then any_running=1; else all_running=0; fi
+    done
+    if [[ "$all_running" == 1 && "${XLAYER_CLI:-0}" == 1 ]]; then
       echo 'XLayer Telemetry is already running; use xltel status to check health.'
       exit 0
     fi
-    if role_running server || role_running node; then
+    if [[ "$any_running" == 1 && "${XLAYER_CLI:-0}" != 1 ]]; then
       echo "Monitoring is already running; use down before up" >&2
       exit 1
     fi
-    rm -f "$stack_dir/server.pid" "$stack_dir/node.pid"
+    started_roles=()
     up_complete=0
     cleanup_up() {
       if [[ "$up_complete" == 0 ]]; then
-        stop_role node || true
-        stop_role server || true
+        for role in "${started_roles[@]}"; do stop_role "$role" || true; done
       fi
     }
     trap cleanup_up EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
-    start_role server
-    start_role node
+    for role in "${managed_roles[@]}"; do
+      if ! role_running "$role"; then
+        rm -f "$stack_dir/$role.pid"
+        started_roles+=("$role")
+        start_role "$role"
+      fi
+    done
     probe_addr="$node_addr"
     [[ "$probe_addr" != 0.0.0.0 ]] || probe_addr=127.0.0.1
     ready=0
     for ((attempt = 0; attempt < 90; attempt++)); do
-      if ! role_running server || ! role_running node; then break; fi
-      if grep -Fq 'Monitoring server ready:' "$stack_dir/server.log" && \
-         curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:19100/metrics" >/dev/null 2>&1; then
+      alive=1
+      for role in "${managed_roles[@]}"; do role_running "$role" || alive=0; done
+      if [[ "$alive" != 1 ]]; then break; fi
+      server_ready=1
+      node_ready=1
+      if [[ "$managed_role" != node ]]; then
+        grep -Fq 'Monitoring server ready:' "$stack_dir/server.log" || server_ready=0
+      fi
+      if [[ "$managed_role" != server ]]; then
+        curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:19100/metrics" >/dev/null 2>&1 || node_ready=0
+      fi
+      if [[ "$server_ready" == 1 && "$node_ready" == 1 ]]; then
         ready=1
         break
       fi
@@ -182,7 +208,7 @@ case "$action" in
     done
     if [[ "$ready" == 1 ]]; then
       sleep 1
-      if ! role_running server || ! role_running node; then ready=0; fi
+      for role in "${managed_roles[@]}"; do role_running "$role" || ready=0; done
     fi
     if [[ "$ready" != 1 ]]; then
       echo "Monitoring did not become ready; recent logs:" >&2
@@ -191,13 +217,14 @@ case "$action" in
     fi
     up_complete=1
     trap - EXIT INT TERM
-    echo "Monitoring ready: Grafana=http://127.0.0.1:13000"
+    echo "Monitoring ready: role=$managed_role Grafana=${GRAFANA_URL:-http://127.0.0.1:13000}"
     echo "Logs: $stack_dir/server.log and $stack_dir/node.log"
     ;;
   down)
     status=0
-    stop_role node || status=1
-    stop_role server || status=1
+    for ((index=${#managed_roles[@]}-1; index>=0; index--)); do
+      stop_role "${managed_roles[index]}" || status=1
+    done
     if [[ "$status" == 0 ]]; then echo 'Monitoring stopped'; fi
     exit "$status"
     ;;
@@ -207,11 +234,11 @@ case "$action" in
     CLUSTER_NAME="$cluster_name" \
     GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-extraThemes}" \
     GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-dark}" \
-    TELEMETRY_TARGETS="$node_name=$node_addr" \
+    TELEMETRY_TARGETS="${TELEMETRY_TARGETS:-$node_name=$node_addr}" \
     TELEMETRY_SOURCES_FILE="${TELEMETRY_SOURCES_FILE:-}" \
     ENABLE_ALERTS="${ENABLE_ALERTS:-0}" \
     ENABLE_LOGS="$enable_logs" \
-    LOKI_LISTEN_ADDR='127.0.0.1' \
+    LOKI_LISTEN_ADDR="${LOKI_LISTEN_ADDR:-127.0.0.1}" \
     PYTHON="$telemetry_python" \
       bash "$repo_root/scripts/run_telemetry.sh" server
     ;;
@@ -220,7 +247,7 @@ case "$action" in
     loki_push_url=''
     telemetry_log_roots=''
     if [[ "$enable_logs" == 1 ]]; then
-      loki_push_url='http://127.0.0.1:13100/loki/api/v1/push'
+      loki_push_url="${LOKI_URL:-http://127.0.0.1:13100}/loki/api/v1/push"
       telemetry_log_roots="${TELEMETRY_LOG_ROOTS:-verl=$(dirname "$run_root")}"
     fi
     node_args=(

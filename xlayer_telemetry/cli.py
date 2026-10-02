@@ -13,14 +13,14 @@ import subprocess
 import sys
 import uuid
 
-from .operations.config import KEYS, ConfigError, assets_root, config_path, initialize, load_config, snapshot, validate
+from .operations.config import KEYS, ConfigError, assets_root, config_path, initialize, load_config, migrate, snapshot, validate
 from .operations.health import doctor, latest_run, sources, status
 
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="xltel", description="XLayer Telemetry: collect, correlate, diagnose.",
         epilog="Start: init -> doctor -> install-tools -> up -> run -- COMMAND -> inspect -> down")
-    root.add_argument("--config", metavar="FILE", help="Trusted Bash config (default: ~/.config/xlayer/config.conf; XLAYER_CONFIG)")
+    root.add_argument("--config", metavar="FILE", help="TOML or trusted Bash config (default: ~/.config/xlayer/config.toml; existing config.conf; XLAYER_CONFIG)")
     root.add_argument("--verbose", action="store_true", help="Show resolved config and runtime asset paths")
     commands = root.add_subparsers(dest="action", metavar="COMMAND")
     commands.add_parser("init", help="Create local config without overwriting existing settings")
@@ -28,11 +28,13 @@ def parser() -> argparse.ArgumentParser:
                               ("down", "Stop only this config's managed telemetry processes"),
                               ("restart", "Stop and start the managed stack"),
                               ("install-tools", "Download monitoring tools (no VERL or GPU driver installation)")):
-        commands.add_parser(action, help=help_text)
+        command = commands.add_parser(action, help=help_text)
+        command.add_argument("--role", choices=("all", "server", "node"), default="all", help="Manage only this host's selected role (default: both)")
     for action, help_text in (("doctor", "Check config, installation and device access"),
                               ("status", "Show process ownership, endpoint health and sample freshness")):
         command = commands.add_parser(action, help=help_text)
         command.add_argument("--json", action="store_true", help="Machine-readable output")
+        command.add_argument("--role", choices=("all", "server", "node"), default="all", help="Check this host's selected role")
     run = commands.add_parser("run", help="Wrap an existing VERL command; preserve its exit code",
                               epilog="Example: xltel run --mode async -- python -m verl.trainer.main_ppo ...")
     run.add_argument("--mode", choices=("auto", "sync", "async"))
@@ -56,16 +58,20 @@ def parser() -> argparse.ArgumentParser:
     cfg_sub = cfg.add_subparsers(dest="config_action", required=True)
     cfg_sub.add_parser("path", help="Print selected config path")
     cfg_sub.add_parser("show", help="Show known resolved values; workload argv is redacted")
-    cfg_sub.add_parser("validate", help="Validate trusted Bash config without starting services")
+    cfg_sub.add_parser("validate", help="Validate TOML or trusted Bash config without starting services")
+    migration = cfg_sub.add_parser("migrate", help="Write resolved settings and command to private TOML; keep source unchanged")
+    migration.add_argument("--output", type=Path, required=True)
+    completion = commands.add_parser("completion", help="Print shell completion; does not read config or change dotfiles")
+    completion.add_argument("shell", choices=("bash", "zsh", "fish"))
     return root
 
 
-def _launch(config: dict[str, str], action: str) -> int:
+def _launch(config: dict[str, str], action: str, role: str = "all") -> int:
     root = assets_root()
     effective = snapshot(config)
     # No shell interpolation of user values; the existing lifecycle lock owns mutations.
     child = subprocess.Popen(["bash", str(root / "scripts/verl_local.sh"), "--config", str(effective), action],
-                             cwd=root, env=os.environ | config | {"XLAYER_CLI": "1"})
+                             cwd=root, env=os.environ | config | {"XLAYER_CLI": "1", "XLAYER_MANAGED_ROLE": role})
     previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
     try:
         for sig in previous:
@@ -80,7 +86,7 @@ def _launch(config: dict[str, str], action: str) -> int:
 
 
 def _print_health(result: dict) -> None:
-    print(f"XLayer Telemetry: {result['status']}\n")
+    print(f"XLayer Telemetry: {result['status']}  role={result.get('managed_role', 'all')}\n")
     print(f"{'Component':<22} {'Process / ownership':<24} Health")
     for name, data in result["services"].items():
         label = "managed " + name if name in {"server", "node"} else name
@@ -91,6 +97,8 @@ def _print_health(result: dict) -> None:
         print(f"{data['telemetry_source']:<22} {'configured source':<24} {data['status']}")
     for name, value in result.get("optional_sources", {}).items():
         print(f"{name:<22} {'optional source':<24} {value}")
+    for target in result.get("collector_targets", []):
+        print(f"{target['node']:<22} {'collector target':<24} {target['health']}")
     if result["latest_run"]:
         run = result["latest_run"]
         print(f"\nLatest run: {run['run_id']}  mode={run['execution_mode']}  step={run['step']}")
@@ -135,6 +143,10 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
 
 
 def execute(args) -> int:
+    if args.action == "completion":
+        from .operations.completion import generate
+        print(generate(parser(), args.shell), end="")
+        return 0
     path = config_path(args.config)
     if args.action == "init":
         created = initialize(path)
@@ -142,6 +154,12 @@ def execute(args) -> int:
         return 0
     if args.action == "config" and args.config_action == "path":
         print(path)
+        return 0
+    if args.action == "config" and args.config_action == "migrate":
+        output = args.output.expanduser().absolute()
+        migrate(path, output)
+        print(f"Created: {output}\nUse: xltel --config {output} config validate")
+        print("Migration resolves current environment overrides and paths; keep environment exports separately. Source was preserved.", file=sys.stderr)
         return 0
     config, command = load_config(path)
     if args.verbose:
@@ -160,7 +178,7 @@ def execute(args) -> int:
             print(f"Valid config: {path}")
         return 0
     if args.action == "doctor":
-        result = doctor(config)
+        result = doctor(config, role=args.role)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
@@ -168,7 +186,7 @@ def execute(args) -> int:
                 print(f"[{item['status']}] {item['component']}" + (f" -> {item['action']}" if item["action"] else ""))
         return 0 if result["status"] == "ready" else 1
     if args.action == "status":
-        result = status(config)
+        result = status(config, role=args.role)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
@@ -176,10 +194,10 @@ def execute(args) -> int:
         return 0 if result["status"] == "healthy" else 1
     if args.action in {"up", "down", "restart", "install-tools"}:
         if args.action == "restart":
-            code = _launch(config, "down")
+            code = _launch(config, "down", args.role)
             if code:
                 return code
-        return _launch(config, "install" if args.action == "install-tools" else "up" if args.action == "restart" else args.action)
+        return _launch(config, "install" if args.action == "install-tools" else "up" if args.action == "restart" else args.action, args.role)
     if args.action == "run":
         _run(args, config, command)
     if args.action == "inspect":

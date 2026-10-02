@@ -30,10 +30,10 @@ xltel down
 ```text
 xltel
   +-- init
-  +-- doctor [--json]
-  +-- install-tools
-  +-- up / down / restart
-  +-- status [--json]
+  +-- doctor [--json] [--role all|server|node]
+  +-- install-tools [--role all|server|node]
+  +-- up / down / restart [--role all|server|node]
+  +-- status [--json] [--role all|server|node]
   +-- run [--mode auto|sync|async] [--run-id ID] [--output DIR] [--node NAME] -- COMMAND
   +-- inspect [RUN_ID | RUN_DIR]
   +-- logs [server|node] [--follow] [--lines N]
@@ -41,7 +41,9 @@ xltel
   |     +-- refresh
   |     +-- threefs [--window-seconds N]
   +-- config
-        +-- path / show / validate
+  |     +-- path / show / validate
+  |     +-- migrate --output FILE.toml
+  +-- completion bash|zsh|fish
 ```
 
 `status`는 현재 system, `inspect`는 저장된 run 결과를 확인합니다.
@@ -51,8 +53,9 @@ Backend error나 source down은 nonzero, source 미설정은 정상적인 option
 
 ## Configuration
 
-기본 config는 `~/.config/xlayer/config.conf`이며 `init`은 기존 파일을 덮어쓰지 않습니다.
-기존 `verl-local.conf`도 지정할 수 있습니다.
+새 설치의 기본 config는 `~/.config/xlayer/config.toml`이며 `init`은 기존 파일을 덮어쓰지 않습니다.
+기본 경로에 기존 `config.conf`가 있으면 그 파일을 계속 선택하므로 기존 설치가 자동으로 전환되지 않습니다.
+`--config`나 `XLAYER_CONFIG`로 어느 형식이든 지정할 수 있습니다.
 
 ```bash
 xltel config path
@@ -68,9 +71,49 @@ Bash config 안에서 계산한 경로는 그 계산 결과를 명시한 설정�
 `config show`는 resolved setting을 JSON으로 보여 주며 workload argument는 공개하지 않습니다.
 Config가 export한 CUDA 설정·backend credential은 child environment로 전달하며 config 출력과 저장된 lifecycle snapshot에는 포함하지 않습니다.
 
-Config는 **trusted Bash 파일**이며 읽을 때 실행됩니다.
+### TOML Configuration
+
+TOML은 command를 실행하지 않는 declarative 설정입니다.
+`[telemetry]`는 기존 uppercase 설정 이름, `[workload]`는 argument 배열, `[environment]`는 child process에 전달할 추가 환경 변수를 받습니다.
+알려지지 않은 설정과 잘못된 type은 시작 전에 거부합니다.
+
+```toml
+[telemetry]
+TELEMETRY_HOME = "~/telemetry"
+RUN_ID = "auto"
+ENABLE_LOGS = true
+# ENABLE_GPU_METRICS = false
+# EXECUTION_MODE = "async"
+# TELEMETRY_SOURCES_FILE = "~/telemetry/config/native-sources.json"
+# DIAGNOSTICS_CONFIG = "~/telemetry/config/diagnostics.json"
+
+[workload]
+# command = ["/path/to/verl-env/bin/python", "-m", "verl.trainer.main_ppo"]
+
+[environment]
+# CUDA_VISIBLE_DEVICES = "0,1"
+```
+
+Path 설정의 `~`만 확장하며 `$HOME`, `$VARIABLE`, command substitution은 해석하지 않습니다.
+Boolean은 `true`/`false` 또는 기존 `"0"`/`"1"` 문자열, age 설정은 양의 number 또는 문자열을 사용합니다.
+추가 environment 값은 문자열이며 같은 이름의 현재 terminal 환경 변수가 우선합니다.
+Python 3.11 이상은 `tomllib`, Python 3.10은 package 설치 시 포함되는 `tomli`로 읽습니다.
+
+기존 Bash config는 **trusted executable 파일**입니다.
 자신이 관리하는 assignment와 `VERL_COMMAND=(...)` 배열을 사용하고 service 시작이나 오래 걸리는 command를 넣지 않습니다.
-TOML과 shell completion은 아직 제공하지 않습니다.
+다음 명령은 현재 resolved 설정과 command를 private TOML로 저장하고 원본을 유지합니다.
+
+```bash
+xltel --config ~/.config/xlayer/config.conf config migrate \
+  --output ~/.config/xlayer/config.toml
+xltel --config ~/.config/xlayer/config.toml config validate
+export XLAYER_CONFIG="$HOME/.config/xlayer/config.toml"
+```
+
+Migration에는 현재 environment override와 계산된 absolute path가 반영됩니다.
+원본의 `export` 값은 복사하지 않으므로 필요한 값은 terminal 환경 또는 `[environment]`에 옮깁니다.
+Command argument도 저장되므로 생성된 파일의 `0600` 권한을 유지합니다.
+이동할 host에서 경로를 재검토하고, 기존 `.conf`는 확인 후 직접 보관하거나 `XLAYER_CONFIG`로 TOML을 선택합니다.
 
 새 config의 도구·state·run parent는 `$HOME/telemetry/` 아래입니다.
 `RUN_ID=auto`이면 실행마다 고유 ID를 만들며 collector가 같은 run parent를 계속 읽습니다.
@@ -123,8 +166,70 @@ xltel
 
 Lifecycle 변경은 기존 `flock`과 PID ownership 검사를 사용합니다.
 Resolved config snapshot은 background child가 읽을 수 있도록 private `state/cli-configs/`에 보존합니다.
-`up`이 이미 실행 중이면 새 stack을 만들지 않으며 부분 실행 상태에서는 `status`·`logs` 확인 후 `restart`합니다.
+`up`이 이미 실행 중이면 새 stack을 만들지 않으며 부분 실행 상태에서는 없는 role만 추가합니다.
+실패하면 이번 호출이 시작한 role만 정리하고 이전부터 실행 중인 role은 보존합니다.
 
-`xltel`은 Linux 단일 host 편의 interface이며 multi-node 배포에는 [Monitoring Guide](monitoring.md#expand-to-multiple-nodes)의 role별 script와 target 설정을 사용합니다.
+### Host Roles for Multi-node Deployment
+
+각 host에서 `--role server` 또는 `--role node`로 필요한 process만 관리할 수 있습니다.
+생략한 `all`은 기존 단일 host 경로입니다.
+같은 host의 두 role은 lifecycle lock과 PID ownership 검사를 공유하지만 한 role의 종료·재시작은 다른 role을 건드리지 않습니다.
+
+Monitoring host의 `[telemetry]` 설정 예시입니다.
+
+```toml
+CLUSTER_NAME = "training-cluster"
+TELEMETRY_TARGETS = "gpu-a=10.0.0.10,sandbox-a=10.0.1.10"
+# Remote node가 log를 보내는 경우에만 private interface에 노출합니다.
+# ENABLE_LOGS = true
+# LOKI_LISTEN_ADDR = "10.0.0.20"
+```
+
+각 collector host는 같은 cluster 이름과 고유 `NODE_NAME`, local interface의 `NODE_ADDR`를 설정합니다.
+Log 수집을 켠 remote node는 `LOKI_URL = "http://10.0.0.20:13100"`으로 monitoring host를 지정합니다.
+GPU 없는 sandbox·storage node는 `ENABLE_GPU_METRICS = false`를 사용합니다.
+
+```bash
+# Monitoring host
+xltel doctor --role server
+xltel install-tools --role server
+xltel up --role server
+xltel status --role server
+
+# Each collector host
+xltel doctor --role node
+xltel install-tools --role node
+xltel up --role node
+xltel status --role node
+xltel down --role node
+```
+
+`status --role server`는 local collector/GPU를 요구하지 않고 등록된 전체 collector target을 확인합니다.
+`status --role node`는 local collector ownership·freshness와 configured monitoring endpoint 및 해당 node의 scrape 상태를 확인합니다.
+Backend에 닿지 않거나 target이 등록되지 않으면 process가 실행 중이어도 degraded로 표시합니다.
+Server의 Prometheus·Grafana는 계속 loopback에 bind하며 조회용 URL 설정이 listen address를 바꾸지는 않습니다.
+Remote node에서 health query가 필요하면 private SSH tunnel 등으로 monitoring endpoint에 접근할 경로를 준비합니다.
+Collector `:19100`과 remote Loki `:13100`은 신뢰 가능한 private network에서만 노출합니다.
+
+이 CLI는 현재 host만 제어하며 SSH 일괄 배포·remote process 종료·systemd 관리·clock 동기화를 수행하지 않습니다.
+Workload context 전달과 clock alignment는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)을 따릅니다.
 기존 Bash script는 계속 동작하고 [Scripts](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md)에 advanced interface를 정리했습니다.
 일반 wheel 설치에도 CLI가 사용하는 launcher·dashboard를 포함하며 synthetic demo와 profiling 예제는 checkout에서 사용합니다.
+
+## Shell Completion
+
+Completion은 command tree에서 생성하며 config·backend를 조회하지 않습니다.
+명령을 출력할 뿐 shell 설정 파일은 자동 수정하지 않습니다.
+
+```bash
+# Bash, current session
+source <(xltel completion bash)
+
+# Zsh, after initializing completion
+autoload -Uz compinit
+compinit
+source <(xltel completion zsh)
+```
+
+Fish에서는 `xltel completion fish | source`로 현재 session에 적용하거나 출력물을 `~/.config/fish/completions/xltel.fish`에 저장합니다.
+Command·subcommand·option·enum 값과 config/output 경로를 완성하며 `run --` 이후 workload command의 completion은 제공하지 않습니다.

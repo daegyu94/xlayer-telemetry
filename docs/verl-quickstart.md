@@ -44,10 +44,11 @@ xltel doctor
 xltel install-tools
 ```
 
-기본 config는 `$HOME/.config/xlayer/config.conf`이며 `init`은 기존 설정을 유지합니다.
+새 config는 `$HOME/.config/xlayer/config.toml`이며 `init`은 기존 설정을 유지합니다.
+기본 경로의 기존 `config.conf`가 있으면 그 파일을 계속 사용합니다.
 기존 `verl-local.conf`는 `xltel --config FILE ...` 또는 `XLAYER_CONFIG`로 지정합니다.
-새 config는 실행마다 Run ID를 자동 생성하며, config의 `VERL_COMMAND=(...)` 배열에 기존 launcher를 저장하면 `xltel run`만으로 실행할 수도 있습니다.
-Config는 trusted Bash 파일입니다.
+새 config는 실행마다 Run ID를 자동 생성하며, TOML의 `[workload] command = [...]`에 기존 launcher를 저장하면 `xltel run`만으로 실행할 수도 있습니다.
+기존 Bash config는 `VERL_COMMAND=(...)` 배열을 유지하며 읽을 때 실행되는 trusted 파일입니다.
 설정 우선순위와 전체 명령은 [CLI Reference](cli.md)에 있습니다.
 
 Wrapper가 명령에서 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 찾으면 `trainer.logger=["console","file"]`을 추가합니다.

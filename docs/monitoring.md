@@ -15,6 +15,8 @@ Trainer는 [VERL Quickstart](verl-quickstart.md), 데이터 경로는 [Architect
 Monitoring host는 Prometheus·Grafana 등을 실행하는 machine이며 처음에는 GPU node와 같아도 됩니다.
 Prometheus가 exporter를 주기적으로 조회하는 동작을 scrape라고 합니다.
 Multi-node에서는 monitoring host에서 각 node의 `:19100`에 접근할 수 있어야 합니다.
+Background lifecycle은 [CLI의 host role 설정](cli.md#host-roles-for-multi-node-deployment)으로 `xltel up --role server`와 `xltel up --role node`를 각 host에서 실행합니다.
+아래의 role별 Bash 명령은 foreground 실행과 추가 collector 설정을 위한 advanced 경로입니다.
 
 ## Prepare the Host
 

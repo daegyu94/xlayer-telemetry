@@ -1,8 +1,10 @@
-"""Resolve trusted Bash configuration once, without evaluating workload argv."""
+"""Resolve declarative TOML or trusted Bash configuration into one runtime model."""
 
 from __future__ import annotations
 
 import hashlib
+import json
+from decimal import Decimal
 import os
 from pathlib import Path
 import re
@@ -23,7 +25,14 @@ KEYS = (
     "TELEMETRY_METRICS_DIR", "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_MAX_AGE_SECONDS",
     "TELEMETRY_HEALTH_MAX_AGE_SECONDS", "TELEMETRY_LOG_ROOTS",
     "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME",
+    "TELEMETRY_TARGETS", "LOKI_LISTEN_ADDR",
 )
+
+PATH_KEYS = {"TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
+             "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_DIR", "TELEMETRY_SOURCES_FILE", "DIAGNOSTICS_CONFIG",
+             "TELEMETRY_PYTHON"}
+BOOL_KEYS = {"ENABLE_LOGS", "ENABLE_GPU_METRICS", "ENABLE_ALERTS"}
+AGE_KEYS = {"TELEMETRY_METRICS_MAX_AGE_SECONDS", "TELEMETRY_HEALTH_MAX_AGE_SECONDS"}
 
 
 class ConfigError(ValueError):
@@ -41,8 +50,13 @@ def assets_root() -> Path:
 
 
 def config_path(explicit: str | None = None) -> Path:
-    return Path(explicit or os.environ.get("XLAYER_CONFIG") or
-                Path.home() / ".config/xlayer/config.conf").expanduser().absolute()
+    selected = explicit or os.environ.get("XLAYER_CONFIG")
+    if selected:
+        return Path(selected).expanduser().absolute()
+    directory = Path.home() / ".config/xlayer"
+    # Keep existing installations on their config until the user migrates.
+    legacy = directory / "config.conf"
+    return legacy if legacy.exists() else directory / "config.toml"
 
 
 def defaults() -> dict[str, str]:
@@ -59,9 +73,7 @@ def defaults() -> dict[str, str]:
     }
 
 
-def load_config(path: Path) -> tuple[dict[str, str], list[str]]:
-    if not path.is_file():
-        raise ConfigError(f"Config not found: {path}. Run xltel init or select --config FILE.")
+def _read_bash(path: Path) -> tuple[dict[str, str], list[str], dict[str, str]]:
     # A separate fd keeps arbitrary config stdout out of JSON/CLI output.
     # Bash configs are executable trusted files, not a security sandbox.
     script = '''set -euo pipefail
@@ -96,15 +108,68 @@ fi
                        if "=" in entry)
     raw = dict(zip(values[:len(KEYS)*2:2], values[1:len(KEYS)*2:2]))
     command = values[len(KEYS)*2:-1]
+    return {key: value for key, value in raw.items() if value != "__XLTEL_UNSET__"}, command, exports
+
+
+def _read_toml(path: Path) -> tuple[dict[str, str], list[str], dict[str, str]]:
+    try:
+        import tomllib
+    except ImportError:  # Python 3.10; installed through the conditional dependency.
+        import tomli as tomllib
+    with path.open("rb") as stream:
+        data = stream.read(1024 * 1024 + 1)
+    if len(data) > 1024 * 1024:
+        raise ConfigError("TOML config exceeds the 1 MiB limit.")
+    try:
+        document = tomllib.loads(data.decode("utf-8"))
+    except (ValueError, UnicodeError) as exc:
+        raise ConfigError("Invalid TOML config; check syntax and duplicate keys.") from exc
+    if set(document) - {"telemetry", "workload", "environment"}:
+        raise ConfigError("TOML supports only [telemetry], [workload], and [environment] tables.")
+    for section in ("telemetry", "workload", "environment"):
+        if not isinstance(document.get(section, {}), dict):
+            raise ConfigError(f"[{section}] must be a table.")
+    raw = {}
+    for key, value in document.get("telemetry", {}).items():
+        if key not in KEYS:
+            raise ConfigError("Unknown [telemetry] key; use the setting names in xltel config show.")
+        if key in BOOL_KEYS and type(value) is bool:
+            raw[key] = "1" if value else "0"
+        elif key in AGE_KEYS and type(value) in {int, float}:
+            raw[key] = format(Decimal(str(value)), "f")
+        elif isinstance(value, str):
+            raw[key] = str(Path(value).expanduser()) if key in PATH_KEYS and value else value
+        else:
+            raise ConfigError(f"{key} must be a string" + (", boolean or 0/1 string." if key in BOOL_KEYS else
+                             " or positive number." if key in AGE_KEYS else "."))
+    workload = document.get("workload", {})
+    if set(workload) - {"command"}:
+        raise ConfigError("[workload] supports only command = [\"executable\", \"argument\", ...].")
+    command = workload.get("command", [])
+    if not isinstance(command, list) or any(not isinstance(arg, str) or "\0" in arg for arg in command):
+        raise ConfigError("workload.command must be an array of strings without NUL bytes.")
+    exports = document.get("environment", {})
+    for key, value in exports.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) or key in KEYS or not isinstance(value, str) or "\0" in value:
+            raise ConfigError("[environment] requires variable names outside [telemetry] and string values without NUL bytes.")
+    if any("\0" in value for value in raw.values()):
+        raise ConfigError("TOML settings cannot contain NUL bytes.")
+    return raw, command, exports
+
+
+def load_config(path: Path) -> tuple[dict[str, str], list[str]]:
+    if not path.is_file():
+        raise ConfigError(f"Config not found: {path}. Run xltel init or select --config FILE.")
+    raw, command, exports = _read_toml(path) if path.suffix.lower() == ".toml" else _read_bash(path)
     config = defaults()
-    config.update({key: value for key, value in raw.items() if value != "__XLTEL_UNSET__"})
+    config.update(raw)
     config.update({key: os.environ[key] for key in KEYS if key in os.environ})
     # Keep trusted config exports (e.g. CUDA_VISIBLE_DEVICES, backend credentials)
     # in the child environment, never in displayed config or disk snapshots.
     config.update({key: value for key, value in exports.items()
                    if key not in KEYS and key not in os.environ and key not in {"_", "SHLVL", "PWD", "OLDPWD"}})
     home = Path(config["TELEMETRY_HOME"])
-    if raw.get("TOOLS_DIR") == "__XLTEL_UNSET__" and "TOOLS_DIR" not in os.environ:
+    if "TOOLS_DIR" not in raw and "TOOLS_DIR" not in os.environ:
         config["TOOLS_DIR"] = str(home / "tools")
     # Preserve the legacy Bash launcher's default for an explicitly named run.
     run_parent = config.get("TELEMETRY_RUNS_ROOT") or str(home / "runs" if config["RUN_ID"] == "auto" else Path.home() / "telemetry-runs")
@@ -136,6 +201,33 @@ def validate(config: dict[str, str]) -> None:
         url = urlsplit(config[key])
         if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
             raise ConfigError(f"{key} must be an HTTP(S) URL without embedded credentials.")
+    seen = set()
+    for entry in config.get("TELEMETRY_TARGETS", "").split(",") if config.get("TELEMETRY_TARGETS") else []:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}=[A-Za-z0-9_.-]+", entry):
+            raise ConfigError("TELEMETRY_TARGETS must be comma-separated unique node=IPv4-or-hostname entries (port 19100).")
+        node = entry.split("=", 1)[0]
+        if node in seen:
+            raise ConfigError("TELEMETRY_TARGETS node names must be unique.")
+        seen.add(node)
+    if config.get("LOKI_LISTEN_ADDR") and not re.fullmatch(r"[A-Za-z0-9_.-]+", config["LOKI_LISTEN_ADDR"]):
+        raise ConfigError("LOKI_LISTEN_ADDR must be an IPv4 address or hostname without a port.")
+
+
+def migrate(path: Path, output: Path) -> None:
+    """Write a private, resolved TOML snapshot without copying arbitrary exports."""
+    config, command = load_config(path)
+    text = "# Resolved settings; exported environment variables are not copied.\n[telemetry]\n"
+    text += "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in sorted(config.items()) if key in KEYS)
+    text += "\n[workload]\ncommand = " + json.dumps(command, ensure_ascii=False) + "\n"
+    if output.suffix.lower() != ".toml":
+        raise ConfigError("Migration output must end in .toml.")
+    output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        raise ConfigError("Migration output already exists; choose another --output path.") from exc
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        stream.write(text)
 
 
 def snapshot(config: dict[str, str]) -> Path:
@@ -159,7 +251,17 @@ def initialize(path: Path) -> bool:
     try:
         with path.open("x", encoding="utf-8") as stream:
             path.chmod(0o600)
-            stream.write('''# Trusted Bash config. Environment values override these settings in xltel.
+            stream.write('''# Declarative config; environment values override [telemetry].
+[telemetry]
+TELEMETRY_HOME = "~/telemetry"
+RUN_ID = "auto"
+# ENABLE_LOGS = true
+# ENABLE_GPU_METRICS = false  # CPU-only collector nodes.
+# EXECUTION_MODE = "async"  # Trainer mode hidden inside a shell launcher.
+
+[workload]
+# command = ["/path/to/verl-env/bin/python", "-m", "verl.trainer.main_ppo"]
+''' if path.suffix.lower() == ".toml" else '''# Trusted Bash config. Environment values override these settings in xltel.
 TELEMETRY_HOME="$HOME/telemetry"
 RUN_ID=auto
 # Run xltel run -- <your existing VERL command>, or set VERL_COMMAND=(...).

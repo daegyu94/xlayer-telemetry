@@ -82,7 +82,7 @@ def read_json(path: Path) -> dict:
         return {}
 
 
-def status(config: dict[str, str]) -> dict:
+def status(config: dict[str, str], *, role: str = "all") -> dict:
     state = Path(config["TELEMETRY_HOME"]) / "state/verl-local"
     services = {role: process_identity(state / f"{role}.pid") for role in ("server", "node")}
     endpoints = {"prometheus": (config["PROMETHEUS_URL"] + "/-/ready", False),
@@ -98,8 +98,8 @@ def status(config: dict[str, str]) -> dict:
     services.setdefault("loki", {"health": "disabled"})
     services["server"]["health"] = ("healthy" if all(services[name]["health"] in {"healthy", "disabled"}
                                     for name in ("prometheus", "grafana", "loki")) else "degraded")
-    for role in ("server", "node"):
-        services[role]["ownership"] = "managed_launcher"
+    for service_role in ("server", "node"):
+        services[service_role]["ownership"] = "managed_launcher"
     target_result = probe(config["PROMETHEUS_URL"] + "/api/v1/targets?state=active", json_body=True)
     target_data = (target_result.get("data") or {}).get("data", {})
     targets = target_data.get("activeTargets", []) if isinstance(target_data, dict) else []
@@ -109,6 +109,13 @@ def status(config: dict[str, str]) -> dict:
     matching = [target for target in targets if target.get("labels", {}).get("job") == "telemetry"
                 and target["labels"].get("cluster") == config["CLUSTER_NAME"]
                 and target["labels"].get("nodename") == config["NODE_NAME"]]
+    configured_targets = config.get("TELEMETRY_TARGETS") or f"{config['NODE_NAME']}={config['NODE_ADDR']}"
+    expected = {entry.split("=", 1)[0] for entry in configured_targets.split(",")}
+    cluster_targets = [target for target in targets if target["labels"].get("job") == "telemetry"
+                       and target["labels"].get("cluster") == config["CLUSTER_NAME"]
+                       and target["labels"].get("nodename") in expected]
+    target_nodes = {target["labels"].get("nodename") for target in cluster_targets}
+    collectors_ok = expected == target_nodes and all(target.get("health") == "up" for target in cluster_targets)
     services["node"]["health"] = ("healthy" if matching and all(t.get("health") == "up" for t in matching)
                                   else "degraded" if matching else "unreachable")
     now = time.time()
@@ -143,24 +150,36 @@ def status(config: dict[str, str]) -> dict:
                "fresh" if age <= float(config["TELEMETRY_METRICS_MAX_AGE_SECONDS"]) else "stale",
                "age_seconds": age}}
     native = sources(config)
-    owned = all(services[role]["process"] == "running" for role in ("server", "node"))
+    selected = ("server", "node") if role == "all" else (role,)
+    owned = all(services[selected_role]["process"] == "running" for selected_role in selected)
     endpoints_ok = all(services[name]["health"] in {"healthy", "disabled"}
                        for name in ("prometheus", "grafana", "loki", "node"))
+    if role == "all":
+        endpoints_ok = endpoints_ok and collectors_ok
     native_ok = not native.get("backend_error") and all(row["status"] == "up" for row in native["sources"])
+    if role == "server":
+        endpoints_ok = services["server"]["health"] == "healthy" and collectors_ok
+        gpu = {"health": "not_applicable", "age_seconds": None}
+        metrics["gpu"] = gpu
     healthy = owned and endpoints_ok and native_ok and gpu["health"] in {"fresh", "disabled"}
+    if role == "server":
+        healthy = owned and endpoints_ok and native_ok
     reachable = any(services[name]["health"] == "healthy" for name in ("prometheus", "grafana", "node"))
-    return {"status": "healthy" if healthy else "degraded" if owned or reachable else "stopped",
+    return {"status": "healthy" if healthy else "degraded" if owned or reachable else "stopped", "managed_role": role,
             "services": services, "metrics": metrics, "native_sources": native,
             "latest_run": {"path": str(run), "run_id": manifest.get("run_id"),
                            "execution_mode": manifest.get("configuration", {}).get("execution_mode"),
                            "step": sample.get("step"), "telemetry": health.get("status")} if run else None,
             "grafana_url": config["GRAFANA_URL"],
+            "collector_targets": [{"node": node, "health": "up" if node in target_nodes and
+                                    all(t.get("health") == "up" for t in cluster_targets if t["labels"].get("nodename") == node)
+                                    else "down" if node in target_nodes else "not_discovered"} for node in sorted(expected)],
             "optional_sources": {"threefs": "configured_not_probed" if config.get("DIAGNOSTICS_CONFIG") and
                                  read_json(Path(config["DIAGNOSTICS_CONFIG"])).get("threefs") else "not_configured"},
             "note": "Endpoint health is not process ownership. Stale completed-run data is not a workload failure."}
 
 
-def doctor(config: dict[str, str]) -> dict:
+def doctor(config: dict[str, str], *, role: str = "all") -> dict:
     checks = []
 
     def check(name, ok, action="", optional=False):
@@ -187,9 +206,13 @@ def doctor(config: dict[str, str]) -> dict:
              "Grafana": tools / "grafana-v12.1.0/bin/grafana", "Loki": tools / f"loki-linux-{arch}",
              "Alloy": tools / f"alloy-linux-{arch}"}
     for name, path in paths.items():
+        if role == "node" and name in {"Prometheus", "Grafana", "Loki"}:
+            continue
+        if role == "server" and name in {"Node Exporter", "Alloy"}:
+            continue
         check(name, os.access(path, os.X_OK), "Run xltel install-tools.",
               optional=name in {"Loki", "Alloy"} and config["ENABLE_LOGS"] == "0")
-    if config["ENABLE_GPU_METRICS"] == "1":
+    if config["ENABLE_GPU_METRICS"] == "1" and role != "server":
         from ..tool_check import _run_version
         available, _, _ = _run_version(("nvidia-smi", "--version"))
         accessible = False
