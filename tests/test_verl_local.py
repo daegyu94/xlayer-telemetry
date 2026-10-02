@@ -342,7 +342,7 @@ def test_local_down_ignores_previous_boot_and_lifecycle_lock(tmp_path: Path) -> 
     assert not (stack_dir / "server.pid").exists()
 
 
-@pytest.mark.parametrize('theme,expected', [('sapphiredusk', 0), ('gloom', 0), ('desertbloom', 0), ('unknown-theme', 2)])
+@pytest.mark.parametrize('theme,expected', [('sapphiredusk', 0), ('gloom', 0), ('desertbloom', 0), ('tron', 0), ('gildedgrove', 0), ('unknown-theme', 2)])
 def test_local_server_theme_configuration(tmp_path, theme, expected):
     config = tmp_path / 'local.conf'
     config.write_text(f'RUN_ID=test\nTELEMETRY_HOME="{tmp_path}/state"\nGF_USERS_DEFAULT_THEME={theme}\nGF_FEATURE_TOGGLES_ENABLE="extraThemes"\n')

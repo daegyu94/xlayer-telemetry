@@ -528,6 +528,8 @@ Monitoring server와 Compose 설정은 `extraThemes`를 활성화하며 기본 �
 | Sapphire dusk | 푸른 배경의 Dark 대안 |
 | Gloom | 무채색에 가까운 어두운 배경 |
 | Desert bloom | 따뜻한 배경의 Light 대안 |
+| Tron | 짙은 남색 배경과 cyan 강조 (`tron`) |
+| Gilded grove | 짙은 녹색 배경과 gold 강조 (`gildedgrove`) |
 | Dark / Light / System | 표준 테마 또는 OS 설정 |
 
 로그인한 사용자의 선택은 개인 preference에 저장되어 다른 사용자에게 영향을 주지 않습니다.
@@ -535,7 +537,7 @@ Anonymous 사용자는 URL에 `theme=gloom` 등의 query parameter를 추가해 
 이 선택은 preference에 저장되지 않으므로 기본 테마를 유지하려면 server config를 바꿉니다.
 
 ```bash
-GF_USERS_DEFAULT_THEME='sapphiredusk'
+GF_USERS_DEFAULT_THEME='sapphiredusk'  # 또는 tron, gildedgrove
 GF_FEATURE_TOGGLES_ENABLE='extraThemes'
 ```
 
