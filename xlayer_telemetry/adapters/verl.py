@@ -60,7 +60,7 @@ def describe_metrics() -> str:
     for key, (name, labels) in DIRECT_METRICS.items():
         suffix = " " + ", ".join(f"{key}={value}" for key, value in labels.items()) if labels else ""
         lines.append(f"{key} -> {name}{suffix}")
-    lines.append("timing_s/step -> training_step_time_seconds phase=rl_step (fallback when perf/time_per_step is absent or non-finite)")
+    lines.append("timing_s/step -> training_step_time_seconds phase=rl_step (fallback when perf/time_per_step is absent, non-finite, or negative)")
     lines.extend(["", "Supported stages (completed durations, not live phase boundaries):"])
     for stage, phase in STAGE_PHASES.items():
         lines.append(f"timing_s/{stage} -> rl_stage_duration_seconds phase={phase}")
@@ -85,6 +85,11 @@ class VerlMetricsAdapter:
         for key, value in data.items():
             value = finite_number(value)
             if value is None:
+                continue
+            # Time observations cannot be negative. Keep signed quantities
+            # such as rewards intact and match StepHistoryWriter's validity.
+            if value < 0 and (key.startswith(("timing_s/", "timing_per_token_ms/"))
+                              or key == "perf/time_per_step"):
                 continue
             if key.startswith("timing_s/"):
                 stage = key.removeprefix("timing_s/")
@@ -116,7 +121,7 @@ class VerlMetricsAdapter:
                 samples.append(Metric(name, float(value), labels=labels))
         duration = finite_number(data.get("perf/time_per_step"))
         fallback = finite_number(data.get("timing_s/step"))
-        if duration is None and fallback is not None and fallback >= 0:
+        if (duration is None or duration < 0) and fallback is not None and fallback >= 0:
             samples.append(Metric("training_step_time_seconds", float(fallback), labels={"phase": "rl_step"}))
         return samples
 

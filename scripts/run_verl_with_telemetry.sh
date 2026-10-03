@@ -216,9 +216,10 @@ health_pid=""
 sidecar_owner="xlayer-wrapper-$$"
 sidecar_is_owned() {
   local pid="$1" child
-  # The shell job table stops recognizing a child after it exits. A reused
-  # system PID must never receive escalation intended for a former sidecar.
-  for child in $(jobs -p); do
+  # `jobs -p` also reports completed jobs until their status is consumed.
+  # Only running/stopped children are owned: a reaped PID can already have
+  # been reused, and waiting on a completed job adds false shutdown delays.
+  for child in $(jobs -pr; jobs -ps); do
     [[ "$child" != "$pid" ]] || return 0
   done
   return 1

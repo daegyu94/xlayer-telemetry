@@ -28,6 +28,15 @@
         "role": "rollout",
         "node": "rollout-0"
       }
+    },
+    {
+      "name": "dcgm-rollout-0",
+      "kind": "dcgm",
+      "target": "rollout-0.internal:9400",
+      "labels": {
+        "role": "rollout",
+        "node": "rollout-0"
+      }
     }
   ]
 }

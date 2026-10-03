@@ -15,7 +15,7 @@ ROOT = Path(__file__).parents[1]
 
 def mooncake_row():
     dashboard = json.loads((ROOT / "examples/dashboards/agent-rl-stages.json").read_text())
-    return next(panel for panel in dashboard["panels"] if panel["id"] == 94)
+    return next(panel for panel in dashboard["panels"] if panel["id"] == 95)
 
 
 def render(expression):
@@ -41,20 +41,20 @@ def test_mooncake_panels_preserve_source_scope_and_units():
                 assert 'telemetry_source="vllm"' in query and 'instance=~"$engine"' in query
             else:
                 assert 'telemetry_source="mooncake"' in query
-    assert panels[30]["fieldConfig"]["defaults"]["unit"] == "s"
-    assert panels[31]["fieldConfig"]["defaults"]["unit"] == "Bps"
-    assert panels[32]["fieldConfig"]["defaults"]["unit"] == "bytes"
-    assert "file_capacity" not in str(panels[32]["targets"])
-    assert "master_total_capacity_bytes" in str(panels[32]["targets"])
-    assert panels[34]["fieldConfig"]["defaults"]["unit"] == "Bps"
-    assert panels[36]["fieldConfig"]["defaults"]["unit"] == "s"
-    for target in panels[36]["targets"]:
+    assert panels[60]["fieldConfig"]["defaults"]["unit"] == "s"
+    assert panels[61]["fieldConfig"]["defaults"]["unit"] == "Bps"
+    assert panels[62]["fieldConfig"]["defaults"]["unit"] == "bytes"
+    assert "file_capacity" not in str(panels[62]["targets"])
+    assert "master_total_capacity_bytes" in str(panels[62]["targets"])
+    assert panels[64]["fieldConfig"]["defaults"]["unit"] == "Bps"
+    assert panels[66]["fieldConfig"]["defaults"]["unit"] == "s"
+    for target in panels[66]["targets"]:
         assert "/ 1000000" in target["expr"]
         assert "client_mode, cluster_id, le" in target["expr"]
         assert 'le="+Inf"' in target["expr"] and "> 0" in target["expr"]
-    assert "failed keys/s" in str(panels[37]["targets"])
-    assert "error RPC/s" in str(panels[37]["targets"])
-    assert "master_put_start_failures_total" in str(panels[37]["targets"])
+    assert "failed keys/s" in str(panels[67]["targets"])
+    assert "error RPC/s" in str(panels[67]["targets"])
+    assert "master_put_start_failures_total" in str(panels[67]["targets"])
 
 
 def test_mooncake_synthetic_counters_match_native_identity_and_bucket_counts(monkeypatch):
@@ -139,13 +139,13 @@ def test_mooncake_queries_with_real_promtool(tmp_path):
     fixture = {"evaluation_interval": "30s", "fuzzy_compare": True,
         "tests": [{"interval": "30s", "input_series": rows,
         "promql_expr_test": [
-            {"expr": render(panels[36]["targets"][0]["expr"]), "eval_time": "2m", "exp_samples": expected},
-            {"expr": render(panels[36]["targets"][1]["expr"]), "eval_time": "2m", "exp_samples": []},
-            {"expr": render(panels[30]["targets"][0]["expr"]), "eval_time": "2m",
+            {"expr": render(panels[66]["targets"][0]["expr"]), "eval_time": "2m", "exp_samples": expected},
+            {"expr": render(panels[66]["targets"][1]["expr"]), "eval_time": "2m", "exp_samples": []},
+            {"expr": render(panels[60]["targets"][0]["expr"]), "eval_time": "2m",
              "exp_samples": connector_expected},
-            {"expr": render(panels[37]["targets"][5]["expr"]), "eval_time": "2m",
+            {"expr": render(panels[67]["targets"][5]["expr"]), "eval_time": "2m",
              "exp_samples": [{"labels": master_labels, "value": 1 / 30}]},
-            {"expr": render(panels[37]["targets"][1]["expr"]), "eval_time": "2m",
+            {"expr": render(panels[67]["targets"][1]["expr"]), "eval_time": "2m",
              "exp_samples": []},  # Master admission failure does not fabricate DFS I/O errors.
         ]}]}
     path = tmp_path / "mooncake-queries.json"

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-03",
+  "repository": "https://github.com/daegyu94/xlayer-telemetry",
+  "baseline_commit": "c43b030dec0d3d9632bf80973513ae5ff61bf304",
+  "local_branch": "audit/verl-metric-coverage",
+  "remote_main_rechecked_same": true,
+  "full_suite": {
+    "status": "passed",
+    "passed": 775,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 71.27,
+    "command": "PATH=<docker-cli>:<prometheus-tools>:$PATH DOCKER_CONFIG=<compose-plugin-dir> PROMTOOL=<promtool> python -m pytest -q -rs --durations=15",
+    "python": "3.12.14",
+    "pytest": "9.1.1",
+    "jsonschema": "4.26.0",
+    "promtool": "3.5.0",
+    "docker_cli": "29.7.1",
+    "compose": "5.6.0",
+    "docker_daemon_started": false,
+    "timeouts_relaxed": false,
+    "new_skips_added": false
+  },
+  "baseline_suite": {
+    "passed": 700,
+    "failed": 8,
+    "skipped": 4,
+    "duration_seconds": 248.99
+  },
+  "baseline_failure_rerun_writable_home": {
+    "passed": 4,
+    "failed": 4
+  },
+  "metric_coverage": {
+    "baseline_contract_entries": 133,
+    "baseline_exact_producer_names": 37,
+    "baseline_native_related_names": 44,
+    "baseline_instrumentation_or_derivation_only": 52,
+    "final_contract_entries": 135,
+    "final_exact_producer_names": 39,
+    "opt_in_profiles": 9,
+    "added_queries": 50,
+    "default_query_count": 12,
+    "new_collapsed_panels": 35
+  },
+  "dashboard_synthetic_query_smoke": {
+    "status": "passed",
+    "queries": 177,
+    "finite_results": 177,
+    "real_prometheus": "3.5.0",
+    "real_workload": false
+  },
+  "node_exporter_smoke": {
+    "status": "partial",
+    "version": "1.9.1",
+    "physical_hardware_validation": false,
+    "details": "metric-node-exporter-smoke-20261003.json"
+  },
+  "not_run": [
+    "physical GPU/DCGM",
+    "physical RDMA/NIC",
+    "physical local NVMe/SMART",
+    "real veRL/vLLM/Ray training",
+    "3FS/pNFS backend",
+    "multi-node cluster",
+    "Grafana browser rendering",
+    "remote CI",
+    "production deployment"
+  ],
+  "source_pins": {
+    "vllm": "5f30fc7031cae49bf51073fc953d419b08f8887c",
+    "dcgm_exporter": "fafd151148052628061a80450b4ee037a5fa0c3c",
+    "node_exporter": "v1.9.1",
+    "ray": "43b706d733c590cf497cc322c57b9fd610bf214f"
+  },
+  "publication_state_at_validation": "local validation complete; later work-branch push explicitly requested",
+  "target_branch": "audit/verl-metric-coverage"
+}

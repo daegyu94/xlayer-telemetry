@@ -55,3 +55,21 @@ def test_source_timestamps_only_use_valid_samples(monkeypatch):
 
 def test_query_label_escaping_keeps_quotes_newlines_and_backslashes():
     assert prometheus.escape_label('node"\\\n') == 'node\\"\\\\\\n'
+
+
+def test_query_response_body_is_bounded_before_decoding(monkeypatch):
+    from io import BytesIO
+    from urllib.request import Request
+    body = BytesIO(b' ' * (prometheus.MAX_RESPONSE_BYTES + 1))
+    monkeypatch.setattr(prometheus, 'urlopen', lambda *args, **kwargs: body)
+    with pytest.raises(RuntimeError, match='8 MiB'):
+        prometheus._read_json(Request('http://unused'), 1)
+    assert body.closed
+
+
+def test_excessive_query_entities_fail_instead_of_returning_partial_success(monkeypatch):
+    with pytest.raises(RuntimeError, match='1000 series'):
+        range_series(matrix([{'values': [[1, '1']]}] * 1001))
+    monkeypatch.setattr(prometheus, 'MAX_RESULT_POINTS', 2)
+    with pytest.raises(RuntimeError, match='200000 points'):
+        range_series(matrix([{'values': [[1, '1'], [2, '2']]}, {'values': [[1, '0']]}]))

@@ -13,6 +13,10 @@ from typing import Any, Iterable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_RESULT_SERIES = 1000
+MAX_RESULT_POINTS = 200000
+
 
 def escape_label(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
@@ -37,11 +41,17 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
     data = payload.get("data")
     if not isinstance(data, dict) or not isinstance(data.get("result"), list):
         raise RuntimeError("Prometheus response is missing a range-query matrix")
+    if len(data["result"]) > MAX_RESULT_SERIES:
+        raise RuntimeError("Prometheus result exceeds 1000 series; narrow source selectors")
     result = []
+    point_count = 0
     for item in data['result']:
         if (not isinstance(item, dict) or not isinstance(item.get('metric', {}), dict)
                 or not isinstance(item.get('values', []), list)):
             raise RuntimeError("Prometheus response contains an invalid series")
+        point_count += len(item.get('values', []))
+        if point_count > MAX_RESULT_POINTS:
+            raise RuntimeError("Prometheus result exceeds 200000 points; narrow time window or increase query step")
         points = []
         for point in item.get('values', []):
             if not isinstance(point, (list, tuple)) or len(point) != 2:
@@ -73,7 +83,10 @@ def series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None]
 
 def _read_json(request: Request, timeout: float) -> Any:
     with urlopen(request, timeout=timeout) as response:
-        return json.load(response)
+        body = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise RuntimeError("Prometheus response exceeds the 8 MiB limit; narrow query scope")
+    return json.loads(body)
 
 
 @dataclass

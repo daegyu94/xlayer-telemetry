@@ -180,8 +180,8 @@ def execute(args) -> int:
             print(json.dumps(visible | {"VERL_COMMAND": f"<{len(command)} arguments; redacted>"}, indent=2))
         else:
             if config.get("TELEMETRY_SOURCES_FILE"):
-                from .source_discovery import build_file_discovery
-                build_file_discovery(json.loads(Path(config["TELEMETRY_SOURCES_FILE"]).read_text()))
+                from .source_discovery import load_file_discovery
+                load_file_discovery(Path(config["TELEMETRY_SOURCES_FILE"]))
             if config.get("DIAGNOSTICS_CONFIG"):
                 from .analysis.diagnostics import load_config as load_diagnosis
                 load_diagnosis(Path(config["DIAGNOSTICS_CONFIG"]))

@@ -1221,6 +1221,22 @@
       "scope": "shared-service",
       "source": "Mooncake native master_put_start_failures_total; PutStart admission/RPC failure, not DFS failed keys",
       "policy": "native; baseline for Mooncake Store deployments"
+    },
+    {
+      "name": "telemetry_gpu_process_collection_enabled",
+      "category": "gpu",
+      "unit": "boolean",
+      "scope": "collector process",
+      "source": "nvidia-smi GPU sampler",
+      "policy": "always; 0 means per-PID diagnostics are disabled"
+    },
+    {
+      "name": "telemetry_gpu_process_samples_truncated",
+      "category": "gpu",
+      "unit": "samples",
+      "scope": "collector process",
+      "source": "nvidia-smi GPU sampler",
+      "policy": "diagnostic; rows omitted by per-sample process cap, emitted only after successful opt-in process query"
     }
   ],
   "$schema": "./metrics.schema.json",

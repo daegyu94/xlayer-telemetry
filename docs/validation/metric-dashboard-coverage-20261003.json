@@ -1,0 +1,1426 @@
+{
+  "data_origin": "synthetic",
+  "prometheus_version": "3.5.0",
+  "checked_queries": 177,
+  "empty_queries": [],
+  "checks": [
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "GPU utilization",
+      "ref_id": "A",
+      "query": "telemetry_gpu_utilization_percent{cluster=~\"demo-b300\",nodename=~\".*\",gpu=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "vLLM waiting requests",
+      "ref_id": "A",
+      "query": "vllm:num_requests_waiting{cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "RDMA bytes per second",
+      "ref_id": "A",
+      "query": "rate(node_infiniband_port_data_received_bytes_total{cluster=~\"demo-b300\",nodename=~\".*\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 20,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Device busy ratio",
+      "ref_id": "A",
+      "query": "rate(node_disk_io_time_seconds_total{cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 68,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Host CPU busy",
+      "ref_id": "A",
+      "query": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mode=\"idle\"}[1m])))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Host memory used",
+      "ref_id": "A",
+      "query": "(node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} - node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "TCP/Ethernet receive and transmit",
+      "ref_id": "A",
+      "query": "sum by (instance) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "TCP/Ethernet receive and transmit",
+      "ref_id": "B",
+      "query": "sum by (instance) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Local disk read and write",
+      "ref_id": "A",
+      "query": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Local disk read and write",
+      "ref_id": "B",
+      "query": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Sandbox I/O pressure (sampled)",
+      "ref_id": "A",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Node clock offset from scrape time",
+      "ref_id": "A",
+      "query": "node_time_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "cross-layer-timeline.json",
+      "panel": "Node clock synchronization status",
+      "ref_id": "A",
+      "query": "node_timex_sync_status{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Collector health",
+      "ref_id": "A",
+      "query": "min(up{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Application age",
+      "ref_id": "A",
+      "query": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Completed step",
+      "ref_id": "A",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Training step time",
+      "ref_id": "A",
+      "query": "(training_step_time_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} < 300)",
+      "series": 33,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Training throughput (tokens/s)",
+      "ref_id": "A",
+      "query": "(training_tokens_per_second{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} < 300)",
+      "series": 33,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Training loss",
+      "ref_id": "A",
+      "query": "(training_loss{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} < 300)",
+      "series": 33,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Host available memory by node",
+      "ref_id": "A",
+      "query": "node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Host swap used by node",
+      "ref_id": "A",
+      "query": "node_memory_SwapTotal_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} - node_memory_SwapFree_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "run-overview.json",
+      "panel": "Host swap I/O pages per second",
+      "ref_id": "A",
+      "query": "rate(node_vmstat_pswpin{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m]) + rate(node_vmstat_pswpout{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk read and write throughput",
+      "ref_id": "A",
+      "query": "rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk read and write throughput",
+      "ref_id": "B",
+      "query": "rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk IOPS",
+      "ref_id": "A",
+      "query": "rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk IOPS",
+      "ref_id": "B",
+      "query": "rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk I/O busy time",
+      "ref_id": "A",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Filesystem used",
+      "ref_id": "A",
+      "query": "1 - node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Filesystem free space",
+      "ref_id": "A",
+      "query": "node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Storage topology components",
+      "ref_id": "A",
+      "query": "max by (cluster, kind, component, role) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"demo-b300\",kind=\"storage\"})",
+      "series": 41,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Storage topology matrix",
+      "ref_id": "A",
+      "query": "label_join(label_join(max by (cluster, source, destination) (telemetry_topology_edge_info{job=\"telemetry\",cluster=~\"demo-b300\",kind=\"storage\"}), \"source_key\", \"/\", \"cluster\", \"source\"), \"destination_key\", \"/\", \"cluster\", \"destination\")",
+      "series": 40,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSDs with critical warnings",
+      "ref_id": "A",
+      "query": "sum(smartctl_device_critical_warning{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"} != bool 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Maximum SSD temperature",
+      "ref_id": "A",
+      "query": "max(smartctl_device_temperature{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\",temperature_type=\"current\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Maximum endurance used",
+      "ref_id": "A",
+      "query": "max(smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Minimum available spare",
+      "ref_id": "A",
+      "query": "min(smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD temperature",
+      "ref_id": "A",
+      "query": "smartctl_device_temperature{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\",temperature_type=\"current\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD endurance and available spare",
+      "ref_id": "A",
+      "query": "smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD endurance and available spare",
+      "ref_id": "B",
+      "query": "smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "NVMe media errors",
+      "ref_id": "A",
+      "query": "smartctl_device_media_errors{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Lifetime host bytes written by SSD",
+      "ref_id": "A",
+      "query": "smartctl_device_bytes_written{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "A",
+      "query": "max by (cluster, storage_system, instance, device, protocol, model_name, firmware_version) (smartctl_device{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "B",
+      "query": "smartctl_device_smart_status{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "C",
+      "query": "smartctl_device_smartctl_exit_status{job=\"storage-smart\",cluster=~\"demo-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk mean completed I/O latency",
+      "ref_id": "A",
+      "query": "(rate(node_disk_read_time_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])) / (rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m]) > 0)",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk mean completed I/O latency",
+      "ref_id": "B",
+      "query": "(rate(node_disk_write_time_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])) / (rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m]) > 0)",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk outstanding I/O and average queue",
+      "ref_id": "A",
+      "query": "node_disk_io_now{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Disk outstanding I/O and average queue",
+      "ref_id": "B",
+      "query": "rate(node_disk_io_time_weighted_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Filesystem available inodes",
+      "ref_id": "A",
+      "query": "(node_filesystem_files_free{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}) / (node_filesystem_files{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"} > 0)",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Filesystem read-only and collection errors",
+      "ref_id": "A",
+      "query": "node_filesystem_readonly{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Filesystem read-only and collection errors",
+      "ref_id": "B",
+      "query": "node_filesystem_device_error{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Dirty and writeback memory",
+      "ref_id": "A",
+      "query": "node_memory_Dirty_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "data-storage.json",
+      "panel": "Dirty and writeback memory",
+      "ref_id": "B",
+      "query": "node_memory_Writeback_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Completed RL step",
+      "ref_id": "A",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\",role=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Reward mean",
+      "ref_id": "A",
+      "query": "reward_mean{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Worker sample age",
+      "ref_id": "A",
+      "query": "time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\",role=~\".*\"}",
+      "series": 33,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Completed RL stage duration (step boundary)",
+      "ref_id": "A",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\",phase=~\".*\",role=~\".*\",worker_id=~\".*\"}",
+      "series": 6,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Completed step throughput and response length",
+      "ref_id": "A",
+      "query": "training_tokens_per_second_per_gpu{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Completed step throughput and response length",
+      "ref_id": "B",
+      "query": "rollout_output_tokens_mean{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "GPU utilization by selected node",
+      "ref_id": "A",
+      "query": "telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Weight sync and policy lag",
+      "ref_id": "A",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\",phase=\"weight_sync\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Weight sync and policy lag",
+      "ref_id": "B",
+      "query": "policy_version_lag{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Tool and reward signals",
+      "ref_id": "A",
+      "query": "agent_tool_call_duration_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Tool and reward signals",
+      "ref_id": "B",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\",phase=\"reward\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Live rollout engine signals",
+      "ref_id": "A",
+      "query": "vllm:num_requests_waiting{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Live rollout engine signals",
+      "ref_id": "B",
+      "query": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Live rollout engine signals",
+      "ref_id": "C",
+      "query": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Live rollout engine signals",
+      "ref_id": "D",
+      "query": "vllm:num_requests_running{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload store and load",
+      "ref_id": "A",
+      "query": "rate(vllm:kv_offload_store_bytes_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) or on (cluster, node, instance, model_name, engine) rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\",transfer_type=\"GPU_to_CPU\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload store and load",
+      "ref_id": "B",
+      "query": "rate(vllm:kv_offload_load_bytes_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) or on (cluster, node, instance, model_name, engine) rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"demo-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\",transfer_type=\"CPU_to_GPU\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox pool occupancy",
+      "ref_id": "A",
+      "query": "sandbox_active{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox pool occupancy",
+      "ref_id": "B",
+      "query": "sandbox_queued{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "A",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "B",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 36,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "C",
+      "query": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "D",
+      "query": "sandbox_memory_pressure_ratio{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "E",
+      "query": "sandbox_memory_full_pressure_ratio{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "F",
+      "query": "rate(sandbox_cpu_throttled_periods_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m]) / (rate(sandbox_cpu_periods_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m]) > 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker I/O rate",
+      "ref_id": "A",
+      "query": "rate(sandbox_io_read_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker I/O rate",
+      "ref_id": "B",
+      "query": "rate(sandbox_io_write_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker I/O operations",
+      "ref_id": "A",
+      "query": "rate(sandbox_io_read_ops_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker I/O operations",
+      "ref_id": "B",
+      "query": "rate(sandbox_io_write_ops_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker memory",
+      "ref_id": "A",
+      "query": "sandbox_memory_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox worker memory",
+      "ref_id": "B",
+      "query": "sandbox_memory_peak_bytes{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "A",
+      "query": "rate(sandbox_cpu_usage_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "B",
+      "query": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "C",
+      "query": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "D",
+      "query": "rate(sandbox_cpu_throttled_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "E",
+      "query": "rate(sandbox_memory_high_events_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox CPU and memory events",
+      "ref_id": "F",
+      "query": "rate(sandbox_memory_max_events_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Sandbox sample age",
+      "ref_id": "A",
+      "query": "time() - sandbox_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM token throughput",
+      "ref_id": "A",
+      "query": "rate(vllm:prompt_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM token throughput",
+      "ref_id": "B",
+      "query": "rate(vllm:generation_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM request latency p95",
+      "ref_id": "A",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:time_to_first_token_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM request latency p95",
+      "ref_id": "B",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_queue_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM request latency p95",
+      "ref_id": "C",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM prefill and decode latency p95",
+      "ref_id": "A",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_prefill_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM prefill and decode latency p95",
+      "ref_id": "B",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_decode_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM prefill and decode latency p95",
+      "ref_id": "C",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:inter_token_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM prefix cache token hit ratio",
+      "ref_id": "A",
+      "query": "(rate(vllm:prefix_cache_hits_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])) / (rate(vllm:prefix_cache_queries_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) > 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM prefix cache token hit ratio",
+      "ref_id": "B",
+      "query": "(rate(vllm:external_prefix_cache_hits_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])) / (rate(vllm:external_prefix_cache_queries_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) > 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM completed requests by finish reason",
+      "ref_id": "A",
+      "query": "rate(vllm:request_success_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "series": 3,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload mean transfer time",
+      "ref_id": "A",
+      "query": "(rate(vllm:kv_offload_store_time_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])) / (rate(vllm:kv_offload_store_size_count{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) > 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload mean transfer time",
+      "ref_id": "B",
+      "query": "(rate(vllm:kv_offload_load_time_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])) / (rate(vllm:kv_offload_load_size_count{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m]) > 0)",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload allocation failures",
+      "ref_id": "A",
+      "query": "rate(vllm:kv_offload_allocation_failure_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload lookup latency p95",
+      "ref_id": "A",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:kv_offload_lookup_sync_delay_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "vLLM KV offload lookup latency p95",
+      "ref_id": "B",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:kv_offload_lookup_async_delay_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray task states",
+      "ref_id": "A",
+      "query": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\"})",
+      "series": 2,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray actor states",
+      "ref_id": "A",
+      "query": "sum by (cluster, SessionName, State) (ray_actors{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\"})",
+      "series": 2,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray logical CPU / GPU resources",
+      "ref_id": "A",
+      "query": "sum by (cluster, node, instance, SessionName, Name, State) (ray_resources{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\",Name=~\"CPU|GPU\"})",
+      "series": 4,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray object store memory",
+      "ref_id": "A",
+      "query": "sum by (cluster, node, instance, SessionName, Location) (ray_object_store_memory{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray OOM worker evictions",
+      "ref_id": "A",
+      "query": "sum by (cluster, node, instance, SessionName, Type) (rate(ray_memory_manager_worker_eviction_total{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\"}[1m]))",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray retried task states",
+      "ref_id": "A",
+      "query": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\",IsRetry=\"1\"})",
+      "series": 2,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Ray placement group states",
+      "ref_id": "A",
+      "query": "sum by (cluster, SessionName, State) (ray_placement_groups{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo-b300\",node=~\".*\"})",
+      "series": 2,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Native endpoint scrape health",
+      "ref_id": "A",
+      "query": "up{job=\"native\",cluster=~\"demo-b300\",node=~\".*\"}",
+      "series": 3,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Native endpoint scrape duration",
+      "ref_id": "A",
+      "query": "scrape_duration_seconds{job=\"native\",cluster=~\"demo-b300\",node=~\".*\"}",
+      "series": 3,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Native endpoint scraped samples",
+      "ref_id": "A",
+      "query": "scrape_samples_scraped{job=\"native\",cluster=~\"demo-b300\",node=~\".*\"}",
+      "series": 3,
+      "finite": true
+    },
+    {
+      "dashboard": "agent-rl-stages.json",
+      "panel": "Native endpoint scraped samples",
+      "ref_id": "B",
+      "query": "scrape_samples_post_metric_relabeling{job=\"native\",cluster=~\"demo-b300\",node=~\".*\"}",
+      "series": 3,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU utilization matrix (latest sample)",
+      "ref_id": "A",
+      "query": "label_join((telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)), \"node\", \"/\", \"cluster\", \"nodename\")",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU utilization",
+      "ref_id": "A",
+      "query": "(telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU power",
+      "ref_id": "A",
+      "query": "(telemetry_gpu_power_watts{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU temperature",
+      "ref_id": "A",
+      "query": "(telemetry_gpu_temperature_celsius{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU SM clock",
+      "ref_id": "A",
+      "query": "(telemetry_gpu_sm_clock_mhz{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU memory (device and processes)",
+      "ref_id": "A",
+      "query": "(telemetry_gpu_process_memory_bytes{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU memory (device and processes)",
+      "ref_id": "B",
+      "query": "(telemetry_gpu_memory_used_bytes{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU memory (device and processes)",
+      "ref_id": "C",
+      "query": "(telemetry_gpu_memory_total_bytes{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"} < 30)",
+      "series": 32,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Worker-local application timers",
+      "ref_id": "A",
+      "query": "(training_timer_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} < 300)",
+      "series": 165,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "TCP/Ethernet throughput by interface",
+      "ref_id": "A",
+      "query": "sum by (cluster, nodename, instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "TCP/Ethernet throughput by interface",
+      "ref_id": "B",
+      "query": "sum by (cluster, nodename, instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA throughput by port",
+      "ref_id": "A",
+      "query": "sum by (cluster, nodename, instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA throughput by port",
+      "ref_id": "B",
+      "query": "sum by (cluster, nodename, instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU allocation matrix",
+      "ref_id": "A",
+      "query": "label_join((training_gpu_allocation{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"} < 300)), \"worker\", \"/\", \"cluster\", \"instance\", \"run_id\", \"producer\", \"role\", \"worker_id\")",
+      "series": 40,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Compute topology matrix",
+      "ref_id": "A",
+      "query": "label_join(label_join(max by (cluster, source, destination) (telemetry_topology_edge_info{job=\"telemetry\",cluster=~\"demo-b300\",kind=\"compute\"}), \"source_key\", \"/\", \"cluster\", \"source\"), \"destination_key\", \"/\", \"cluster\", \"destination\")",
+      "series": 228,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host CPU busy, I/O wait and steal",
+      "ref_id": "A",
+      "query": "1 - avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mode=\"idle\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host CPU busy, I/O wait and steal",
+      "ref_id": "B",
+      "query": "avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mode=\"iowait\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host CPU busy, I/O wait and steal",
+      "ref_id": "C",
+      "query": "avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",mode=\"steal\"}[1m]))",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host pressure stalls (some)",
+      "ref_id": "A",
+      "query": "rate(node_pressure_cpu_waiting_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host pressure stalls (some)",
+      "ref_id": "B",
+      "query": "rate(node_pressure_memory_waiting_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host pressure stalls (some)",
+      "ref_id": "C",
+      "query": "rate(node_pressure_io_waiting_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host pressure stalls (full)",
+      "ref_id": "A",
+      "query": "rate(node_pressure_memory_stalled_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host pressure stalls (full)",
+      "ref_id": "B",
+      "query": "rate(node_pressure_io_stalled_seconds_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host major faults and OOM kills",
+      "ref_id": "A",
+      "query": "rate(node_vmstat_pgmajfault{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Host major faults and OOM kills",
+      "ref_id": "B",
+      "query": "rate(node_vmstat_oom_kill{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Runnable and blocked processes",
+      "ref_id": "A",
+      "query": "node_procs_running{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Runnable and blocked processes",
+      "ref_id": "B",
+      "query": "node_procs_blocked{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "Node exporter collector health",
+      "ref_id": "A",
+      "query": "node_scrape_collector_success{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",collector=~\"cpu|meminfo|vmstat|pressure|diskstats|filesystem|netdev|netstat|infiniband\"}",
+      "series": 108,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "NIC errors and dropped packets",
+      "ref_id": "A",
+      "query": "rate(node_network_receive_errs_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "NIC errors and dropped packets",
+      "ref_id": "B",
+      "query": "rate(node_network_receive_drop_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "NIC errors and dropped packets",
+      "ref_id": "C",
+      "query": "rate(node_network_transmit_errs_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "NIC errors and dropped packets",
+      "ref_id": "D",
+      "query": "rate(node_network_transmit_drop_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "TCP retransmissions",
+      "ref_id": "A",
+      "query": "rate(node_netstat_Tcp_RetransSegs{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA errors and discards",
+      "ref_id": "A",
+      "query": "rate(node_infiniband_port_errors_received_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA errors and discards",
+      "ref_id": "B",
+      "query": "rate(node_infiniband_port_discards_received_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA errors and discards",
+      "ref_id": "C",
+      "query": "rate(node_infiniband_port_discards_transmitted_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA transmit wait ticks",
+      "ref_id": "A",
+      "query": "rate(node_infiniband_port_transmit_wait_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA link recovery events",
+      "ref_id": "A",
+      "query": "rate(node_infiniband_link_downed_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA link recovery events",
+      "ref_id": "B",
+      "query": "rate(node_infiniband_link_error_recovery_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA physical link errors",
+      "ref_id": "A",
+      "query": "rate(node_infiniband_symbol_error_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "RDMA physical link errors",
+      "ref_id": "B",
+      "query": "rate(node_infiniband_local_link_integrity_errors_total{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"}[1m])",
+      "series": 12,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM GPU activity",
+      "ref_id": "A",
+      "query": "(DCGM_FI_DEV_GPU_UTIL{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 <= 100) / 100",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM GPU activity",
+      "ref_id": "B",
+      "query": "(DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 <= 1)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM GPU activity",
+      "ref_id": "C",
+      "query": "(DCGM_FI_PROF_DRAM_ACTIVE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 <= 1)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM PCIe throughput",
+      "ref_id": "A",
+      "query": "(DCGM_FI_PROF_PCIE_RX_BYTES{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 < 1e18)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM PCIe throughput",
+      "ref_id": "B",
+      "query": "(DCGM_FI_PROF_PCIE_TX_BYTES{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 < 1e18)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM last XID error",
+      "ref_id": "A",
+      "query": "(DCGM_FI_DEV_XID_ERRORS{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 < 1e9)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM PCIe retries",
+      "ref_id": "A",
+      "query": "rate(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) and (max_over_time(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) < 1e18)",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM framebuffer memory",
+      "ref_id": "A",
+      "query": "(DCGM_FI_DEV_FB_USED{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 < 1e18) * 1024 * 1024",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM framebuffer memory",
+      "ref_id": "B",
+      "query": "(DCGM_FI_DEV_FB_FREE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"} >= 0 < 1e18) * 1024 * 1024",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM power and thermal throttling",
+      "ref_id": "A",
+      "query": "(rate(DCGM_FI_DEV_POWER_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) and (max_over_time(DCGM_FI_DEV_POWER_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) < 1e18)) / 1e9",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM power and thermal throttling",
+      "ref_id": "B",
+      "query": "(rate(DCGM_FI_DEV_THERMAL_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) and (max_over_time(DCGM_FI_DEV_THERMAL_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\",gpu=~\".*\"}[1m]) < 1e18)) / 1e9",
+      "series": 8,
+      "finite": true
+    },
+    {
+      "dashboard": "compute-communication.json",
+      "panel": "DCGM endpoint scrape health",
+      "ref_id": "A",
+      "query": "up{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"demo-b300\",node=~\".*\"}",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "start-here.json",
+      "panel": "Collector health",
+      "ref_id": "A",
+      "query": "min(up{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "start-here.json",
+      "panel": "Application age",
+      "ref_id": "A",
+      "query": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "start-here.json",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "start-here.json",
+      "panel": "Completed step",
+      "ref_id": "A",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"})",
+      "series": 1,
+      "finite": true
+    },
+    {
+      "dashboard": "start-here.json",
+      "panel": "Observed runs \u00b7 select to investigate",
+      "ref_id": "A",
+      "query": "time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo-b300\",nodename=~\".*\",run_id=~\".*\"}",
+      "series": 33,
+      "finite": true
+    }
+  ],
+  "scope": "Canonical Prometheus dashboard queries; Loki and Grafana rendering not tested",
+  "limitation": "Synthetic runtime only; no physical GPU/NIC/SSD or real vLLM/Ray workload was exercised"
+}

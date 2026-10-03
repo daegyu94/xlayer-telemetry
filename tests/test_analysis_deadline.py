@@ -15,6 +15,7 @@ import pytest
 
 from xlayer_telemetry.analysis.deadline import IsolatedAnalyzer
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, load_config, run_once
+from tests._process_helpers import child_processes, process_exists, signal_process
 
 
 @pytest.fixture
@@ -112,28 +113,38 @@ def test_cli_sigterm_stops_its_analysis_worker(tmp_path):
     process = subprocess.Popen([sys.executable,'-m','xlayer_telemetry.analysis.diagnostics',
         '--config',str(config),'--history',str(fifo),'--output',str(tmp_path/'output')],
         stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
     children = []
     try:
         end = time.monotonic()+5
         while time.monotonic()<end:
-            children_file = Path(f'/proc/{process.pid}/task/{process.pid}/children')
-            children = [int(pid) for pid in children_file.read_text().split()]
+            children = child_processes(process.pid)
             # Spawn uses a resource tracker and the analysis worker.
-            if len(children) >= 2:
+            if len(children) >= 2 and any(
+                Path(f'/proc/{child.pid}/wchan').read_text() == 'wait_for_partner'
+                for child in children
+            ):
                 break
             time.sleep(.02)
         assert len(children) >= 2
+        assert any(Path(f'/proc/{child.pid}/wchan').read_text() == 'wait_for_partner'
+                   for child in children), 'actual analyzer did not reach the injected FIFO read'
         process.send_signal(signal.SIGTERM)
         _, stderr = process.communicate(timeout=3)
         assert process.returncode == 143, stderr.decode()
         end = time.monotonic()+2
-        while time.monotonic()<end and any(Path(f'/proc/{pid}').exists() for pid in children):
+        while time.monotonic()<end and any(process_exists(child) for child in children):
             time.sleep(.02)
-        assert all(not Path(f'/proc/{pid}').exists() for pid in children)
+        assert all(not process_exists(child) for child in children)
+        assert unrelated.poll() is None
     finally:
+        for child in children:
+            signal_process(child, signal.SIGKILL)
         if process.poll() is None:
             process.kill()
             process.communicate(timeout=3)
+        unrelated.terminate()
+        unrelated.wait(timeout=3)
 
 
 @pytest.mark.parametrize('value',[-1,float('nan'),True])

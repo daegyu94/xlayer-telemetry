@@ -8,6 +8,7 @@ import sys
 import textwrap
 
 import pytest
+from tests._process_helpers import child_processes, process_running, signal_process
 
 
 ROOT = Path(__file__).parents[1]
@@ -163,7 +164,6 @@ def test_exited_sidecar_leader_does_not_leave_its_worker_running(tmp_path):
             wrapper.wait(timeout=5)
 
 
-@pytest.mark.skipif(not Path("/proc/self/task").exists(), reason="Linux process ownership validation")
 def test_forced_diagnostics_shutdown_stops_actual_blocked_analyzer(tmp_path):
     import time
 
@@ -190,33 +190,33 @@ def test_forced_diagnostics_shutdown_stops_actual_blocked_analyzer(tmp_path):
         deadline = time.monotonic() + 8
         blocked = False
         while time.monotonic() < deadline:
-            for pid in Path(f"/proc/{wrapper.pid}/task/{wrapper.pid}/children").read_text().split():
+            for process in child_processes(wrapper.pid):
                 try:
-                    args = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+                    args = Path(f"/proc/{process.pid}/cmdline").read_bytes().split(b"\0")
                     if b"xlayer_telemetry.analysis.diagnostics" not in args or b"--interval" not in args:
                         continue
-                    diagnostics = int(pid)
-                    descendants = [int(child) for child in Path(f"/proc/{pid}/task/{pid}/children").read_text().split()]
-                    blocked = any(Path(f"/proc/{child}/wchan").read_text() == "wait_for_partner" for child in descendants)
+                    diagnostics = process
+                    descendants = child_processes(process.pid)
+                    blocked = any(Path(f"/proc/{child.pid}/wchan").read_text() == "wait_for_partner" for child in descendants)
                 except FileNotFoundError:
                     continue
             if blocked:
                 break
             time.sleep(.02)
         assert blocked, "actual analyzer did not reach the injected FIFO read"
-        os.kill(diagnostics, signal.SIGSTOP)
+        signal_process(diagnostics, signal.SIGSTOP)
         # The already-blocked worker keeps the old inode open. Remove only the
         # fixture pathname so final export can run without another blocked read.
         history.unlink()
         release.touch()
         assert wrapper.wait(timeout=9) == 7
-        assert all(not _running(pid) for pid in descendants), "analyzer/resource tracker survived its controller"
+        assert all(not process_running(child) for child in descendants), "analyzer/resource tracker survived its controller"
         assert unrelated.poll() is None
     finally:
-        for pid in descendants:
-            _kill(pid)
+        for child in descendants:
+            signal_process(child, signal.SIGKILL)
         if diagnostics is not None:
-            _kill(diagnostics)
+            signal_process(diagnostics, signal.SIGKILL)
         release.touch()
         if wrapper.poll() is None:
             try:

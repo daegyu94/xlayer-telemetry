@@ -586,6 +586,74 @@ Profile 메뉴의 추가 테마 목록을 숨기려면 toggle 목록에서 `extr
 참고: [Grafana 12 themes](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-0/), [preference 우선순위](https://grafana.com/docs/grafana/latest/administration/organization-preferences/), [Ray metric 의미](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html), [vLLM native metrics](https://docs.vllm.ai/en/latest/usage/metrics/).
 
 
+## Bottleneck Signals Beyond Utilization
+
+추가 상세 row는 기본적으로 접혀 있습니다. 필요한 subsystem만 펼쳐 query 비용을 제한하고
+`Cluster`·`Resource node`·GPU/device/mount/engine 선택으로 범위를 좁힙니다.
+새 collector나 per-request label을 추가하지 않고 기존 exporter의 counter/gauge를 읽습니다.
+N/A는 미등록·미지원·표본 부족일 수 있으며 `0`으로 보정하지 않습니다.
+
+| Dashboard / row | 확인할 신호 | 해석 범위 |
+| --- | --- | --- |
+| Compute / Host pressure and collection health | CPU busy/iowait/steal, PSI some/full, major faults, OOM kills, runnable/blocked processes, collector success | Node 전체. PSI는 stalled wall-time 비율이며 CPU utilization과 다릅니다. |
+| Compute / Network and RDMA backpressure | NIC errors/drops, TCP retransmits, RDMA discards/link recovery, symbol/link-integrity errors | Interface/port 전체. RDMA transmit wait는 hardware ticks/s로 표시하며 seconds로 추정하지 않습니다. |
+| Compute / DCGM device health and profiling | GPU/tensor/DRAM activity, PCIe bytes/s/retries, XID, framebuffer, power/thermal violation | 기존 native `kind=dcgm` endpoint. GPU sampler와 합산하지 않습니다. |
+| Data / Local I/O latency and filesystem pressure | 완료 I/O 평균 latency, outstanding/weighted queue, inode 여유, readonly/stat errors, dirty/writeback | Device 또는 mount 전체. NVMe busy=100%만으로 saturation을 확정하지 않습니다. |
+| Agent RL / vLLM throughput & latency | Per-engine TTFT/queue/e2e 및 prefill/decode/inter-token p95, prefix-token hit ratio, finish reason, offload mean transfer time/allocation failures/lookup p95 | Shared engine. Run의 정확한 latency나 p95 합으로 해석하지 않습니다. |
+| Agent RL / Ray orchestration | Retried task state, placement-group state, 기존 object-store/OOM signals | Session 내 분산 state gauge. `Node=All`로 전체 합을 확인하며 retry gauge에 rate를 적용하지 않습니다. |
+| Agent RL / Native endpoint collection health | `up`, scrape seconds, scrape/retained sample 수 | Prometheus 수집 상태·비용. Up이 workload 정상 또는 모든 metric 지원을 의미하지 않습니다. |
+
+Diagnostic use cases와 기본 비용:
+
+- Host 6 panels: GPU가 idle인 동안 CPU queue·memory reclaim·I/O stalls 또는 수집 실패인지 구분합니다.
+- Network/RDMA 6 panels: Weight sync·collective 지연 시 throughput 부족과 packet loss·link 오류를 비교합니다.
+- DCGM 7 panels: Compute/DRAM/PCIe activity와 GPU fault·throttling을 함께 조사합니다.
+- Local storage 5 panels: Checkpoint·KV file offload 지연을 device queue·평균 latency·inode·writeback과 비교합니다.
+- vLLM 6 panels: Generation 지연을 prefill/decode·cache miss·offload transfer/lookup/allocation 구간으로 좁힙니다.
+- Ray 2 panels: Worker가 일을 받지 못할 때 retried task와 placement-group pending state를 확인합니다.
+- Native health 3 panels: Workload idle과 endpoint scrape 실패·sample limit·collector 비용 문제를 구분합니다.
+
+추가한 35개 panel 모두 collapsed row 내부에 있고 기본 overview에는 추가 query를 실행하지 않습니다.
+기존 live vLLM offload panel의 current/legacy fallback만 기본 화면에서 개선합니다.
+
+Disk latency는 `rate(read/write time) / rate(completed operations)`의 평균입니다.
+분모가 0이면 N/A로 남기며 p95/p99를 생성하지 않습니다. Filesystem inode total=0과
+prefix-cache queries=0도 동일하게 처리합니다. Dirty/writeback이나 SMART lifetime 값은
+특정 Run의 physical writes·write amplification·checkpoint bytes로 귀속하지 않습니다.
+
+DCGM profiling PCIe RX/TX 값은 이미 bytes/s인 gauge이고 XID는 마지막 error code입니다.
+두 값에 rate를 적용하지 않습니다. Framebuffer MiB는 bytes로, violation nanoseconds는
+초당 비율로 변환합니다. 지원되지 않는 sentinel 값은 제외합니다. Profiling과
+power/thermal violation field는 GPU/driver/exporter의 선택적 지원과 field 설정이 필요합니다.
+기존 DCGM endpoint를 등록하고 GPU sampler를 비활성화한 경우 이 optional row를 사용합니다.
+Native-only DCGM node와 GPU index도 selector에서 선택할 수 있습니다.
+
+vLLM offload throughput은 새 `kv_offload_store_bytes_total` / `kv_offload_load_bytes_total`을
+우선합니다. 같은 cluster/node/endpoint/model/engine의 구형
+`kv_offload_total_bytes_total{transfer_type=...}`는 fallback으로만 사용해 중복 집계하지 않습니다.
+Transfer duration·lookup·allocation metric은 connector/version별 지원이 다르며 무조건
+활성화되지 않습니다. Local/external prefix hit ratio는 request 수가 아니라 token 수 기준입니다.
+Current/legacy metric을 함께 내보내는 배포와 engine별 histogram 경계를 regression test로 검증합니다.
+
+3FS/pNFS 서비스·RPC·metadata latency, FUSE operation latency, 파일별 retry, per-request
+NCCL communication time은 위 node/device 신호로 대체하지 않습니다. 관련 native exporter나
+ClickHouse evidence, application span 또는 선택적 profiler가 필요합니다. Ray spill은 기존
+`ray_object_store_memory{Location="SPILLED"}`의 현재 bytes로 보며 이를 disk throughput으로
+바꾸지 않습니다. 상세 metric은 upstream과 실제 `/metrics`의 이름·단위를 확인합니다.
+
+Exporter contract sources:
+[Node Exporter PSI](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/pressure_linux.go),
+[diskstats](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/diskstats_common.go),
+[InfiniBand/RoCE](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/infiniband_linux.go),
+[DCGM field definitions](https://github.com/NVIDIA/dcgm-exporter/blob/fafd151148052628061a80450b4ee037a5fa0c3c/etc/default-counters.csv),
+[vLLM engine metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/v1/metrics/loggers.py),
+[vLLM offloading metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/distributed/kv_transfer/kv_connector/v1/offloading/metrics.py),
+[Ray metrics semantics](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html).
+2026-10-03 확인 기준 vLLM commit은 `5f30fc7031cae49bf51073fc953d419b08f8887c`,
+DCGM Exporter commit은 `fafd151148052628061a80450b4ee037a5fa0c3c`입니다.
+새 optional metric은 이전 release에서 N/A일 수 있습니다. Bundled Node Exporter 1.9.1에는
+mlx5 ECN·ACK timeout·QP retransmit hardware counter가 없으므로 이 panel에 추정값을 추가하지 않습니다.
+
 ## Browser Journey Validation
 
 [Diagnosis practice](diagnosis.md#practice-with-a-synthetic-candidate)의 synthetic Run을 실제 browser로 확인할 때 사용합니다.

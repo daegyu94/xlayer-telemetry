@@ -164,8 +164,9 @@ vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `sources refres
 | 자동 진단과 선택적 3FS ClickHouse | `DIAGNOSTICS_CONFIG`; 새 run 시작 | [Diagnostics](agent-rl.md#add-diagnostics) |
 | 다른 저장 위치·node 이름 | 절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME` | [구현 구조](architecture.md#what-each-file-is-for) |
 
-`xltel`의 local lifecycle은 단일 host 편의 interface입니다.
-다른 host에 collector를 배치할 때는 [Monitoring Guide](monitoring.md#expand-to-multiple-nodes)와 [node mapping](agent-rl.md#map-multiple-nodes-to-a-run)의 주소·port·label 설정을 사용합니다.
+`xltel`은 명령을 실행한 host의 process를 관리합니다.
+Monitoring host에서는 `up --role server`, 각 collector host에서는 `up --role node`를 사용하며 원격 host를 한 번에 배포하지는 않습니다.
+[Monitoring Guide](monitoring.md#expand-to-multiple-nodes)와 [node mapping](agent-rl.md#map-multiple-nodes-to-a-run)의 주소·port·label 설정으로 연결합니다.
 기본 wrapper 옵션은 `xltel run --help`, 추가 source metadata 등 advanced 옵션은 `bash scripts/run_verl_with_telemetry.sh --help`에서 확인합니다.
 Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인에는 필요하지 않습니다.
 

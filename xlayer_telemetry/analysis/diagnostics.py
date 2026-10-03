@@ -26,6 +26,7 @@ from ..fileio import atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
 from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
+from .metric_queries import PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 
 DEFAULT_QUERIES = {
@@ -141,10 +142,12 @@ class ThreeFSClient:
             "max(`max`) AS max_value, max(p99) AS max_observed_p99, "
             "toUnixTimestamp(min(TIMESTAMP)) AS first_observed_at, "
             "toUnixTimestamp(max(TIMESTAMP)) AS last_observed_at "
-            f"FROM {self.database}.distributions WHERE {self._where(start, end)} GROUP BY metricName "
+            f"FROM {self.database}.distributions WHERE {self._where(start, end)} GROUP BY metricName ORDER BY metricName LIMIT 1001 "
             "FORMAT JSONEachRow"
         )
         rows = self._query_rows(query)
+        if len(rows) > 1000:
+            raise ValueError("3FS distributions exceed 1000 metric limit; narrow source filters")
         for row in rows:
             if "sample_count" in row:
                 row["count"] = row.pop("sample_count")
@@ -203,6 +206,7 @@ def load_config(path: Path) -> dict[str, Any]:
         raise ValueError("diagnostics config requires a prometheus object")
     if not isinstance(config["prometheus"].get("url"), str):
         raise ValueError("diagnostics config requires prometheus.url")
+    validate_metric_profiles(config["prometheus"])
     QueryBudget(config.get("query_budget_seconds", 30))
     deadline = config.get("analysis_deadline_seconds", 60)
     if finite(deadline) is None or deadline < 0:
@@ -414,6 +418,7 @@ class DiagnosticEngine:
                     r'\{(?=[A-Za-z_]+=)',
                     lambda match: '{cluster="{cluster}",job="' + job + '"' + source + ',', template,
                 )
+        queries.update(profile_queries(self.config["prometheus"], cluster))
         queries.update(custom)
         if self.config.get("storage_node") and self.config.get("storage_device"):
             queries.setdefault("storage_device_busy_ratio", (
@@ -751,6 +756,35 @@ class DiagnosticEngine:
                     baseline_signals[name] = memory_ratio(previous) if name == "gpu_memory_usage_ratio" else previous["stats"]["max"]
                 elif name in baseline_metrics:
                     missing.append(f"gpu:memory_baseline_entity_match:{name}")
+        # Additional exporter profiles are compared per exact entity. Never
+        # subtract different disks/interfaces/engines just because both supplied
+        # a window maximum. Aggregate-only clients retain unknown-scope values
+        # but cannot supply an entity-matched baseline for these signals.
+        for name, spec in PROFILE_SIGNALS.items():
+            items = [item for item in current_series.get(name, [])
+                     if finite(item.get("stats", {}).get(spec.statistic)) is not None]
+            if not items:
+                if name in current_signals:
+                    signal_scopes[name] = "unknown"
+                    baseline_signals.pop(name, None)
+                continue
+            choose = min if spec.statistic == "min" else max
+            selected_item = choose(items, key=lambda item: item["stats"][spec.statistic])
+            def profile_identity(item):
+                return {key: value for key, value in item.get("labels", {}).items() if key != "__name__"}
+            selected_identity = profile_identity(selected_item)
+            current_signals[name] = selected_item["stats"][spec.statistic]
+            signal_labels[name] = selected_identity
+            signal_scopes[name] = spec.scope if selected_identity else "unknown"
+            baseline_signals.pop(name, None)
+            matching = [item for item in baseline_series.get(name, [])
+                        if selected_identity and profile_identity(item) == selected_identity]
+            if len(matching) == 1:
+                previous_value = finite(matching[0].get("stats", {}).get(spec.statistic))
+                if previous_value is not None:
+                    baseline_signals[name] = previous_value
+            elif name in baseline_metrics:
+                missing.append(f"prometheus:{name}:baseline_entity_match")
         selected_3fs_metric = None
         if baseline_record:
             def latencies(rows: list[dict[str, Any]]) -> dict[str, float]:
@@ -807,6 +841,9 @@ class DiagnosticEngine:
             "step_duration_seconds": "workload",
             "rollout_duration_seconds": "workload",
             "communication_duration_seconds": "workload",
+            "actor_update_duration_seconds": "workload",
+            "critic_update_duration_seconds": "workload",
+            "checkpoint_duration_seconds": "workload",
         })
         if selected_3fs_metric:
             sources["threefs_p99_latency"] = f"3fs_clickhouse:{selected_3fs_metric}"
@@ -873,6 +910,10 @@ class DiagnosticEngine:
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
+            if row["signal"] in PROFILE_SIGNALS:
+                row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
+                row["query"] = signal_queries.get(row["signal"])
+                row["window_statistic"] = PROFILE_SIGNALS[row["signal"]].statistic
         external_count = len(evidence) - 1
         verdict = "bottleneck_suspected" if findings or candidates else "no_anomaly_observed"
         if unsafe_timing:
@@ -895,6 +936,9 @@ class DiagnosticEngine:
                     candidate["missing_evidence"].append("threefs_producer_clock_alignment")
                     if candidate["state"] == "strong_signal":
                         candidate["state"] = "supporting_signal"
+        profiles = validate_metric_profiles(self.config["prometheus"])
+        if profiles:
+            limitations.append("Extended exporter evidence is node/device/shared-service scoped, not owned by the run. Window extrema can refer to different entities; comparisons match exact labels. Rate windows can extend before the step, p95 values are per-entity histogram estimates, and missing metrics do not mean zero.")
         if execution_mode == "async":
             limitations.append(
                 "The VERL record is a trainer-update boundary; continuous vLLM, Ray, and 3FS activity is not owned by this step."
@@ -921,6 +965,7 @@ class DiagnosticEngine:
             "findings": findings,
             "evidence": evidence,
             "sampling_quality": sampling_quality,
+            "metric_profiles": profiles,
             "query_execution": budget.summary(),
             "sandbox_device_mapping": sandbox_device_mapping,
             "diagnosis_method": "rule",
@@ -952,6 +997,9 @@ class DiagnosticEngine:
         if isinstance(stages, Mapping):
             for signal, names in {
                 "rollout_duration_seconds": ("rollout",),
+                "actor_update_duration_seconds": ("update_actor",),
+                "critic_update_duration_seconds": ("update_critic",),
+                "checkpoint_duration_seconds": ("save_checkpoint",),
                 "communication_duration_seconds": ("weight_sync", "all_reduce", "collective"),
             }.items():
                 values = [finite(stages.get(name)) for name in names]
@@ -981,6 +1029,7 @@ class DiagnosticEngine:
             "threefs_throughput_bytes_per_second": "mean",
             "storage_request_bytes": "mean",
         }
+        fields.update({name: spec.statistic for name, spec in PROFILE_SIGNALS.items()})
         for name, field in fields.items():
             stats = metrics.get(name)
             if isinstance(stats, Mapping):

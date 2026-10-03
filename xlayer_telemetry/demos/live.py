@@ -46,7 +46,7 @@ def load_topology(directory: Path) -> tuple[dict, dict]:
                 or network["bandwidth_gbps"] <= 0):
             raise ValueError("invalid network topology")
     nodes = gpu["gpu_nodes"] + storage["storage_nodes"]
-    if len(set(nodes)) != len(nodes) or set(nodes) & {"topology", "vllm", "ray", "mooncake-master", "mooncake-client"}:
+    if len(set(nodes)) != len(nodes) or set(nodes) & {"topology", "vllm", "ray", "dcgm", "mooncake-master", "mooncake-client"}:
         raise ValueError("demo node names must be unique and not reserved native endpoints")
     return gpu, storage
 
@@ -99,6 +99,8 @@ class Demo:
                 return self._mooncake_master(now)
             if endpoint == "mooncake-client":
                 return self._mooncake_client(now)
+            if endpoint == "dcgm":
+                return self._dcgm(now, values)
         raise ValueError(f"unknown demo endpoint: {endpoint}")
 
     def _gpu_node(self, node: str, now: float, phase: str, value: dict[str, float]) -> list[GaugeSample]:
@@ -107,6 +109,8 @@ class Demo:
             GaugeSample("live_demo_phase_info", "Current synthetic demo phase.", 1, {"phase": phase}),
         ]
         samples.extend(self._host(node, now, value))
+        samples.extend(self._disk_pressure(node, "nvme0n1", now, value))
+        samples.extend(self._filesystem_health())
         read_bytes = value["read"] * _GIB
         write_bytes = value["write"] * _GIB
         for name, rate in (
@@ -208,21 +212,75 @@ class Demo:
             GaugeSample("node_memory_MemAvailable_bytes", "Synthetic host memory available.", 760 * _GIB),
             GaugeSample("node_memory_SwapTotal_bytes", "Synthetic host swap total.", 32 * _GIB),
             GaugeSample("node_memory_SwapFree_bytes", "Synthetic host swap free.", 30 * _GIB),
+            GaugeSample("node_memory_Dirty_bytes", "Synthetic dirty memory.", value["write"] * _GIB),
+            GaugeSample("node_memory_Writeback_bytes", "Synthetic writeback memory.", value["write"] * _GIB / 4),
+            GaugeSample("node_procs_running", "Synthetic runnable process count.", 3),
+            GaugeSample("node_procs_blocked", "Synthetic blocked process count.", 2 if value["busy"] > .5 else 0),
             GaugeSample("node_time_seconds", "Synthetic synchronized node clock.", time.time()),
             GaugeSample("node_timex_sync_status", "Synthetic clock synchronization status.", 1),
         ]
         for cpu in range(4):
-            for mode, rate in (("idle", .65), ("user", .25), ("system", .10)):
+            for mode, rate in (("idle", .60), ("user", .25), ("system", .10), ("iowait", .04), ("steal", .01)):
                 samples.append(GaugeSample("node_cpu_seconds_total", "Synthetic host CPU counter.",
                     self._counter(node, f"cpu-{cpu}-{mode}", rate, now), {"cpu": str(cpu), "mode": mode}, kind="counter"))
         for name in ("node_vmstat_pswpin", "node_vmstat_pswpout"):
             samples.append(GaugeSample(name, "Synthetic swap page counter.",
                                        self._counter(node, name, 2, now), kind="counter"))
+        for name, rate in {
+            "node_pressure_cpu_waiting_seconds_total": .04,
+            "node_pressure_memory_waiting_seconds_total": .02,
+            "node_pressure_memory_stalled_seconds_total": .01,
+            "node_pressure_io_waiting_seconds_total": value["busy"] / 2,
+            "node_pressure_io_stalled_seconds_total": value["busy"] / 4,
+            "node_vmstat_pgmajfault": 5,
+            "node_vmstat_oom_kill": 0,
+            "node_netstat_Tcp_RetransSegs": .5,
+        }.items():
+            samples.append(GaugeSample(name, "Synthetic host pressure/error counter.",
+                                       self._counter(node, name, rate, now), kind="counter"))
+        for direction in ("receive", "transmit"):
+            for kind in ("errs", "drop"):
+                name = f"node_network_{direction}_{kind}_total"
+                samples.append(GaugeSample(name, "Synthetic NIC error/drop counter.",
+                    self._counter(node, name, .05, now), {"device": "roce0"}, kind="counter"))
+        for collector in ("cpu", "meminfo", "vmstat", "pressure", "diskstats", "filesystem", "netdev", "netstat", "infiniband"):
+            samples.append(GaugeSample("node_scrape_collector_success", "Synthetic node collector status.", 1,
+                                       {"collector": collector}))
         for name, rate in (("node_infiniband_port_data_received_bytes_total", value["rx"] * 1e9 / 8),
-                           ("node_infiniband_port_data_transmitted_bytes_total", value["tx"] * 1e9 / 8)):
+                           ("node_infiniband_port_data_transmitted_bytes_total", value["tx"] * 1e9 / 8),
+                           ("node_infiniband_port_errors_received_total", .02),
+                           ("node_infiniband_port_discards_received_total", .03),
+                           ("node_infiniband_port_discards_transmitted_total", .04),
+                           ("node_infiniband_port_transmit_wait_total", 200),
+                           ("node_infiniband_link_downed_total", 0),
+                           ("node_infiniband_link_error_recovery_total", 0),
+                           ("node_infiniband_symbol_error_total", .01),
+                           ("node_infiniband_local_link_integrity_errors_total", .02)):
             samples.append(GaugeSample(name, "Synthetic RDMA port counter.",
                 self._counter(node, name, rate, now), {"device": "mlx5_0", "port": "1"}, kind="counter"))
         return samples
+
+    def _disk_pressure(self, node: str, device: str, now: float, value: dict[str, float]) -> list[GaugeSample]:
+        """Bounded per-device counters with mean latency consistent with IOPS."""
+        labels = {"device": device}
+        samples = [GaugeSample("node_disk_io_now", "Synthetic outstanding I/O.", 2, labels)]
+        for name, rate in {
+            "node_disk_read_time_seconds_total": value["read"] * _GIB / (256 * 1024) * .0004,
+            "node_disk_write_time_seconds_total": value["write"] * _GIB / (256 * 1024) * .0008,
+            "node_disk_io_time_weighted_seconds_total": 2 * value["busy"],
+        }.items():
+            samples.append(GaugeSample(name, "Synthetic device latency/queue counter.",
+                self._counter(node, name + "/" + device, rate, now), labels, kind="counter"))
+        return samples
+
+    def _filesystem_health(self) -> list[GaugeSample]:
+        return [GaugeSample(name, "Synthetic filesystem inode/status gauge.", value,
+                            {"mountpoint": "/mnt/data", "fstype": "xfs"}) for name, value in {
+            "node_filesystem_files": 1000000,
+            "node_filesystem_files_free": 750000,
+            "node_filesystem_readonly": 0,
+            "node_filesystem_device_error": 0,
+        }.items()]
 
     def _sandbox(self, now: float) -> list[GaugeSample]:
         labels = {"run_id": "verl-agent-demo", "producer": "synthetic", "role": "sandbox",
@@ -250,17 +308,35 @@ class Demo:
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
             "vllm:kv_cache_usage_perc": .92 if waiting > 1 else .45}.items()]
         for name, rate in {"vllm:num_preemptions_total": .2 if waiting > 1 else 0,
-                           "vllm:prompt_tokens_total": 800, "vllm:generation_tokens_total": value["tokens"]}.items():
+                           "vllm:prompt_tokens_total": 800, "vllm:generation_tokens_total": value["tokens"],
+                           "vllm:prefix_cache_queries_total": 100,
+                           "vllm:prefix_cache_hits_total": 70,
+                           "vllm:external_prefix_cache_queries_total": 50,
+                           "vllm:external_prefix_cache_hits_total": 20,
+                           "vllm:kv_offload_allocation_failure_total": .05 if waiting > 1 else 0}.items():
             samples.append(GaugeSample(name, "Synthetic vLLM counter.", self._counter("vllm", name, rate, now), labels, kind="counter"))
         for direction, rate in (("GPU_to_CPU", .2 * _GIB), ("CPU_to_GPU", .1 * _GIB)):
             samples.append(GaugeSample("vllm:kv_offload_total_bytes_total", "Synthetic KV offload transfer counter.",
                 self._counter("vllm", direction, rate, now), {**labels, "transfer_type": direction}, kind="counter"))
+        for direction, bytes_rate in (("store", .2 * _GIB), ("load", .1 * _GIB)):
+            for suffix, rate in (("bytes_total", bytes_rate), ("time_total", .04), ("size_count", 10)):
+                name = f"vllm:kv_offload_{direction}_{suffix}"
+                samples.append(GaugeSample(name, "Synthetic flat KV offload counter.",
+                    self._counter("vllm", name, rate, now), labels, kind="counter"))
+        for reason, rate in (("stop", 8), ("length", 2), ("abort", 0)):
+            samples.append(GaugeSample("vllm:request_success_total", "Synthetic finished request counter.",
+                self._counter("vllm", "finished-" + reason, rate, now), {**labels, "finished_reason": reason}, kind="counter"))
         # Cumulative bucket COUNTERS, not percentile gauges. Rates preserve the
         # ordering needed by the dashboards' real histogram_quantile queries.
         distributions = {
             "time_to_first_token_seconds": (.25, .65, .85, .99, 1) if waiting > 1 else (.7, .96, .99, 1, 1),
             "request_queue_time_seconds": (.4, .75, .9, .99, 1) if waiting > 1 else (.85, .99, 1, 1, 1),
             "e2e_request_latency_seconds": (.05, .2, .55, .97, 1),
+            "request_prefill_time_seconds": (.4, .8, .98, 1, 1),
+            "request_decode_time_seconds": (.1, .4, .8, .99, 1),
+            "inter_token_latency_seconds": (.98, .999, 1, 1, 1),
+            "kv_offload_lookup_sync_delay_seconds": (.99, 1, 1, 1, 1),
+            "kv_offload_lookup_async_delay_seconds": (.8, .95, .99, 1, 1),
         }
         for name, fractions in distributions.items():
             for bound, fraction in zip(("0.1", "0.5", "1", "5", "+Inf"), fractions):
@@ -330,9 +406,16 @@ class Demo:
     def _ray(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
         labels = {"SessionName": "synthetic-session"}
         samples = []
-        for metric in ("ray_tasks", "ray_actors"):
-            for state, count in (("RUNNING", 8), ("PENDING_ARGS_AVAIL", 2)):
-                samples.append(GaugeSample(metric, "Synthetic Ray state gauge.", count, {**labels, "State": state}))
+        for state, count in (("RUNNING", 8), ("PENDING_ARGS_AVAIL", 2)):
+            samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", count,
+                                       {**labels, "State": state, "IsRetry": "0"}))
+            samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", 1,
+                                       {**labels, "State": state, "IsRetry": "1"}))
+        for state, count in (("ALIVE_RUNNING_TASKS", 8), ("ALIVE_IDLE", 2)):
+            samples.append(GaugeSample("ray_actors", "Synthetic Ray state gauge.", count, {**labels, "State": state}))
+        for state, count in (("CREATED", 4), ("PENDING", 1)):
+            samples.append(GaugeSample("ray_placement_groups", "Synthetic Ray placement group state.", count,
+                                       {**labels, "State": state}))
         for name, number in (("CPU", 16), ("GPU", 8)):
             for state, fraction in (("AVAILABLE", .25), ("USED", .75)):
                 samples.append(GaugeSample("ray_resources", "Synthetic Ray resource gauge.", number * fraction,
@@ -344,14 +427,41 @@ class Demo:
         ])
         return samples
 
+    def _dcgm(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
+        """Independent native fixture; never combine it with sampler device totals."""
+        samples = []
+        for gpu in range(self.gpu["gpus_per_node"]):
+            labels = {"gpu": str(gpu), "UUID": f"SYNTHETIC-DCGM-{gpu}"}
+            for name, number in {
+                "DCGM_FI_DEV_GPU_UTIL": value["gpu"],
+                "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE": .6,
+                "DCGM_FI_PROF_DRAM_ACTIVE": .4,
+                "DCGM_FI_PROF_PCIE_RX_BYTES": 1e9,
+                "DCGM_FI_PROF_PCIE_TX_BYTES": 2e9,
+                "DCGM_FI_DEV_XID_ERRORS": 0,
+                "DCGM_FI_DEV_FB_USED": 160 * 1024,
+                "DCGM_FI_DEV_FB_FREE": 128 * 1024,
+            }.items():
+                samples.append(GaugeSample(name, "Synthetic DCGM gauge.", number, labels))
+            for name, rate in {
+                "DCGM_FI_DEV_PCIE_REPLAY_COUNTER": .1,
+                "DCGM_FI_DEV_POWER_VIOLATION": .01 * 1e9,
+                "DCGM_FI_DEV_THERMAL_VIOLATION": 0,
+            }.items():
+                samples.append(GaugeSample(name, "Synthetic DCGM counter.",
+                    self._counter("dcgm", f"{gpu}/{name}", rate, now), labels, kind="counter"))
+        return samples
+
     def _storage_node(self, node: str, now: float, phase: str, value: dict[str, float]) -> list[GaugeSample]:
         samples = self._host(node, now, value)
+        samples.extend(self._filesystem_health())
         samples.extend([
             GaugeSample("node_filesystem_size_bytes", "Synthetic data filesystem size.", 64 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
             GaugeSample("node_filesystem_avail_bytes", "Synthetic data filesystem free space.", 39 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
         ])
         for index in range(self.storage["ssds_per_node"]):
             labels = {"device": f"nvme{index}n1"}
+            samples.extend(self._disk_pressure(node, labels["device"], now, value))
             for name, rate in (("node_disk_read_bytes_total", value["read"] * _GIB),
                                ("node_disk_written_bytes_total", value["write"] * _GIB),
                                ("node_disk_reads_completed_total", value["read"] * _GIB / (256 * 1024)),
@@ -413,7 +523,7 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
     lines += targets("telemetry", [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], "topology"])
     lines += targets("storage-smart", demo.storage["storage_nodes"], "          storage_system: demo")
     lines += ["  - job_name: native", "    static_configs:"]
-    for endpoint, source in (("vllm", "vllm"), ("ray", "ray"),
+    for endpoint, source in (("vllm", "vllm"), ("ray", "ray"), ("dcgm", "dcgm"),
                              ("mooncake-master", "mooncake"), ("mooncake-client", "mooncake")):
         node = demo.gpu["gpu_nodes"][0]
         lines += [f"      - targets: ['{address}']", "        labels:", f"          cluster: {cluster}",

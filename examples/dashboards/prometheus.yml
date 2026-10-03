@@ -1,6 +1,13 @@
 global:
   scrape_interval: 5s
   evaluation_interval: 5s
+  scrape_timeout: 4s
+  sample_limit: 100000
+  target_limit: 1024
+  body_size_limit: 16MB
+  label_limit: 40
+  label_name_length_limit: 128
+  label_value_length_limit: 1024
 
 scrape_configs:
   # XLayer node collector exports application, GPU and host metrics together.
@@ -20,6 +27,7 @@ scrape_configs:
 
   - job_name: storage-smart
     scrape_interval: 60s
+    scrape_timeout: 10s
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/storage.json
