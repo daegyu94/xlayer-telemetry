@@ -69,14 +69,14 @@ def build_views(dashboards):
         view['annotations'] = {'list': []}
         view['panels'] = [{
             'id': 100, 'type': 'text', 'title': f'{style} workspace',
-            'gridPos': {'x': 0, 'y': 0, 'w': 24, 'h': 3},
+            'gridPos': {'x': 0, 'y': 0, 'w': 24, 'h': 4},
             'options': {'mode': 'markdown', 'content': (
                 '**Overview:** subsystem을 한눈에 비교하고 panel의 **Open details**로 이동합니다.'
                 if style == 'Overview' else
                 '**Focus:** 원하는 subsystem row를 펼쳐 큰 graph로 확인합니다. Panel의 **Open details**에서 세부 지표를 봅니다.'
             ) + '\n\nView 버튼으로 화면을 바꿉니다. Run·Node·시간은 유지하며 shared metric은 Run에 자동 귀속하지 않습니다. 3FS 서비스 통계는 단독 `threefs` 조회를 사용합니다.'},
         }]
-        y = 3
+        y = 4
         for index, (title, source, panel_id) in enumerate(sections):
             original = by_name[source]
             panel = deepcopy(next(p for p in _panels(original['panels']) if p['id'] == panel_id))
@@ -84,7 +84,7 @@ def build_views(dashboards):
             panel['title'] = {
                 'VERL': 'VERL · Stage duration', 'vLLM': 'vLLM · Queue & KV',
                 'Ray': 'Ray · Task states', 'Compute': 'Compute · GPU utilization',
-                'Local storage': 'Local storage · Device busy',
+                'Local storage': 'Local storage · Busy',
                 'Sandbox': 'Sandbox · I/O pressure',
             }[title]
             link = deepcopy(next(link for link in stage['links']
@@ -99,7 +99,7 @@ def build_views(dashboards):
                     link['url'] += '&' + param
             panel['links'] = [link]
             if style == 'Overview':
-                panel['gridPos'] = {'x': (index % 3) * 8, 'y': 3 + (index // 3) * 9, 'w': 8, 'h': 9}
+                panel['gridPos'] = {'x': (index % 3) * 8, 'y': 4 + (index // 3) * 9, 'w': 8, 'h': 9}
                 panel.setdefault('options', {})['legend'] = {'displayMode': 'list', 'placement': 'bottom'}
                 view['panels'].append(panel)
             else:

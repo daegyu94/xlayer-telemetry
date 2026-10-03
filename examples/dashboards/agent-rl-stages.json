@@ -65,7 +65,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Latest completed RL step",
+      "title": "Completed RL step",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -121,7 +121,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Latest completed reward mean",
+      "title": "Reward mean",
       "gridPos": {
         "h": 4,
         "w": 6,

@@ -19,3 +19,16 @@ def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_pa
     rows = [json.loads(line) for line in next((root / "diagnostics/investigation").glob("*.jsonl")).read_text().splitlines()]
     assert next(row for row in rows if row["row_kind"] == "summary")["primary_candidate"] == "storage_queue_saturation"
     assert all(row["data_origin"] == "synthetic" for row in rows)
+
+
+def test_synthetic_run_is_discoverable_and_inspectable(tmp_path):
+    from xlayer_telemetry.metrics.textfile import collect_snapshots, build_metrics
+    from xlayer_telemetry.show_run import summarize
+    root = tmp_path / "runs" / "practice"
+    generate(root, run_id="practice", node="cpu-demo", clock=lambda: 200)
+    snapshots = collect_snapshots([], [root.parent], now=201, max_age_seconds=300)
+    metrics = build_metrics(snapshots)
+    assert any(metric.name == "training_step" and metric.value == 127 for metric in metrics)
+    manifest = json.loads((root / "telemetry-manifest.json").read_text())
+    assert manifest["data_origin"] == "synthetic"
+    assert "storage_queue_saturation" in summarize(root)

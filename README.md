@@ -145,6 +145,7 @@ xltel status
 Python 3.10 이상과 `venv`가 필요합니다.
 `xltel`은 공식 운영 CLI이며 `up`이 monitoring을 시작하고 `run`이 기존 workload를 감쌉니다.
 설치 후에는 저장소 밖에서도 호출할 수 있습니다.
+`status`의 Start Here 링크에서 수집 상태를 확인하고, VERL 없이 진단 경로를 먼저 익히려면 [synthetic candidate 예제](docs/diagnosis.md#practice-with-a-synthetic-candidate)를 사용합니다.
 GPU driver·VERL·CUDA와 monitoring 도구는 별도이며, [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어갑니다.
 
 Advanced script 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.

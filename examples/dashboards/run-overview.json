@@ -80,7 +80,7 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Collector availability",
+      "title": "Collector health",
       "gridPos": {
         "x": 0,
         "y": 4,
@@ -94,7 +94,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "up{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "expr": "min(up{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
           "instant": true,
           "legendFormat": "{{nodename}}"
         }
@@ -148,12 +148,12 @@
         },
         "colorMode": "value"
       },
-      "description": "각 target의 scrape 상태입니다. Up은 exporter 연결 성공이며 bridge·GPU·native source의 completeness나 workload 정상 판정이 아닙니다."
+      "description": "선택한 모든 collector target이 Up이면 Up, 하나라도 scrape가 실패하면 Down입니다. Target별 상태는 Prometheus Targets 또는 xltel status에서 확인합니다. Up은 application·native source의 completeness나 workload 정상 여부가 아닙니다."
     },
     {
       "id": 3,
       "type": "stat",
-      "title": "Application sample age",
+      "title": "Application age",
       "gridPos": {
         "x": 6,
         "y": 4,
@@ -315,7 +315,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Latest completed step",
+      "title": "Completed step",
       "gridPos": {
         "x": 18,
         "y": 4,
@@ -482,11 +482,24 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": []
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(cluster|step|run_id|node|step_duration_seconds|stage_summary|boundary_accuracy)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",

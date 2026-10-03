@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Fresh User Experience](e2e-user-experience.md) | Fresh clone·CLI·Grafana 실제 클릭, 4회 개선 loop·591개 test·900/1440px 전체 panel 점검과 cleanup |
 | [multinode/xltel-vm-validation-20261002.json](multinode/xltel-vm-validation-20261002.json) | Host server·KVM guest 두 개의 CLI lifecycle, 실제 metric·Loki event·Grafana datasource 조회, clock skew·VM 중단·collector 재시작·종료; 회귀 테스트 582개 |
 | [review-20261002.json](review-20261002.json) | Log rotation·retry 시각·SDK 오류 격리, bounded snapshot cache, 회귀 테스트 490개·실제 Prometheus와 CPU 비용 측정 |
 | [runtime-reliability-20261001.json](runtime-reliability-20261001.json) | Worker deadline·incremental cache·선택적 SDK background I/O, failure tests와 실제 VERL async·backend 실패 검증 |
@@ -28,3 +29,9 @@
 
 일부 기록은 이전 dashboard 구성이나 prompt version을 대상으로 합니다.
 현재 사용 흐름은 [Dashboard Guide](../dashboards.md)와 [Local LLM Guide](../local-llm.md)를 따르며, 당시 기록의 version·limitations를 함께 읽습니다.
+
+```{toctree}
+:hidden:
+
+e2e-user-experience
+```

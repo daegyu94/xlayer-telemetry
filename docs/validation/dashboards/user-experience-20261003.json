@@ -1,0 +1,918 @@
+{
+  "baseline": "dc49a23",
+  "date": "2026-10-03",
+  "environment": {
+    "python": "3.12",
+    "grafana": "12.1.0",
+    "installation": [
+      "fresh remote clone and editable virtualenv",
+      "fresh wheel virtualenv outside checkout"
+    ],
+    "isolated_ports": [
+      23000,
+      29090,
+      23100,
+      22345,
+      29110
+    ],
+    "data": "synthetic application/diagnosis fixtures; actual host metrics separately tested in normal collector mode"
+  },
+  "loops": 4,
+  "tests": {
+    "pytest": {
+      "passed": 591,
+      "skipped": 0
+    },
+    "shell_syntax": "passed",
+    "compileall": "passed",
+    "docs_strict_build": "passed"
+  },
+  "journeys": [
+    {
+      "status": "passed",
+      "data_origin": "synthetic",
+      "viewport_width": 1440,
+      "screens": [
+        {
+          "screen": "01-start-here",
+          "url": "http://127.0.0.1:23000/d/xlayer-start-here/00-c2b7-start-here?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&refresh=off&orgId=1&from=now-1h&to=now&timezone=browser&var-source_node=.%2A&var-record_id=.%2A&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-xlayer_theme=",
+          "context_preserved": true
+        },
+        {
+          "screen": "02-run-overview",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=.%2A&var-trace_id=.%2A&from=now-1h&to=now&timezone=Asia%2FSeoul&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&theme=&var-xlayer_theme=&orgId=1&var-training_max_age=300&var-diagnosis_method=rule&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "03-bottleneck-summary",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&var-cluster=ux-validation&var-run_id=practice-final&var-record_id=3b0b7a358a9f438ff74b2ca1&var-node=ux-local&var-source_node=ux-local&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "04-evidence",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&var-cluster=ux-validation&var-run_id=practice-final&var-record_id=3b0b7a358a9f438ff74b2ca1&var-node=ux-local&var-source_node=ux-local&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "05-timeline",
+          "url": "http://127.0.0.1:23000/d/xlayer-cross-layer-timeline/04-c2b7-cross-layer-timeline?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=3b0b7a358a9f438ff74b2ca1&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&timezone=Asia%2FSeoul&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "06-storage",
+          "url": "http://127.0.0.1:23000/d/xlayer-data-storage/06-c2b7-data-and-storage?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=3b0b7a358a9f438ff74b2ca1&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&timezone=Asia%2FSeoul&orgId=1&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "07-overview-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-overview/workspace-c2b7-overview?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=3b0b7a358a9f438ff74b2ca1&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=$__all&var-sandbox_node=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&timezone=Asia%2FSeoul&orgId=1&var-phase=$__all&var-role=$__all&var-worker=$__all&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "08-focus-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-focus/workspace-c2b7-focus?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=3b0b7a358a9f438ff74b2ca1&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "09-guided-view",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=ux-validation&var-node=ux-local&var-run_id=practice-final&var-source_node=ux-local&var-record_id=3b0b7a358a9f438ff74b2ca1&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:36:34.763Z&to=2026-10-03T00:36:53.164Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        }
+      ],
+      "browser_errors": [],
+      "datasource_queries": [
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        }
+      ],
+      "limitations": [
+        "Synthetic candidate values; not real VERL or storage causality validation.",
+        "Screenshots do not replace backend query validation."
+      ]
+    },
+    {
+      "status": "passed",
+      "data_origin": "synthetic",
+      "viewport_width": 900,
+      "screens": [
+        {
+          "screen": "01-start-here",
+          "url": "http://127.0.0.1:23000/d/xlayer-start-here/00-c2b7-start-here?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&refresh=off&orgId=1&from=now-1h&to=now&timezone=browser&var-source_node=.%2A&var-record_id=.%2A&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-xlayer_theme=",
+          "context_preserved": true
+        },
+        {
+          "screen": "02-run-overview",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=.%2A&var-trace_id=.%2A&from=now-1h&to=now&timezone=Asia%2FSeoul&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&theme=&var-xlayer_theme=&orgId=1&var-training_max_age=300&var-diagnosis_method=rule&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "03-bottleneck-summary",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "04-evidence",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "05-timeline",
+          "url": "http://127.0.0.1:23000/d/xlayer-cross-layer-timeline/04-c2b7-cross-layer-timeline?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "06-storage",
+          "url": "http://127.0.0.1:23000/d/xlayer-data-storage/06-c2b7-data-and-storage?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "07-overview-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-overview/workspace-c2b7-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=$__all&var-sandbox_node=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-phase=$__all&var-role=$__all&var-worker=$__all&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "08-focus-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-focus/workspace-c2b7-focus?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "09-guided-view",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        }
+      ],
+      "browser_errors": [],
+      "datasource_queries": [
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        }
+      ],
+      "limitations": [
+        "Synthetic candidate values; not real VERL or storage causality validation.",
+        "Screenshots do not replace backend query validation."
+      ]
+    },
+    {
+      "status": "passed",
+      "data_origin": "synthetic",
+      "viewport_width": 1440,
+      "screens": [
+        {
+          "screen": "01-start-here",
+          "url": "http://127.0.0.1:23000/d/xlayer-start-here/00-c2b7-start-here?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&refresh=off&orgId=1&from=now-1h&to=now&timezone=browser&var-source_node=.%2A&var-record_id=.%2A&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-xlayer_theme=",
+          "context_preserved": true
+        },
+        {
+          "screen": "02-run-overview",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=.%2A&var-trace_id=.%2A&from=now-1h&to=now&timezone=Asia%2FSeoul&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&theme=&var-xlayer_theme=&orgId=1&var-training_max_age=300&var-diagnosis_method=rule&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "03-bottleneck-summary",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "04-evidence",
+          "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "05-timeline",
+          "url": "http://127.0.0.1:23000/d/xlayer-cross-layer-timeline/04-c2b7-cross-layer-timeline?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&refresh=10s",
+          "context_preserved": true
+        },
+        {
+          "screen": "06-storage",
+          "url": "http://127.0.0.1:23000/d/xlayer-data-storage/06-c2b7-data-and-storage?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "07-overview-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-overview/workspace-c2b7-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=$__all&var-sandbox_node=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-phase=$__all&var-role=$__all&var-worker=$__all&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "08-focus-view",
+          "url": "http://127.0.0.1:23000/d/xlayer-workspace-focus/workspace-c2b7-focus?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        },
+        {
+          "screen": "09-guided-view",
+          "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T00:39:11.259Z&to=2026-10-03T00:39:29.660Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+          "context_preserved": true
+        }
+      ],
+      "browser_errors": [],
+      "datasource_queries": [
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        },
+        {
+          "http_status": 200,
+          "errors": []
+        }
+      ],
+      "limitations": [
+        "Synthetic candidate values; not real VERL or storage causality validation.",
+        "Screenshots do not replace backend query validation."
+      ]
+    }
+  ],
+  "layout_audit": [
+    {
+      "uid": "xlayer-start-here",
+      "width": 1440,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "telemetry-overview",
+      "width": 1440,
+      "expected_panels": 13,
+      "observed_panels": 13,
+      "unobserved": [],
+      "expanded_rows": [
+        "Application SDK signals (optional)",
+        "Host memory / paging details"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "agent-rl-stage-correlation",
+      "width": 1440,
+      "expected_panels": 25,
+      "observed_panels": 25,
+      "unobserved": [],
+      "expanded_rows": [
+        "Ray orchestration (optional)",
+        "Sandbox signals (optional)",
+        "vLLM throughput & latency (optional)"
+      ],
+      "native_small_text_panels": [
+        "Completed RL stage duration (step boundary)",
+        "Completed step throughput and response length",
+        "GPU utilization by selected node",
+        "Sandbox worker and device pressure",
+        "Tool and reward signals",
+        "Weight sync and policy lag"
+      ],
+      "title_ellipsis_panels_before": [
+        "Latest completed reward mean"
+      ]
+    },
+    {
+      "uid": "xlayer-bottleneck-summary",
+      "width": 1440,
+      "expected_panels": 6,
+      "observed_panels": 6,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-cross-layer-timeline",
+      "width": 1440,
+      "expected_panels": 18,
+      "observed_panels": 18,
+      "unobserved": [],
+      "expanded_rows": [
+        "Clock quality",
+        "Host / network / local storage",
+        "Sandbox signals (optional)",
+        "Span and event records"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-compute-communication",
+      "width": 1440,
+      "expected_panels": 14,
+      "observed_panels": 14,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-data-storage",
+      "width": 1440,
+      "expected_panels": 18,
+      "observed_panels": 18,
+      "unobserved": [],
+      "expanded_rows": [
+        "SSD health / SMART (optional)"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-run-logs",
+      "width": 1440,
+      "expected_panels": 2,
+      "observed_panels": 2,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-workspace-focus",
+      "width": 1440,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [
+        "Compute",
+        "Local storage",
+        "Ray",
+        "Sandbox",
+        "vLLM"
+      ],
+      "native_small_text_panels": [
+        "Sandbox · I/O pressure",
+        "VERL · Stage duration"
+      ],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-workspace-overview",
+      "width": 1440,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-start-here",
+      "width": 900,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": [
+        "Application sample age",
+        "Collector availability",
+        "Latest completed step"
+      ]
+    },
+    {
+      "uid": "telemetry-overview",
+      "width": 900,
+      "expected_panels": 13,
+      "observed_panels": 13,
+      "unobserved": [],
+      "expanded_rows": [
+        "Application SDK signals (optional)",
+        "Host memory / paging details"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": [
+        "Application sample age",
+        "Collector availability",
+        "Latest completed step"
+      ]
+    },
+    {
+      "uid": "agent-rl-stage-correlation",
+      "width": 900,
+      "expected_panels": 25,
+      "observed_panels": 25,
+      "unobserved": [],
+      "expanded_rows": [
+        "Ray orchestration (optional)",
+        "Sandbox signals (optional)",
+        "vLLM throughput & latency (optional)"
+      ],
+      "native_small_text_panels": [
+        "Completed RL stage duration (step boundary)",
+        "Completed step throughput and response length",
+        "GPU utilization by selected node",
+        "Sandbox worker and device pressure",
+        "Tool and reward signals",
+        "Weight sync and policy lag"
+      ],
+      "title_ellipsis_panels_before": [
+        "Latest completed RL step",
+        "Latest completed reward mean"
+      ]
+    },
+    {
+      "uid": "xlayer-bottleneck-summary",
+      "width": 900,
+      "expected_panels": 6,
+      "observed_panels": 6,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-cross-layer-timeline",
+      "width": 900,
+      "expected_panels": 18,
+      "observed_panels": 18,
+      "unobserved": [],
+      "expanded_rows": [
+        "Clock quality",
+        "Host / network / local storage",
+        "Sandbox signals (optional)",
+        "Span and event records"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-compute-communication",
+      "width": 900,
+      "expected_panels": 14,
+      "observed_panels": 14,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-data-storage",
+      "width": 900,
+      "expected_panels": 18,
+      "observed_panels": 18,
+      "unobserved": [],
+      "expanded_rows": [
+        "SSD health / SMART (optional)"
+      ],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": [
+        "Maximum SSD temperature",
+        "Maximum endurance used",
+        "Minimum available spare",
+        "SSDs with critical warnings"
+      ]
+    },
+    {
+      "uid": "xlayer-run-logs",
+      "width": 900,
+      "expected_panels": 2,
+      "observed_panels": 2,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-workspace-focus",
+      "width": 900,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [
+        "Compute",
+        "Local storage",
+        "Ray",
+        "Sandbox",
+        "vLLM"
+      ],
+      "native_small_text_panels": [
+        "Sandbox · I/O pressure",
+        "VERL · Stage duration"
+      ],
+      "title_ellipsis_panels_before": []
+    },
+    {
+      "uid": "xlayer-workspace-overview",
+      "width": 900,
+      "expected_panels": 7,
+      "observed_panels": 7,
+      "unobserved": [],
+      "expanded_rows": [],
+      "native_small_text_panels": [],
+      "title_ellipsis_panels_before": [
+        "Local storage · Device busy"
+      ]
+    }
+  ],
+  "layout_interpretation": {
+    "coverage": "117 rendered panels at each of two widths, including all collapsed rows; dashboard copies counted separately",
+    "font_observations": "Table body 14px, explanatory text 16px, stat values 36px; native legend values 12px",
+    "geometry_limit": "DOM rectangles flag content hidden by native table/legend scrolling too; screenshots and clipping must be inspected before classifying overflow. Canvas text requires visual review.",
+    "changes": "Short stat titles and one extra grid row for workspace header; after checks found all header paragraphs within content height at 900/1440px."
+  },
+  "limitations": [
+    "No new real VERL training, Docker cgroup, 3FS ClickHouse, Ollama or physical multi-node execution.",
+    "Optional unconfigured sources remained N/A; no fabricated native source coverage.",
+    "Dark theme and 900/1440px desktop validation; no claim of exhaustive browser/mobile/theme coverage.",
+    "Fixture comparison duplication after replay through restarted Alloy observed; no production report revision redesign attempted."
+  ],
+  "cleanup": {
+    "status": "verified",
+    "created": [
+      "fresh clone",
+      "two virtualenvs",
+      "pinned tool archives and extracted binaries",
+      "private configs/state/runs",
+      "synthetic exporter and monitoring processes",
+      "screenshots/browser reports"
+    ],
+    "docker_resources_created": 0,
+    "pre_existing_resources_touched": "none",
+    "production_http_health": "Grafana, Prometheus, Loki, Node Exporter: HTTP 200",
+    "same_existing_docker_containers": true,
+    "test_processes_remaining": 0,
+    "test_listening_ports_remaining": 0,
+    "temporary_tree_exists": false,
+    "source_changes_and_small_evidence_preserved": true
+  }
+}

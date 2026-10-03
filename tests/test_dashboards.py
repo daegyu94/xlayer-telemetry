@@ -132,8 +132,8 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     )
     assert all('node=~"$node"' in target["expr"] for target in live_rollout["targets"])
     completed_panels = {
-        "Latest completed RL step",
-        "Latest completed reward mean",
+        "Completed RL step",
+        "Reward mean",
         "Completed RL stage duration (step boundary)",
         "Completed step throughput and response length",
     }
@@ -713,8 +713,8 @@ def test_collection_health_does_not_fabricate_workload_health_or_require_loki():
     start = json.loads((ROOT / 'examples/dashboards/start-here.json').read_text())
     assert len(start['panels']) < 9
     stats = {panel['title']: panel for panel in start['panels'] if panel['type'] == 'stat'}
-    assert set(stats) == {'Collector availability', 'Application sample age',
-                          'GPU sample age', 'Latest completed step'}
+    assert set(stats) == {'Collector health', 'Application age',
+                          'GPU sample age', 'Completed step'}
     for panel in start['panels']:
         if panel['type'] == 'text':
             continue
@@ -722,7 +722,7 @@ def test_collection_health_does_not_fabricate_workload_health_or_require_loki():
         assert all('or vector(0)' not in target['expr'] for target in panel['targets'])
         assert panel['fieldConfig']['defaults']['noValue'] == 'N/A'
     assert stats['GPU sample age']['fieldConfig']['defaults']['thresholds']['steps'][2]['value'] == 30
-    assert stats['Application sample age']['fieldConfig']['defaults']['thresholds']['steps'][2]['value'] == 300
+    assert stats['Application age']['fieldConfig']['defaults']['thresholds']['steps'][2]['value'] == 300
     overview = json.loads((ROOT / 'examples/dashboards/run-overview.json').read_text())
     assert not any('GPU utilization matrix' in panel['title'] for panel in _panels(overview))
     optional = next(panel for panel in overview['panels']
@@ -876,8 +876,8 @@ def test_start_health_queries_with_real_promtool(tmp_path):
             labels += f',run_id="{run}"'
         lines += [f"      - series: '{metric}{{{labels}}}'", f"        values: '{values}'"]
     lines.append('    promql_expr_test:')
-    cases = [(expr('Application sample age'), 960), (expr('Latest completed step'), 2),
-             (expr('GPU sample age'), None), (expr('Application sample age', 'missing-run'), None)]
+    cases = [(expr('Application age'), 960), (expr('Completed step'), 2),
+             (expr('GPU sample age'), None), (expr('Application age', 'missing-run'), None)]
     for query, value in cases:
         lines += [f"      - expr: '{query}'", '        eval_time: 20m']
         if value is None:
@@ -1000,3 +1000,39 @@ def test_color_presets_preserve_context_and_drilldown(tmp_path, logs):
             for link in panel.get('links', []):
                 if link['url'].startswith('/d/'):
                     assert '${xlayer_theme:queryparam}' in link['url']
+
+
+def test_investigation_tables_hide_unknown_metadata_without_dropping_link_fields():
+    for name, title, fields in (
+        ("run-overview", "Completed steps", ("step", "step_duration_seconds")),
+        ("bottleneck-summary", "Measured changes", ("current", "baseline", "delta_percent", "observation_scope")),
+    ):
+        dashboard = json.loads((ROOT / f"examples/dashboards/{name}.json").read_text())
+        panel = next(p for p in dashboard["panels"] if p["title"].startswith(title))
+        assert panel["fieldConfig"]["defaults"]["custom"]["hidden"] is True
+        allowed = panel["fieldConfig"]["overrides"][0]["matcher"]["options"]
+        assert all(re.fullmatch(allowed, field) for field in fields)
+        assert not re.fullmatch(allowed, "new_internal_metadata")
+        # Hidden record/time/context fields remain in the frame for Grafana data links.
+        assert all(not t.get("options", {}).get("excludeByName") for t in panel["transformations"])
+        assert "window_start_ms" in json.dumps(panel["fieldConfig"])
+    for name in ("start-here", "run-overview"):
+        dashboard = json.loads((ROOT / f"examples/dashboards/{name}.json").read_text())
+        panel = next(p for p in dashboard["panels"] if p["title"] == "Collector health")
+        assert panel["targets"][0]["expr"].startswith("min(up{")
+
+
+def test_workspace_header_reserves_space_for_wrapped_context():
+    from importlib.util import spec_from_file_location, module_from_spec
+    spec = spec_from_file_location("dashboard_views", ROOT / "scripts/dashboard_views.py")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sources = {path: json.loads(path.read_text())
+               for path in (ROOT / "examples/dashboards").glob("*.json")}
+    for view in module.build_views(sources).values():
+        header = view["panels"][0]
+        assert header["gridPos"]["h"] == 4
+        assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 4
+        module.add_color_links(view)
+        assert header["gridPos"]["h"] == 5
+        assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 5

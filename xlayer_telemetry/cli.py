@@ -14,7 +14,7 @@ import sys
 import uuid
 
 from .operations.config import KEYS, ConfigError, assets_root, config_path, initialize, load_config, migrate, snapshot, validate
-from .operations.health import doctor, latest_run, sources, status
+from .operations.health import dashboard_url, doctor, latest_run, read_json, sources, status
 
 
 def parser() -> argparse.ArgumentParser:
@@ -102,7 +102,7 @@ def _print_health(result: dict) -> None:
     if result["latest_run"]:
         run = result["latest_run"]
         print(f"\nLatest run: {run['run_id']}  mode={run['execution_mode']}  step={run['step']}")
-    print(f"\nGrafana: {result['grafana_url']}\n{result['note']}")
+    print(f"\nGrafana: {result['grafana_url']}\nStart Here: {result['investigation_url']}\n{result['note']}")
 
 
 def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
@@ -136,6 +136,8 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
     # Invalid/failed startup pointers are ignored unless a manifest exists.
     atomic_write_text(state / "last-cli-run.json", json.dumps({"path": str(output)}) + "\n")
     print(f"Run {run_id}  node={config['NODE_NAME']}  mode={config['EXECUTION_MODE']}\nOutput: {output}", flush=True)
+    print("Run Overview: " + dashboard_url(config, "telemetry-overview", cluster=config["CLUSTER_NAME"],
+          run_id=run_id, node=config["NODE_NAME"], source_node=config["NODE_NAME"]), flush=True)
     if output.parent != Path(config["TELEMETRY_RUNS_ROOT"]):
         print("Warning: output is outside TELEMETRY_RUNS_ROOT; configure collector input to see this run live.", file=sys.stderr)
     # Replace Python with the wrapper: SIGINT/SIGTERM and workload exit code stay unchanged.
@@ -215,6 +217,10 @@ def execute(args) -> int:
             raise ConfigError("No run artifacts found; run a workload first or pass xltel inspect RUN_DIR.")
         from .show_run import summarize
         print(summarize(run))
+        run_id = read_json(run / "telemetry-manifest.json").get("run_id")
+        if isinstance(run_id, str):
+            print("\nRun Overview: " + dashboard_url(config, "telemetry-overview",
+                  cluster=config["CLUSTER_NAME"], run_id=run_id))
         return 0
     if args.action == "logs":
         if args.lines <= 0:

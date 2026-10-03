@@ -178,11 +178,12 @@ def test_toml_age_numeric_notation_and_size_limit(tmp_path):
 
 def test_server_ports_derive_urls_and_allow_explicit_remote_override(tmp_path, monkeypatch):
     path = tmp_path / 'config.toml'
-    path.write_text('[telemetry]\nPROMETHEUS_PORT=39090\nGRAFANA_PORT=33000\nLOKI_PORT=33100\n')
+    path.write_text('[telemetry]\nPROMETHEUS_PORT=39090\nGRAFANA_PORT=33000\nLOKI_PORT=33100\nALLOY_PORT=22345\n')
     config, _ = load_config(path)
     assert config['PROMETHEUS_URL'] == 'http://127.0.0.1:39090'
     assert config['GRAFANA_URL'] == 'http://127.0.0.1:33000'
     assert config['LOKI_URL'] == 'http://127.0.0.1:33100'
+    assert config['ALLOY_PORT'] == '22345'
     monkeypatch.setenv('PROMETHEUS_URL', 'http://monitor.private:19090')
     assert load_config(path)[0]['PROMETHEUS_URL'] == 'http://monitor.private:19090'
     for value in ('0', '65536', '-1', 'true', '1.5'):
@@ -241,3 +242,11 @@ while true; do sleep .1; done
         assert cli.main(args + ["down", "--role", "server"]) == 0
     finally:
         cli.main(args + ["down"])
+
+
+@pytest.mark.parametrize("value", ["0", "65536", "true", "1.5"])
+def test_alloy_port_rejects_invalid_config(tmp_path, value):
+    path = tmp_path / "config.toml"
+    path.write_text("[telemetry]\nALLOY_PORT=" + value + "\n")
+    with pytest.raises(ConfigError, match="ALLOY_PORT"):
+        load_config(path)

@@ -337,9 +337,13 @@ EOF
     pids+=("$!")
   fi
   if [[ -n "${LOKI_PUSH_URL:-}" ]]; then
+    alloy_port="${ALLOY_PORT:-12345}"
+    if [[ ! "$alloy_port" =~ ^[0-9]{1,5}$ ]] || (( 10#$alloy_port < 1 || 10#$alloy_port > 65535 )); then
+      echo 'ALLOY_PORT must be an integer from 1 to 65535' >&2; exit 2
+    fi
     mkdir -p "$output_dir/alloy-data"
     "$alloy" run --disable-reporting --storage.path="$output_dir/alloy-data" \
-      --server.http.listen-addr=127.0.0.1:12345 "$output_dir/alloy.alloy" \
+      --server.http.listen-addr="127.0.0.1:$alloy_port" "$output_dir/alloy.alloy" \
       > "$output_dir/alloy.log" 2>&1 &
     pids+=("$!")
   fi
@@ -580,6 +584,7 @@ EOF
   export GF_PLUGINS_PREINSTALL_DISABLED="${GF_PLUGINS_PREINSTALL_DISABLED:-true}"
   export GF_PATHS_PLUGINS="$output_dir/grafana-plugins"
   export GF_PATHS_PROVISIONING="$output_dir/provisioning"
+  export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="${GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH:-$output_dir/dashboards/start-here.json}"
   "$tools_dir/grafana-v12.1.0/bin/grafana" server \
     --homepath="$tools_dir/grafana-v12.1.0" > "$output_dir/grafana.log" 2>&1 &
   pids+=("$!")

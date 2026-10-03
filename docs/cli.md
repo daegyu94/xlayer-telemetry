@@ -23,6 +23,8 @@ xltel down
 
 `doctor`는 설치 전 누락된 binary와 해결 명령을 표시합니다.
 `install-tools`는 최초 한 번 필요하며 NVIDIA driver·VERL·3FS는 설치하지 않습니다.
+재실행은 기존 manifest의 SHA256과 일치하는 archive를 재사용하며 손상되거나 검증 기록이 없는 archive는 다운로드합니다.
+이는 local cache의 integrity 검사이며 publisher signature 검증은 아닙니다.
 `xltel`만 실행하면 command 목록과 시작 순서를 보여 줍니다.
 
 ## Commands
@@ -47,6 +49,7 @@ xltel
 ```
 
 `status`는 현재 system, `inspect`는 저장된 run 결과를 확인합니다.
+`status`의 Start Here 링크는 cluster·node를, `run/inspect`의 Run Overview 링크는 Run을 선택한 상태로 Grafana를 엽니다.
 `inspect`는 최근 CLI run 경로를 기억하므로 custom `--output` 결과도 찾을 수 있습니다.
 `sources`는 run 없이 native endpoint를 조사하고 `sources threefs`는 설정한 ClickHouse의 shared-service window를 조회합니다.
 Backend error나 source down은 nonzero, source 미설정은 정상적인 optional 상태입니다.
@@ -209,6 +212,7 @@ xltel down --role node
 Backend에 닿지 않거나 target이 등록되지 않으면 process가 실행 중이어도 degraded로 표시합니다.
 Server의 Prometheus·Grafana는 계속 loopback에 bind하며 조회용 URL 설정이 listen address를 바꾸지는 않습니다.
 같은 host에서 검증 stack을 함께 실행하려면 `PROMETHEUS_PORT`, `GRAFANA_PORT`, `LOKI_PORT`를 각각 지정합니다.
+Log collector도 함께 실행한다면 `ALLOY_PORT`(기본 `12345`)를 분리합니다.
 기본 port는 `19090`·`13000`·`13100`이며 URL을 별도로 설정하지 않으면 선택한 local port에 맞춰 조회 주소도 변경됩니다.
 Grafana datasource, startup health check와 Loki 설정도 같은 port를 사용합니다.
 Remote node에서 health query가 필요하면 private SSH tunnel 등으로 monitoring endpoint에 접근할 경로를 준비합니다.
@@ -239,3 +243,10 @@ source <(xltel completion zsh)
 
 Fish에서는 `xltel completion fish | source`로 현재 session에 적용하거나 출력물을 `~/.config/fish/completions/xltel.fish`에 저장합니다.
 Command·subcommand·option·enum 값과 config/output 경로를 완성하며 `run --` 이후 workload command의 completion은 제공하지 않습니다.
+
+## Stopping and Preserved Data
+
+`xltel down`은 이 config가 소유한 background service를 종료하고 PID record를 제거합니다.
+Service는 CLI와 별도 session에서 실행되며 PID·start time·boot ID 검증과 lifecycle lock을 유지합니다.
+Config, run 결과, diagnosis, backend 데이터와 log는 다음 조회와 재시작을 위해 보존합니다.
+`lifecycle.lock`과 resolved config snapshot은 작은 운영 파일이며 `down`이 user 데이터를 삭제하지는 않습니다.

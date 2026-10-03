@@ -1152,12 +1152,25 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": [],
           "noValue": "N/A"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(signal|current|baseline|delta_percent|observation_scope|workload_comparability|entity|quality_warnings)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -1737,7 +1750,7 @@
           }
         ]
       },
-      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다. Baseline으로 이동하면 현재 step의 Trace ID 필터를 초기화합니다. Quality 필드는 표 오른쪽에서 확인합니다.",
+      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다. Baseline으로 이동하면 현재 step의 Trace ID 필터를 초기화합니다. Quality 필드는 표 오른쪽에서 확인합니다. Query step·rate window·source age 등 상세 sampling metadata는 panel Inspect에서 확인합니다. 내부 field는 navigation과 provenance를 위해 보존합니다.",
       "options": {
         "showHeader": true,
         "cellHeight": "lg",

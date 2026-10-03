@@ -35,18 +35,23 @@ Loki 없이도 완전한 진단은 `diagnostics/latest.json`과 `python -m xlaye
 
 ### Practice with a Synthetic Candidate
 
-실제 VERL·3FS 없이 rule과 Grafana 탐색 경로를 익히려면 Alloy가 읽는 `TELEMETRY_LOG_ROOTS` 아래에 새 run root를 만듭니다.
-다음 예시는 node collector의 root가 `verl=$HOME/telemetry-runs`이고 `ENABLE_LOGS=1`인 경우입니다.
+기본 CLI 설정에서 `ENABLE_LOGS = true`를 지정하고 `xltel restart`로 Loki·Alloy를 연결합니다.
+GPU 없는 host는 `ENABLE_GPU_METRICS = false`도 지정합니다.
+이미 `xltel up`으로 시작한 stack을 사용하므로 별도 demo server를 띄우지 않습니다.
 
 ```bash
 python -m xlayer_telemetry.demos.diagnosis \
-  --output "$HOME/telemetry-runs/diagnosis-demo-001/telemetry" \
-  --run-id diagnosis-demo-001
+  --output "$HOME/telemetry/runs/diagnosis-demo-001" \
+  --run-id diagnosis-demo-001 --node gpu-local
+xltel inspect diagnosis-demo-001
 ```
 
-Loki가 파일을 받은 뒤 Grafana의 Bottleneck Summary에서 Run을 `diagnosis-demo-001`로 선택합니다.
-이 결과의 `data_origin=synthetic`과 `synthetic-node`는 설명용 수치이고 Prometheus의 현재 resource 그래프와 같은 실측값이 아닙니다.
-실제 run에는 [진단 설정](agent-rl.md#add-diagnostics)을 연결하고 GPU·3FS 등 필요한 source를 등록합니다.
+Custom config에서는 output을 `TELEMETRY_RUNS_ROOT` 아래, node를 collector의 `NODE_NAME`과 동일하게 지정합니다.
+Collector와 Alloy가 파일을 읽은 뒤 Start Here의 해당 Run → Run Overview의 Step 127 Duration → Bottleneck Summary로 이동합니다.
+Snapshot은 기본 300초 후 live 목록에서 제외되지만 step·diagnosis artifact는 보존됩니다.
+이 예제의 `data_origin=synthetic`과 `producer=synthetic`은 설명용 수치이며 host·GPU·3FS 실측값이 아닙니다.
+Timeline의 실제 host metric과 예제의 storage evidence를 같은 실험 결과로 해석하지 않습니다.
+실제 run에는 [진단 설정](agent-rl.md#add-diagnostics)을 연결하고 필요한 source를 등록합니다.
 
 1. Run Overview에서 target과 sample freshness를 확인하고 느린 step의 시간을 찾습니다.
 2. Run Overview의 완료 step 목록에서 step을 선택해 `record_id`와 추정 시간 범위를 확인합니다.

@@ -20,7 +20,7 @@ Background lifecycle은 [CLI의 host role 설정](cli.md#host-roles-for-multi-no
 
 ## Prepare the Host
 
-Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `flock`(util-linux), `curl`, `tar`, `unzip`을 사용합니다.
+Script는 ARM64·x86_64 Linux, Python 3.10 이상, Bash, `flock`·`setsid`(util-linux), `curl`, `tar`, `unzip`을 사용합니다.
 기본 `node` role은 GPU도 수집하므로 NVIDIA driver와 동작하는 `nvidia-smi`가 필요합니다.
 GPU 없는 sandbox·storage host는 `ENABLE_GPU_METRICS=0`으로 host metric만 수집할 수 있으며, 실제 자원 없이 화면을 익힐 때는 demo를 사용합니다.
 
@@ -48,7 +48,9 @@ Stage Correlation의 `verl-agent-demo`·`gpu-node-0`에서는 완료 step이 증
 화면이 비면 terminal 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
 합성 exporter이므로 실제 GPU·VERL·3FS 연결이나 학습 성능을 검증하는 값은 아닙니다.
 
+이미 `xltel up`으로 monitoring을 시작했다면 `xltel down` 후 이 별도 demo server를 실행합니다.
 실제 node를 연결하기 전 `Ctrl+C`로 demo를 종료해 동일한 service port를 비웁니다.
+기존 CLI stack에서 Step·candidate 탐색만 연습하려면 [synthetic candidate 예제](diagnosis.md#practice-with-a-synthetic-candidate)를 사용합니다.
 상세한 가상 구성과 화면 예시는 [Demo Details](#demo-details)에 있습니다.
 
 ## Monitor One GPU Node

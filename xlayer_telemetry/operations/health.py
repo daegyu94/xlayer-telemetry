@@ -11,11 +11,17 @@ import platform
 import shutil
 import subprocess
 import time
+from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from .config import assets_root
 from ..source_discovery import build_file_discovery
 from ..subsystems import inspect_sources
+
+
+def dashboard_url(config: dict[str, str], uid: str, **variables: str) -> str:
+    query = urlencode({"var-" + key: value for key, value in variables.items() if value})
+    return config["GRAFANA_URL"].rstrip("/") + "/d/" + uid + ("?" + query if query else "")
 
 
 def process_identity(path: Path) -> dict:
@@ -171,6 +177,7 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
                            "execution_mode": manifest.get("configuration", {}).get("execution_mode"),
                            "step": sample.get("step"), "telemetry": health.get("status")} if run else None,
             "grafana_url": config["GRAFANA_URL"],
+            "investigation_url": dashboard_url(config, "xlayer-start-here", cluster=config["CLUSTER_NAME"], node=config["NODE_NAME"]),
             "collector_targets": [{"node": node, "health": "up" if node in target_nodes and
                                     all(t.get("health") == "up" for t in cluster_targets if t["labels"].get("nodename") == node)
                                     else "down" if node in target_nodes else "not_discovered"} for node in sorted(expected)],
@@ -197,7 +204,7 @@ def doctor(config: dict[str, str], *, role: str = "all") -> dict:
     while not ancestor.exists() and ancestor != ancestor.parent:
         ancestor = ancestor.parent
     check("state directory", ancestor.is_dir() and os.access(ancestor, os.W_OK), "Choose a writable TELEMETRY_HOME.")
-    for executable in ("bash", "curl", "flock", "tar", "unzip", "sha256sum"):
+    for executable in ("bash", "curl", "flock", "setsid", "tar", "unzip", "sha256sum"):
         check(executable, shutil.which(executable) is not None, f"Install {executable} using your OS package manager.")
     arch = "arm64" if platform.machine() in {"aarch64", "arm64"} else "amd64"
     tools = Path(config["TOOLS_DIR"])

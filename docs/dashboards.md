@@ -66,6 +66,8 @@ Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `st
 
 안내 본문은 16px와 넉넉한 줄 간격으로 표시하고, Stat의 label은 18px, 값은 36px로 표시합니다.
 표는 큰 행 간격과 pagination을 사용합니다.
+완료 Step과 Current/Baseline 표는 핵심 열만 표시하고, 내부 timestamp·sampling metadata는 panel Inspect에서 확인합니다.
+숨긴 field도 frame에 유지하므로 Run·record·시간 범위의 data link는 동작합니다.
 상단 안내는 다음 행동과 scope를 짧게 표시하고, 상세 조건은 panel info 아이콘과 접힌 행에 둡니다.
 Panel 제목·축·legend·표 본문의 font는 Grafana 기본 UI를 따릅니다.
 이 글자도 작게 느껴진다면 브라우저 확대를 110–125%로 설정하고, 좁아진 화면에서는 sidebar를 접거나 panel 메뉴의 View로 확대합니다.
@@ -85,6 +87,7 @@ Stage Correlation의 접힌 vLLM·Ray row에서 subsystem별 상세 지표를 �
 
 ## Start Here
 
+기본 monitoring server의 Grafana Home은 Start Here입니다.
 `00 · Start Here`에서 Cluster · Node · Run을 고르고 collector 연결과 application/GPU sample age를 먼저 확인합니다.
 `Observed runs`는 exporter가 제공하는 worker snapshot 목록이며, 현재 실행 중인 run 목록이나 정상 판정이 아닙니다.
 Run과 Sample age를 누르면 해당 run의 Run Overview로 이동합니다.
@@ -92,7 +95,7 @@ Run과 Sample age를 누르면 해당 run의 Run Overview로 이동합니다.
 
 | 상태 | 의미 | 다음 행동 |
 | --- | --- | --- |
-| Collector `Up` / `Down` | Node exporter scrape의 성공 / 실패 | Down이면 target 주소와 collector process를 확인합니다. Up만으로 bridge·native source의 completeness를 판단하지 않습니다. |
+| Collector `Up` / `Down` | 선택한 collector가 모두 scrape 성공 / 하나 이상 실패 | Down이면 target 주소와 collector process를 확인합니다. Up만으로 bridge·native source의 completeness를 판단하지 않습니다. |
 | Application sample age | 선택한 worker 중 가장 오래된 snapshot | 300초부터 orange, 900초부터 red입니다. 긴 step·종료된 run·clock 차이도 확인합니다. |
 | GPU sample age | 선택한 node 중 가장 오래된 GPU sample | 30초부터 orange, 120초부터 red입니다. CPU-only node나 sampler 미설정은 N/A입니다. |
 | `N/A` / 빈 표 | 해당 source나 표본이 없음 | 0이나 healthy로 해석하지 않고 필터·source 설정을 확인합니다. |
@@ -575,3 +578,21 @@ Profile 메뉴의 추가 테마 목록을 숨기려면 toggle 목록에서 `extr
 테마는 화면 배색만 바꾸며 metric, query, diagnosis 의미는 변경하지 않습니다.
 
 참고: [Grafana 12 themes](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-0/), [preference 우선순위](https://grafana.com/docs/grafana/latest/administration/organization-preferences/), [Ray metric 의미](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html), [vLLM native metrics](https://docs.vllm.ai/en/latest/usage/metrics/).
+
+
+## Browser Journey Validation
+
+[Diagnosis practice](diagnosis.md#practice-with-a-synthetic-candidate)의 synthetic Run을 실제 browser로 확인할 때 사용합니다.
+Optional Playwright와 Chromium이 필요하며 기존 stack을 읽기만 합니다.
+`python -m pip install playwright`와 `python -m playwright install chromium`으로 준비하거나 `--chromium`으로 기존 executable을 지정합니다.
+Custom config에서는 `--cluster`·`--node`·URL을 실제 설정에 맞춥니다.
+`--output`은 새 directory를 지정하고 검증 이후 screenshot/report를 보존하거나 직접 정리합니다.
+
+```bash
+python examples/investigation/validate_user_journey.py \
+  --grafana-url http://127.0.0.1:13000 \
+  --cluster training-cluster --run-id diagnosis-demo-001 --node gpu-local \
+  --width 900 --output /tmp/xlayer-browser-check
+```
+
+전체 panel의 readability와 실제 검증 범위는 [Fresh User Experience 기록](validation/e2e-user-experience.md)에 있습니다.

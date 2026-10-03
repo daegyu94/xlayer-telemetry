@@ -115,7 +115,7 @@ stop_role() {
 
 start_role() {
   local role="$1" pid started
-  nohup bash "$repo_root/scripts/verl_local.sh" --config "$config_file" "$role" \
+  nohup setsid bash "$repo_root/scripts/verl_local.sh" --config "$config_file" "$role" \
     > "$stack_dir/$role.log" 2>&1 < /dev/null 9>&- &
   pid=$!
   if ! started="$(process_start_time "$pid")"; then
@@ -150,6 +150,7 @@ case "$action" in
     done
     ;;
   up)
+    command -v setsid >/dev/null || { echo 'setsid (util-linux) is required to detach monitoring services' >&2; exit 2; }
     if ! command -v curl >/dev/null 2>&1; then
       echo 'curl is required to check node collector readiness' >&2
       exit 2
@@ -263,6 +264,7 @@ case "$action" in
       "TELEMETRY_METRICS_DIR=${TELEMETRY_METRICS_DIR:-}"
       "TELEMETRY_RUNS_ROOT=${TELEMETRY_RUNS_ROOT:-$(dirname "$run_root")}"
       "TELEMETRY_METRICS_MAX_AGE_SECONDS=${TELEMETRY_METRICS_MAX_AGE_SECONDS:-300}"
+      "ALLOY_PORT=${ALLOY_PORT:-12345}"
       "PYTHON=$telemetry_python"
       "LOKI_PUSH_URL=$loki_push_url"
       "TELEMETRY_LOG_ROOTS=$telemetry_log_roots"

@@ -10,6 +10,8 @@ import time
 from ..analysis.diagnosis_analysis import compare_signals, evaluate_rules
 from ..analysis.diagnostics import write_report
 from ..events import CorrelationContext, EventRecorder
+from ..manifest import make_agent_rl_manifest, write_manifest
+from ..metrics import Metric, MetricEmitter
 from ..step_history import StepHistoryWriter
 
 
@@ -81,6 +83,19 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         "candidates": candidates,
     }
     write_report(output / "diagnostics", report)
+    # Use the same discovery and inspect paths as a wrapped workload. These are
+    # synthetic application values, not measurements of the host or its storage.
+    MetricEmitter(output / "telemetry-metrics", run_id=run_id, node=node,
+                  producer="synthetic", role="trainer", worker_id="driver", clock=lambda: end).emit(
+        step=127, samples=[Metric("training_step_time_seconds", 18.4, labels={"phase": "rl_step"}),
+                           Metric("rl_stage_duration_seconds", 8, labels={"phase": "rollout"})])
+    manifest = make_agent_rl_manifest(run_id=run_id, roles={"trainer": node},
+        configuration={"execution_mode": "sync", "data_origin": "synthetic"},
+        artifacts={"diagnostics": str(output / "diagnostics"),
+                   "events": str(output / "telemetry-events")},
+        created_at=datetime.fromtimestamp(end, timezone.utc).isoformat())
+    manifest["data_origin"] = "synthetic"
+    write_manifest(output / "telemetry-manifest.json", manifest)
     return report
 
 

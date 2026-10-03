@@ -25,7 +25,24 @@ done
 mkdir -p "$tools_dir"
 cd "$tools_dir"
 download() {
-  local url="$1" destination="$2"
+  local url="$1" destination="$2" saved_hash saved_name expected='' actual
+  # Reuse only an archive matching our previous successful download manifest.
+  # This validates cache integrity; it is not a publisher signature check.
+  if [[ -f "$destination" && -f downloaded-archives.sha256 ]]; then
+    while read -r saved_hash saved_name; do
+      if [[ "${saved_name#./}" == "$destination" && "$saved_hash" =~ ^[a-f0-9]{64}$ ]]; then
+        expected="$saved_hash"
+        break
+      fi
+    done < downloaded-archives.sha256
+    if [[ -n "$expected" ]]; then
+      actual="$(sha256sum "$destination")"
+      if [[ "${actual%% *}" == "$expected" ]]; then
+        echo "Using verified cached archive: $destination"
+        return 0
+      fi
+    fi
+  fi
   # Keep a usable archive intact if a new download is interrupted.
   curl -fL --retry 3 --retry-all-errors --continue-at - --output "$destination.part" "$url"
   mv -f "$destination.part" "$destination"

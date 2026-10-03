@@ -112,6 +112,7 @@ def test_status_checks_identity_health_and_freshness(tmp_path, monkeypatch):
     monkeypatch.setattr(health, "probe", lambda url, **kw: {"health": "healthy", "data":
         {"database": "ok", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up"}]}}})
     result = status(config)
+    assert result["investigation_url"] == "http://127.0.0.1:13000/d/xlayer-start-here?var-cluster=training-cluster&var-node=gpu-local"
     assert result["status"] == "healthy"
     assert result["metrics"]["verl"]["health"] == "stale"
     assert result["latest_run"]["step"] == 124
@@ -133,6 +134,7 @@ def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
     result = invoke(config, "run", "--mode", "async", "--run-id", "smoke", "--", sys.executable, str(workload),
                     "literal;$(echo bad)", "with space")
     assert result.returncode == 7, result.stderr
+    assert "/d/telemetry-overview?var-cluster=training-cluster&var-run_id=smoke&var-node=cpu-test" in result.stdout
     run = tmp_path / "runs/smoke"
     manifest = json.loads((run / "telemetry-manifest.json").read_text())
     assert manifest["configuration"]["execution_mode"] == "async"
@@ -142,6 +144,7 @@ def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
     inspected = invoke(config, "inspect")
     assert inspected.returncode == 0, inspected.stderr
     assert "smoke" in inspected.stdout
+    assert "Run Overview: http://127.0.0.1:13000/d/telemetry-overview?" in inspected.stdout
     assert invoke(config, "inspect", "smoke").returncode == 0
     collision = invoke(config, "run", "--run-id", "smoke", "--", sys.executable, "-c", "pass")
     assert collision.returncode != 0
@@ -220,6 +223,10 @@ while true; do sleep 0.1; done
     arguments = ["--config", str(config_path_)]
     try:
         assert cli.main(arguments + ["up"]) == 0
+        for role in ("server", "node"):
+            identity = (tmp_path / f"telemetry/state/verl-local/{role}.pid").read_text().split()
+            pid = int(identity[0])
+            assert os.getsid(pid) == pid and os.getpgid(pid) == pid
         assert cli.main(arguments + ["up"]) == 0
         capsys.readouterr()
         assert cli.main(arguments + ["status", "--json"]) == 0
@@ -312,3 +319,10 @@ def test_status_json_real_http_backend(tmp_path):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_dashboard_link_preserves_subpath_and_encodes_context():
+    from xlayer_telemetry.operations.health import dashboard_url
+    assert dashboard_url({"GRAFANA_URL": "https://example.com/grafana/"}, "telemetry-overview",
+                         run_id="run + 1", cluster="cluster-a") == (
+        "https://example.com/grafana/d/telemetry-overview?var-run_id=run+%2B+1&var-cluster=cluster-a")
