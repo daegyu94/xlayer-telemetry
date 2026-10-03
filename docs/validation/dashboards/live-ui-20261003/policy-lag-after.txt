@@ -1,0 +1,220 @@
+Skip to main content
+Grafana
+Home
+Starred
+Dashboards
+Alerting
+Home
+Dashboards
+02 · Agent RL Stage Correlation
+Search...
+ctrl+k
+Sign in
+Export 
+Share
+Cluster
+demo-b300
+Resource node
+All
+Run
+verl-agent-demo
+Phase
+All
+Role
+All
+Worker
+All
+Observer node
+Sandbox node
+All
+vLLM engine
+All
+View: Guided
+View: Overview
+View: Focus
+Start Here
+Run Overview
+Bottleneck Summary
+Cross-Layer Timeline
+Compute & Communication
+Data & Storage
+Run Logs
+Reset filters
+Last 15 minutes
+Refresh
+5s
+Completed stages & live signals
+
+Color: Dark · Color: Sapphire · Color: Desert
+
+Correlate: 완료 stage duration과 live engine signal을 비교합니다.
+느린 구간은 Run Overview로 이동합니다. Completed / Live는 서로 다른 수집 경계입니다.
+
+Completed RL step
+122
+Reward mean
+1.09
+Worker sample age
+1.77 s
+Completed RL stage duration (step boundary)
+Name	Last *	Max
+
+actor_update gpu-node-0/driver
+	1.39 s	1.73 s
+
+critic_update gpu-node-0/driver
+	798 ms	950 ms
+
+reward gpu-node-0/driver
+	405 ms	560 ms
+
+rl_step gpu-node-0/driver
+	5.96 s	7.74 s
+
+rollout gpu-node-0/driver
+	2.99 s	4.55 s
+
+weight_sync gpu-node-0/driver
+	372 ms	378 ms
+Completed step throughput and response length
+Name	Last *
+
+tokens/s/GPU driver
+	2055 tokens/s/GPU
+
+output tokens driver (right y-axis)
+	292
+GPU utilization by selected node
+Name	Last *
+
+gpu-node-0 GPU 0
+	92.0%
+
+gpu-node-1 GPU 0
+	92.0%
+
+gpu-node-2 GPU 0
+	92.0%
+
+gpu-node-3 GPU 0
+	92.0%
+
+gpu-node-0 GPU 1
+	93.1%
+
+gpu-node-1 GPU 1
+	93.3%
+
+gpu-node-2 GPU 1
+	92.9%
+
+gpu-node-3 GPU 1
+	92.7%
+
+gpu-node-0 GPU 2
+	95.0%
+
+gpu-node-1 GPU 2
+	95.2%
+
+gpu-node-2 GPU 2
+	94.8%
+
+gpu-node-3 GPU 2
+	94.6%
+
+gpu-node-0 GPU 3
+	96.0%
+
+gpu-node-1 GPU 3
+	96.0%
+
+gpu-node-2 GPU 3
+	96.0%
+
+gpu-node-3 GPU 3
+	95.9%
+
+gpu-node-0 GPU 4
+	95.2%
+
+gpu-node-1 GPU 4
+	95.0%
+
+gpu-node-2 GPU 4
+	95.3%
+
+gpu-node-3 GPU 4
+	95.5%
+
+gpu-node-0 GPU 5
+	93.3%
+
+gpu-node-1 GPU 5
+	93.1%
+
+gpu-node-2 GPU 5
+	93.4%
+
+gpu-node-3 GPU 5
+	93.6%
+
+gpu-node-0 GPU 6
+	92.0%
+
+gpu-node-1 GPU 6
+	92.0%
+
+gpu-node-2 GPU 6
+	92.1%
+
+gpu-node-3 GPU 6
+	92.2%
+
+gpu-node-0 GPU 7
+	92.6%
+
+gpu-node-1 GPU 7
+	92.8%
+
+gpu-node-2 GPU 7
+	92.5%
+
+gpu-node-3 GPU 7
+	92.4%
+Weight sync and policy lag
+Name	Last *	Max
+
+sync gpu-node-0/driver
+	372 ms	378 ms
+
+lag rollout-0 (right y-axis)
+	1 versions	2 versions
+Tool and reward signals
+Name	Last *	Max
+
+tool browser
+	551 ms	920 ms
+
+reward driver
+	405 ms	560 ms
+Live rollout engine signals
+Name	Last *	Max
+
+waiting demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+	1	8
+
+KV cache demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0 (right y-axis)
+	45%	92%
+
+preemptions/s demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0 (right y-axis)
+	0 ops/s	0.200 ops/s
+
+running demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+	4	4
+ 
+ 
+ 
+ 
+ 
+ 

@@ -1,0 +1,462 @@
+[
+  {
+    "file": "examples/dashboards/agent-rl-stages.json",
+    "uid": "agent-rl-stage-correlation",
+    "title": "02 · Agent RL Stage Correlation",
+    "panels": 16,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "phase",
+        "hidden": 0
+      },
+      {
+        "name": "role",
+        "hidden": 0
+      },
+      {
+        "name": "worker",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 0
+      },
+      {
+        "name": "engine",
+        "hidden": 0
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/data-storage.json",
+    "uid": "xlayer-data-storage",
+    "title": "06 · Data & Storage",
+    "panels": 11,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "device",
+        "hidden": 0
+      },
+      {
+        "name": "mount",
+        "hidden": 0
+      },
+      {
+        "name": "storage_system",
+        "hidden": 0
+      },
+      {
+        "name": "storage_node",
+        "hidden": 0
+      },
+      {
+        "name": "ssd",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/start-here.json",
+    "uid": "xlayer-start-here",
+    "title": "00 · Start Here",
+    "panels": 7,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/compute-communication.json",
+    "uid": "xlayer-compute-communication",
+    "title": "05 · Compute & Communication",
+    "panels": 17,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "training_max_age",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 0
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/run-overview.json",
+    "uid": "telemetry-overview",
+    "title": "01 · Run Overview",
+    "panels": 10,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "training_max_age",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 0
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/bottleneck-summary.json",
+    "uid": "xlayer-bottleneck-summary",
+    "title": "03 · Bottleneck Summary",
+    "panels": 6,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "record_id",
+        "hidden": 0
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/cross-layer-timeline.json",
+    "uid": "xlayer-cross-layer-timeline",
+    "title": "04 · Cross-Layer Timeline",
+    "panels": 13,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "record_id",
+        "hidden": 0
+      },
+      {
+        "name": "trace_id",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 0
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "log_run_id",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 0
+      }
+    ]
+  },
+  {
+    "file": "examples/dashboards/run-logs.json",
+    "uid": "xlayer-run-logs",
+    "title": "07 · Run Logs",
+    "panels": 2,
+    "filters": [
+      {
+        "name": "cluster",
+        "hidden": 0
+      },
+      {
+        "name": "node",
+        "hidden": 0
+      },
+      {
+        "name": "workload",
+        "hidden": 0
+      },
+      {
+        "name": "run_id",
+        "hidden": 0
+      },
+      {
+        "name": "source_node",
+        "hidden": 2
+      },
+      {
+        "name": "record_id",
+        "hidden": 2
+      },
+      {
+        "name": "trace_id",
+        "hidden": 2
+      },
+      {
+        "name": "diagnosis_method",
+        "hidden": 2
+      },
+      {
+        "name": "gpu",
+        "hidden": 2
+      },
+      {
+        "name": "engine",
+        "hidden": 2
+      },
+      {
+        "name": "sandbox_node",
+        "hidden": 2
+      },
+      {
+        "name": "telemetry_run_id",
+        "hidden": 0
+      }
+    ]
+  }
+]

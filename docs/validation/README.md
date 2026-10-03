@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Live dashboard UX](dashboards/live-ui-20261003.md) | 실제 Chrome navigation·baseline·optional row·stale/결측 화면, Timeline identity·policy lag 단위·숨겨진 filter 개선과 784개 test |
 | [Mooncake telemetry](mooncake-telemetry-20261003.json) | 실제 client DFS read/write·master/client endpoint·Prometheus query·진단 입력, optional source 결측과 단위·engine 분리 검증 |
 | [Metric collection coverage audit](metric-coverage-audit-20261003.md) | 133개 baseline 계약 전체 분류, 수집 경로·미수집 영역·cardinality/overhead 감사, native evidence·budget 개선과 검증 한계 |
 | [Restricted Node Exporter smoke](metric-node-exporter-smoke-20261003.json) | 공식 1.9.1의 제한된 cloud Linux 관측; meminfo/vmstat/netstat/loopback/filesystem 확인, PSI/sysfs 및 physical hardware 미검증 |
@@ -43,6 +44,7 @@
 
 e2e-user-experience
 metric-coverage-audit-20261003
+dashboards/live-ui-20261003
 ```
 
 - [Metric audit final verification](metric-audit-verification-20261003.json): 775 passed, zero failed/skipped; hardware validation boundaries are explicit.

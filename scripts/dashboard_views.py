@@ -5,12 +5,45 @@ Only presentation and navigation are changed here.
 """
 from copy import deepcopy
 import re
+from urllib.parse import urlencode
 
 VIEWS = (
     ('Guided', 'telemetry-overview'),
     ('Overview', 'xlayer-workspace-overview'),
     ('Focus', 'xlayer-workspace-focus'),
 )
+
+
+def expose_active_filters(dashboard):
+    """Keep navigation-only context hidden; expose controls that change data."""
+    queries = '\n'.join(target.get('expr', '')
+                        for panel in _panels(dashboard['panels'])
+                        for target in panel.get('targets', []))
+    used = set(re.findall(r'\$([a-z][a-z0-9_]*)\b', queries))
+    for variable in dashboard['templating']['list']:
+        if variable['name'] in used:
+            variable['hide'] = 0
+
+
+def add_reset_link(dashboard):
+    """Clear restrictions without discarding the selected run, cluster or time."""
+    preserved = {'cluster', 'run_id', 'telemetry_run_id', 'log_run_id'}
+    context = []
+    cleared = {}
+    for variable in dashboard['templating']['list']:
+        name = variable['name']
+        if name in preserved:
+            context.append('${' + name + ':queryparam}')
+        elif variable.get('includeAll'):
+            cleared['var-' + name] = '$__all'
+        elif variable.get('type') == 'textbox':
+            cleared['var-' + name] = variable.get('query', '.*')
+    query = '&'.join(context + [urlencode(cleared)])
+    dashboard['links'].append(dict(
+        title='Reset filters', type='link', url=f'/d/{dashboard["uid"]}?{query}',
+        tooltip='Run·Cluster·시간을 유지하고 Step·Trace·resource 필터를 초기화합니다.',
+        keepTime=True, includeVars=False, targetBlank=False,
+    ))
 
 
 def _panels(items):

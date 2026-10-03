@@ -449,7 +449,32 @@
           "unit": "s",
           "noValue": "N/A"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: versions"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Policy versions"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -461,7 +486,7 @@
           ]
         }
       },
-      "description": "VERL weight-sync duration은 완료 step 기준입니다. Policy lag는 rollout replica가 직접 기록할 때만 나타납니다."
+      "description": "VERL weight-sync duration은 완료 step 기준입니다. Policy lag는 rollout replica가 직접 기록할 때만 나타납니다. Policy lag는 초가 아니라 policy version 차이이며 오른쪽 축으로 표시합니다."
     },
     {
       "id": 8,
@@ -740,32 +765,32 @@
             {
               "refId": "A",
               "expr": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}",
-              "legendFormat": "I/O PSI"
+              "legendFormat": "{{cluster}} / {{nodename}} / I/O PSI"
             },
             {
               "refId": "B",
               "expr": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\"}[$__rate_interval])",
-              "legendFormat": "local device busy {{device}}"
+              "legendFormat": "{{cluster}} / {{nodename}} / local device busy {{device}}"
             },
             {
               "refId": "C",
               "expr": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}",
-              "legendFormat": "CPU PSI"
+              "legendFormat": "{{cluster}} / {{nodename}} / CPU PSI"
             },
             {
               "refId": "D",
               "expr": "sandbox_memory_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}",
-              "legendFormat": "Memory PSI some"
+              "legendFormat": "{{cluster}} / {{nodename}} / Memory PSI some"
             },
             {
               "refId": "E",
               "expr": "sandbox_memory_full_pressure_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}",
-              "legendFormat": "Memory PSI full"
+              "legendFormat": "{{cluster}} / {{nodename}} / Memory PSI full"
             },
             {
               "refId": "F",
               "expr": "rate(sandbox_cpu_throttled_periods_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval]) / (rate(sandbox_cpu_periods_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval]) > 0)",
-              "legendFormat": "CPU quota throttled periods"
+              "legendFormat": "{{cluster}} / {{nodename}} / CPU quota throttled periods"
             }
           ],
           "fieldConfig": {

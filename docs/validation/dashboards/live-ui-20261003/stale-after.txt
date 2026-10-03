@@ -1,0 +1,66 @@
+Skip to main content
+Grafana
+Home
+Starred
+Dashboards
+Alerting
+Home
+Dashboards
+00 · Start Here
+Search...
+ctrl+k
+Sign in
+Export 
+Share
+Cluster
+demo-stale
+Resource node
+All
+Run
+verl-agent-demo
+Observer node
+View: Guided
+View: Overview
+View: Focus
+Run Overview
+Bottleneck Summary
+Cross-Layer Timeline
+Reset filters
+Last 5 minutes
+Refresh
+Collect → Correlate → Diagnose
+
+Color: Dark · Color: Sapphire · Color: Desert
+
+Cluster: demo-stale · Run: verl-agent-demo · Resource node: All
+먼저 수집 상태와 age를 확인합니다. 아래 Run을 선택한 뒤 느린 step을 조사합니다.
+
+Collector health
+Up
+Application age
+16.7 mins
+GPU sample age
+16.7 mins
+Completed step
+18
+Observed runs · select to investigate
+Run
+Observer node
+Role
+Worker
+Sample age
+Producer
+data_origin
+verl-agent-demo
+stale-demo
+trainer
+driver
+16.7 mins
+verl-file-demo
+synthetic
+Potential issue → next action
+
+Down / Stale / N/A: Run Overview에서 source와 freshness를 확인합니다.
+Step·stage가 느림: Agent RL Stage Correlation → Run Overview에서 Duration을 누릅니다.
+Candidate 조사: Bottleneck Summary의 supporting / counter / missing evidence → Cross-Layer Timeline.
+Subsystem only (no step required): Compute & Communication · Data & Storage · Run Logs. Loki 화면은 log 수집을 연결했을 때 사용할 수 있습니다.

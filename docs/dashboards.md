@@ -27,6 +27,9 @@ Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자
 Cluster·Run·observer/resource node·step record·시간 범위를 URL로 전달합니다.
 Logs의 directory와 telemetry Run은 별도로 전달하며, 각 화면에서 사용하는 추가 filter만 적용합니다.
 View 선택은 공유 설정을 바꾸지 않으므로 사용자끼리 영향을 주지 않습니다.
+Query 결과를 바꾸는 filter는 화면에 표시하며, 화면 이동으로 전달된 Phase·Worker·Observer node도 확인하고 바꿀 수 있습니다.
+`Reset filters`는 Cluster·Run·log directory·시간을 유지하고 Step·Trace·node·engine·device 등 나머지 선택을 초기화합니다.
+현재 선택한 step을 유지하려면 필요한 filter만 개별적으로 바꿉니다.
 선호하는 View를 bookmark하거나 Grafana Home dashboard로 지정할 수 있습니다.
 
 Overview와 Focus의 **Open details**는 기존 subsystem dashboard로 연결합니다.
@@ -196,6 +199,7 @@ Reward mean 하나도 모델 품질 추이를 증명하지 않습니다.
 Service/engine signal을 함께 보되 서로 다른 engine의 queue·KV·preemption을 하나의 engine 상태로 읽지 않습니다.
 `vLLM KV offload store and load`는 GPU→CPU와 CPU→GPU 전송률을 보여 주며 CPU tier와 filesystem tier를 분리하거나 3FS에 쓴 바이트만 집계하지 않습니다.
 Weight sync, policy lag, tool 시간은 해당 source가 기록된 경우에만 나타납니다.
+Policy lag는 초가 아닌 policy version 차이이며 `Weight sync and policy lag`의 오른쪽 축에서 `versions`로 표시합니다.
 `vLLM throughput & latency`는 prompt/generation tokens/s와 TTFT·queue·E2E latency p95를 engine·model별로 보여 줍니다.
 `Ray orchestration`은 task·actor state, logical CPU/GPU 자원, object store 위치별 bytes와 OOM eviction rate를 보여 줍니다.
 `Mooncake / KV storage`는 Store 배포의 기본 subsystem row이며 connector RPC·bytes, master RAM·lookup hit, client DFS bytes·successful keys·batch p95·errors를 보여 줍니다.

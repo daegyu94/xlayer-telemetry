@@ -1,0 +1,108 @@
+Skip to main content
+Grafana
+Home
+Starred
+Dashboards
+Alerting
+Home
+Dashboards
+Workspace · Overview
+Search...
+ctrl+k
+Sign in
+Export 
+Share
+Cluster
+demo-b300
+Resource node
+gpu-node-0
+Run
+verl-agent-demo
+Sandbox node
+All
+vLLM engine
+All
+Device
+All
+View: Guided
+View: Overview
+View: Focus
+Start Here
+Bottleneck Summary
+Cross-Layer Timeline
+Run Logs
+Last 15 minutes
+KST
+Refresh
+5s
+Overview workspace
+
+Color: Dark · Color: Sapphire · Color: Desert
+
+Overview: subsystem을 한눈에 비교하고 panel의 Open details로 이동합니다.
+
+View 버튼으로 화면을 바꿉니다. Run·Node·시간은 유지하며 shared metric은 Run에 자동 귀속하지 않습니다. 3FS 서비스 통계는 단독 threefs 조회를 사용합니다.
+
+VERL · Stage duration
+reward gpu-node-0/driver
+vLLM · Queue & KV
+waiting demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+running demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+KV cache demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+preemptions/s demo-b300/gpu-node-0 synthetic-vllm-0 synthetic-model engine=0
+Ray · Task states
+demo-b300 synthetic-session PENDING_ARGS_AVAIL
+demo-b300 synthetic-session RUNNING
+Compute · GPU utilization
+demo-b300/gpu-node-0 GPU 0
+demo-b300/gpu-node-0 GPU 1
+demo-b300/gpu-node-0 GPU 2
+demo-b300/gpu-node-0 GPU 3
+demo-b300/gpu-node-0 GPU 4
+demo-b300/gpu-node-0 GPU 5
+demo-b300/gpu-node-0 GPU 6
+demo-b300/gpu-node-0 GPU 7
+Local storage · Busy
+demo-b300/gpu-node-0 nvme0n1
+Sandbox · Resource pressure
+I/O PSI
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme0n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme1n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme2n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+local device busy nvme3n1
+CPU PSI
+Memory PSI some
+Memory PSI full
+CPU quota throttled periods

@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import tempfile
 
-from dashboard_views import add_color_links, add_view_links, build_views
+from dashboard_views import add_color_links, add_reset_link, add_view_links, build_views, expose_active_filters
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples" / "dashboards"
@@ -19,7 +19,9 @@ def provision(output, enable_logs=False):
     dashboards = {path: json.loads(path.read_text()) for path in SOURCE.glob("*.json")}
     dashboards.update({SOURCE / name: view for name, view in build_views(dashboards).items()})
     for dashboard in dashboards.values():
+        expose_active_filters(dashboard)
         add_view_links(dashboard)
+        add_reset_link(dashboard)
         add_color_links(dashboard)
     enabled = {path: value for path, value in dashboards.items()
                if enable_logs or path.stem in METRICS}

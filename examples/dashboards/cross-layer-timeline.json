@@ -912,7 +912,7 @@
         {
           "refId": "A",
           "expr": "vllm:num_requests_waiting{cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}",
-          "legendFormat": "{{node}} / {{instance}}"
+          "legendFormat": "{{cluster}} / {{node}} / {{instance}}"
         }
       ],
       "fieldConfig": {
@@ -1690,7 +1690,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"idle\"}[1m])))",
+              "expr": "100 * (1 - avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"idle\"}[1m])))",
               "legendFormat": "{{cluster}} / {{nodename}}"
             }
           ],
@@ -1782,13 +1782,13 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (instance) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
-              "legendFormat": "RX / {{cluster}} / {{nodename}} / {{device}}"
+              "expr": "sum by (cluster, nodename, instance) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+              "legendFormat": "RX / {{cluster}} / {{nodename}}"
             },
             {
               "refId": "B",
-              "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
-              "legendFormat": "TX / {{cluster}} / {{nodename}} / {{device}}"
+              "expr": "sum by (cluster, nodename, instance) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+              "legendFormat": "TX / {{cluster}} / {{nodename}}"
             }
           ],
           "fieldConfig": {
@@ -1833,13 +1833,13 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
-              "legendFormat": "Read / {{cluster}} / {{nodename}} / {{device}}"
+              "expr": "sum by (cluster, nodename, instance) (rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
+              "legendFormat": "Read / {{cluster}} / {{nodename}}"
             },
             {
               "refId": "B",
-              "expr": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
-              "legendFormat": "Write / {{cluster}} / {{nodename}} / {{device}}"
+              "expr": "sum by (cluster, nodename, instance) (rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[1m]))",
+              "legendFormat": "Write / {{cluster}} / {{nodename}}"
             }
           ],
           "fieldConfig": {

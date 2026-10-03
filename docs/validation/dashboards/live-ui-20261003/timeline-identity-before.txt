@@ -1,0 +1,243 @@
+Skip to main content
+Grafana
+Home
+Starred
+Dashboards
+Alerting
+Home
+Dashboards
+04 · Cross-Layer Timeline
+Search...
+ctrl+k
+Sign in
+Export 
+Share
+Cluster
+demo-b300
+Run
+Resource node
+All
+Step record ID
+Trace ID
+Observer node
+All
+Sandbox node
+All
+Step completion (approximate)
+View: Guided
+View: Overview
+View: Focus
+Start Here
+Run Overview
+Bottleneck Summary
+Agent RL Stage Correlation
+Compute & Communication
+Data & Storage
+Run Logs
+Last 15 minutes
+Refresh
+10s
+Boundary precision
+
+Color: Dark · Color: Sapphire · Color: Desert
+
+Correlate in time: Exact = span 경계 · Approximate = logger 기반 step 구간 · Sampled = metric.
+Resource node·Trace ID·clock·freshness를 확인합니다. Stage duration으로 실행 순서를 만들지 않으며 shared signal은 supporting evidence입니다.
+
+Selected step and reported stages
+Cluster
+step
+node
+boundary_accuracy
+boundary_scope
+Duration
+stage_summary
+ingested_at
+source_event_time
+workload
+demo-b300
+127
+gpu-node-0
+approximate
+rl_step
+18.4 s
+gen: 8.00s
+1791033735
+null
+{ "has_checkpoint": false, "has_evaluation": false }
+demo-b300
+126
+gpu-node-0
+approximate
+rl_step
+11.2 s
+gen: 5.00s
+1791033712
+null
+{ "has_checkpoint": false, "has_evaluation": false }
+Exact workload spans
+Approximate VERL step interval
+GPU utilization
+demo-b300 / gpu-node-0 / 0
+demo-b300 / gpu-node-1 / 0
+demo-b300 / gpu-node-2 / 0
+demo-b300 / gpu-node-3 / 0
+demo-b300 / gpu-node-0 / 1
+demo-b300 / gpu-node-1 / 1
+demo-b300 / gpu-node-2 / 1
+demo-b300 / gpu-node-3 / 1
+demo-b300 / gpu-node-0 / 2
+demo-b300 / gpu-node-1 / 2
+demo-b300 / gpu-node-2 / 2
+demo-b300 / gpu-node-3 / 2
+demo-b300 / gpu-node-0 / 3
+demo-b300 / gpu-node-1 / 3
+demo-b300 / gpu-node-2 / 3
+demo-b300 / gpu-node-3 / 3
+demo-b300 / gpu-node-0 / 4
+demo-b300 / gpu-node-1 / 4
+demo-b300 / gpu-node-2 / 4
+demo-b300 / gpu-node-3 / 4
+demo-b300 / gpu-node-0 / 5
+demo-b300 / gpu-node-1 / 5
+demo-b300 / gpu-node-2 / 5
+demo-b300 / gpu-node-3 / 5
+demo-b300 / gpu-node-0 / 6
+demo-b300 / gpu-node-1 / 6
+demo-b300 / gpu-node-2 / 6
+demo-b300 / gpu-node-3 / 6
+demo-b300 / gpu-node-0 / 7
+demo-b300 / gpu-node-1 / 7
+demo-b300 / gpu-node-2 / 7
+demo-b300 / gpu-node-3 / 7
+vLLM waiting requests
+gpu-node-0 / synthetic-vllm-0
+RDMA bytes per second
+demo-b300 / gpu-node-0 / mlx5_0
+demo-b300 / gpu-node-1 / mlx5_0
+demo-b300 / gpu-node-2 / mlx5_0
+demo-b300 / gpu-node-3 / mlx5_0
+demo-b300 / storage-node-0 / mlx5_0
+demo-b300 / storage-node-0 / mlx5_0
+demo-b300 / storage-node-1 / mlx5_0
+demo-b300 / storage-node-1 / mlx5_0
+demo-b300 / storage-node-2 / mlx5_0
+demo-b300 / storage-node-2 / mlx5_0
+demo-b300 / storage-node-3 / mlx5_0
+demo-b300 / storage-node-3 / mlx5_0
+demo-b300 / storage-node-4 / mlx5_0
+demo-b300 / storage-node-4 / mlx5_0
+demo-b300 / storage-node-5 / mlx5_0
+demo-b300 / storage-node-5 / mlx5_0
+demo-b300 / storage-node-6 / mlx5_0
+demo-b300 / storage-node-6 / mlx5_0
+demo-b300 / storage-node-7 / mlx5_0
+demo-b300 / storage-node-7 / mlx5_0
+Device busy ratio
+demo-b300 / gpu-node-0 / nvme0n1
+demo-b300 / gpu-node-1 / nvme0n1
+demo-b300 / gpu-node-2 / nvme0n1
+demo-b300 / gpu-node-3 / nvme0n1
+demo-b300 / storage-node-0 / nvme0n1
+demo-b300 / storage-node-0 / nvme0n1
+demo-b300 / storage-node-1 / nvme0n1
+demo-b300 / storage-node-1 / nvme0n1
+demo-b300 / storage-node-2 / nvme0n1
+demo-b300 / storage-node-2 / nvme0n1
+demo-b300 / storage-node-3 / nvme0n1
+demo-b300 / storage-node-3 / nvme0n1
+demo-b300 / storage-node-4 / nvme0n1
+demo-b300 / storage-node-4 / nvme0n1
+demo-b300 / storage-node-5 / nvme0n1
+demo-b300 / storage-node-5 / nvme0n1
+demo-b300 / storage-node-6 / nvme0n1
+demo-b300 / storage-node-6 / nvme0n1
+demo-b300 / storage-node-7 / nvme0n1
+demo-b300 / storage-node-7 / nvme0n1
+demo-b300 / storage-node-0 / nvme1n1
+demo-b300 / storage-node-0 / nvme1n1
+demo-b300 / storage-node-1 / nvme1n1
+demo-b300 / storage-node-1 / nvme1n1
+demo-b300 / storage-node-2 / nvme1n1
+demo-b300 / storage-node-2 / nvme1n1
+demo-b300 / storage-node-3 / nvme1n1
+demo-b300 / storage-node-3 / nvme1n1
+demo-b300 / storage-node-4 / nvme1n1
+demo-b300 / storage-node-4 / nvme1n1
+demo-b300 / storage-node-5 / nvme1n1
+demo-b300 / storage-node-5 / nvme1n1
+demo-b300 / storage-node-6 / nvme1n1
+demo-b300 / storage-node-6 / nvme1n1
+demo-b300 / storage-node-7 / nvme1n1
+demo-b300 / storage-node-7 / nvme1n1
+demo-b300 / storage-node-0 / nvme2n1
+demo-b300 / storage-node-0 / nvme2n1
+demo-b300 / storage-node-1 / nvme2n1
+demo-b300 / storage-node-1 / nvme2n1
+demo-b300 / storage-node-2 / nvme2n1
+demo-b300 / storage-node-2 / nvme2n1
+demo-b300 / storage-node-3 / nvme2n1
+demo-b300 / storage-node-3 / nvme2n1
+demo-b300 / storage-node-4 / nvme2n1
+demo-b300 / storage-node-4 / nvme2n1
+demo-b300 / storage-node-5 / nvme2n1
+demo-b300 / storage-node-5 / nvme2n1
+demo-b300 / storage-node-6 / nvme2n1
+demo-b300 / storage-node-6 / nvme2n1
+demo-b300 / storage-node-7 / nvme2n1
+demo-b300 / storage-node-7 / nvme2n1
+demo-b300 / storage-node-0 / nvme3n1
+demo-b300 / storage-node-0 / nvme3n1
+demo-b300 / storage-node-1 / nvme3n1
+demo-b300 / storage-node-1 / nvme3n1
+demo-b300 / storage-node-2 / nvme3n1
+demo-b300 / storage-node-2 / nvme3n1
+demo-b300 / storage-node-3 / nvme3n1
+demo-b300 / storage-node-3 / nvme3n1
+demo-b300 / storage-node-4 / nvme3n1
+demo-b300 / storage-node-4 / nvme3n1
+demo-b300 / storage-node-5 / nvme3n1
+demo-b300 / storage-node-5 / nvme3n1
+demo-b300 / storage-node-6 / nvme3n1
+demo-b300 / storage-node-6 / nvme3n1
+demo-b300 / storage-node-7 / nvme3n1
+demo-b300 / storage-node-7 / nvme3n1
+Span and event records
+(2 panels)
+Host / network / local storage
+Host CPU busy
+/
+/
+/
+/
+/
+/
+/
+/
+/
+/
+/
+/
+Host memory used
+demo-b300 / gpu-node-0
+demo-b300 / gpu-node-1
+demo-b300 / gpu-node-2
+demo-b300 / gpu-node-3
+demo-b300 / storage-node-0
+demo-b300 / storage-node-1
+demo-b300 / storage-node-2
+demo-b300 / storage-node-3
+demo-b300 / storage-node-4
+demo-b300 / storage-node-5
+demo-b300 / storage-node-6
+demo-b300 / storage-node-7
+ 
+ 
+Sandbox signals (optional)
+(1 panel)
+Clock quality
+(2 panels)
+Continue investigation
+
+Agent RL Stage Correlation · Compute & Communication · Data & Storage · Run Logs
+GPU memory·KV offload·Logs 상세는 위 링크에서 확인합니다. 선택한 step·node·시간 범위를 유지합니다.
