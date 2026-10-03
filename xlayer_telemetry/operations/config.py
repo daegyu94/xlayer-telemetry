@@ -27,6 +27,7 @@ KEYS = (
     "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME",
     "TELEMETRY_TARGETS", "LOKI_LISTEN_ADDR",
     "PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT", "ALLOY_PORT",
+    "PROMETHEUS_RETENTION",
 )
 
 PATH_KEYS = {"TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
@@ -73,6 +74,7 @@ def defaults() -> dict[str, str]:
         "TELEMETRY_HEALTH_MAX_AGE_SECONDS": "300", "GF_FEATURE_TOGGLES_ENABLE": "extraThemes",
         "GF_USERS_DEFAULT_THEME": "dark",
         "PROMETHEUS_PORT": "19090", "GRAFANA_PORT": "13000", "LOKI_PORT": "13100", "ALLOY_PORT": "12345",
+        "PROMETHEUS_RETENTION": "1d",
     }
 
 
@@ -190,7 +192,30 @@ def load_config(path: Path) -> tuple[dict[str, str], list[str]]:
     return config, command
 
 
+def validate_prometheus_retention(value: str) -> None:
+    """Validate a positive Prometheus model.Duration, including its int64 bound.
+
+    Units follow prometheus/common model.ParseDuration: y, w, d, h, m, s, ms,
+    each at most once, largest first. Keep this shared by CLI and Bash launchers.
+    """
+    error = "PROMETHEUS_RETENTION must be a positive Prometheus duration (for example 7d, 10h or 1h30m) within its supported range."
+    units = (("y", 365 * 86400_000_000_000), ("w", 7 * 86400_000_000_000),
+             ("d", 86400_000_000_000), ("h", 3600_000_000_000),
+             ("m", 60_000_000_000), ("s", 1_000_000_000), ("ms", 1_000_000))
+    match = re.fullmatch("".join(r"(?:([0-9]+)" + unit + ")?" for unit, _ in units), value)
+    if not match:
+        raise ConfigError(error)
+    try:
+        nanos = sum(int(amount) * unit_nanos
+                    for amount, (_, unit_nanos) in zip(match.groups(), units) if amount)
+    except ValueError as exc:
+        raise ConfigError(error) from exc
+    if not 0 < nanos <= (1 << 63) - 1:
+        raise ConfigError(error)
+
+
 def validate(config: dict[str, str]) -> None:
+    validate_prometheus_retention(config.get("PROMETHEUS_RETENTION", "1d"))
     for key in PORT_KEYS:
         if config.get(key) and (not config[key].isdigit() or not 1 <= int(config[key]) <= 65535):
             raise ConfigError(f"{key} must be an integer port from 1 to 65535.")

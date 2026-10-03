@@ -195,6 +195,8 @@ Storage rule의 필수 조건이 모두 있어도 run별 3FS client bytes가 없
 
 `gpu_memory_usage_ratio`는 GPU sampler의 device used/total bytes로 계산하며 capacity가 없거나 0이면 만들지 않습니다.
 Memory 사용률만 높고 eviction evidence가 없다면 `gpu_memory_pressure`의 필수 조건을 충족하지 않습니다.
+Custom eviction query는 memory와 같은 cluster·node 및 `gpu`/`gpu_uuid` 식별 field를 유지해야 합니다.
+Identity가 다르거나 aggregate만 있거나 한 GPU에 여러 process series가 있어 결합이 모호하면 eviction 근거를 제외하고 `gpu_memory_entity_match`를 missing evidence로 남깁니다.
 `storage_device_busy_ratio`, `network_utilization_ratio`, `threefs_throughput_bytes_per_second`, `storage_request_bytes`, `gpu_evictions_delta`는 기본 query에 없습니다.
 Prometheus에서 가져오는 값은 실제 source와 해당 scope를 확인한 뒤 `prometheus.queries`에 명시적으로 넣습니다.
 3FS distributions에 신뢰할 수 있는 request size metric이 있다면 `threefs.request_size_metric`에 그 **정확한** `metricName`을 지정해 `storage_request_bytes`를 만들 수도 있습니다.

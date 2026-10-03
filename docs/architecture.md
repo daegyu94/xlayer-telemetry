@@ -299,27 +299,34 @@ Run artifact와 collector state는 별도 로컬 파일이므로 두 경로의 �
 
 ## Failure Boundaries and Operating Limits
 
+XLayer는 관측된 변화로 조사 범위를 좁히는 도구입니다.
+다음 한계는 기능을 켜거나 dashboard에 값이 보인다는 사실만으로 해소되지 않습니다.
+
+| 한계 | 현재 대응과 사용 조건 |
+| --- | --- |
+| **Correlation은 원인 증명이 아닙니다.** 공유 GPU·NIC·3FS·serving engine의 사용량을 run별로 자동 분리하지 않습니다. | Scope·entity를 보존하고, process·cgroup·client 계측이나 경쟁 부하를 통제한 비교 실험으로 확인합니다. 서로 다른 GPU의 memory·eviction을 하나의 강한 근거로 합치지 않습니다. |
+| **Step보다 거친 관측이 있습니다.** File logger 경계는 근사치이며, async update와 rollout은 겹칠 수 있습니다. Scrape·rate window 안의 짧은 spike도 분리되지 않을 수 있습니다. | Producer timestamp·명시적 span을 사용하고 clock·sampling quality를 확인합니다. Clock guard는 시각을 보정하거나 사라진 표본을 복원하지 않습니다. |
+| **자동 계측 범위가 제한됩니다.** Endpoint 등록만으로 전체 호출 체인, RDMA/USRBIO의 process별 I/O, GPU kernel·allocator 동작을 얻지는 못합니다. | Native source·log 경로와 remote worker 계측을 별도로 연결합니다. 저수준 원인은 Nsight·PyTorch Profiler 같은 targeted profiling으로 확인합니다. |
+| **Diagnosis는 관측 가능한 가설입니다.** Rule에 없는 패턴, 비교 조건이 다른 baseline, LLM의 잘못된 해석을 완전히 배제할 수 없습니다. | Workload 비교 조건과 supporting/counter/missing evidence를 확인합니다. `no_anomaly_observed`는 수집한 신호·적용한 rule에서 찾지 못했다는 뜻이며 전체 시스템 정상 보증이 아닙니다. |
+| **Telemetry는 best-effort입니다.** Synchronous I/O는 workload를 지연시킬 수 있고, bounded async queue·disk 오류·강제 종료로 데이터가 빠질 수 있습니다. | Node-local 기록, 선택적 async I/O, drop/error·completeness 상태를 사용합니다. 무손실 수집이나 zero overhead를 보장하지 않습니다. |
+| **긴 run에는 용량·조회 비용 관리가 필요합니다.** Cache 초과·재시작 시 JSONL 전체 scan이 가능하고 persistent time index와 artifact 자동 정리는 없습니다. | Backend budget·worker deadline을 유지하고 run/log 용량을 관리합니다. [Backend retention](monitoring.md#retain-data-for-completed-runs)을 조사 기간에 맞추며, 만료된 metric은 남은 step 이력으로 복원할 수 없습니다. |
+| **배포·가용성은 별도 책임입니다.** `xltel`은 현재 host의 소유 process를 관리하며 cluster scheduler·remote 배포·HA를 제공하지 않습니다. | Linux collector와 cgroup v2, NVIDIA GPU sampler 등 source별 조건을 확인하고 원격 배포·backend 백업은 기존 운영 도구로 관리합니다. |
+
+실제 VERL sync/async·Docker sandbox·GPU·3FS/ClickHouse와 두 VM의 검증 기록이 있습니다.
+이는 독립 물리 GPU/storage cluster의 모든 조합이나 대규모 장기 run의 비용·정확도를 보장하지 않으며, [검증 기록](validation/README.md)의 실행 조건과 미검증 범위를 함께 읽습니다.
+
+### Failure Isolation
+
 Wrapper는 workload exit code와 `telemetry-health.json`의 수집 상태를 별도로 남깁니다.
-진단 설정이 실행 중 사라지거나 최종 export가 실패해도 workload 결과를 덮지 않습니다.
-Sidecar는 각각 별도 session으로 실행하며, 종료에 응답하지 않으면 controller에 TERM 후 2초, 필요하면 소유 group에 KILL 후 2초까지 기다립니다.
-Group 종료 전에는 상속된 ownership marker를 확인해 재사용된 PGID의 무관한 process를 보호합니다.
-Kernel I/O 때문에 종료되지 않으면 경고를 남기며, 이미 끝난 workload의 결과 반환을 무한히 기다리지 않습니다.
-동일한 run 디렉터리의 동시 wrapper 실행은 `flock`으로 거부하며 완료한 경로도 재사용하지 않습니다.
+최종 export 실패로 workload 결과를 덮지 않으며, `flock`과 process ownership 검증으로 같은 run의 중복 실행과 무관한 process 종료를 막습니다.
+Sidecar 종료는 TERM 후 2초, 필요하면 소유 group에 KILL 후 2초까지 기다리지만 kernel I/O 자체를 강제로 완료시키지는 못합니다.
 
-Bridge는 newline까지 기록된 UTF-8 JSON record를 처리하고 malformed line은 건너뜁니다.
-Follow 중 inode 교체나 파일 축소를 감지하면 다시 열고, 새 파일에 이미 있던 record는 event time을 모르는 backlog로 처리합니다.
-읽은 record의 마지막 최대 256 byte도 비교해 polling 사이의 truncate·regrow와 남아 있는 read-ahead를 감지합니다.
-이 검사는 임의의 파일 수정을 모두 감지하지 않으며, 이미 삭제된 미수집 record도 복원할 수 없으므로 log rotation은 rename 후 새 파일을 만드는 방식을 권장합니다.
-Producer timestamp가 없는 backlog는 정확한 step 시각을 복원할 수 없어 외부 resource correlation을 제한합니다.
-Backend의 일부 표본 누락·일시 오류는 [bounded retry](diagnosis.md#baseline-and-rule-state)로 처리합니다.
+Bridge는 완성된 newline record를 읽고 malformed line은 건너뜁니다.
+파일 교체·축소와 읽은 끝부분의 최대 256 byte 변화를 확인하지만 임의의 rewrite나 삭제된 미수집 record를 모두 복원하지는 못하므로 rename rotation을 권장합니다.
+Producer timestamp가 없는 backlog는 외부 resource와의 step correlation을 제한하며 backend 수집 지연·일시 오류는 bounded retry로 처리합니다.
 
-SDK 파일 쓰기는 기본 synchronous이며, [선택적 bounded background writer](application-metrics.md#optional-background-io)로 application 호출의 filesystem 대기를 줄일 수 있습니다.
-SDK의 `from_env()`는 잘못된 설정에서 `None`을 반환하며, 경고용 stderr가 닫혀 있어도 application 초기화를 실패시키지 않습니다.
-명시적 constructor와 `CorrelationContext.from_env()`의 입력 검증 오류는 호출자에게 전달합니다.
-Snapshot·event는 node-local 경로에 기록하고, 장시간 run의 artifact 용량을 관리합니다.
-진단 CLI는 [worker deadline과 incremental cache](diagnosis.md#backend-query-budget)로 중단·복구와 반복 JSONL parsing 비용을 관리합니다.
-Cache 한도 초과 시 전체 scan을 사용하며, record 필터링·baseline 선택 비용은 이력 크기에 따라 증가합니다.
-시간 구간별 persistent index는 제공하지 않습니다.
+SDK의 `from_env()`는 잘못된 설정에서 `None`을 반환하지만 명시적 constructor의 입력 오류는 호출자에게 전달합니다.
+[Bounded background writer](application-metrics.md#optional-background-io)와 [analysis deadline/cache](diagnosis.md#backend-query-budget)는 지연과 자원 사용을 제한하는 선택지이며, 데이터 완전성과 filesystem 응답을 보증하지 않습니다.
 
 ## Add One Source at a Time
 

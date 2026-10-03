@@ -71,6 +71,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog 없이 명시적으로 호출하며, 선택한 step의 검토된 결과는 Loki를 통해 Grafana에 표시할 수 있습니다. 자동 호출은 하지 않습니다. |
 
 동작 원리는 [Architecture](docs/architecture.md), 실제 producer·metric·scope는 [수집 범위](docs/metrics.md#what-is-actually-collected)에 정리했습니다.
+적용 전 [현재 한계와 보완 방법](docs/architecture.md#failure-boundaries-and-operating-limits)에서 attribution·시간 해상도·진단·운영 범위를 확인합니다.
 
 ## Start Here
 

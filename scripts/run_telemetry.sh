@@ -350,6 +350,16 @@ EOF
 elif [[ "$role" == storage ]]; then
   start_smartctl_exporter
 elif [[ "$role" == server ]]; then
+  prometheus_retention="${PROMETHEUS_RETENTION-1d}"
+  "${PYTHON:-python3}" - "$prometheus_retention" <<'PY'
+import sys
+from xlayer_telemetry.operations.config import ConfigError, validate_prometheus_retention
+try:
+    validate_prometheus_retention(sys.argv[1])
+except ConfigError as error:
+    print(error, file=sys.stderr)
+    raise SystemExit(2)
+PY
   prometheus_port="${PROMETHEUS_PORT:-19090}"
   grafana_port="${GRAFANA_PORT:-13000}"
   loki_port="${LOKI_PORT:-13100}"
@@ -568,7 +578,7 @@ EOF
   if [[ "${SERVER_CONFIG_ONLY:-0}" == 1 ]]; then exit 0; fi
   "$tools_dir/prometheus-3.5.0.linux-$release_arch/prometheus" \
     --config.file="$output_dir/prometheus.yml" --storage.tsdb.path="$output_dir/prometheus-data" \
-    --storage.tsdb.retention.time=1d --web.listen-address="127.0.0.1:$prometheus_port" > "$output_dir/prometheus.log" 2>&1 &
+    --storage.tsdb.retention.time="$prometheus_retention" --web.listen-address="127.0.0.1:$prometheus_port" > "$output_dir/prometheus.log" 2>&1 &
   pids+=("$!")
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     "$loki" -config.file="$output_dir/loki.yaml" > "$output_dir/loki.log" 2>&1 &

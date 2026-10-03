@@ -91,6 +91,7 @@ ENABLE_LOGS = true
 # EXECUTION_MODE = "async"
 # TELEMETRY_SOURCES_FILE = "~/telemetry/config/native-sources.json"
 # DIAGNOSTICS_CONFIG = "~/telemetry/config/diagnostics.json"
+# PROMETHEUS_RETENTION = "7d"
 
 [workload]
 # command = ["/path/to/verl-env/bin/python", "-m", "verl.trainer.main_ppo"]

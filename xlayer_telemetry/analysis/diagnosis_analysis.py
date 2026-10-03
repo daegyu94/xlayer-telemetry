@@ -196,7 +196,8 @@ def evaluate_rules(
             "window": context.get("window"),
             "boundary_accuracy": context.get("boundary_accuracy", "unknown"),
         } for name in observed]
-        gpu_label = labels_for("gpu_utilization_percent").get("gpu")
+        gpu_signal = "gpu_memory_usage_ratio" if identifier == "gpu_memory_pressure" else "gpu_utilization_percent"
+        gpu_label = labels_for(gpu_signal).get("gpu") or labels_for(gpu_signal).get("gpu_uuid")
         observed_nodes = sorted({
             str(item["labels"].get("node") or item["labels"].get("nodename"))
             for item in evidence if item["labels"].get("node") or item["labels"].get("nodename")
@@ -254,7 +255,7 @@ def evaluate_rules(
         add("gpu_memory_pressure", "compute", "GPU memory use and eviction coincide", [
         ("gpu_memory_usage_ratio", high("gpu_memory_usage_ratio", thresholds.get("gpu_memory_ratio", 0.9))),
         ("gpu_evictions_delta", high("gpu_evictions_delta", 1)),
-        ], scope="device")
+        ], scope=scope_for("gpu_memory_usage_ratio"))
     if raised("rollout_duration_seconds", thresholds.get("step_slowdown_ratio", 1.5)):
         add("rollout_queue_backlog", "rollout", "Rollout duration and vLLM queue increased", [
         ("rollout_duration_seconds", raised("rollout_duration_seconds", thresholds.get("step_slowdown_ratio", 1.5))),

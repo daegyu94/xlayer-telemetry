@@ -341,6 +341,7 @@ python -m xlayer_telemetry.step_backfill "$RUN_ROOT"
 
 수집기가 이미 실행 중이면 새 `verl-steps-backfill.jsonl`을 자동으로 읽습니다.
 Prometheus의 기본 보존 기간은 1일이므로 오래된 step은 Loki 목록에 있어도 자원 그래프가 비어 있을 수 있습니다.
+[Backend retention](monitoring.md#retain-data-for-completed-runs)을 조사 기간에 맞춰 설정합니다.
 Stage 시간과 step 경계는 아래 [Read a Step](#read-a-step)의 해석 범위를 따릅니다.
 
 Timeline의 기본 화면은 선택한 step 요약·exact/approximate lane·GPU·vLLM·RDMA·device busy입니다.

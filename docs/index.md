@@ -6,6 +6,7 @@ Run·step·phase를 기준으로 느린 구간의 bottleneck candidate와 suppor
 Prometheus·Grafana·Loki와 기존 exporter를 활용하며, 저수준 분석은 PyTorch Profiler·Nsight로 이어집니다.
 공유 자원의 동시 변화는 correlation이며 특정 run의 사용량이나 인과관계를 뜻하지 않습니다.
 현재 지원 기능과 제약은 [README의 What Works Today](https://github.com/daegyu94/xlayer-telemetry#what-works-today), 수집 조건은 [Metrics / Scope](metrics.md#what-is-actually-collected)에서 확인합니다.
+적용 전 확인할 한계와 보완 방법은 [Operating Limits](architecture.md#failure-boundaries-and-operating-limits)에 모았습니다.
 
 ## Start Here
 

@@ -352,6 +352,28 @@ def _slow_stages(current: Mapping[str, Any], history: list[dict[str, Any]], thre
     return slow
 
 
+def _gpu_memory_observations(items: list[dict[str, Any]]) -> dict[tuple, dict[str, Any]]:
+    """Keep unambiguous device observations without guessing UUID/index maps.
+
+    Multiple process/worker series for one device need an explicit producer
+    aggregation contract; a maximum across them is not device attribution.
+    """
+    selected, ambiguous = {}, set()
+    for item in items:
+        labels = item.get("labels", {})
+        node = labels.get("nodename") or labels.get("node")
+        device = tuple((key, str(labels[key])) for key in ("gpu", "gpu_uuid")
+                       if labels.get(key) is not None and str(labels[key]))
+        if (not node or not device or finite(item.get("stats", {}).get("max")) is None
+                or (labels.get("node") and labels.get("nodename") and labels["node"] != labels["nodename"])):
+            continue
+        identity = (str(labels.get("cluster", "")), str(node), device)
+        if identity in selected:
+            ambiguous.add(identity)
+        selected[identity] = item
+    return {identity: item for identity, item in selected.items() if identity not in ambiguous}
+
+
 class DiagnosticEngine:
     def __init__(
         self,
@@ -686,6 +708,49 @@ class DiagnosticEngine:
         elif current_series.get("gpu_utilization_percent") and baseline_series.get("gpu_utilization_percent"):
             baseline_signals.pop("gpu_utilization_percent", None)
             missing.append("gpu:baseline_entity_match")
+        if "gpu_memory_usage_ratio" in current_signals:
+            memory = _gpu_memory_observations(current_series.get("gpu_memory_usage_ratio", []))
+            evictions = _gpu_memory_observations(current_series.get("gpu_evictions_delta", []))
+
+            def memory_ratio(item):
+                value = item["stats"]["max"]
+                return value / 100 if value > 1 else value
+
+            def memory_score(identity):
+                ratio = memory_ratio(memory[identity])
+                eviction = evictions.get(identity, {}).get("stats", {}).get("max", 0)
+                return (int(ratio >= self.thresholds["gpu_memory_ratio"]) + int(eviction >= 1), ratio)
+
+            selected_memory = max(memory, key=memory_score) if memory else None
+            had_evictions = "gpu_evictions_delta" in current_signals
+            for name in ("gpu_memory_usage_ratio", "gpu_evictions_delta"):
+                baseline_signals.pop(name, None)
+            if selected_memory is not None:
+                item = memory[selected_memory]
+                current_signals["gpu_memory_usage_ratio"] = memory_ratio(item)
+                signal_labels["gpu_memory_usage_ratio"] = dict(item["labels"])
+                signal_scopes["gpu_memory_usage_ratio"] = "device"
+            else:
+                # Retain the observed high usage, but not an invented device.
+                signal_labels["gpu_memory_usage_ratio"] = {}
+                signal_scopes["gpu_memory_usage_ratio"] = "unknown"
+            if selected_memory in evictions:
+                item = evictions[selected_memory]
+                current_signals["gpu_evictions_delta"] = item["stats"]["max"]
+                signal_labels["gpu_evictions_delta"] = dict(item["labels"])
+            else:
+                current_signals.pop("gpu_evictions_delta", None)
+                signal_labels.pop("gpu_evictions_delta", None)
+                if had_evictions:
+                    missing.append("gpu:memory_entity_match")
+            for name in ("gpu_memory_usage_ratio", "gpu_evictions_delta"):
+                if name not in current_signals:
+                    continue
+                previous = _gpu_memory_observations(baseline_series.get(name, [])).get(selected_memory)
+                if previous is not None:
+                    baseline_signals[name] = memory_ratio(previous) if name == "gpu_memory_usage_ratio" else previous["stats"]["max"]
+                elif name in baseline_metrics:
+                    missing.append(f"gpu:memory_baseline_entity_match:{name}")
         selected_3fs_metric = None
         if baseline_record:
             def latencies(rows: list[dict[str, Any]]) -> dict[str, float]:
@@ -800,6 +865,8 @@ class DiagnosticEngine:
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
         for candidate in candidates:
+            if candidate["id"] == "gpu_memory_pressure" and "gpu:memory_entity_match" in missing:
+                candidate["missing_evidence"].append("gpu_memory_entity_match")
             for item in candidate.get("evidence", []):
                 name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
                 item["sampling_quality"] = sampling_quality.get(name)

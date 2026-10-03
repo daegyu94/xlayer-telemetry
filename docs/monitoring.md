@@ -157,6 +157,26 @@ Loopback 예제는 같은 host에서만 유효하며 remote server는 `NODE_ADDR
 시작 시 HTTP·query 검사 결과를 `OUTPUT_DIR/startup-summary.json`에 저장합니다.
 Bash config는 `$HOME`을 지원하고 같은 이름의 terminal 환경 변수보다 우선합니다.
 
+## Retain Data for Completed Runs
+
+Managed Prometheus는 기본 1일, Loki는 기본 7일을 보관합니다.
+장시간 run을 나중에 조사하려면 `xltel config path`의 TOML에서 Prometheus 보관 기간을 늘립니다.
+
+```toml
+[telemetry]
+PROMETHEUS_RETENTION = "7d"
+```
+
+```bash
+xltel config validate
+xltel restart --role server
+```
+
+기존 `[telemetry]` 절에 값을 추가하며, Bash config와 환경 변수에서도 같은 이름을 사용합니다.
+보관 기간을 늘리면 disk 사용량이 증가하고 이미 만료된 표본은 복구되지 않습니다.
+Loki 설정은 [log 수집](#add-run-logs-with-loki)을 따르며, 외부 backend의 retention은 해당 배포에서 관리합니다.
+Run의 JSONL·profile artifact는 별도로 남으므로 backend retention이나 `xltel down`이 이를 삭제하지 않습니다.
+
 ## Monitor GPU and Storage Nodes Together
 
 Collector와 correlation은 분산 실행을 지원하지만, GPU 두 개가 있는 한 host는 독립된 clock을 가진 두 node가 아닙니다.
