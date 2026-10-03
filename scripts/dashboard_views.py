@@ -85,7 +85,7 @@ def build_views(dashboards):
                 'VERL': 'VERL · Stage duration', 'vLLM': 'vLLM · Queue & KV',
                 'Ray': 'Ray · Task states', 'Compute': 'Compute · GPU utilization',
                 'Local storage': 'Local storage · Busy',
-                'Sandbox': 'Sandbox · I/O pressure',
+                'Sandbox': 'Sandbox · Resource pressure',
             }[title]
             link = deepcopy(next(link for link in stage['links']
                                  if link['url'].startswith('/d/' + original['uid'] + '?'))

@@ -133,6 +133,8 @@ class Demo:
                 GaugeSample("telemetry_gpu_power_watts", "Synthetic GPU power.", 820 + value["gpu"] * 3, {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_temperature_celsius", "Synthetic GPU temperature.", 54 + value["gpu"] * .2 + wobble, {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_sm_clock_mhz", "Synthetic GPU SM clock.", 1800 + value["gpu"] * 5, {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_memory_used_bytes", "Synthetic device GPU memory used.", 160 * _GIB, {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_memory_total_bytes", "Synthetic device GPU memory capacity.", 288 * _GIB, {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_process_memory_bytes", "Synthetic training process GPU memory.", 144 * _GIB, {"gpu": str(rank), "pid": str(9000 + rank), "gpu_uuid": f"DEMO-{node}-{rank}"}),
                 GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", time.time(), labels),
                 GaugeSample("training_step", "Synthetic training step.", int(now - self.started), labels),
@@ -223,13 +225,17 @@ class Demo:
                   "worker_id": "pool-0", "runtime": "containerd", "filesystem": "overlayfs", "deployment": "colocated"}
         pressure = .02 if _phase(now - self.started)[0] == "training" else .43
         values = {"sandbox_active": 4, "sandbox_queued": 2 if pressure > .1 else 0, "sandbox_io_pressure_ratio": pressure,
-                  "sandbox_cpu_pressure_ratio": .08, "sandbox_memory_bytes": 6 * _GIB,
+                  "sandbox_cpu_pressure_ratio": .08, "sandbox_memory_pressure_ratio": .03,
+                  "sandbox_memory_full_pressure_ratio": .01, "sandbox_memory_bytes": 6 * _GIB,
                   "sandbox_memory_peak_bytes": 8 * _GIB, "sandbox_sample_timestamp_seconds": time.time()}
         samples = [GaugeSample(name, "Synthetic sandbox gauge.", value, labels) for name, value in values.items()]
         for name, rate in {"sandbox_io_read_bytes_total": .1 * _GIB, "sandbox_io_write_bytes_total": .2 * _GIB,
                            "sandbox_io_read_ops_total": 400, "sandbox_io_write_ops_total": 800,
                            "sandbox_cpu_usage_seconds_total": 1.5, "sandbox_oom_total": 0,
-                           "sandbox_oom_kill_total": 0}.items():
+                           "sandbox_oom_kill_total": 0, "sandbox_memory_high_events_total": 2,
+                           "sandbox_memory_max_events_total": 0,
+                           "sandbox_cpu_periods_total": 10, "sandbox_cpu_throttled_periods_total": 1,
+                           "sandbox_cpu_throttled_seconds_total": .05}.items():
             samples.append(GaugeSample(name, "Synthetic sandbox counter.", self._counter("sandbox", name, rate, now), labels, kind="counter"))
         return samples
 

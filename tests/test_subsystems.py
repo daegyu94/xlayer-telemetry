@@ -28,7 +28,14 @@ def backend():
             self.wfile.write(json.dumps(state['payload']).encode())
 
         def do_POST(self):
-            requests.append(self.rfile.read(int(self.headers['Content-Length'])).decode())
+            query = self.rfile.read(int(self.headers['Content-Length'])).decode()
+            requests.append(query)
+            if 'FROM 3fs.counters' in query:
+                self.send_response(404 if state.get('counter_error') else 200)
+                self.end_headers()
+                for row in state.get('counters', []):
+                    self.wfile.write((json.dumps(row) + '\n').encode())
+                return
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'{"metricName":"readLatency","sample_count":4,"weighted_mean":2,"max_value":9,"max_observed_p99":8}\n')
@@ -199,3 +206,30 @@ def test_native_health_does_not_import_diagnosis_engine():
         'assert "xlayer_telemetry.analysis.diagnostics" not in sys.modules'],
         capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stderr
+
+
+def test_threefs_inspection_includes_counters_and_observed_freshness(backend):
+    url, state, _ = backend
+    state['counters'] = [{"metricName": "fuse.write.bytes", "host": "client-a", "tag": "",
+                          "mount_name": "training", "instance": "fuse", "io": "write", "uid": "1000",
+                          "pod": "", "thread": "fuse-0", "statusCode": "OK", "sample_count": "2",
+                          "min": "4096", "max": "8192", "last": "4096",
+                          "first_observed_at": "950", "last_observed_at": "960"}]
+    result = inspect_threefs({'threefs': {'url': url}}, now=1000, seconds=300)
+    assert result['counter_status'] == 'observed'
+    assert result['counters'][0]['labels']['host'] == 'client-a'
+    assert result['counters'][0]['last'] == 4096
+    assert result['freshness']['counters']['last_observed_at'] == 960
+    assert result['freshness']['counters']['source_age_seconds'] == 40
+    assert result['missing_sources'] == []
+    assert 'producer-defined' in result['counter_note']
+
+
+def test_threefs_missing_counter_table_preserves_distributions(backend):
+    url, state, _ = backend
+    state['counter_error'] = True
+    result = inspect_threefs({'threefs': {'url': url}}, now=1000, seconds=300)
+    assert result['status'] == 'observed'
+    assert result['metrics'][0]['max_observed_p99'] == 8
+    assert result['counters'] == [] and result['counter_status'] == 'unavailable'
+    assert result['missing_sources'] == ['threefs:counters:HTTPError']

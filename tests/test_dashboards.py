@@ -182,7 +182,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     sandbox_panels = {panel["title"]: panel for panel in _panels(agent_rl)
                       if panel["title"].startswith("Sandbox")}
     assert "sandbox_cpu_pressure_ratio" in str(sandbox_panels["Sandbox worker and device pressure"])
-    assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox worker CPU and OOM"])
+    assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox CPU and memory events"])
 
 
 def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:

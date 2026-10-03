@@ -1,7 +1,8 @@
 """Read a stable Linux cgroup v2 sandbox-worker subtree.
 
 One Prometheus series represents one stable worker cgroup, never a transient
-sandbox ID. The kernel's hierarchical counters include its child cgroups.
+sandbox ID. Hierarchical resource counters include its child cgroups; CPU quota
+statistics describe the selected cgroup's own bandwidth limit, not a subtree sum.
 """
 
 from __future__ import annotations
@@ -55,13 +56,17 @@ def parse_io_stat(raw: str) -> dict[str, int]:
     return totals
 
 
-def parse_pressure(raw: str) -> dict[str, int]:
+def parse_pressure(raw: str, *, include_full: bool = False) -> dict[str, int]:
+    totals = {}
     for line in raw.splitlines():
         parts = line.split()
-        if parts and parts[0] == "some":
+        if parts and (parts[0] == "some" or (include_full and parts[0] == "full")):
             fields = dict(item.split("=", 1) for item in parts[1:] if "=" in item)
-            return {"some_total_usec": int(fields["total"])} if "total" in fields else {}
-    return {}
+            if "total" in fields:
+                total = int(fields["total"])
+                if total >= 0:
+                    totals[parts[0] + "_total_usec"] = total
+    return totals
 
 
 def parse_key_values(raw: str) -> dict[str, int]:
@@ -81,6 +86,7 @@ def read_cgroup(directory: Path) -> dict[str, int]:
         "io.pressure": (parse_pressure, "io_"),
         "cpu.stat": (parse_key_values, "cpu_"),
         "cpu.pressure": (parse_pressure, "cpu_pressure_"),
+        "memory.pressure": (lambda raw: parse_pressure(raw, include_full=True), "memory_pressure_"),
         "memory.current": (lambda raw: {"current": int(raw.strip())}, "memory_"),
         "memory.peak": (lambda raw: {"peak": int(raw.strip())}, "memory_"),
         "memory.events": (parse_key_values, "memory_event_"),
@@ -98,6 +104,8 @@ def pressure_ratio(current: Mapping[str, int], previous: Mapping[str, int] | Non
                    elapsed_seconds: float, name: str) -> float | None:
     if previous is None or elapsed_seconds <= 0 or name not in current or name not in previous:
         return None
+    if current[name] < 0 or previous[name] < 0:
+        return None
     delta = current[name] - previous[name]
     if delta < 0:
         return None
@@ -111,21 +119,32 @@ def samples(values: Mapping[str, int], *, previous: Mapping[str, int] | None,
     if labels["deployment"] not in {"colocated", "dedicated"}:
         raise ValueError("invalid deployment")
     output: list[GaugeSample] = []
-    def add(name: str, value: float | None, kind: str = "gauge") -> None:
-        if value is not None:
-            output.append(GaugeSample(name, "Sandbox worker cgroup v2 observation.", value, labels, kind))
+    def add(name: str, value: float | None, kind: str = "gauge",
+            description: str = "Sandbox worker cgroup v2 observation.") -> None:
+        if value is not None and value >= 0:
+            output.append(GaugeSample(name, description, value, labels, kind))
     for key, name in COUNTERS.items():
         add(name, values.get(key), "counter")
     for key, name in (("cpu_usage_usec", "sandbox_cpu_usage_seconds_total"),
                       ("memory_current", "sandbox_memory_bytes"),
                       ("memory_peak", "sandbox_memory_peak_bytes"),
+                      ("memory_event_high", "sandbox_memory_high_events_total"),
+                      ("memory_event_max", "sandbox_memory_max_events_total"),
                       ("memory_event_oom", "sandbox_oom_total"),
                       ("memory_event_oom_kill", "sandbox_oom_kill_total")):
         value = values.get(key)
         add(name, value / 1_000_000 if key == "cpu_usage_usec" and value is not None else value,
             "counter" if name.endswith("_total") else "gauge")
+    for key, name in (("cpu_throttled_usec", "sandbox_cpu_throttled_seconds_total"),
+                      ("cpu_nr_throttled", "sandbox_cpu_throttled_periods_total"),
+                      ("cpu_nr_periods", "sandbox_cpu_periods_total")):
+        value = values.get(key)
+        add(name, value / 1_000_000 if key == "cpu_throttled_usec" and value is not None else value,
+            "counter", "CPU quota statistic for the selected cgroup's own bandwidth limit; not a subtree aggregate.")
     for key, name in (("io_some_total_usec", "sandbox_io_pressure_ratio"),
-                      ("cpu_pressure_some_total_usec", "sandbox_cpu_pressure_ratio")):
+                      ("cpu_pressure_some_total_usec", "sandbox_cpu_pressure_ratio"),
+                      ("memory_pressure_some_total_usec", "sandbox_memory_pressure_ratio"),
+                      ("memory_pressure_full_total_usec", "sandbox_memory_full_pressure_ratio")):
         add(name, pressure_ratio(values, previous, elapsed_seconds, key))
     return output
 

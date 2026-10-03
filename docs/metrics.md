@@ -9,25 +9,36 @@ Scope를 분리하는 이유는 [설계 원칙](architecture.md#design-principle
 VERL wrapper는 file logger를 읽는 bridge를 시작합니다.
 GPU·host collector, native endpoint, custom span은 별도로 연결하며 아래 표에서 실제 producer와 확인할 metric을 구분합니다.
 Endpoint 설정이나 run manifest가 있다는 사실만으로 metric 수집이 성공했다고 판단하지 않습니다.
+등록한 native endpoint와 Node Exporter는 dashboard에 쓰는 metric만 골라 수집하지 않습니다.
+Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel sources`의 Explore 링크에서 조회합니다.
 
 | 계층 | 실제 signal 예 | Producer와 필요한 설정 | 측정 범위 |
 | --- | --- | --- | --- |
 | VERL trainer | `training_step`, `training_step_time_seconds`, `rl_stage_duration_seconds`, `reward_mean` | Wrapper의 file logger bridge; 원본 key가 기록된 경우만 변환 | Run / trainer worker / 완료 step |
 | VERL rollout 요약 | `rollout_output_tokens_mean`, `agent_turns_mean`, `agent_tool_calls_mean` | VERL logger에 해당 평균값이 있을 때 bridge가 변환 | 완료 step의 평균; 개별 trajectory trace는 아님 |
-| GPU | `telemetry_gpu_utilization_percent`, GPU memory·power | Node collector의 GPU sampler와 `nvidia-smi` | Device; run별 사용률 자동 귀속 없음 |
+| GPU | `telemetry_gpu_utilization_percent`, `telemetry_gpu_memory_used_bytes`, `telemetry_gpu_memory_total_bytes` | Node collector의 GPU sampler와 `nvidia-smi`; power·temperature·clock도 지원 값만 노출 | Device; run별 사용률 자동 귀속 없음 |
 | CPU / memory / network / disk | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `node_network_receive_bytes_total`, `node_disk_io_time_seconds_total` | Node Exporter; GPU 없는 node는 `ENABLE_GPU_METRICS=0` | Node / interface / device |
 | RDMA | `node_infiniband_port_data_received_bytes_total`, `node_infiniband_port_data_transmitted_bytes_total` | 지원되는 host의 InfiniBand counter를 Node Exporter가 읽음 | Interface / port; NCCL 호출별 bytes는 아님 |
 | vLLM | `vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total` | VERL/vLLM에서 native metric을 켜고 monitoring server에 endpoint 등록 | Serving engine; metric 이름은 version별 확인 |
 | Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; Stage Correlation의 Ray row |
 | SSD health | `smartctl_device_*` | 선택적 SMART exporter와 device 접근 권한 | SSD device; local sandbox와 3FS storage node를 구분 |
-| 3FS service | ClickHouse distribution의 p99·mean 등 | Diagnostics의 ClickHouse 설정 | Shared service; 자동 Prometheus 변환 아님 |
+| 3FS service | ClickHouse distributions의 p99·mean과 raw counter의 identity·min/max/last·sample count·freshness | 기존 ClickHouse 설정으로 `xltel sources threefs` 조회 | Shared service; recorder reset·gauge가 섞여 rate나 누적 총량을 자동 계산하지 않음 |
 | Tool / sandbox lifecycle | `tool.call`, `sandbox.exec`, `sandbox.resource_sample` | `EventRecorder` / `SandboxRecorder`를 integration 경계에서 호출 | Trace / span; JSONL이며 duration metric 자동 생성 아님 |
-| Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_io_pressure_ratio`, `sandbox_memory_bytes` | Stable worker cgroup v2 경로를 sandbox sampler에 전달 | Worker cgroup; node SSD와의 correlation은 별도 |
+| Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_memory_pressure_ratio`, `sandbox_cpu_throttled_seconds_total` | Stable worker cgroup v2 경로를 sandbox sampler에 전달; CPU·memory·I/O와 압력·event counter | Worker cgroup; CPU quota 통계는 선택 cgroup 자체의 제한 |
+
+GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 않는 field는 0 대신 생략합니다.
+`telemetry_gpu_process_memory_bytes`는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
+Device memory와 process memory를 합산하거나 run 소유량으로 해석하지 않습니다.
 
 Sandbox pool의 `sandbox_active`, `sandbox_queued`, create/reset latency는 runtime이 제공해야 하는 optional contract입니다.
 Docker를 실행했다는 이유만으로 이 값이 자동 생성되지는 않습니다.
 KV offload metric도 해당 vLLM connector와 exporter가 제공하는 경우에만 나타납니다.
 수집 경로와 endpoint 등록 절차는 [Cross-Layer Integration](agent-rl.md#choose-the-next-source)에 있습니다.
+
+수집 범위의 한계도 구분합니다.
+RDMA port counter는 process·NCCL collective별 attribution을 제공하지 않고, GPU sampler는 kernel trace나 allocator eviction을 자동 수집하지 않습니다.
+Tool span·sandbox pool 상태·KV offload 전용 signal은 해당 runtime의 계측이 필요하며, source가 없으면 다른 계층의 metric으로 대신 판정하지 않습니다.
+실제 source와 누락 상태를 확인한 범위는 [Subsystem 검증 기록](validation/subsystem-telemetry-20261003.json)에 있습니다.
 
 ### Inspect the VERL Mapping
 
@@ -148,6 +159,7 @@ Label 값의 조합마다 별도 시계열이 생깁니다.
 실행 조건·경로는 manifest, 개별 요청은 log·event·trace에 둡니다.
 Sandbox Prometheus label은 `node`·`role`·`runtime`·`filesystem`·`deployment`를 사용하며 sandbox/container/trajectory/request ID와 SWE-Bench instance ID는 제외합니다.
 Pool·lifecycle·failure metric은 선택적 runtime-provided 계약이고 내장 sampler는 cgroup I/O·CPU·memory·PSI를 생산합니다.
+Memory PSI some/full·high/max event와 CPU quota counter의 의미 및 누락 조건은 [Sandbox cgroup 수집](agent-rl.md#sample-the-sandbox-worker-cgroup)을 따릅니다.
 같은 label의 subtree는 공통 parent 하나로 집계하며 `.prom` 파일명만 나눠도 label 충돌은 해결되지 않습니다.
 Target의 `cluster`·`nodename`은 별도로 붙을 수 있으므로 SDK·native exporter·dashboard의 실제 label을 확인합니다.
 

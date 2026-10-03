@@ -34,6 +34,29 @@ class FakeThreeFS:
         return self.responses.pop(0)
 
 
+def test_threefs_fractional_window_keeps_exact_integer_timestamp_membership():
+    client = ThreeFSClient("http://unused")
+    assert client._where(90.1, 91.1) == "TIMESTAMP >= toDateTime(91) AND TIMESTAMP < toDateTime(92)"
+    assert client._where(90, 91) == "TIMESTAMP >= toDateTime(90) AND TIMESTAMP < toDateTime(91)"
+
+
+def test_threefs_comparison_keeps_metric_identity_without_a_candidate():
+    records = [{"record_id": str(i), "run_id": "r", "worker_id": "w", "node": "n",
+                "step": i, "observed_at": i * 10, "step_duration_seconds": 5,
+                "analysis_window": {"start": i * 10 - 5, "end": i * 10}}
+               for i in (1, 2)]
+    rows = [[{"metricName": "fuse.write.latency", "count": 3, "max_observed_p99": value}]
+            for value in (13, 10)]
+    engine = DiagnosticEngine({"prometheus": {"url": "http://unused"}},
+                              prometheus=FakePrometheus({}), threefs=FakeThreeFS(*rows))
+    report = engine.analyze(records[1], records[:1])
+    assert not report["candidates"]
+    change = next(r for r in report["comparison"]["signals"] if r["signal"] == "threefs_p99_latency")
+    assert change["labels"] == {"metricName": "fuse.write.latency"}
+    projected = next(r for r in diagnostics._investigation_rows(report) if r.get("signal") == "threefs_p99_latency")
+    assert projected["entity"] == "metricName=fuse.write.latency"
+
+
 def test_step_history_deduplicates_and_marks_async_update(tmp_path: Path) -> None:
     path = tmp_path / "steps.jsonl"
     record = {
@@ -379,8 +402,8 @@ class FakeResponse:
     def __exit__(self, *args):
         return False
 
-    def read(self):
-        return self.payload
+    def read(self, size=-1):
+        return self.payload if size < 0 else self.payload[:size]
 
     def __iter__(self):
         return iter(self.payload.splitlines(keepends=True))
@@ -575,3 +598,57 @@ def test_tool_span_evidence_uses_semantics_instead_of_producer_filename(tmp_path
     assert report["evidence"]["tool_duration_seconds"]["boundary_accuracy"] == "exact"
     assert candidate["related_spans"] == [current["related_span"]]
     assert candidate["state"] == "supporting_signal"  # Correlation does not prove ownership.
+
+
+def test_threefs_counter_query_preserves_entities_and_raw_values(monkeypatch):
+    import io
+    requests = []
+    rows = [{"metricName": "storage.bytes_read", "host": host, "tag": "read",
+             "mount_name": "training", "instance": "reader", "io": "read", "uid": "1000",
+             "pod": "", "thread": "worker-0", "statusCode": "OK",
+             "sample_count": "3", "min": "0", "max": "8192", "last": value,
+             "first_observed_at": "90", "last_observed_at": "99"}
+            for host, value in [("storage-a", "1024"), ("storage-b", "4096")]]
+
+    def response(request, timeout):
+        requests.append(request)
+        return io.BytesIO(''.join(json.dumps(row) + '\n' for row in rows).encode())
+
+    monkeypatch.setattr(diagnostics, "urlopen", response)
+    result = ThreeFSClient("http://unused", filters={"mount_name": "training"}).query_counters(90, 100)
+    assert [item["labels"]["host"] for item in result] == ["storage-a", "storage-b"]
+    assert [item["last"] for item in result] == [1024, 4096]
+    assert all(item["sample_count"] == 3 and item["last_observed_at"] == 99 for item in result)
+    assert all("rate" not in item and "delta" not in item and "sum" not in item for item in result)
+    query = requests[0].data.decode()
+    assert 'FROM 3fs.counters' in query and "mount_name = 'training'" in query
+    assert 'GROUP BY metricName, host, tag, mount_name, instance, io, uid, pod, thread, statusCode' in query
+    assert 'LIMIT 1001' in query
+
+
+def test_threefs_response_size_is_bounded(monkeypatch):
+    import io
+    monkeypatch.setattr(diagnostics, "urlopen", lambda *a, **kw: io.BytesIO(b' ' * (8 * 1024 * 1024 + 1)))
+    with pytest.raises(ValueError, match="response.*limit"):
+        ThreeFSClient("http://unused").query_window(90, 100)
+
+
+def test_threefs_counter_filters_never_silently_broaden_scope():
+    with pytest.raises(ValueError, match="method"):
+        ThreeFSClient("http://unused", filters={"method": "Read"}).query_counters(90, 100)
+
+
+def test_threefs_counter_entity_limit_rejects_silent_truncation(monkeypatch):
+    import io
+    rows = [{"metricName": f"metric-{index}", "host": "n", "tag": "", "mount_name": "m",
+             "instance": "i", "io": "", "uid": "", "pod": "", "thread": "", "statusCode": "",
+             "sample_count": 1, "min": -1, "max": -1, "last": -1,
+             "first_observed_at": 90, "last_observed_at": 90} for index in range(1001)]
+    monkeypatch.setattr(diagnostics, "urlopen", lambda *a, **kw:
+                        io.BytesIO(''.join(json.dumps(row) + '\n' for row in rows).encode()))
+    with pytest.raises(ValueError, match="1000 entity limit"):
+        ThreeFSClient("http://unused").query_counters(90, 100)
+    rows.pop()
+    result = ThreeFSClient("http://unused").query_counters(90, 100)
+    assert len(result) == 1000
+    assert result[0]['last'] == -1  # The table can contain signed gauge values.

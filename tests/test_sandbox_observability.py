@@ -307,3 +307,79 @@ def test_tool_span_baseline_does_not_compare_different_operations(tmp_path):
     assert duration["baseline"] is None
     assert not any(item["id"] == "sandbox_local_storage_pressure"
                    for item in report["candidates"])
+
+
+@pytest.fixture
+def sandbox_metric_labels():
+    return {"node": "sandbox-2", "role": "sandbox", "runtime": "containerd",
+            "filesystem": "overlayfs", "deployment": "dedicated"}
+
+
+def test_cgroup_memory_pressure_and_quota_counters_reach_textfile(tmp_path, sandbox_metric_labels):
+    (tmp_path / "memory.pressure").write_text("some avg10=0 total=250000\nfull avg10=0 total=50000\n")
+    before = read_cgroup(tmp_path)
+    (tmp_path / "memory.pressure").write_text("some avg10=0 total=750000\nfull avg10=0 total=250000\n")
+    (tmp_path / "memory.events").write_text("high 7\nmax 2\noom 0\noom_kill 0\n")
+    (tmp_path / "cpu.stat").write_text("usage_usec 2000000\nnr_periods 110\nnr_throttled 14\nthrottled_usec 300000\n")
+    current = read_cgroup(tmp_path)
+    exposed = samples(current, previous=before, elapsed_seconds=2, labels=sandbox_metric_labels)
+    metrics = {item.name: item for item in exposed}
+
+    assert metrics["sandbox_memory_pressure_ratio"].value == 0.25
+    assert metrics["sandbox_memory_full_pressure_ratio"].value == 0.1
+    for name, expected in {
+        "sandbox_memory_high_events_total": 7,
+        "sandbox_memory_max_events_total": 2,
+        "sandbox_cpu_periods_total": 110,
+        "sandbox_cpu_throttled_periods_total": 14,
+        "sandbox_cpu_throttled_seconds_total": 0.3,
+    }.items():
+        assert metrics[name].value == expected
+        assert metrics[name].kind == "counter"
+    assert metrics["sandbox_cpu_usage_seconds_total"].value == 2
+    assert all(item.labels == sandbox_metric_labels for item in exposed)
+    assert "selected cgroup" in metrics["sandbox_cpu_throttled_seconds_total"].help
+    assert "subtree" in metrics["sandbox_cpu_throttled_seconds_total"].help
+    assert "# TYPE sandbox_memory_high_events_total counter" in format_gauges(exposed)
+
+
+def test_missing_optional_cgroup_signals_preserve_existing_cpu_metric(tmp_path, sandbox_metric_labels):
+    (tmp_path / "cpu.stat").write_text("usage_usec 1000000\n")
+    current = read_cgroup(tmp_path)
+    exposed = samples(current, previous=None, elapsed_seconds=1, labels=sandbox_metric_labels)
+    assert {item.name: item.value for item in exposed} == {"sandbox_cpu_usage_seconds_total": 1}
+
+
+@pytest.mark.parametrize("state", ["first", "reset", "negative"])
+def test_memory_psi_omits_unavailable_deltas(tmp_path, sandbox_metric_labels, state):
+    (tmp_path / "memory.pressure").write_text("some avg10=0 total=400000\nfull avg10=0 total=200000\n")
+    before = None if state == "first" else read_cgroup(tmp_path)
+    total = -1 if state == "negative" else 100000
+    (tmp_path / "memory.pressure").write_text(f"some avg10=0 total={total}\nfull avg10=0 total={total}\n")
+    # Preserve independent valid signals when PSI is unavailable or reset.
+    (tmp_path / "memory.current").write_text("1024\n")
+    current = read_cgroup(tmp_path)
+    exposed = samples(current, previous=before, elapsed_seconds=1, labels=sandbox_metric_labels)
+    assert {item.name: item.value for item in exposed} == {"sandbox_memory_bytes": 1024}
+
+
+@pytest.mark.parametrize("counter_value", [-1, 0], ids=["negative-omitted", "reset-to-zero-preserved"])
+def test_quota_and_memory_event_counters_handle_invalid_values_and_resets(
+    tmp_path, sandbox_metric_labels, counter_value
+):
+    (tmp_path / "cpu.stat").write_text(
+        f"usage_usec 1000000\nnr_periods {counter_value}\nnr_throttled {counter_value}\nthrottled_usec {counter_value}\n"
+    )
+    (tmp_path / "memory.events").write_text(f"high {counter_value}\nmax {counter_value}\n")
+    current = read_cgroup(tmp_path)
+    previous = {name: 100 for name in current}
+    exposed = samples(current, previous=previous, elapsed_seconds=1, labels=sandbox_metric_labels)
+    metrics = {item.name: item.value for item in exposed}
+    assert metrics.pop("sandbox_cpu_usage_seconds_total") == 1
+    expected = {} if counter_value < 0 else dict.fromkeys((
+        "sandbox_memory_high_events_total", "sandbox_memory_max_events_total",
+        "sandbox_cpu_periods_total", "sandbox_cpu_throttled_periods_total",
+        "sandbox_cpu_throttled_seconds_total",
+    ), 0)
+    assert metrics == expected
+    format_gauges(exposed)

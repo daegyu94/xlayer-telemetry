@@ -209,7 +209,8 @@ Sampler/runtime을 연결했다면 행을 펼치고 `Sandbox node`를 해당 nod
 `Node`는 rollout/GPU context를 유지하며 `Sandbox node`는 colocated와 dedicated 배치 모두에서 독립적으로 동작합니다.
 `Sandbox worker and device pressure`의 CPU PSI는 cgroup 전체의 CPU 대기 비율이며, I/O PSI와 별도 원인 후보입니다.
 `Sandbox worker memory`의 peak는 cgroup 생성 이후의 high-water mark이므로 선택한 시간 구간의 peak가 아닙니다.
-`Sandbox worker CPU and OOM`은 OOM event와 실제 OOM kill을 구분하며, OOM kill은 해당 source가 있을 때만 표시됩니다.
+`Sandbox CPU and memory events`는 CPU 사용·quota throttling과 memory high/max·OOM·OOM kill을 구분합니다.
+오른쪽 축의 memory event rate는 OOM kill과 같지 않으며 source가 없으면 해당 series를 표시하지 않습니다.
 이 panel의 cgroup I/O와 local device busy는 서로 다른 scope입니다.
 Lifecycle latency는 Prometheus 집계가 아니라 정확한 `sandbox.*` EventRecorder span으로 [Cross-Layer Timeline](#bottleneck-summary-and-cross-layer-timeline)에서 확인합니다.
 

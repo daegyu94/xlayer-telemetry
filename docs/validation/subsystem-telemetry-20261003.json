@@ -1,0 +1,366 @@
+{
+  "date": "2026-10-03",
+  "baseline_commit": "763771109abfe861ddeb7107b97839422cc5a923",
+  "scope": "Subsystem signal coverage audit and observed 3FS/ClickHouse integration; no synthetic rows inserted into ClickHouse",
+  "coverage": {
+    "verl": {
+      "producer": "Existing file logger bridge; mapped semantic metrics plus original JSONL",
+      "change": "none; unrecognized logger scalars remain in raw log"
+    },
+    "vllm": {
+      "producer": "Entire registered native endpoint; dashboard summarizes selected families",
+      "environment": "Existing native target down; historical metric names are not live validation"
+    },
+    "ray": {
+      "producer": "Entire registered native endpoint",
+      "change": "Sum pending tasks across owners per cluster/session instead of max on rollout node",
+      "environment": "No active Ray target; query behavior verified using real promtool and multi-owner fixtures"
+    },
+    "gpu": {
+      "change": "Device used/total memory in bytes and UUID-to-GPU index mapping for process memory",
+      "validation": "Two physical GPUs -> sampler -> Node Exporter -> Prometheus -> Grafana datasource"
+    },
+    "host_network_disk": {
+      "cpu": {
+        "metric": "node_cpu_seconds_total",
+        "series": 384
+      },
+      "memory": {
+        "metric": "node_memory_MemAvailable_bytes",
+        "series": 1
+      },
+      "swap": {
+        "metric": "node_vmstat_pswpin",
+        "series": 1
+      },
+      "cpu_psi": {
+        "metric": "node_pressure_cpu_waiting_seconds_total",
+        "series": 1
+      },
+      "memory_psi": {
+        "metric": "node_pressure_memory_waiting_seconds_total",
+        "series": 1
+      },
+      "io_psi": {
+        "metric": "node_pressure_io_waiting_seconds_total",
+        "series": 1
+      },
+      "network": {
+        "metric": "node_network_receive_bytes_total",
+        "series": 11
+      },
+      "retransmissions": {
+        "metric": "node_netstat_Tcp_RetransSegs",
+        "series": 1
+      },
+      "disk": {
+        "metric": "node_disk_io_time_seconds_total",
+        "series": 4
+      },
+      "filesystem": {
+        "metric": "node_filesystem_avail_bytes",
+        "series": 9
+      },
+      "rdma": {
+        "metric": "node_infiniband_port_data_received_bytes_total",
+        "series": 0
+      }
+    },
+    "sandbox": {
+      "change": "Memory PSI some/full, memory high/max events, CPU bandwidth throttle seconds/periods and total periods",
+      "validation": {
+        "cgroup_exists": true,
+        "source_fields_available": [
+          "cpu_core_sched.force_idle_usec",
+          "cpu_nice_usec",
+          "cpu_pressure_some_total_usec",
+          "cpu_system_usec",
+          "cpu_usage_usec",
+          "cpu_user_usec",
+          "io_some_total_usec",
+          "memory_current",
+          "memory_event_high",
+          "memory_event_low",
+          "memory_event_max",
+          "memory_event_oom",
+          "memory_event_oom_group_kill",
+          "memory_event_oom_kill",
+          "memory_peak",
+          "memory_pressure_full_total_usec",
+          "memory_pressure_some_total_usec"
+        ],
+        "new_metrics": {
+          "sandbox_memory_high_events_total": {
+            "value": 0,
+            "kind": "counter"
+          },
+          "sandbox_memory_max_events_total": {
+            "value": 0,
+            "kind": "counter"
+          },
+          "sandbox_memory_pressure_ratio": {
+            "value": 0.0,
+            "kind": "gauge"
+          },
+          "sandbox_memory_full_pressure_ratio": {
+            "value": 0.0,
+            "kind": "gauge"
+          }
+        },
+        "scope": "Current audit process cgroup; no pressure or throttling workload was induced."
+      },
+      "scope": "Stable cgroup; CPU bandwidth counters describe only the selected cgroup quota, not subtree sum"
+    },
+    "ssd": "Existing optional SMART exporter retained; no physical SSD health fault induced",
+    "logs_events": "Existing Alloy/Loki roots and EventRecorder; real storage smoke step/event records traversed both backends"
+  },
+  "changes": [
+    "3FS standalone inspection includes entity-preserving raw counter min/max/last and source freshness; no automatic rate or sum interpretation",
+    "3FS counter source failure remains separate from usable distributions; response capped at 8 MiB and 1000 counter identities",
+    "Fractional ClickHouse window boundaries preserve integer-second [start,end) membership",
+    "3FS comparison keeps selected metricName even when no rule candidate is emitted",
+    "GPU memory added to existing Compute panel; sandbox pressure/events added to existing panels; synthetic producers updated"
+  ],
+  "real_threefs": {
+    "clickhouse_version": "25.1.5.31",
+    "authentication": "Existing monitor credentials loaded into environment only; no secrets recorded",
+    "data_origin": "observed",
+    "workload": "POSIX/FUSE O_DIRECT smoke; no VERL learning",
+    "current_baseline_pair": [
+      {
+        "data_origin": "observed",
+        "path_type": "fuse.hf3fs",
+        "direct_io": true,
+        "start": 1791015630.7647498,
+        "bytes_written": 67108864,
+        "bytes_read": 67108864,
+        "write_seconds": 1.8943153293803334,
+        "read_seconds": 0.17063239961862564,
+        "checksum": "passed",
+        "metadata_files": 32,
+        "metadata_seconds": 1.848936764523387,
+        "cleanup_verified": true,
+        "end": 1791015634.6924353,
+        "host_window_start": 1791015630.7027717,
+        "host_window_end": 1791015634.6994376
+      },
+      {
+        "data_origin": "observed",
+        "path_type": "fuse.hf3fs",
+        "direct_io": true,
+        "start": 1791015634.8068333,
+        "bytes_written": 67108864,
+        "bytes_read": 67108864,
+        "write_seconds": 1.874503841623664,
+        "read_seconds": 0.15950930956751108,
+        "checksum": "passed",
+        "metadata_files": 32,
+        "metadata_seconds": 1.7690695961937308,
+        "cleanup_verified": true,
+        "end": 1791015638.6257725,
+        "host_window_start": 1791015634.7397466,
+        "host_window_end": 1791015638.6326742
+      }
+    ],
+    "windows": [
+      {
+        "step": 1,
+        "window": {
+          "start": 1791015630.674532,
+          "end": 1791015634.706806,
+          "accuracy": "exact",
+          "source": "application_validation_span"
+        },
+        "distribution_metrics": 46,
+        "counter_entities": 83,
+        "candidate_ids": [],
+        "verdict": "bottleneck_suspected"
+      },
+      {
+        "step": 2,
+        "window": {
+          "start": 1791015634.7073576,
+          "end": 1791015638.6400905,
+          "accuracy": "exact",
+          "source": "application_validation_span"
+        },
+        "distribution_metrics": 47,
+        "counter_entities": 92,
+        "candidate_ids": [],
+        "verdict": "bottleneck_suspected"
+      }
+    ],
+    "clock": {
+      "default_policy": "Host sync flag was 0; strict mode withheld cross-layer candidates/comparisons as insufficient_data",
+      "additional_validation": "Verified host and 3FS containers share one time namespace; test-only require_sync=false permitted the same-host pipeline check",
+      "production_clock_config_changed": false
+    },
+    "pipeline": [
+      "Actual FUSE O_DIRECT I/O",
+      "EventRecorder + SDK + measured interval",
+      "Authenticated ClickHouse and live Prometheus queries",
+      "Diagnosis projection",
+      "Alloy",
+      "Loki",
+      "Grafana datasource"
+    ],
+    "grafana_checks": [
+      {
+        "panel": "Selected symptom",
+        "status": "passed",
+        "frames": 1
+      },
+      {
+        "panel": "Measured changes versus same-run baseline",
+        "status": "passed",
+        "frames": 1
+      },
+      {
+        "panel": "SDK metric through Grafana Prometheus datasource",
+        "status": "passed",
+        "frames": 1
+      },
+      {
+        "panel": "xlayer_step through Grafana Loki datasource",
+        "status": "passed",
+        "frames": 1
+      },
+      {
+        "panel": "xlayer_event through Grafana Loki datasource",
+        "status": "passed",
+        "frames": 1
+      }
+    ],
+    "comparison": [
+      {
+        "signal": "threefs_p99_latency",
+        "current": 79449.0,
+        "baseline": 59900.19999999995,
+        "delta_percent": 32.63561724334821,
+        "observation_scope": "shared-service",
+        "data_origin": "observed",
+        "metricName": "storage_client.waiting_time",
+        "unit": "producer-defined; no conversion to milliseconds inferred"
+      }
+    ],
+    "interpretation": "No rule-catalog storage candidate was forced; legacy host finding reported disk busy. Shared-service data includes unrelated USRBIO traffic.",
+    "fractional_boundary_sql": "SELECT over timestamps 90,91,92 with client window [90.1,91.1) returned only 91",
+    "standalone_inspection": {
+      "distribution_metrics": 110,
+      "counter_entities": 331,
+      "counter_status": "observed",
+      "missing_sources": [],
+      "freshness": {
+        "distributions": {
+          "last_observed_at": 1791015103,
+          "source_age_seconds": 31.942375898361206
+        },
+        "counters": {
+          "last_observed_at": 1791015103,
+          "source_age_seconds": 31.942375898361206
+        }
+      }
+    },
+    "metric_metadata_followup": {
+      "check": "read-only metadata follow-up; no new workload or report revision",
+      "run_id": "real-threefs-local-clock",
+      "trigger_record_id": "b75ee25647d634feee4b488b",
+      "clock_status": "aligned",
+      "signals": [
+        {
+          "signal": "threefs_p99_latency",
+          "scope": "shared-service",
+          "labels": {
+            "metricName": "storage_client.waiting_time"
+          },
+          "current": 79449.0,
+          "baseline": 59900.19999999995,
+          "delta": 19548.800000000047,
+          "delta_percent": 32.63561724334821,
+          "sampling_quality": null
+        }
+      ],
+      "verdict": "bottleneck_suspected",
+      "findings": [
+        {
+          "component": "host",
+          "candidate": "memory_or_storage_pressure",
+          "signals": {
+            "memory_available_min_ratio": 0.39938706216145814,
+            "disk_busy_max_ratio": 0.9023275862068815,
+            "gpu_utilization_mean_percent": 0.0
+          },
+          "correlates_with_slow_stage": false
+        }
+      ],
+      "candidate_ids": []
+    },
+    "strict_policy_io_passes": 2,
+    "additional_io_smoke_passes": 1
+  },
+  "validation": {
+    "pytest": {
+      "passed": 676,
+      "new_cases": 20,
+      "seconds": 87.19
+    },
+    "promtool": "3.5.0; real evaluator used for multi-owner Ray and per-GPU memory fixture",
+    "compileall": "passed: package and tests",
+    "shell_syntax": "passed: all tracked shell scripts",
+    "sphinx": "strict -n -W --keep-going HTML build passed",
+    "diff_check": "passed",
+    "new_dependencies": [],
+    "extra_gpu_probe_calls": 0,
+    "extra_sandbox_files_per_sample": [
+      "memory.pressure"
+    ],
+    "gpu_grafana_queries": {
+      "A": {
+        "status": 200,
+        "frames": 1,
+        "error": null
+      },
+      "B": {
+        "status": 200,
+        "frames": 2,
+        "error": null
+      },
+      "C": {
+        "status": 200,
+        "frames": 2,
+        "error": null
+      }
+    },
+    "dashboard_provisioning": "Existing Compute and Agent RL UIDs/panel IDs retained; new expressions provisioned and GPU datasource results verified"
+  },
+  "limitations": [
+    "No VERL/vLLM learning, USRBIO/KV offload execution, physical multi-node, RDMA data path, or induced storage bottleneck in this pass",
+    "No GPU eviction/allocator instrumentation or process-level RDMA attribution added",
+    "CPU quota fields absent in the live audit cgroup were omitted; nonzero quota and memory pressure behavior covered by cgroup fixtures",
+    "Grafana provisioning and datasource queries verified; browser visual rendering was not rerun",
+    "3FS timestamps have one-second resolution and collector aggregation/ingestion delay; operation samples need not equal this workload count"
+  ],
+  "cleanup": {
+    "created": "Task-prefixed stack state, log/run artifacts, tool symlinks, test/docs output; uniquely named files on the pre-existing 3FS mount",
+    "test_stack_stopped": true,
+    "test_ports_closed": {
+      "127.0.0.1:23002": true,
+      "127.0.0.1:29092": true,
+      "127.0.0.1:23102": true,
+      "127.0.0.1:22347": true,
+      "127.0.0.6:19100": true
+    },
+    "threefs_payloads_removed": true,
+    "existing_service_health": {
+      "grafana": 200,
+      "prometheus": 200,
+      "loki": 200
+    },
+    "existing_services_restarted": false,
+    "docker_resources_created": [],
+    "preserved": "Source/tests/docs and this compact validation record",
+    "task_processes_remaining": [],
+    "temporary_directory_removed": true,
+    "additional_agent_test_directory_removed": true
+  }
+}

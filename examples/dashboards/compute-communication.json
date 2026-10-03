@@ -254,8 +254,8 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Compute-process GPU memory",
-      "description": "nvidia-smi의 compute-process GPU memory입니다. PID를 표시하지만 전체 unified-memory 사용량이나 Run 소유 관계를 증명하지 않습니다.",
+      "title": "GPU memory (device and processes)",
+      "description": "Device used/capacity와 compute-process memory를 비교합니다. PID 값은 device total의 일부이며 합산하지 않습니다. GPU selector를 적용하고 30초 넘은 sample은 숨깁니다. N/A는 측정 불가이며 Run 소유 관계를 증명하지 않습니다.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -270,7 +270,17 @@
         {
           "refId": "A",
           "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
-          "legendFormat": "{{cluster}}/{{instance}} PID {{pid}}"
+          "legendFormat": "{{instance}} GPU {{gpu}} PID {{pid}}"
+        },
+        {
+          "refId": "B",
+          "expr": "(telemetry_gpu_memory_used_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "legendFormat": "{{instance}} GPU {{gpu}} used"
+        },
+        {
+          "refId": "C",
+          "expr": "(telemetry_gpu_memory_total_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "legendFormat": "{{instance}} GPU {{gpu}} capacity"
         }
       ],
       "fieldConfig": {

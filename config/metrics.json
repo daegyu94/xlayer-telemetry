@@ -359,6 +359,30 @@
       "policy": "optional"
     },
     {
+      "name": "sandbox_cpu_throttled_seconds_total",
+      "category": "sandbox",
+      "unit": "s",
+      "scope": "selected cgroup quota",
+      "source": "cgroup v2 cpu.stat throttled_usec",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_cpu_throttled_periods_total",
+      "category": "sandbox",
+      "unit": "periods",
+      "scope": "selected cgroup quota",
+      "source": "cgroup v2 cpu.stat nr_throttled",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_cpu_periods_total",
+      "category": "sandbox",
+      "unit": "periods",
+      "scope": "selected cgroup quota",
+      "source": "cgroup v2 cpu.stat nr_periods",
+      "policy": "optional"
+    },
+    {
       "name": "sandbox_cpu_pressure_ratio",
       "category": "sandbox",
       "unit": "ratio",
@@ -380,6 +404,38 @@
       "unit": "bytes",
       "scope": "cgroup",
       "source": "cgroup v2 memory.peak",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_pressure_ratio",
+      "category": "sandbox",
+      "unit": "ratio",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.pressure some.total",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_full_pressure_ratio",
+      "category": "sandbox",
+      "unit": "ratio",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.pressure full.total",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_high_events_total",
+      "category": "sandbox",
+      "unit": "events",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.events high",
+      "policy": "optional"
+    },
+    {
+      "name": "sandbox_memory_max_events_total",
+      "category": "sandbox",
+      "unit": "events",
+      "scope": "cgroup",
+      "source": "cgroup v2 memory.events max",
       "policy": "optional"
     },
     {
@@ -451,8 +507,16 @@
       "category": "gpu",
       "unit": "bytes",
       "scope": "gpu",
-      "source": "DCGM Exporter",
+      "source": "nvidia-smi GPU sampler or DCGM Exporter",
       "policy": "always"
+    },
+    {
+      "name": "gpu_memory_total_bytes",
+      "category": "gpu",
+      "unit": "bytes",
+      "scope": "gpu",
+      "source": "nvidia-smi GPU sampler",
+      "policy": "always; when supported"
     },
     {
       "name": "gpu_power_watts",

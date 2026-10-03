@@ -54,7 +54,7 @@ def parser() -> argparse.ArgumentParser:
     source.add_argument("--json", action="store_true")
     sub = source.add_subparsers(dest="source_action")
     sub.add_parser("refresh", help="Reload registered endpoints into initialized file discovery")
-    threefs = sub.add_parser("threefs", help="Query optional ClickHouse shared-service distributions")
+    threefs = sub.add_parser("threefs", help="Query optional ClickHouse distributions and raw counters")
     threefs.add_argument("--window-seconds", type=float, default=300)
     cfg = commands.add_parser("config", help="Locate, show or validate resolved configuration")
     cfg_sub = cfg.add_subparsers(dest="config_action", required=True)

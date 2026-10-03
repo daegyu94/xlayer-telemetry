@@ -86,17 +86,39 @@ def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = N
     settings = config.get('threefs')
     if not settings:
         return {'status': 'not_configured'}
-    end = (time.time() if now is None else now) - settings.get('settle_seconds', 30)
+    queried_at = time.time() if now is None else now
+    settle = settings.get('settle_seconds', 30)
+    end = queried_at - settle
     client = ThreeFSClient(settings['url'], database=settings.get('database', '3fs'),
                           filters=settings.get('filters'),
                           timeout=float(settings.get('timeout_seconds', 5)),
                           user_env=settings.get('user_env', 'THREEFS_CLICKHOUSE_USER'),
                           password_env=settings.get('password_env', 'THREEFS_CLICKHOUSE_PASSWORD'))
     rows = client.query_window(end - seconds, end)
-    return {'status': 'observed' if rows else 'no_data', 'scope': 'shared-service',
-            'start': end - seconds, 'end': end, 'filters': settings.get('filters', {}),
+    counters, missing = [], []
+    try:
+        counters = client.query_counters(end - seconds, end)
+        counter_status = 'observed' if counters else 'no_data'
+    except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
+        # Optional table/schema failures must not discard available latency
+        # evidence. Never return backend error text containing credentials/URLs.
+        counter_status = 'unavailable'
+        missing.append('threefs:counters:' + type(exc).__name__)
+
+    def freshness(items):
+        times = [row['last_observed_at'] for row in items if row.get('last_observed_at') is not None]
+        latest = max(times) if times else None
+        return {'last_observed_at': latest,
+                'source_age_seconds': queried_at - latest if latest is not None else None}
+
+    return {'status': 'observed' if rows or counters else 'no_data', 'scope': 'shared-service',
+            'start': end - seconds, 'end': end, 'queried_at': queried_at, 'settle_seconds': settle,
+            'filters': settings.get('filters', {}),
             'note': 'max_observed_p99 is not global p99; units are producer-defined.',
-            'metrics': rows}
+            'metrics': rows, 'counters': counters, 'counter_status': counter_status,
+            'counter_note': 'Raw sampled values with producer-defined units and reset/gauge semantics; no rate, delta or operation total is inferred. Equal-second samples have no finer last-value ordering.',
+            'freshness': {'distributions': freshness(rows), 'counters': freshness(counters)},
+            'missing_sources': missing}
 
 
 def main() -> None:
@@ -106,7 +128,7 @@ def main() -> None:
     parser.add_argument('--prometheus', default='http://127.0.0.1:19090')
     parser.add_argument('--grafana', default='http://127.0.0.1:13000')
     parser.add_argument('--cluster', default='training-cluster')
-    parser.add_argument('--threefs', action='store_true', help='Query configured 3FS distributions only')
+    parser.add_argument('--threefs', action='store_true', help='Query configured 3FS distributions and raw counters')
     parser.add_argument('--window-seconds', type=float, default=300)
     args = parser.parse_args()
     try:

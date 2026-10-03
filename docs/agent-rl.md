@@ -73,8 +73,12 @@ Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine�
 | Ray | Stage Correlation의 task·actor state, logical CPU/GPU, object store, OOM eviction | Native endpoint 등록 |
 | 기타 native exporter | `sources`의 endpoint별 Explore 링크 | Native endpoint 등록 |
 | GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector, SSD는 선택적 SMART exporter |
-| 3FS service metrics | `threefs` 명령의 시간 구간별 distributions | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
+| 3FS service metrics | `threefs` 명령의 시간 구간별 distributions·raw counters·freshness | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
 | Subsystem log | Run Logs의 Workload·Node·Log directory | `ENABLE_LOGS=1`과 실제 log 파일 등록 |
+
+GPU sampler의 device memory used/total은 지원될 때만 bytes로 노출됩니다.
+GPU를 선택하면 UUID가 해당 장치와 일치하는 process memory도 함께 볼 수 있으며, `N/A`인 device field나 장치를 매핑하지 못한 process를 0이나 다른 GPU의 값으로 대체하지 않습니다.
+실제 metric 이름과 측정 범위는 [Metrics Contract](metrics.md#what-is-actually-collected)에서 확인합니다.
 
 ```bash
 xltel sources
@@ -88,10 +92,17 @@ xltel sources threefs
 
 `threefs`는 기본 30초의 ingestion 여유를 두고 직전 5분을 조회하며 run·step·baseline·diagnosis를 만들지 않습니다.
 기존 `threefs.filters`, `settle_seconds`, timeout과 credential 환경변수를 그대로 사용합니다.
-각 metricName의 sample count·weighted mean·max·max_observed_p99를 반환합니다.
-Distributions에 없는 IOPS·throughput을 임의로 추론하지 않습니다.
+Distributions는 기존 metricName별 sample count·weighted mean·max·max_observed_p99를 유지하고, raw counters는 producer identity별 sample count·min/max/last를 반환합니다.
+두 종류의 마지막 관측 시각과 source age는 `freshness`로 확인합니다.
+
+Counters에는 recorder가 reset하는 값과 gauge가 섞여 있으므로 rate·delta·누적 operation 총량으로 자동 변환하지 않습니다.
+같은 초에 여러 표본이 기록되면 `last`만으로 그 안의 세부 순서를 구분할 수 없습니다.
+Counter source의 table·schema 오류나 지원하지 않는 `method` 필터는 `counter_status=unavailable`과 `missing_sources`로 표시하고 사용 가능한 distribution 결과는 유지합니다.
+Counter identity가 1,000개를 넘거나 query 응답이 8 MiB를 넘으면 source 필터나 시간 구간을 좁힙니다.
+
 출력은 shared-service 범위이고 `max_observed_p99`는 global p99가 아니며 단위는 3FS producer 정의를 따릅니다.
-ClickHouse는 여기서 **3FS metric 저장소**입니다. ClickHouse 자체의 query 성능·DB 운영 지표를 수집하는 기능은 별도 exporter 연결이 필요합니다.
+ClickHouse는 여기서 **3FS metric 저장소**입니다.
+ClickHouse 자체의 query 성능·DB 운영 지표를 수집하는 기능은 별도 exporter 연결이 필요합니다.
 
 Subsystem별 log가 필요하면 같은 config에서 기존 Alloy log root를 추가합니다.
 아래 root들은 `<root>/<session>/logs/**/*.log` 구조이며 XLayer가 Ray·vLLM의 내부 log 경로를 자동 변경하거나 Docker log를 가져오지는 않습니다.
@@ -499,12 +510,20 @@ python -m xlayer_telemetry.collectors.sandbox_sampler \
 ```
 
 Colocated라면 `--node`를 GPU/rollout node 이름으로, `--deployment`를 `colocated`로 바꾸고 그 node collector의 `textfile` directory를 지정합니다.
-`io.stat`의 bytes·operations, `io.pressure`·`cpu.pressure`의 `some.total` 증가량, `cpu.stat`, `memory.current`·`memory.peak`·`memory.events`를 읽습니다.
-파일 형식과 누적 counter의 의미는 [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html), PSI의 `some.total` 의미는 [Linux PSI](https://docs.kernel.org/accounting/psi.html)를 따릅니다.
-PSI ratio는 직전 표본 이후 stall 시간 비율이므로 첫 표본에서는 비어 있으며, 읽을 수 없는 source도 0으로 위조하지 않고 생략합니다.
+`io.stat`의 bytes·operations, `io.pressure`·`cpu.pressure`의 `some.total`, `memory.pressure`의 `some.total`·`full.total`, `cpu.stat`, `memory.current`·`memory.peak`·`memory.events`를 읽습니다.
+파일 형식과 누적 counter의 의미는 [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html), PSI는 [Linux PSI](https://docs.kernel.org/accounting/psi.html)를 따릅니다.
+PSI ratio는 직전 표본 이후 stall 시간 비율이므로 첫 표본·counter reset에서는 비어 있으며, 읽을 수 없거나 음수인 값도 0으로 대체하지 않고 생략합니다.
+
+`sandbox_memory_pressure_ratio`는 일부 task가 memory에 막힌 시간, `sandbox_memory_full_pressure_ratio`는 모든 non-idle task가 동시에 막힌 시간의 비율입니다.
+`sandbox_memory_high_events_total`은 `memory.high` 초과로 direct reclaim에 진입한 횟수이고, `sandbox_memory_max_events_total`은 `memory.max` 경계에 도달한 횟수입니다.
+두 event 모두 실제 OOM kill을 뜻하지 않으며, `sandbox_oom_total`은 `memory.events`의 `oom`, `sandbox_oom_kill_total`은 실제 kill을 센 `oom_kill`입니다.
+
+`sandbox_cpu_throttled_seconds_total`, `sandbox_cpu_throttled_periods_total`, `sandbox_cpu_periods_total`은 선택 cgroup 자체의 CPU bandwidth 제한 통계입니다.
+하위 cgroup의 합계가 아니며 CPU controller가 이 field를 제공하지 않으면 생략합니다.
+Dashboard는 throttled seconds/s와 throttled periods/periods를 구분하고, period 증가가 없으면 비율을 표시하지 않습니다.
+
 Page cache hit처럼 block device에 도달하지 않은 작업은 `io.stat` bytes로 보이지 않을 수 있습니다.
 Counter는 worker cgroup이 유지되는 동안에만 단조 증가합니다.
-`sandbox_oom_total`은 `memory.events`의 `oom`, `sandbox_oom_kill_total`은 실제 kill을 센 `oom_kill`입니다.
 `sandbox_memory_peak_bytes`는 cgroup 생성 이후의 high-water mark이므로 선택한 step이나 Grafana 시간 범위의 peak로 해석하지 않습니다.
 `sandbox_sample_timestamp_seconds`로 sampler의 마지막 갱신 시각을 확인하며, 오래된 textfile 표본은 현재 압력으로 해석하지 않습니다.
 

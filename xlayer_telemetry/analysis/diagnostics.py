@@ -30,12 +30,15 @@ from .jsonl_cache import JSONLCache, from_config as cache_from_config
 
 DEFAULT_QUERIES = {
     "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
+    "gpu_memory_usage_ratio": 'telemetry_gpu_memory_used_bytes{nodename="{compute_node}"} / (telemetry_gpu_memory_total_bytes{nodename="{compute_node}"} > 0)',
     "host_memory_available_ratio": 'node_memory_MemAvailable_bytes{instance="{node}"} / node_memory_MemTotal_bytes{instance="{node}"}',
     "disk_busy_ratio": 'rate(node_disk_io_time_seconds_total{instance="{node}"}[1m])',
     "vllm_requests_waiting": 'vllm:num_requests_waiting{node="{rollout_node}"}',
     "vllm_kv_cache_usage": 'vllm:kv_cache_usage_perc{node="{rollout_node}"}',
     "vllm_preemptions_total": 'vllm:num_preemptions_total{node="{rollout_node}"}',
-    "ray_pending_tasks": 'ray_tasks{node="{rollout_node}",State=~"PENDING.*"}',
+    # Pending tasks are recorded by their owner, before a rollout node may be
+    # assigned. Ray splits the gauge across task names/workers in a session.
+    "ray_pending_tasks": 'sum by (cluster, SessionName) (ray_tasks{telemetry_source="ray",State=~"PENDING.*"})',
     "policy_version_lag": 'policy_version_lag{nodename="{node}",run_id="{run_id}"}',
     "host_swap_activity": 'rate(node_vmstat_pswpin{instance="{node}"}[1m]) + rate(node_vmstat_pswpout{instance="{node}"}[1m])',
     "disk_read_bytes_per_second": 'rate(node_disk_read_bytes_total{instance="{node}"}[1m])',
@@ -89,55 +92,105 @@ class ThreeFSClient:
     def _literal(value: str) -> str:
         return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
-    def query_window(self, start: float, end: float) -> list[dict[str, Any]]:
-        clauses = [f"TIMESTAMP >= toDateTime({int(start)})", f"TIMESTAMP < toDateTime({int(end)})"]
+    def _where(self, start: float, end: float) -> str:
+        if finite(start) is None or finite(end) is None or start >= end:
+            raise ValueError("3FS query window must be finite and increasing")
+        # This source stores integer-second DateTime values. Preserve [start,
+        # end) membership instead of shifting fractional bounds one second back.
+        clauses = [f"TIMESTAMP >= toDateTime({math.ceil(start)})", f"TIMESTAMP < toDateTime({math.ceil(end)})"]
         clauses.extend(
             f"{name} = {self._literal(value)}"
             for name, value in sorted((self.filters or {}).items())
         )
-        where = " AND ".join(clauses)
-        query = (
-            "SELECT metricName, sum(`count`) AS sample_count, "
-            "if(sum(`count`)=0,0,sum(mean*`count`)/sum(`count`)) AS weighted_mean, "
-            "max(`max`) AS max_value, max(p99) AS max_observed_p99 "
-            f"FROM {self.database}.distributions WHERE {where} GROUP BY metricName "
-            "FORMAT JSONEachRow"
-        )
+        return " AND ".join(clauses)
+
+    def _query_rows(self, query: str) -> list[dict[str, Any]]:
         params = urlencode({"database": self.database})
-        request = Request(
-            self.url.rstrip("/") + "/?" + params,
-            data=query.encode(),
-            method="POST",
-        )
+        request = Request(self.url.rstrip("/") + "/?" + params, data=query.encode(), method="POST")
         user = os.environ.get(self.user_env)
         password = os.environ.get(self.password_env, "")
         if user:
             token = base64.b64encode(f"{user}:{password}".encode()).decode()
             request.add_header("Authorization", "Basic " + token)
+        response_limit = 8 * 1024 * 1024
         with urlopen(request, timeout=self.timeout) as response:
-            rows = [json.loads(line) for line in response if line.strip()]
+            body = response.read(response_limit + 1)
+        if len(body) > response_limit:
+            raise ValueError("ClickHouse response exceeds 8 MiB limit; narrow source filters")
+        rows = [json.loads(line) for line in body.splitlines() if line.strip()]
+        if any(not isinstance(row, dict) or not isinstance(row.get("metricName"), str) for row in rows):
+            raise ValueError("invalid ClickHouse metric row")
+        return rows
+
+    @staticmethod
+    def _number(value, key, *, integer=False, nonnegative=False):
+        if isinstance(value, str):
+            try:
+                value = int(value) if integer else float(value)
+            except ValueError as error:
+                raise ValueError(f"invalid ClickHouse {key}") from error
+        if (finite(value) is None or (nonnegative and value < 0)
+                or (integer and value != int(value))):
+            raise ValueError(f"invalid ClickHouse {key}")
+        return value
+
+    def query_window(self, start: float, end: float) -> list[dict[str, Any]]:
+        query = (
+            "SELECT metricName, sum(`count`) AS sample_count, "
+            "if(sum(`count`)=0,0,sum(mean*`count`)/sum(`count`)) AS weighted_mean, "
+            "max(`max`) AS max_value, max(p99) AS max_observed_p99, "
+            "toUnixTimestamp(min(TIMESTAMP)) AS first_observed_at, "
+            "toUnixTimestamp(max(TIMESTAMP)) AS last_observed_at "
+            f"FROM {self.database}.distributions WHERE {self._where(start, end)} GROUP BY metricName "
+            "FORMAT JSONEachRow"
+        )
+        rows = self._query_rows(query)
         for row in rows:
-            if not isinstance(row, dict) or not isinstance(row.get("metricName"), str):
-                raise ValueError("invalid ClickHouse distribution row")
             if "sample_count" in row:
                 row["count"] = row.pop("sample_count")
             if "max_value" in row:
                 row["max"] = row.pop("max_value")
-            # JSONEachRow can quote 64-bit integers. Normalize only known
-            # numeric fields; unavailable cells remain absent, never zero.
-            for key in ("count", "weighted_mean", "max", "max_observed_p99"):
-                value = row.get(key)
-                if value is None:
-                    continue
-                if isinstance(value, str):
-                    try:
-                        value = int(value) if key == "count" else float(value)
-                    except ValueError as error:
-                        raise ValueError(f"invalid ClickHouse {key}") from error
-                if finite(value) is None or (key == "count" and (value < 0 or value != int(value))):
-                    raise ValueError(f"invalid ClickHouse {key}")
-                row[key] = value
+            # JSONEachRow may quote 64-bit integers. Unavailable cells remain
+            # unavailable; the established distribution field names stay intact.
+            for key in ("count", "weighted_mean", "max", "max_observed_p99",
+                        "first_observed_at", "last_observed_at"):
+                if row.get(key) is not None:
+                    integer = key in {"count", "first_observed_at", "last_observed_at"}
+                    row[key] = self._number(row[key], key, integer=integer, nonnegative=integer)
         return rows
+
+    def query_counters(self, start: float, end: float) -> list[dict[str, Any]]:
+        """Inspect raw producer values; the counters table also contains gauges.
+
+        3FS recorders may reset values after collection. A table name alone is
+        insufficient to derive rates, monotonic deltas or operation totals.
+        """
+        if "method" in (self.filters or {}):
+            raise ValueError("3FS counters have no method filter; distribution scope cannot be reused")
+        labels = ("host", "tag", "mount_name", "instance", "io", "uid", "pod", "thread", "statusCode")
+        identity = ", ".join(("metricName", *labels))
+        query = (
+            f"SELECT {identity}, count() AS sample_count, "
+            "min(val) AS min, max(val) AS max, argMax(val, TIMESTAMP) AS last, "
+            "toUnixTimestamp(min(TIMESTAMP)) AS first_observed_at, "
+            "toUnixTimestamp(max(TIMESTAMP)) AS last_observed_at "
+            f"FROM {self.database}.counters WHERE {self._where(start, end)} "
+            f"GROUP BY {identity} ORDER BY {identity} LIMIT 1001 FORMAT JSONEachRow"
+        )
+        rows = self._query_rows(query)
+        if len(rows) > 1000:
+            raise ValueError("3FS counters exceed 1000 entity limit; narrow source filters")
+        result = []
+        for row in rows:
+            if any(not isinstance(row.get(key), str) for key in labels):
+                raise ValueError("invalid ClickHouse counter identity")
+            result.append({
+                "metricName": row["metricName"], "labels": {key: row[key] for key in labels},
+                **{key: self._number(row.get(key), key, integer=True,
+                                     nonnegative=key not in {"min", "max", "last"})
+                   for key in ("sample_count", "min", "max", "last", "first_observed_at", "last_observed_at")},
+            })
+        return result
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -657,6 +710,7 @@ class DiagnosticEngine:
                 selected_3fs_metric = name
                 current_signals["threefs_p99_latency"] = value
                 baseline_signals["threefs_p99_latency"] = before
+                signal_labels["threefs_p99_latency"] = {"metricName": name}
             else:
                 current_signals.pop("threefs_p99_latency", None)
                 baseline_signals.pop("threefs_p99_latency", None)
@@ -897,7 +951,7 @@ class DiagnosticEngine:
             findings.append(finding)
         pending = evidence.get("ray_pending_tasks", {}).get("max", 0)
         if pending >= self.thresholds["ray_pending_tasks"]:
-            findings.append({"component": "ray", "candidate": "scheduling_backlog", "signals": {"pending_tasks_max": pending}})
+            findings.append({"component": "ray", "candidate": "scheduling_backlog", "observation_scope": "cluster/session", "signals": {"pending_tasks_max": pending}})
         lag = evidence.get("policy_version_lag", {}).get("max", 0)
         if lag >= self.thresholds["policy_version_lag"]:
             findings.append({"component": "verl_async", "candidate": "policy_version_lag", "signals": {"version_lag_max": lag}})

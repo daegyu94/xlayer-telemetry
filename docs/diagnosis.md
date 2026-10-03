@@ -166,6 +166,7 @@ Backend를 다시 조회하거나 revision을 추가하지 않으며, 이미 존
 
 Baseline 창의 Prometheus·3FS를 조회해 `comparison.signals`에 current·baseline·delta·delta percent를 기록합니다.
 3FS는 같은 `metricName`, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다.
+3FS 비교의 원본 `metricName`은 diagnosis가 나오지 않아도 comparison의 entity에 보존됩니다.
 GPU 짝이 없으면 node aggregate로 scope를 낮추고, 비교 표는 utilization 감소가 가장 큰 GPU를 선택합니다.
 이는 run별 장치 귀속이나 node 평균이 아닙니다.
 
@@ -192,11 +193,18 @@ Storage rule의 필수 조건이 모두 있어도 run별 3FS client bytes가 없
 | `straggler` | 세 명 이상 participant의 duration, 한 participant만 peer median보다 1.5배 이상 느림, peer spread 20% 이하 | Cluster 평균만으로 판단하지 않습니다. |
 | `sandbox_local_storage_pressure` | Tool duration이 baseline보다 1.5배 증가하고 sandbox cgroup I/O PSI가 0.2 이상이며 지정한 local device busy가 0.9 이상 | Cgroup·device의 동시 관측이므로 최대 `supporting_signal`입니다. Tool duration만 있으면 나머지는 `missing_evidence`로 남깁니다. |
 
-`storage_device_busy_ratio`, `network_utilization_ratio`, `threefs_throughput_bytes_per_second`, `storage_request_bytes`, `gpu_memory_usage_ratio`, `gpu_evictions_delta`는 기본 query에 없습니다.
+`gpu_memory_usage_ratio`는 GPU sampler의 device used/total bytes로 계산하며 capacity가 없거나 0이면 만들지 않습니다.
+Memory 사용률만 높고 eviction evidence가 없다면 `gpu_memory_pressure`의 필수 조건을 충족하지 않습니다.
+`storage_device_busy_ratio`, `network_utilization_ratio`, `threefs_throughput_bytes_per_second`, `storage_request_bytes`, `gpu_evictions_delta`는 기본 query에 없습니다.
 Prometheus에서 가져오는 값은 실제 source와 해당 scope를 확인한 뒤 `prometheus.queries`에 명시적으로 넣습니다.
 3FS distributions에 신뢰할 수 있는 request size metric이 있다면 `threefs.request_size_metric`에 그 **정확한** `metricName`을 지정해 `storage_request_bytes`를 만들 수도 있습니다.
 특히 storage device metric이 어떤 storage node/device를 보는지, network utilization의 분모가 어떤 link capacity인지 확인해야 합니다.
 기본 Node Exporter의 `disk_busy_ratio`는 trainer node의 local device이고 3FS storage SSD를 뜻하지 않습니다.
+
+Ray pending task는 실행 node가 정해지기 전 owner가 기록할 수 있으므로 기본 query는 rollout node로 제한하지 않습니다.
+`cluster`·`SessionName`별 `PENDING.*` 합계를 비교하며 `scheduling_backlog`는 cluster/session 범위의 supporting signal입니다.
+여러 Ray cluster의 session 구분이 없는 exporter는 `prometheus.queries.ray_pending_tasks`로 배포에 맞는 query를 지정합니다.
+
 Sandbox rule은 설정의 `sandbox.enabled=true`일 때만 sandbox node와 명시한 backing `device`를 조회합니다.
 `sandbox_io_pressure_ratio`는 sandbox cgroup 안의 여러 block device를 합친 대기이며, `device` busy는 선택한 host block device 전체의 값입니다.
 실제 Docker container가 sampler cgroup 아래에 있는지, `io.stat`의 major:minor가 선택한 backing device와 맞는지 확인하지 않았다면 두 값의 일치를 근거로 귀속을 주장하지 않습니다.

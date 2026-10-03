@@ -83,20 +83,31 @@ def main():
             output.flush()
             if args.textfile_dir:
                 samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", value["timestamp"])]
+                gpu_indices = {}
                 for gpu in value["gpus"]:
                     labels = {"gpu": str(int(gpu["index"]))}
                     if gpu.get("uuid"):
                         labels["gpu_uuid"] = gpu["uuid"]
+                        gpu_indices[gpu["uuid"]] = labels["gpu"]
                     for field, name in [("utilization.gpu", "utilization_percent"), ("power.draw", "power_watts"), ("temperature.gpu", "temperature_celsius"), ("clocks.sm", "sm_clock_mhz")]:
                         if gpu[field] is not None:
                             samples.append(GaugeSample(f"telemetry_gpu_{name}", f"nvidia-smi {field}.", gpu[field], labels))
+                    for field, name in (("memory.used", "memory_used_bytes"), ("memory.total", "memory_total_bytes")):
+                        if gpu[field] is not None:
+                            samples.append(GaugeSample(
+                                f"telemetry_gpu_{name}", f"nvidia-smi device {field}, converted from MiB to bytes.",
+                                gpu[field] * 1024**2, labels,
+                            ))
                 for process in value["compute_processes"]:
                     if process["used_gpu_memory_mib"] is not None:
+                        labels = {"pid": str(process["pid"]), "gpu_uuid": process["gpu_uuid"]}
+                        if process["gpu_uuid"] in gpu_indices:
+                            labels["gpu"] = gpu_indices[process["gpu_uuid"]]
                         samples.append(GaugeSample(
                             "telemetry_gpu_process_memory_bytes",
                             "nvidia-smi compute-process GPU memory; not total unified memory.",
                             process["used_gpu_memory_mib"] * 1024**2,
-                            {"pid": str(process["pid"]), "gpu_uuid": process["gpu_uuid"]},
+                            labels,
                         ))
                 write_gauges(args.textfile_dir, "gpu.prom", samples)
             sleep_seconds = args.interval
