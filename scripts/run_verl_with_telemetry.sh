@@ -213,10 +213,88 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
 bridge_pid=""
 diagnostics_pid=""
 health_pid=""
+sidecar_owner="xlayer-wrapper-$$"
+sidecar_is_owned() {
+  local pid="$1" child
+  # The shell job table stops recognizing a child after it exits. A reused
+  # system PID must never receive escalation intended for a former sidecar.
+  for child in $(jobs -p); do
+    [[ "$child" != "$pid" ]] || return 0
+  done
+  return 1
+}
+sidecar_is_active() {
+  # Each sidecar starts in its own session. Its group can outlive the leader
+  # when an analyzer child is blocked in I/O and cannot notice pipe EOF.
+  sidecar_is_owned "$1" || kill -0 -- "-$1" 2>/dev/null
+}
+sidecar_group_is_owned() {
+  # Only the failure path scans /proc. A numeric PGID can be reused after an
+  # early sidecar exit; require the private marker inherited by its children.
+  "$telemetry_python" - "$1" "$sidecar_owner" <<'PY'
+from pathlib import Path
+import sys
+
+group = int(sys.argv[1])
+marker = ("XLAYER_SIDECAR_OWNER=" + sys.argv[2]).encode()
+found = False
+for process in Path("/proc").iterdir():
+    if not process.name.isdecimal():
+        continue
+    try:
+        fields = (process / "stat").read_text().rsplit(") ", 1)[1].split()
+        if int(fields[2]) != group or int(fields[3]) != group or fields[0] == "Z":
+            continue
+        if marker not in (process / "environ").read_bytes().split(b"\0"):
+            sys.exit(1)
+        found = True
+    except FileNotFoundError:
+        continue  # A member may exit while the group is being checked.
+    except (OSError, ValueError, IndexError):
+        sys.exit(1)  # Unverifiable ownership never authorizes escalation.
+sys.exit(0 if found else 1)
+PY
+}
+stop_sidecar() {
+  local pid="$1" attempt
+  [[ -n "$pid" ]] || return 0
+  if sidecar_is_owned "$pid"; then
+    # Let the controller run finally/close and reap its children first.
+    kill -TERM "$pid" 2>/dev/null || true
+  fi
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    sidecar_is_active "$pid" || break
+    sleep 0.1
+  done
+  if sidecar_is_active "$pid"; then
+    if kill -0 -- "-$pid" 2>/dev/null; then
+      if sidecar_group_is_owned "$pid"; then
+        echo "[telemetry] sidecar $pid did not stop; sending KILL to its owned group" >&2
+        kill -KILL -- "-$pid" 2>/dev/null || true
+      else
+        echo "[telemetry] refusing group escalation for $pid: ownership could not be verified" >&2
+      fi
+    fi
+    if sidecar_is_owned "$pid"; then
+      # Covers interruption before setsid has established the new session.
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+    for ((attempt = 0; attempt < 20; attempt++)); do
+      sidecar_is_active "$pid" || break
+      sleep 0.1
+    done
+  fi
+  if sidecar_is_owned "$pid"; then
+    # Uninterruptible kernel I/O can outlive SIGKILL. Do not hide the
+    # completed workload's exit status behind another unbounded wait.
+    echo "[telemetry] sidecar $pid remains pending after KILL" >&2
+    return 0
+  fi
+  wait "$pid" 2>/dev/null || true
+}
 stop_health() {
   if [[ -n "$health_pid" ]]; then
-    kill "$health_pid" 2>/dev/null || true
-    wait "$health_pid" 2>/dev/null || true
+    stop_sidecar "$health_pid"
     health_pid=""
   fi
 }
@@ -227,16 +305,12 @@ finish_health() {
     || echo "[telemetry] health record failed" >&2
 }
 stop_bridge() {
-  if [[ -n "$bridge_pid" ]] && kill -0 "$bridge_pid" 2>/dev/null; then
-    kill "$bridge_pid" 2>/dev/null || true
-    wait "$bridge_pid" 2>/dev/null || true
-  fi
+  stop_sidecar "$bridge_pid"
+  bridge_pid=""
 }
 stop_diagnostics() {
-  if [[ -n "$diagnostics_pid" ]] && kill -0 "$diagnostics_pid" 2>/dev/null; then
-    kill "$diagnostics_pid" 2>/dev/null || true
-    wait "$diagnostics_pid" 2>/dev/null || true
-  fi
+  stop_sidecar "$diagnostics_pid"
+  diagnostics_pid=""
 }
 stop_sidecars() {
   stop_health
@@ -269,8 +343,8 @@ trap stop_sidecars EXIT
 trap 'interrupt_workload TERM 130' INT
 trap 'interrupt_workload TERM 143' TERM
 
-PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-  "$telemetry_python" -m xlayer_telemetry.adapters.verl \
+XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+  setsid -- "$telemetry_python" -m xlayer_telemetry.adapters.verl \
     --input "$VERL_FILE_LOGGER_PATH" \
     --metrics-dir "$TELEMETRY_METRICS_DIR" \
     --run-id "$TELEMETRY_RUN_ID" \
@@ -283,8 +357,8 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
     > "$output_dir/logs/telemetry-bridge.log" 2>&1 &
 bridge_pid=$!
 if [[ -n "$diagnostics_config" ]]; then
-  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
-    "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
+  XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    setsid -- "$telemetry_python" -m xlayer_telemetry.analysis.diagnostics \
       --config "$diagnostics_config" \
       --history "$step_history_path" \
       --output "$output_dir/diagnostics" \
@@ -309,7 +383,7 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer
   "${health_args[@]}" --once > "$output_dir/logs/telemetry-health.log" 2>&1
 setsid -- "${command[@]}" &
 workload_pid=$!
-PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
+XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" setsid -- "$telemetry_python" -m xlayer_telemetry.telemetry_health \
   "${health_args[@]}" > "$output_dir/logs/telemetry-health.log" 2>&1 &
 health_pid=$!
 wait "$workload_pid"

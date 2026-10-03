@@ -150,10 +150,19 @@ def iter_file_records(
         with stream:
             opened = os.fstat(stream.fileno())
             backlog_end = opened.st_size if backlog else 0
+            consumed_tail = b""
             while True:
                 position = stream.tell()
+                # copytruncate can regrow past our offset between polls. Check
+                # a bounded consumed suffix against the descriptor, bypassing
+                # BufferedReader's old read-ahead before emitting another row.
+                if follow and consumed_tail and os.pread(
+                        stream.fileno(), len(consumed_tail), position - len(consumed_tail)) != consumed_tail:
+                    backlog = True
+                    break
                 line = stream.readline()
                 if line and (line.endswith(b"\n") or not follow):
+                    consumed_tail = line[-256:]
                     try:
                         record = json.loads(line.decode("utf-8"))
                     except (json.JSONDecodeError, UnicodeDecodeError):

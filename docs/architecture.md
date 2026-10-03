@@ -301,15 +301,21 @@ Run artifact와 collector state는 별도 로컬 파일이므로 두 경로의 �
 
 Wrapper는 workload exit code와 `telemetry-health.json`의 수집 상태를 별도로 남깁니다.
 진단 설정이 실행 중 사라지거나 최종 export가 실패해도 workload 결과를 덮지 않습니다.
+Sidecar는 각각 별도 session으로 실행하며, 종료에 응답하지 않으면 controller에 TERM 후 2초, 필요하면 소유 group에 KILL 후 2초까지 기다립니다.
+Group 종료 전에는 상속된 ownership marker를 확인해 재사용된 PGID의 무관한 process를 보호합니다.
+Kernel I/O 때문에 종료되지 않으면 경고를 남기며, 이미 끝난 workload의 결과 반환을 무한히 기다리지 않습니다.
 동일한 run 디렉터리의 동시 wrapper 실행은 `flock`으로 거부하며 완료한 경로도 재사용하지 않습니다.
 
 Bridge는 newline까지 기록된 UTF-8 JSON record를 처리하고 malformed line은 건너뜁니다.
 Follow 중 inode 교체나 파일 축소를 감지하면 다시 열고, 새 파일에 이미 있던 record는 event time을 모르는 backlog로 처리합니다.
-Polling 사이에 truncate 후 기존 크기 이상으로 다시 쓴 파일은 축소를 놓칠 수 있으므로, log rotation은 rename 후 새 파일을 만드는 방식을 사용합니다.
+읽은 record의 마지막 최대 256 byte도 비교해 polling 사이의 truncate·regrow와 남아 있는 read-ahead를 감지합니다.
+이 검사는 임의의 파일 수정을 모두 감지하지 않으며, 이미 삭제된 미수집 record도 복원할 수 없으므로 log rotation은 rename 후 새 파일을 만드는 방식을 권장합니다.
 Producer timestamp가 없는 backlog는 정확한 step 시각을 복원할 수 없어 외부 resource correlation을 제한합니다.
 Backend의 일부 표본 누락·일시 오류는 [bounded retry](diagnosis.md#baseline-and-rule-state)로 처리합니다.
 
 SDK 파일 쓰기는 기본 synchronous이며, [선택적 bounded background writer](application-metrics.md#optional-background-io)로 application 호출의 filesystem 대기를 줄일 수 있습니다.
+SDK의 `from_env()`는 잘못된 설정에서 `None`을 반환하며, 경고용 stderr가 닫혀 있어도 application 초기화를 실패시키지 않습니다.
+명시적 constructor와 `CorrelationContext.from_env()`의 입력 검증 오류는 호출자에게 전달합니다.
 Snapshot·event는 node-local 경로에 기록하고, 장시간 run의 artifact 용량을 관리합니다.
 진단 CLI는 [worker deadline과 incremental cache](diagnosis.md#backend-query-budget)로 중단·복구와 반복 JSONL parsing 비용을 관리합니다.
 Cache 한도 초과 시 전체 scan을 사용하며, record 필터링·baseline 선택 비용은 이력 크기에 따라 증가합니다.

@@ -104,9 +104,8 @@ class MetricEmitter:
         if not directory and not run_id:
             return None
         if not directory or not run_id:
-            print(
-                "[metrics] TELEMETRY_METRICS_DIR and TELEMETRY_RUN_ID must be set together",
-                file=sys.stderr,
+            cls._warn(
+                "[metrics] TELEMETRY_METRICS_DIR and TELEMETRY_RUN_ID must be set together"
             )
             return None
         try:
@@ -133,7 +132,7 @@ class MetricEmitter:
                 **settings_from_env(),
             )
         except ValueError as exc:
-            print(f"[metrics] export disabled: {exc}", file=sys.stderr)
+            cls._warn(f"[metrics] export disabled: {exc}")
             return None
 
     def emit(self, *, step: int | None, samples: Iterable[Metric]) -> Path | None:
@@ -181,8 +180,12 @@ class MetricEmitter:
 
     def _disable(self, error) -> None:
         self.disabled = True
+        self._warn(f"[metrics] export disabled: {error}")
+
+    @staticmethod
+    def _warn(message: str) -> None:
         try:
-            print(f"[metrics] export disabled: {error}", file=sys.stderr)
+            print(message, file=sys.stderr)
         except (OSError, ValueError):
             pass  # Export failure reporting is best-effort as well.
 

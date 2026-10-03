@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [TDD failure regressions](tdd-regression-20261003.json) | 부분 저장·log 재작성·SDK 초기화·sidecar/child 종료·stale PGID 장애 재현, 신규 35개 포함 656개 test와 cleanup |
 | [Greenfield architecture review](greenfield-review-20261003.json) | Fresh CLI·Grafana 실행, health/artifact 경계·event/query provenance 개선, 621개 test·source 조회 benchmark·cleanup |
 | [Product user journey](product-user-journey-20261003.json) | Fresh clone·4회 loop, CLI run 문맥 보존·오류 안내, 실제 Grafana 9화면의 900/1440px 탐색·138 query·602개 test와 cleanup |
 | [Synthetic coverage](dashboards/synthetic-coverage-20261003.json) | 10개 dashboard·138개 query의 실제 Prometheus/Loki 결과, 접힌 row 포함 117개 panel rendering, native/sandbox fixture·wheel 실행·599개 test |

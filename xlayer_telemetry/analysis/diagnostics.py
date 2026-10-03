@@ -325,6 +325,7 @@ class DiagnosticEngine:
         self.clock = clock
         self.thresholds = {**DEFAULT_THRESHOLDS, **config.get("thresholds", {})}
         self.jsonl_cache = cache_from_config(config)
+        self._verified_projections: set[tuple[str, str, str]] = set()
 
     def _queries(self, cluster: str, *, with_sandbox: bool = False) -> dict[str, str]:
         """Build scoped defaults while preserving explicit user query overrides."""
@@ -920,16 +921,37 @@ class DiagnosticEngine:
         return findings
 
 
-def _existing_reports(path: Path, *, cache: JSONLCache | None = None) -> dict[str, dict[str, Any]]:
+def _existing_reports(path: Path, *, cache: JSONLCache | None = None) -> tuple[dict[str, dict[str, Any]], dict[str, Any] | None]:
     reports: dict[str, dict[str, Any]] = {}
+    latest = None
     try:
         for value in (cache.read(path) if cache is not None else json_objects(path)):
+            if value.get("record_type") == "bottleneck_diagnosis":
+                latest = value
             record_id = value.get("trigger_record_id")
             if isinstance(record_id, str):
                 reports[record_id] = value
     except FileNotFoundError:
         pass
-    return reports
+    return reports, latest
+
+
+def _investigation_path(directory: Path, report: Mapping[str, Any]) -> Path | None:
+    if report.get("trigger") != "step_observed" or report.get("analysis_status") == "provisional":
+        return None
+    key = re.sub(r"[^A-Za-z0-9_.-]", "_", str(report.get("trigger_record_id") or report.get("generated_at")))
+    return directory / "investigation" / f"{key}.jsonl"
+
+
+def _write_investigation(directory: Path, report: Mapping[str, Any], *, missing_only: bool = False) -> None:
+    path = _investigation_path(directory, report)
+    if path is None or (missing_only and path.is_file()):
+        return
+    # Completed projections are immutable for Alloy/Loki. Recovery only creates
+    # missing files, so existing tailed records are not replayed.
+    rows = _investigation_rows(report)
+    atomic_write_text(path, "".join(
+        json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in rows))
 
 
 def write_report(directory: Path, report: Mapping[str, Any]) -> None:
@@ -938,17 +960,35 @@ def write_report(directory: Path, report: Mapping[str, Any]) -> None:
     with (directory / "diagnostics.jsonl").open("a", encoding="utf-8") as stream:
         stream.write(encoded)
     atomic_write_text(directory / "latest.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
-    if report.get("trigger") != "step_observed" or report.get("analysis_status") == "provisional":
-        return
-    # One immutable file per analysis lets Alloy/Loki tail without rereading
-    # rewritten content. Flatten only presentation fields; latest.json stays
-    # the complete, backend-independent diagnosis artifact.
-    investigation = directory / "investigation"
-    investigation.mkdir(exist_ok=True)
-    key = re.sub(r"[^A-Za-z0-9_.-]", "_", str(report.get("trigger_record_id") or report.get("generated_at")))
-    rows = _investigation_rows(report)
-    atomic_write_text(investigation / f"{key}.jsonl", "".join(
-        json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in rows))
+    _write_investigation(directory, report)
+
+
+def _projection_recovery(engine, output, reports, latest):
+    """Plan repair from the journal; only the controller may persist files."""
+    missing = []
+    verified = getattr(engine, "_verified_projections", set())
+    for report in reports.values():
+        path = _investigation_path(output, report)
+        if path is None:
+            continue
+        identity = (str(path.absolute()), str(report.get("revision")), str(report.get("generated_at")))
+        if identity in verified:
+            continue
+        if not path.is_file():
+            missing.append(report)
+        elif len(verified) < 100_000:
+            # The files are immutable; remember successful checks within this
+            # worker lifetime, bounded independently of the report log length.
+            verified.add(identity)
+    recover_latest = None
+    if latest is not None:
+        try:
+            published = json.loads((output / "latest.json").read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            published = None
+        if published != latest:
+            recover_latest = latest
+    return {"investigation": missing, "latest": recover_latest}
 
 
 def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -1031,7 +1071,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
                    max_records=None, finalize_pending=False):
     history = load_history(history_path, cache=engine.jsonl_cache)
-    reports = _existing_reports(output / "diagnostics.jsonl", cache=engine.jsonl_cache)
+    reports, latest = _existing_reports(output / "diagnostics.jsonl", cache=engine.jsonl_cache)
+    recovery = _projection_recovery(engine, output, reports, latest)
     settle = float(engine.config.get("threefs", {}).get("settle_seconds", 30)) if engine.threefs else 0.0
     now = engine.clock()
     retry_seconds = float(engine.config.get("retry_seconds", 60))
@@ -1050,7 +1091,7 @@ def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
     batch = pending[:max_records] if max_records is not None else pending
     return {"pending": [(record, {key: reports.get(record.get("record_id"), {}).get(key)
                                  for key in ("first_attempt_at", "revision")}) for record in batch],
-            "periodic": periodic_when_idle and not unfinished,
+            "periodic": periodic_when_idle and not unfinished, "projection_recovery": recovery,
             "now": now, "retry_seconds": retry_seconds, "retry_interval": retry_interval}, history
 
 
@@ -1074,6 +1115,11 @@ def run_once(
         if plan.get("record_type") == "bottleneck_diagnosis":
             write_report(output, plan)  # Failed scheduling cannot finalize any step.
             return 0
+    recovery = plan.get("projection_recovery", {})
+    for report in recovery.get("investigation", []):
+        _write_investigation(output, report, missing_only=True)
+    if recovery.get("latest") is not None:
+        atomic_write_text(output / "latest.json", json.dumps(recovery["latest"], indent=2, sort_keys=True) + "\n")
     for record, previous in plan["pending"]:
         attempted_at = engine.clock()
         if analyzer is None:

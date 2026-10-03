@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-03",
+  "baseline_commit": "266720bf65c2416787e8d75fb6c8b64de01ccb1c",
+  "scope": "CPU fault injection, actual child processes, regression contracts; no live training rerun",
+  "reviewed_paths": [
+    "VERL file logger -> bridge -> history/snapshot",
+    "SDK environment -> context -> event/metric export",
+    "backend analysis -> append journal -> latest/investigation projection",
+    "wrapper -> workload and sidecar sessions -> shutdown/exit status"
+  ],
+  "tdd": [
+    {
+      "area": "sidecar shutdown",
+      "red": "Three TERM-ignoring sidecars prevented workload exit. Two further cases left an exited leader child or actual FIFO-blocked analyzer alive. Two injected stale-PGID cases killed a foreign session.",
+      "change": "Isolate sidecar sessions; allow controller cleanup, then bounded group escalation with inherited ownership verification.",
+      "regression_cases": 7,
+      "test_file": "tests/test_sidecar_shutdown.py"
+    },
+    {
+      "area": "diagnosis partial persistence",
+      "red": "Five cases left final investigation/latest projections missing after ENOSPC despite a committed report, including restart and isolated-worker preparation.",
+      "change": "Repair derived files from the journal without backend queries or new revisions; retain provisional retry and immutable existing files.",
+      "regression_cases": 7,
+      "test_file": "tests/test_diagnosis_projection_recovery.py"
+    },
+    {
+      "area": "VERL logger copytruncate/regrow",
+      "red": "Two cases lost the first rewritten record or emitted stale buffered content when the same inode regrew beyond the previous offset.",
+      "change": "Compare a bounded consumed suffix against the descriptor before buffered reads; reopened contents retain backlog timestamp provenance.",
+      "regression_cases": 2,
+      "test_file": "tests/test_verl_ingestion_failures.py"
+    },
+    {
+      "area": "optional SDK initialization",
+      "red": "Negative LOCAL_RANK escaped as IndexError; invalid/partial configuration plus unavailable stderr propagated warning failures.",
+      "change": "Validate the GPU index lower bound and reuse best-effort warning handling in both factories; preserve explicit constructor errors and valid context.",
+      "regression_cases": 19,
+      "test_file": "tests/test_sdk_initialization_failures.py"
+    }
+  ],
+  "validation": {
+    "baseline_pytest": {
+      "passed": 621,
+      "seconds": 37.93
+    },
+    "final_pytest": {
+      "passed": 656,
+      "seconds": 86.15,
+      "new_cases": 35
+    },
+    "promtool": "3.5.0 enabled for real PromQL regression tests",
+    "python_compileall": "passed: package/examples/tests",
+    "shell_syntax": "passed: every tracked .sh",
+    "diff_check": "passed",
+    "sphinx": "strict -n -W --keep-going HTML build passed"
+  },
+  "follower_microbenchmark": {
+    "method": "20,000 local JSONL records; follow mode; median of five runs; parsing only, not training throughput",
+    "before": {
+      "records": 20000,
+      "median_seconds": 0.0299226688221097,
+      "microseconds_per_record": 1.496133441105485
+    },
+    "after": {
+      "records": 20000,
+      "median_seconds": 0.03651181794703007,
+      "microseconds_per_record": 1.8255908973515034
+    }
+  },
+  "limitations": [
+    "Physical multi-node restart, network partition and shared filesystem failure were not exercised.",
+    "Actual VERL/vLLM training, Docker cgroup, 3FS and Ollama were not rerun.",
+    "Bounded suffix checking cannot recover already deleted unread records or detect every arbitrary file rewrite; rename rotation remains recommended.",
+    "SIGKILL cannot force completion of uninterruptible kernel I/O; orphan zombie reaping belongs to system init.",
+    "Final synchronous export/storage operations are not covered by a wrapper-wide wall-clock deadline."
+  ],
+  "cleanup": {
+    "created": "Task-prefixed temporary pytest fixtures, fault-reproduction scripts, benchmark data, logs and documentation build",
+    "removed": "Task temporary root after checks; no running task-owned process found",
+    "preserved": "Source/tests/documentation changes and this compact report",
+    "existing_services": "Read-only health checks; no restart or configuration changes",
+    "owned_test_processes_running": [],
+    "preexisting_readonly_health": {
+      "grafana": 200,
+      "prometheus": 200,
+      "loki": 200
+    },
+    "python": "3.12.3",
+    "kernel": "6.17.0-35-generic"
+  }
+}

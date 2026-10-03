@@ -207,6 +207,8 @@ bash scripts/check_tools.sh
 ```
 
 CPU 테스트는 외부 training framework 없이 실행할 수 있습니다.
+장애 재현 테스트는 backend 복구·진단 파일의 부분 저장·log rotation·SDK 오류 격리·소유 process 종료를 확인합니다.
+파일시스템 fault injection과 실제 child process를 사용하며, 물리 node 장애나 RDMA·shared filesystem의 동작까지 검증하는 것은 아닙니다.
 CPU regression workflow는 Ubuntu 22.04/Python 3.10과 Ubuntu 24.04/Python 3.12에서 테스트·syntax 검사를 실행하도록 구성합니다.
 실제 GPU·backend 통합 검증 범위는 [Validation Records](docs/validation/README.md)에 별도로 기록합니다.
 `check_tools.sh`의 미설치 표시는 해당 선택 기능의 도구가 없다는 뜻입니다.

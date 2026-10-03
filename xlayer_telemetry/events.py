@@ -62,7 +62,7 @@ class CorrelationContext:
             for device in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
         ]
         gpu = None
-        if local_rank is not None and local_rank < len(visible):
+        if local_rank is not None and 0 <= local_rank < len(visible):
             candidate = visible[local_rank]
             if candidate and candidate != "-1":
                 gpu = candidate
@@ -138,9 +138,8 @@ class EventRecorder:
         if not directory and not run_id:
             return None
         if not directory or not run_id:
-            print(
-                "[events] TELEMETRY_EVENTS_DIR and TELEMETRY_RUN_ID must be set together",
-                file=sys.stderr,
+            cls._warn(
+                "[events] TELEMETRY_EVENTS_DIR and TELEMETRY_RUN_ID must be set together"
             )
             return None
         try:
@@ -154,7 +153,7 @@ class EventRecorder:
                 **settings_from_env(),
             )
         except ValueError as exc:
-            print(f"[events] export disabled: {exc}", file=sys.stderr)
+            cls._warn(f"[events] export disabled: {exc}")
             return None
 
     def event(
@@ -269,8 +268,12 @@ class EventRecorder:
 
     def _disable(self, error) -> None:
         self.disabled = True
+        self._warn(f"[events] export disabled: {error}")
+
+    @staticmethod
+    def _warn(message: str) -> None:
         try:
-            print(f"[events] export disabled: {error}", file=sys.stderr)
+            print(message, file=sys.stderr)
         except (OSError, ValueError):
             pass  # A closed log stream must not replace the workload exception.
 

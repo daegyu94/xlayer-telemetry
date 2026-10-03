@@ -159,6 +159,8 @@ Baseline 조회 실패로 이미 수집한 current evidence를 버리지는 않�
 영구적으로 비어 있는 optional source도 deadline까지 기다리므로 `provisional` 자체가 backend 장애를 뜻하지는 않습니다.
 종료 시 wrapper는 한 번 더 조회해 `final`로 확정합니다.
 `diagnostics.jsonl`은 같은 `trigger_record_id`의 revision을 보존하고 Loki projection은 final 결과만 생성합니다.
+Report 저장 후 `latest.json`이나 investigation 파일 쓰기가 실패하면, 다음 분석 실행에서 저장된 report로 해당 파일을 복구합니다.
+Backend를 다시 조회하거나 revision을 추가하지 않으며, 이미 존재하는 immutable investigation 파일도 다시 쓰지 않습니다.
 빈 후보 표는 `diagnostics/latest.json`의 `analysis_status`·`missing_sources`부터 확인합니다.
 영구 누락도 제한 시간에 끝나며 `step_event_time` 없는 replay는 재시도하지 않습니다.
 
