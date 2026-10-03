@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Product user journey](product-user-journey-20261003.json) | Fresh clone·4회 loop, CLI run 문맥 보존·오류 안내, 실제 Grafana 9화면의 900/1440px 탐색·138 query·602개 test와 cleanup |
 | [Synthetic coverage](dashboards/synthetic-coverage-20261003.json) | 10개 dashboard·138개 query의 실제 Prometheus/Loki 결과, 접힌 row 포함 117개 panel rendering, native/sandbox fixture·wheel 실행·599개 test |
 | [Fresh User Experience](e2e-user-experience.md) | Fresh clone·CLI·Grafana 실제 클릭, 4회 개선 loop·591개 test·900/1440px 전체 panel 점검과 cleanup |
 | [multinode/xltel-vm-validation-20261002.json](multinode/xltel-vm-validation-20261002.json) | Host server·KVM guest 두 개의 CLI lifecycle, 실제 metric·Loki event·Grafana datasource 조회, clock skew·VM 중단·collector 재시작·종료; 회귀 테스트 582개 |

@@ -111,7 +111,7 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
         command = command[1:]
     command = command or configured_command
     if not command or not command[0] or command[0].startswith("/path/to/"):
-        raise ConfigError("Pass xltel run -- COMMAND or set VERL_COMMAND=(...) in the config.")
+        raise ConfigError("Pass xltel run -- COMMAND or set [workload].command in TOML (VERL_COMMAND=(...) in Bash).")
     run_id = args.run_id or config["RUN_ID"]
     if run_id == "auto":
         run_id = "verl-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8]
@@ -126,7 +126,9 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
     validate(config)
     argv = ["bash", str(assets_root() / "scripts/run_verl_with_telemetry.sh"),
             "--output", str(output), "--run-id", run_id, "--node", config["NODE_NAME"],
-            "--execution-mode", config["EXECUTION_MODE"]]
+            "--execution-mode", config["EXECUTION_MODE"],
+            "--set", "cluster=" + config["CLUSTER_NAME"],
+            "--set", "observer_node=" + config["NODE_NAME"]]
     if config.get("DIAGNOSTICS_CONFIG"):
         argv.extend(["--diagnostics-config", config["DIAGNOSTICS_CONFIG"]])
     argv.extend(["--", *command])
@@ -217,10 +219,20 @@ def execute(args) -> int:
             raise ConfigError("No run artifacts found; run a workload first or pass xltel inspect RUN_DIR.")
         from .show_run import summarize
         print(summarize(run))
-        run_id = read_json(run / "telemetry-manifest.json").get("run_id")
+        manifest = read_json(run / "telemetry-manifest.json")
+        run_id = manifest.get("run_id")
+        settings = manifest.get("configuration", {})
+        if not isinstance(settings, dict):
+            settings = {}
+        cluster = settings.get("cluster")
+        node = settings.get("observer_node")
+        if not isinstance(cluster, str) or not cluster:
+            cluster = config["CLUSTER_NAME"]
+        if not isinstance(node, str):
+            node = ""
         if isinstance(run_id, str):
             print("\nRun Overview: " + dashboard_url(config, "telemetry-overview",
-                  cluster=config["CLUSTER_NAME"], run_id=run_id))
+                  cluster=cluster, run_id=run_id, node=node, source_node=node))
         return 0
     if args.action == "logs":
         if args.lines <= 0:

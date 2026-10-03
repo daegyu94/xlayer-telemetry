@@ -138,6 +138,8 @@ def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
     run = tmp_path / "runs/smoke"
     manifest = json.loads((run / "telemetry-manifest.json").read_text())
     assert manifest["configuration"]["execution_mode"] == "async"
+    assert manifest["configuration"]["cluster"] == "training-cluster"
+    assert manifest["configuration"]["observer_node"] == "cpu-test"
     sample = json.loads(next((run / "telemetry-metrics").glob("*.json")).read_text())
     assert sample["step"] == 7
     assert (run / "telemetry-health.json").is_file()
@@ -145,7 +147,11 @@ def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
     assert inspected.returncode == 0, inspected.stderr
     assert "smoke" in inspected.stdout
     assert "Run Overview: http://127.0.0.1:13000/d/telemetry-overview?" in inspected.stdout
-    assert invoke(config, "inspect", "smoke").returncode == 0
+    config.write_text(config.read_text() + "CLUSTER_NAME=another-cluster\nNODE_NAME=another-node\n")
+    old_run = invoke(config, "inspect", "smoke")
+    assert old_run.returncode == 0
+    assert "var-cluster=training-cluster&var-run_id=smoke&var-node=cpu-test&var-source_node=cpu-test" in old_run.stdout
+    assert "var-cluster=another-cluster" not in old_run.stdout
     collision = invoke(config, "run", "--run-id", "smoke", "--", sys.executable, "-c", "pass")
     assert collision.returncode != 0
 
@@ -326,3 +332,12 @@ def test_dashboard_link_preserves_subpath_and_encodes_context():
     assert dashboard_url({"GRAFANA_URL": "https://example.com/grafana/"}, "telemetry-overview",
                          run_id="run + 1", cluster="cluster-a") == (
         "https://example.com/grafana/d/telemetry-overview?var-run_id=run+%2B+1&var-cluster=cluster-a")
+
+
+def test_run_missing_command_explains_toml_setting(tmp_path):
+    config = tmp_path / "config.toml"
+    config.write_text(f'[telemetry]\nTELEMETRY_HOME = {json.dumps(str(tmp_path))}\n')
+    result = invoke(config, "run")
+    assert result.returncode == 2
+    assert "[workload].command" in result.stderr
+    assert not (tmp_path / "runs").exists()

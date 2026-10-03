@@ -135,7 +135,7 @@ def _read_toml(path: Path) -> tuple[dict[str, str], list[str], dict[str, str]]:
     raw = {}
     for key, value in document.get("telemetry", {}).items():
         if key not in KEYS:
-            raise ConfigError("Unknown [telemetry] key; use the setting names in xltel config show.")
+            raise ConfigError(f"Unknown [telemetry] key {key!r}; use the setting names in xltel config show.")
         if key in BOOL_KEYS and type(value) is bool:
             raw[key] = "1" if value else "0"
         elif key in AGE_KEYS and type(value) in {int, float}:

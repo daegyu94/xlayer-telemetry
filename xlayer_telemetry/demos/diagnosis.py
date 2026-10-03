@@ -132,7 +132,10 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--node", default="synthetic-node")
     args = parser.parse_args()
-    report = generate(args.output, run_id=args.run_id, node=args.node)
+    try:
+        report = generate(args.output, run_id=args.run_id, node=args.node)
+    except FileExistsError:
+        parser.error("Output already exists; choose a new --output run directory. Existing artifacts were preserved.")
     print(f"Synthetic step {report['step']} with {len(report['candidates'])} candidates: {args.output}")
 
 

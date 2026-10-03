@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-03",
+  "baseline": "6b0b454ceba29c6c9cc728aa80fc85ffeefc0b1f",
+  "method": "Fresh GitHub clone, isolated virtualenv/config/state; existing monitoring binaries reused read-only. Four bounded loops.",
+  "loops": [
+    {
+      "loop": 1,
+      "scenario": "clone -> editable install -> init -> doctor -> invalid config",
+      "finding": "Unknown TOML key omitted its name; missing workload command mentioned Bash only.",
+      "change": "Identify the invalid setting and document the TOML command option."
+    },
+    {
+      "loop": 2,
+      "scenario": "CPU workload -> bridge -> manifest -> inspect, then change current cluster",
+      "finding": "Inspect generated a link to the current cluster instead of the run cluster.",
+      "change": "Persist cluster/observer_node at launch and use that context for the artifact link; old manifests retain fallback."
+    },
+    {
+      "loop": 3,
+      "scenario": "synthetic diagnosis -> real Grafana investigation; repeat fixture generation",
+      "finding": "Existing output raised an unhandled traceback. README used obsolete dashboard labels.",
+      "change": "Actionable error with artifact preservation; synchronize README names."
+    },
+    {
+      "loop": 4,
+      "scenario": "wide/narrow journey -> query coverage -> full regression -> repeated up/down",
+      "finding": "No additional confirmed P0/P1 issue in the exercised path.",
+      "change": "No speculative dashboard rewrite."
+    }
+  ],
+  "validation": {
+    "pytest": "602 passed; real promtool enabled",
+    "compileall": "passed",
+    "bash_syntax": "passed",
+    "diff_check": "passed",
+    "strict_sphinx": "passed",
+    "cpu_workload": "exit=0, bridge final export=ok, telemetry completeness=complete; cluster switch retains recorded link",
+    "regression": "Exit code 7, argv quoting, lifecycle ownership, signals, config errors covered by the existing/full CPU test suite.",
+    "dashboard_query_coverage": "138/138 against actual Prometheus/Loki",
+    "browser": [
+      {
+        "width": 1440,
+        "status": "passed",
+        "screens": 9,
+        "browser_errors": [],
+        "context_preserved": true
+      },
+      {
+        "width": 900,
+        "status": "passed",
+        "screens": 9,
+        "browser_errors": [],
+        "context_preserved": true
+      }
+    ],
+    "lifecycle": "Repeated up reported already running; repeated down succeeded; final status stopped, no stale PID."
+  },
+  "effects": {
+    "cardinality": "No added Prometheus labels or metric/query changes.",
+    "performance": "No throughput/overhead improvement claimed; change adds two manifest settings, not per-event work.",
+    "compatibility": "Existing shell lifecycle and run manifest schema version retained."
+  },
+  "limitations": [
+    "Synthetic values and precomputed diagnosis are illustrative; not real VERL training or storage causality validation.",
+    "No actual GPU/VERL, Docker cgroup, 3FS, Ollama or physical/VM multi-node rerun.",
+    "Monitoring binary download/install was not rerun; pinned existing binaries were reused.",
+    "The browser validator initially received node=.* and rejected the deliberate run-row drill-down to gpu-node-0; rerun with the actual resource node passed.",
+    "900px detail tables still require horizontal scrolling for all evidence fields; native table behavior retained.",
+    "No Loki-disabled browser scenario rerun in this cycle."
+  ],
+  "cleanup": {
+    "managed_stack": "stopped; repeated down succeeded",
+    "temporary_listeners": "none on 23000/29090/23100/22345/29110",
+    "temporary_processes": "none matching validation root",
+    "root_removed": true,
+    "preserved": "Only this compact validation record and source/test/doc changes.",
+    "pre_existing_services": "Grafana, Prometheus, Loki and node exporter still HTTP 200; not restarted."
+  }
+}

@@ -38,3 +38,20 @@ def test_synthetic_run_is_discoverable_and_inspectable(tmp_path):
     manifest = json.loads((root / "telemetry-manifest.json").read_text())
     assert manifest["data_origin"] == "synthetic"
     assert "storage_queue_saturation" in summarize(root)
+
+
+def test_cli_existing_output_is_actionable_and_preserves_artifacts(tmp_path):
+    import subprocess
+    import sys
+    output = tmp_path / "run"
+    output.mkdir()
+    sentinel = output / "keep.json"
+    sentinel.write_text("existing data")
+    result = subprocess.run([sys.executable, "-m", "xlayer_telemetry.demos.diagnosis",
+                             "--output", str(output), "--run-id", "demo"],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2
+    assert "choose a new --output" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert sentinel.read_text() == "existing data"
+    assert list(output.iterdir()) == [sentinel]

@@ -250,3 +250,10 @@ def test_alloy_port_rejects_invalid_config(tmp_path, value):
     path.write_text("[telemetry]\nALLOY_PORT=" + value + "\n")
     with pytest.raises(ConfigError, match="ALLOY_PORT"):
         load_config(path)
+
+
+def test_unknown_toml_key_identifies_the_setting(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text('[telemetry]\nGRAFANA_PRT = 23000\n')
+    with pytest.raises(ConfigError, match="GRAFANA_PRT"):
+        load_config(path)

@@ -51,6 +51,8 @@ xltel
 `status`는 현재 system, `inspect`는 저장된 run 결과를 확인합니다.
 `status`의 Start Here 링크는 cluster·node를, `run/inspect`의 Run Overview 링크는 Run을 선택한 상태로 Grafana를 엽니다.
 `inspect`는 최근 CLI run 경로를 기억하므로 custom `--output` 결과도 찾을 수 있습니다.
+새 CLI run의 링크는 manifest에 저장한 cluster·observer node를 사용하므로 현재 config를 바꿔도 실행 당시 문맥을 유지합니다.
+이 문맥이 없는 기존 manifest는 현재 cluster 설정을 사용합니다.
 `sources`는 run 없이 native endpoint를 조사하고 `sources threefs`는 설정한 ClickHouse의 shared-service window를 조회합니다.
 Backend error나 source down은 nonzero, source 미설정은 정상적인 optional 상태입니다.
 
