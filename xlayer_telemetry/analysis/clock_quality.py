@@ -10,6 +10,7 @@ import math
 from typing import Any, Callable, Iterable
 
 from ..prometheus import escape_label
+from ..time_alignment import validate_alignment
 
 
 def assess_clocks(
@@ -63,6 +64,40 @@ def assess_clocks(
         else "unknown" if not result["nodes"] or any(item["status"] == "unknown" for item in result["nodes"].values())
         else "aligned"
     )
+    return result
+
+
+def assess_interval(query, *, cluster: str, nodes: Iterable[str], window: dict,
+                    producer_node: str, config: dict, producer_clock_nodes: Iterable[str] = ()) -> dict:
+    """A mapped workload window can align with monitoring-host scrape time.
+
+    This does not repair producer-timestamped sources such as 3FS DateTime.
+    Retain kernel screening separately so OS clock problems remain visible.
+    """
+    screening = assess_clocks(query, cluster=cluster, nodes=nodes,
+                              start=window['start'], end=window['end'],
+                              max_skew_seconds=config.get('max_skew_seconds', 1),
+                              max_sample_age_seconds=config.get('max_sample_age_seconds', 30),
+                              require_sync=config.get('require_sync', True))
+    if 'time_alignment' not in window and not config.get('calibration_reference'):
+        return screening
+    limit = min(float(config.get('max_skew_seconds', 1)), (window['end']-window['start'])/10)
+    result = validate_alignment(window, config.get('calibration_reference'), max_uncertainty=limit)
+    alignment = window.get('time_alignment', {})
+    if not isinstance(alignment, dict) or alignment.get('node') != producer_node:
+        result = {'status': 'unknown', 'issue': 'calibration_node_mismatch'}
+    result.update(nodes={producer_node: {'status': result['status']}},
+                  system_clock_screening=screening, scope='mapped_workload_to_prometheus_scrape_time')
+    if producer_clock_nodes:
+        extra = assess_clocks(query, cluster=cluster, nodes=producer_clock_nodes,
+                              start=window['start'], end=window['end'],
+                              max_skew_seconds=config.get('max_skew_seconds', 1),
+                              max_sample_age_seconds=config.get('max_sample_age_seconds', 30),
+                              require_sync=config.get('require_sync', True))
+        result['producer_clock_screening'] = extra
+        result['nodes'].update(extra['nodes'])
+        if extra['status'] != 'aligned':
+            result['status'] = extra['status']
     return result
 
 

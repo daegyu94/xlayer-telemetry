@@ -16,6 +16,7 @@ import uuid
 
 from .identity import producer_filename_stem
 from .io_writer import BoundedWriter, settings_from_env
+from .time_alignment import CalibrationCache
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -111,10 +112,12 @@ class EventRecorder:
         queue_capacity: int = 256,
         max_queue_bytes: int = 4 * 1024 * 1024,
         flush_timeout: float = 1,
+        time_calibration: CalibrationCache | None = None,
     ) -> None:
         self.directory = directory
         self.context = context
         self.clock_ns = clock_ns
+        self.time_calibration = time_calibration or CalibrationCache.from_env(context.node)
         self.monotonic_ns = monotonic_ns or (time.monotonic_ns if clock_ns is time.time_ns else clock_ns)
         self.disabled = False
         self.path = directory / (producer_filename_stem(
@@ -181,6 +184,7 @@ class EventRecorder:
                 "trace_id": trace_id,
                 **({"span_id": span_id} if span_id is not None else {}),
                 "attributes": dict(attributes or {}),
+                **self._aligned_fields(timestamp_ns, timestamp_ns),
             }
         )
 
@@ -222,6 +226,7 @@ class EventRecorder:
                     **self.context.as_dict(),
                     "name": name,
                     "phase": phase,
+                    "span_boundary_label": phase + (" [clock discontinuity]" if discontinuity else " [exact, node clock]"),
                     "step": step,
                     "start_time_unix_nano": started_ns,
                     "event_time_unix_nano": started_ns,
@@ -237,8 +242,29 @@ class EventRecorder:
                     "span_id": identity.span_id,
                     **({"parent_span_id": parent_span_id} if parent_span_id is not None else {}),
                     "attributes": final_attributes,
+                    **self._aligned_fields(started_ns, ended_ns, discontinuity=discontinuity, phase=phase),
                 }
             )
+
+    def _aligned_fields(self, start: int, end: int, *, discontinuity: bool = False, phase: str = "") -> dict:
+        if self.time_calibration is None:
+            return {}
+        mapped = self.time_calibration.project(start/1e9, end/1e9)
+        alignment = mapped["time_alignment"]
+        if discontinuity:
+            alignment = {"status": "unknown", "issue": "local_clock_discontinuity"}
+        fields = {"time_alignment": alignment}
+        if alignment["status"] == "aligned":
+            began, finished = round(mapped["start"]*1e9), round(mapped["end"]*1e9)
+            fields.update(event_time_unix_nano=began, correlation_start_time_unix_nano=began,
+                          correlation_end_time_unix_nano=finished,
+                          start_time_ms=began//1_000_000, end_time_ms=(finished+999_999)//1_000_000,
+                          boundary_accuracy="calibrated", clock_scope="monitoring_reference")
+            fields.update(time_reference=alignment["reference_id"], time_uncertainty_seconds=alignment["uncertainty_seconds"])
+            fields["span_boundary_label"] = f"{phase} [calibrated ±{alignment['uncertainty_seconds']:.3g}s]"
+        elif not discontinuity:
+            fields.update(boundary_accuracy="unknown", start_time_ms=None, end_time_ms=None)
+        return fields
 
     @staticmethod
     def _validate(*, name: str, phase: str, step: int | None) -> None:

@@ -385,6 +385,8 @@ Host 전체 disk busy와 별도 storage node의 `storage_device_busy_ratio`는 �
 Current 또는 baseline이 `unsafe`/`unknown`이면 `verdict=insufficient_data`, 빈 `candidates`와 빈 resource comparison을 기록하고 `missing_sources`에 clock 상태를 남깁니다.
 Raw `evidence`와 workload duration은 inspect할 수 있으며 기존 bounded retry를 적용합니다.
 Clock 상태를 나중에 고쳤다고 이미 끝난 step의 과거 timestamp가 복원되지는 않습니다.
+선택적으로 [userspace calibration](time-alignment.md)을 설정하면 생성 시점에 보존한 reference window와 uncertainty로 판단합니다.
+`clock.calibration_reference`가 맞고 uncertainty가 `min(max_skew_seconds, interval / 10)` 이내여야 하며 current·baseline 어느 쪽이든 부족하면 보류합니다.
 
 기본 `clock.require_sync=true`, `max_skew_seconds=1`, `max_sample_age_seconds=30`입니다.
 `clock.require_sync=false`는 offset/freshness만 확인하는 제한된 조사 모드이고 `clock.enabled=false`는 검사 자체를 제외합니다.

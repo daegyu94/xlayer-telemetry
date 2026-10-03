@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Userspace time alignment](userspace-time-alignment-20261004.json) | OS clock 변경 없이 reference 시간축 보정; 독립 process clock +12/-7초, 실제 Prometheus/Loki/Alloy 조회·Timeline, TDD 신규 36개 포함 820개 test와 cleanup |
 | [Live dashboard UX](dashboards/live-ui-20261003.md) | 실제 Chrome navigation·baseline·optional row·stale/결측 화면, Timeline identity·policy lag 단위·숨겨진 filter 개선과 784개 test |
 | [Mooncake telemetry](mooncake-telemetry-20261003.json) | 실제 client DFS read/write·master/client endpoint·Prometheus query·진단 입력, optional source 결측과 단위·engine 분리 검증 |
 | [Metric collection coverage audit](metric-coverage-audit-20261003.md) | 133개 baseline 계약 전체 분류, 수집 경로·미수집 영역·cardinality/overhead 감사, native evidence·budget 개선과 검증 한계 |

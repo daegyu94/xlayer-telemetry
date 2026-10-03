@@ -25,6 +25,8 @@ def parser() -> argparse.ArgumentParser:
     root.add_argument("--config", metavar="FILE", help="TOML or trusted Bash config (default: ~/.config/xlayer/config.toml; existing config.conf; XLAYER_CONFIG)")
     root.add_argument("--verbose", action="store_true", help="Show resolved config and runtime asset paths")
     commands = root.add_subparsers(dest="action", metavar="COMMAND")
+    from .operations.clock import add_commands
+    add_commands(commands)
     commands.add_parser("init", help="Create local config without overwriting existing settings")
     for action, help_text in (("up", "Start the managed monitoring stack"),
                               ("down", "Stop only this config's managed telemetry processes"),
@@ -153,6 +155,9 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
 
 
 def execute(args) -> int:
+    if args.action == "clock":
+        from .operations.clock import execute as clock_execute
+        return clock_execute(args)
     if args.action == "completion":
         from .operations.completion import generate
         print(generate(parser(), args.shell), end="")
@@ -225,7 +230,9 @@ def execute(args) -> int:
             raise ConfigError("No run artifacts found; run a workload first or pass xltel inspect RUN_DIR.")
         from .show_run import summarize
         print(summarize(run))
-        saved = read_run_state(run, now=time.time(),
+        from .time_alignment import CalibrationCache, reference_now
+        calibration = CalibrationCache(Path(config["TELEMETRY_TIME_CALIBRATION_FILE"]), node=config["NODE_NAME"]) if config.get("TELEMETRY_TIME_CALIBRATION_FILE") else None
+        saved = read_run_state(run, now=reference_now(calibration, time.time()),
             max_age_seconds=float(config["TELEMETRY_METRICS_MAX_AGE_SECONDS"]))
         run_id = saved["run_id"]
         cluster = saved["cluster"] or config["CLUSTER_NAME"]

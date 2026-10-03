@@ -214,7 +214,7 @@ EOF
 loki.process "step_events" {
   forward_to = [loki.write.monitoring_host.receiver]
   stage.json {
-    expressions = { observed_at = "observed_at" }
+    expressions = { observed_at = "correlation_observed_at || observed_at" }
   }
   stage.timestamp {
     source = "observed_at"

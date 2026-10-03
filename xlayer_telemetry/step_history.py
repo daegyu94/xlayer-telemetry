@@ -12,6 +12,7 @@ from typing import Any, Callable, Mapping
 
 from .fileio import json_objects
 from .measurements import finite_number
+from .time_alignment import CalibrationCache
 
 
 def _duration(data: Mapping[str, Any]) -> float | None:
@@ -48,6 +49,7 @@ class StepHistoryWriter:
         worker_id: str,
         execution_mode: str = "sync",
         clock: Callable[[], float] = time.time,
+        time_calibration: CalibrationCache | None = None,
     ) -> None:
         if execution_mode not in {"sync", "async"}:
             raise ValueError("execution_mode must be sync or async")
@@ -57,6 +59,7 @@ class StepHistoryWriter:
         self.worker_id = worker_id
         self.execution_mode = execution_mode
         self.clock = clock
+        self.time_calibration = time_calibration or CalibrationCache.from_env(node)
         self._seen = self._load_seen()
 
     def _load_seen(self) -> set[str]:
@@ -87,6 +90,12 @@ class StepHistoryWriter:
         duration = _duration(data)
         end = observed_at if live else None
         start = max(0.0, end - duration) if end is not None and duration is not None else None
+        mapping = self.time_calibration.project(start, end) if self.time_calibration is not None and start is not None else {}
+        if mapping:
+            start, end = mapping["start"], mapping["end"]
+        accuracy = "approximate" if start is not None else "unknown"
+        if mapping:
+            accuracy = "calibrated_approximate" if mapping["time_alignment"]["status"] == "aligned" else "unknown"
         stages = {
             key.removeprefix("timing_s/"): float(value)
             for key, value in data.items()
@@ -108,6 +117,9 @@ class StepHistoryWriter:
             "observed_at": observed_at,
             "ingested_at": observed_at,
             "source_event_time": None,
+            "correlation_observed_at": end if mapping and accuracy != "unknown" else observed_at if not mapping else None,
+            **({"time_reference": mapping["time_alignment"].get("reference_id"),
+                "time_uncertainty_seconds": mapping["time_alignment"].get("uncertainty_seconds")} if mapping else {}),
             "step_duration_seconds": duration,
             "stage_durations_seconds": stages,
             "workload": {
@@ -118,12 +130,13 @@ class StepHistoryWriter:
                 "has_evaluation": stages.get("testing", 0) > 0,
                 "has_checkpoint": stages.get("save_checkpoint", 0) > 0,
             },
-            **dashboard_fields(start, end, stages, "approximate" if start is not None else "unknown"),
+            **dashboard_fields(start if accuracy != "unknown" else None, end if accuracy != "unknown" else None, stages, accuracy),
             "analysis_window": {
                 "start": start,
                 "end": end,
-                "accuracy": "approximate" if start is not None else "unknown",
+                "accuracy": accuracy,
                 "source": "file_logger_observation_minus_reported_duration" if live else "replayed_file_logger_without_event_time",
+                **({"time_alignment": mapping["time_alignment"]} if mapping else {}),
             },
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)

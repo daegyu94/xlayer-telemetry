@@ -11,6 +11,7 @@ from pathlib import Path
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, write_gauges
 from xlayer_telemetry.measurements import finite_number
+from xlayer_telemetry.time_alignment import sample_time
 
 
 _COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_cache_hits", "snapshot_rejections", "sample_rejections")
@@ -173,7 +174,7 @@ def build_metrics(snapshots: list[dict], *, counters: dict | None = None) -> lis
                 1,
                 labels,
             ))
-        observed_at = snapshot.get("observed_at")
+        observed_at = sample_time(snapshot)
         if finite_number(observed_at) is not None:
             metrics.append(GaugeSample(
                 "training_sample_timestamp_seconds",

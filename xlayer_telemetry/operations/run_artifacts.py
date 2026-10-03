@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from ..measurements import finite_number
+from ..time_alignment import sample_time
 
 
 def _object(path: Path) -> dict:
@@ -21,6 +22,8 @@ def _string(value: object) -> str | None:
 
 
 def _timestamp(sample: dict) -> float | None:
+    if "time_alignment" in sample:
+        return sample_time(sample)
     for key in ("observed_at", "timestamp", "timestamp_unix_seconds"):
         if key in sample:
             return finite_number(sample[key])

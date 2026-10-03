@@ -9,6 +9,7 @@ import threading
 import time
 
 from ..measurements import finite_number
+from ..time_alignment import observation_time
 
 
 def _worker(connection, config):
@@ -27,10 +28,10 @@ def _worker(connection, config):
                     continue
                 history = load_history(Path(history_path), cache=engine.jsonl_cache)
                 if current is not None:
-                    observed = finite_number(current.get("observed_at"))
+                    observed = observation_time(current)
                     history = [item for item in history if observed is not None
-                               and finite_number(item.get("observed_at")) is not None
-                               and item["observed_at"] < observed]
+                               and observation_time(item) is not None
+                               and observation_time(item) < observed]
                 report = engine.analyze(current, history)
                 if engine.jsonl_cache is not None:
                     report["jsonl_cache"] = engine.jsonl_cache.stats()

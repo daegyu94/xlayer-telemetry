@@ -16,6 +16,7 @@ from xlayer_telemetry.identity import producer_filename_stem
 from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.io_writer import BoundedWriter, settings_from_env
+from xlayer_telemetry.time_alignment import CalibrationCache
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -62,6 +63,7 @@ class MetricEmitter:
         queue_capacity: int = 256,
         max_queue_bytes: int = 4 * 1024 * 1024,
         flush_timeout: float = 1,
+        time_calibration: CalibrationCache | None = None,
     ) -> None:
         identifiers = {"run_id": run_id, "producer": producer, "role": role, "worker_id": worker_id}
         for name, value in identifiers.items():
@@ -85,6 +87,7 @@ class MetricEmitter:
         self.gpu = gpu
         self.cuda_visible_devices = cuda_visible_devices
         self.clock = clock
+        self.time_calibration = time_calibration or CalibrationCache.from_env(self.node)
         self.disabled = False
         if type(async_io) is not bool:
             raise ValueError("async_io must be boolean")
@@ -159,6 +162,10 @@ class MetricEmitter:
                 "observed_at": self.clock(),
                 "samples": encoded,
             }
+            if self.time_calibration is not None:
+                mapping = self.time_calibration.project(snapshot["observed_at"], snapshot["observed_at"])
+                snapshot["time_alignment"] = mapping["time_alignment"]
+                snapshot["correlation_observed_at"] = mapping["end"] if mapping["time_alignment"]["status"] == "aligned" else None
             filename = producer_filename_stem(self.producer, self.role, self.worker_id,
                                               node=self.node, run_id=self.run_id) + ".json"
             destination = self.directory / filename

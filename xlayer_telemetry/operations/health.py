@@ -134,7 +134,9 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
     collectors_ok = expected == target_nodes and all(target.get("health") == "up" for target in cluster_targets)
     services["node"]["health"] = ("healthy" if matching and all(t.get("health") == "up" for t in matching)
                                   else "degraded" if matching else "unreachable")
-    now = time.time()
+    from ..time_alignment import CalibrationCache, reference_now
+    calibration = CalibrationCache(Path(config["TELEMETRY_TIME_CALIBRATION_FILE"]), node=config["NODE_NAME"]) if config.get("TELEMETRY_TIME_CALIBRATION_FILE") else None
+    now = reference_now(calibration, time.time())
     node_output = Path(config["NODE_OUTPUT_DIR"])
     gpu_age = None
     try:

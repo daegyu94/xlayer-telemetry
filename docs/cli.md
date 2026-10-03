@@ -46,6 +46,10 @@ xltel
   |     +-- path / show / validate
   |     +-- migrate --output FILE.toml
   +-- completion bash|zsh|fish
+  +-- clock
+        +-- serve --reference-id ID [--bind ADDRESS] [--port PORT]
+        +-- calibrate --url URL --reference-id ID --node NODE --file FILE
+        +-- status --node NODE --file FILE
 ```
 
 `status`는 현재 system, `inspect`는 저장된 run 결과를 확인합니다.
@@ -229,7 +233,8 @@ CLI stack은 native dashboard에 불필요한 Grafana plugin의 자동 다운로
 추가 plugin이 필요하면 `GF_PLUGINS_PREINSTALL_DISABLED=false`를 environment에 설정하며 설치·종료 시간이 늘어날 수 있습니다.
 Plugin 파일은 공유 tool directory 대신 각 stack의 `state/server/grafana-plugins/`에 저장합니다.
 
-이 CLI는 현재 host만 제어하며 SSH 일괄 배포·remote process 종료·systemd 관리·clock 동기화를 수행하지 않습니다.
+이 CLI는 현재 host만 제어하며 SSH 일괄 배포·remote process 종료·systemd 관리·OS clock 변경을 수행하지 않습니다.
+`clock`은 권한 없이 Step·Span의 조사 시각을 맞추는 [optional userspace calibration](time-alignment.md)이며 기본 `up/down`과 독립적으로 실행합니다.
 Workload context 전달과 clock alignment는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)을 따릅니다.
 기존 Bash script는 계속 동작하고 [Scripts](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md)에 advanced interface를 정리했습니다.
 일반 wheel 설치에도 CLI가 사용하는 launcher·dashboard를 포함하며 synthetic demo와 profiling 예제는 checkout에서 사용합니다.

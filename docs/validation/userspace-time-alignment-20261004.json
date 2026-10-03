@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-04",
+  "baseline_commit": "38f37e7cddecfa284f3231f7a1957f25c4e9d26c",
+  "feature": "optional userspace time alignment to monitoring-host reference",
+  "invariants": [
+    "OS clocks are not changed",
+    "raw producer timestamps and monotonic durations are preserved",
+    "Prometheus scrape timestamps and metric values are unchanged",
+    "no additional high-cardinality Prometheus labels",
+    "invalid or uncertain joins withhold diagnosis"
+  ],
+  "tdd": {
+    "new_cases": 36,
+    "red_green_cases": [
+      "missing implementation",
+      "FIFO must not block workload",
+      "malformed baseline alignment must not crash",
+      "already expired exchange must not return success"
+    ],
+    "failure_cases": [
+      "expiry",
+      "wrong node or boot",
+      "wrong reference or session",
+      "clock discontinuity",
+      "malformed calibration",
+      "short-window uncertainty",
+      "missing source"
+    ]
+  },
+  "automated_validation": {
+    "pytest": {
+      "passed": 820,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 67.97,
+      "promtool_enabled": true
+    },
+    "strict_sphinx": "passed",
+    "compileall": "passed",
+    "shell_syntax": "passed",
+    "git_diff_check": "passed"
+  },
+  "process_integration": {
+    "independent_producers": 2,
+    "injected_clock_offsets_seconds": [
+      12,
+      -7
+    ],
+    "shared_axis_and_trace_identity": "passed",
+    "physical_multi_node": false,
+    "vm_multi_node": false
+  },
+  "backend_integration": {
+    "runtime": "isolated real Prometheus/Loki/Alloy; injected producer clock +12s",
+    "offset_seconds": -11.999982118606567,
+    "rule_verdict": "bottleneck_suspected",
+    "candidate_ids": [
+      "kv_cache_pressure"
+    ],
+    "os_clock_status": "unsafe",
+    "effective_clock_status": "aligned",
+    "mismatched_reference_verdict": "insufficient_data",
+    "loki_step_timestamp_matches_reference": true,
+    "timeline_calibrated_and_legacy_query": true,
+    "alloy_configuration_valid": true
+  },
+  "overhead_validation": {
+    "concurrent_projection_calls": 500,
+    "calibration_file_reads": 1,
+    "SDK_network_requests": 0,
+    "bounded_local_file_cache": true
+  },
+  "limitations": [
+    "No real VERL/GPU workload rerun for this feature",
+    "No physical or VM multi-node validation in this run",
+    "No new 3FS ClickHouse or Ollama inference validation",
+    "No Grafana browser rendering in this run; real Timeline LogQL and dashboard regression tests passed",
+    "3FS producer timestamps, general stdout logs and external profiles are not automatically corrected",
+    "reference HTTP listener requires trusted private network; no built-in TLS/authentication"
+  ],
+  "cleanup": {
+    "owned_backend_processes_stopped": true,
+    "owned_threads_stopped": true,
+    "temporary_directories_removed": true,
+    "pre_existing_backends_modified": false,
+    "pre_existing_backend_health": "passed",
+    "docker_resources_created": false
+  }
+}

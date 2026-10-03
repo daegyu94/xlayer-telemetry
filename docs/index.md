@@ -62,6 +62,7 @@ Application SDK <application-metrics>
 
 Grafana / Investigation <dashboards>
 Diagnosis / Baseline <diagnosis>
+Optional Time Alignment <time-alignment>
 Optional Local LLM <local-llm>
 ```
 

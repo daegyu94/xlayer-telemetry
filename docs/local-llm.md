@@ -275,6 +275,9 @@ Clock threshold와 검사 한계는 [Clock and Node Selection](diagnosis.md#cloc
 이 fragment를 기존 source config에 병합합니다.
 Source config의 interval과 queries 설정은 그대로 필요합니다.
 Clock 상태가 불명확하면 LLM이 임의로 timestamp를 보정하거나 시간 overlap을 추론하지 않습니다.
+보정된 saved diagnosis는 [userspace calibration](time-alignment.md)의 reference·uncertainty를 같은 검사를 거쳐 전달합니다.
+직접 수집에서는 persisted step의 `analysis_window`를 `current_interval`에 복사하고 `clock.calibration_reference`와 `context.node`를 설정합니다.
+Baseline도 별도의 보정된 window여야 하며 새 calibration을 과거 구간에 소급 적용하지 않습니다.
 
 ## Recorded Validation
 

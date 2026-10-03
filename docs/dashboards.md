@@ -14,6 +14,10 @@ Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자
 
 ## Choose a View
 
+Timeline은 node clock의 `exact` span과 공통 시각으로 보정한 `calibrated` span을 구분합니다.
+Calibrated lane의 `± uncertainty`와 table의 Time uncertainty를 확인하며, 보정된 VERL step도 `calibrated_approximate`입니다.
+설정과 적용 범위는 [Userspace Time Alignment](time-alignment.md)에 있습니다.
+
 화면 상단의 **View: Guided / Overview / Focus** 버튼으로 UI 구성을 즉시 전환합니다.
 색상 테마와 독립적인 선택이며, 동일한 telemetry를 다른 배치와 탐색 방식으로 보여 줍니다.
 

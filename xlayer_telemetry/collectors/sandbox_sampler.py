@@ -173,6 +173,8 @@ def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     previous: dict[str, int] | None = None
     previous_time = time.monotonic()
+    from ..time_alignment import CalibrationCache, sample_time
+    calibration = CalibrationCache.from_env(args.node)
     destination = args.textfile_dir / args.textfile_name
     try:
         while True:
@@ -183,9 +185,14 @@ def main() -> None:
                 parser.error(f"no readable cgroup v2 sources in {args.cgroup}")
             current_samples = samples(current, previous=previous,
                                       elapsed_seconds=now - previous_time, labels=labels)
-            current_samples.append(GaugeSample(
-                "sandbox_sample_timestamp_seconds", "Time of the latest sandbox cgroup sample.",
-                time.time(), labels))
+            stamp = {"observed_at": time.time()}
+            if calibration is not None:
+                stamp["time_alignment"] = calibration.project(stamp["observed_at"], stamp["observed_at"])["time_alignment"]
+            timestamp = sample_time(stamp)
+            if timestamp is not None:
+                current_samples.append(GaugeSample(
+                    "sandbox_sample_timestamp_seconds", "Time of the latest sandbox cgroup sample.",
+                    timestamp, labels))
             write_gauges(args.textfile_dir, args.textfile_name, current_samples)
             if args.once:
                 break

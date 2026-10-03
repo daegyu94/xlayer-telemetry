@@ -6,6 +6,8 @@ remains shared even when it overlaps a run's step interval.
 
 from __future__ import annotations
 
+from ..time_alignment import observation_time
+
 import heapq
 import statistics
 from typing import Any, Mapping
@@ -86,7 +88,7 @@ def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]]
     """Use a recent, same-run peer nearest to the prior step-duration median."""
     policy = policy or {}
     validate_baseline_policy(policy)
-    observed = finite(current.get("observed_at"))
+    observed = observation_time(current)
     if observed is None:
         return None
     eligible = (
@@ -103,10 +105,10 @@ def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]]
         and finite(item.get("analysis_window", {}).get("end")) is not None
         and item["analysis_window"]["start"] < item["analysis_window"]["end"]
         and item["analysis_window"].get("accuracy") not in {"unknown", "clock_discontinuity"}
-        and finite(item.get("observed_at")) is not None
-        and item["observed_at"] < observed
+        and observation_time(item) is not None
+        and observation_time(item) < observed
     )
-    eligible = heapq.nlargest(5, eligible, key=lambda item: item["observed_at"])
+    eligible = heapq.nlargest(5, eligible, key=observation_time)
     if not eligible:
         return None
     median = statistics.median(float(item["step_duration_seconds"]) for item in eligible)

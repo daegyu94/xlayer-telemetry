@@ -4,12 +4,14 @@ import argparse
 import csv
 import json
 import math
+import os
 import socket
 import subprocess
 import time
 from pathlib import Path
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
+from xlayer_telemetry.time_alignment import CalibrationCache, sample_time
 
 
 def optional_number(value: str) -> float | None:
@@ -101,13 +103,17 @@ def main():
         parser.error("max-processes must be between 1 and 4096")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + args.duration if args.duration is not None else None
+    calibration = CalibrationCache.from_env(os.environ.get("TELEMETRY_NODE") or os.environ.get("NODE_NAME") or socket.gethostname())
     with args.output.open("x") as output:
         while deadline is None or time.monotonic() < deadline:
             value = snapshot(include_processes=args.process_metrics, max_processes=args.max_processes)
+            if calibration is not None:
+                value["time_alignment"] = calibration.project(value["timestamp"], value["timestamp"])["time_alignment"]
             output.write(json.dumps(value) + "\n")
             output.flush()
             if args.textfile_dir:
-                samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", value["timestamp"])]
+                timestamp = sample_time(value, key="timestamp")
+                samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", timestamp)] if timestamp is not None else []
                 samples.append(GaugeSample("telemetry_gpu_process_collection_enabled",
                                            "Whether per-PID GPU memory diagnostics are enabled.",
                                            int(args.process_metrics)))

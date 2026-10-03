@@ -385,6 +385,10 @@ Cluster를 지정한 diagnosis는 기존 Node Exporter의 `node_time_seconds`와
 차이가 크거나 source가 없거나 오래됐거나 kernel이 unsynchronized를 보고하면 raw evidence는 남기고 cross-layer candidate와 resource delta를 보류합니다.
 Scrape-relative offset에는 network/collection delay가 포함되므로 NTP 측정이나 timestamp 자동 보정으로 사용하지 않습니다.
 Clock 검사를 통과해도 polling 오차, 1분 rate window, shared-service attribution 제한은 남습니다.
+선택적 [userspace calibration](time-alignment.md)은 monitoring host와의 four-timestamp exchange를 사용합니다.
+SDK·bridge는 원본 시각을 보존하고 보정된 investigation window·uncertainty를 기록하며, Prometheus scrape timestamp를 다시 이동시키지 않습니다.
+Rule·LLM·Loki·Timeline은 해당 window를 사용하고 reference mismatch·만료·clock jump·coverage 부족 시 판단을 보류합니다.
+3FS producer timestamp와 일반 application log는 별도 clock 검증이 필요합니다.
 실행 순서는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)에 설명합니다.
 
 ## Design Principles

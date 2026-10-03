@@ -63,7 +63,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | GPU·host | GPU sampler, Node Exporter, Prometheus·Grafana dashboard | GPU 수집은 NVIDIA와 `nvidia-smi`가 필요합니다. GPU 없는 node는 `ENABLE_GPU_METRICS=0`으로 host만 수집합니다. CPU·network·disk 값은 node 전체입니다. |
 | vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Stage Correlation의 subsystem row로 단독 조회하며 공유 engine metric은 run별로 자동 분리되지 않습니다. |
 | Mooncake KV storage | Store connector RPC, master cache, client DFS bytes·ops·latency·errors의 native 수집과 기존 dashboard row | [Mooncake 연결](docs/agent-rl.md#observe-mooncake-kv-storage)이 필요합니다. Client HTTP와 DFS metric은 배포 버전·connector 초기화 설정에 따라 선택적으로 나타납니다. |
-| Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Node 이름과 clock을 맞춰야 합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
+| Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Clock check와 [optional userspace time alignment](docs/time-alignment.md)를 지원합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Run Overview의 완료 step 목록과 Timeline | File 경로와 Loki를 설정해야 합니다. Step 경계는 VERL file logger를 바탕으로 추정합니다. |
 | Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
 | Agent sandbox | 선택적 lifecycle span, sandbox worker cgroup v2 I/O·CPU·memory, local SSD와의 진단 후보 | 외부 runtime 계측과 안정적인 worker cgroup이 필요합니다. 개별 sandbox의 SSD 사용량으로 자동 귀속하지 않습니다. |

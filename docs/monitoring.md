@@ -264,6 +264,8 @@ Prometheus는 기본적으로 scrape 시각을, event·log·application은 produ
 이 옵션으로 같은 host의 offset 검사가 통과해도 NTP나 물리 multi-node 동기화가 검증된 것은 아닙니다.
 짧은 step은 허용 차이보다 짧을 수 있으므로 threshold를 실제 분석 해상도에 맞추고 sample 간격과 rate window도 함께 확인합니다.
 자동 diagnosis 설정은 [Clock and Node Selection](diagnosis.md#clock-and-node-selection)에 있습니다.
+OS clock을 바꾸기 어려운 환경에서는 [Userspace Time Alignment](time-alignment.md)로 XLayer Step·Span을 monitoring host 기준으로 보정할 수 있습니다.
+원본 timestamp와 uncertainty를 보존하며 3FS producer timestamp나 일반 application log를 자동 보정하지 않습니다.
 
 ### Reproduce the Local Validation
 

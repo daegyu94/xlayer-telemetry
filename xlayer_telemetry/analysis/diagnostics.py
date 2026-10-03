@@ -19,7 +19,8 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline, validate_baseline_policy, workload_matches
-from .clock_quality import assess_clocks
+from .clock_quality import assess_interval
+from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from .evidence_quality import quality, check_source, validate_sampling
 from ..sandbox import device_window
 from ..fileio import atomic_write_text, json_objects
@@ -260,6 +261,8 @@ def load_config(path: Path) -> dict[str, Any]:
             raise ValueError(f"clock.{key} must be finite and positive")
     if clocks.get("enabled", False) and not config.get("cluster"):
         raise ValueError("clock checks require cluster")
+    if "calibration_reference" in clocks and (not isinstance(clocks["calibration_reference"], str) or not clocks["calibration_reference"].strip()):
+        raise ValueError("clock.calibration_reference must be a nonempty reference ID")
     if threefs and "clock_nodes" in threefs and (
         not isinstance(threefs["clock_nodes"], list) or not threefs["clock_nodes"]
         or any(not isinstance(node, str) or not node for node in threefs["clock_nodes"])
@@ -281,7 +284,8 @@ def load_history(path: Path, *, cache: JSONLCache | None = None) -> list[dict[st
 
 
 def tool_span_window(directory: Path, run_id: str, start: float, end: float,
-                     *, tool_name: str | None = None, cache: JSONLCache | None = None) -> dict[str, Any] | None:
+                     *, tool_name: str | None = None, cache: JSONLCache | None = None,
+                     reference_id: str | None = None) -> dict[str, Any] | None:
     """Use completed tool spans fully inside an analysis interval.
 
     A VERL step interval can be approximate. Time overlap supplies correlation,
@@ -312,12 +316,11 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
                     continue
                 if tool_name is not None and attributes["tool"] != tool_name:
                     continue
-                began = finite(item.get("start_time_unix_nano"))
-                finished = finite(item.get("end_time_unix_nano"))
+                began, finished = event_window(item, reference_id=reference_id)
                 duration = finite(item.get("duration_seconds"))
                 if (began is not None and finished is not None and duration is not None
-                        and duration >= 0 and start <= began / 1e9
-                        and finished / 1e9 <= end):
+                        and duration >= 0 and start <= began
+                        and finished <= end):
                     count += 1
                     if max_duration is None or duration > max_duration:
                         longest = item
@@ -335,7 +338,7 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
 
 def _slow_stages(current: Mapping[str, Any], history: list[dict[str, Any]], thresholds: Mapping[str, float]) -> list[dict[str, float]]:
     previous: dict[str, list[float]] = {}
-    recent = heapq.nlargest(5, history, key=lambda record: finite(record.get("observed_at")) or 0)
+    recent = heapq.nlargest(5, history, key=lambda record: observation_time(record) or 0)
     for record in recent:
         stages = record.get("stage_durations_seconds", {})
         if not isinstance(stages, Mapping):
@@ -386,6 +389,7 @@ class DiagnosticEngine:
         prometheus: PrometheusClient | None = None,
         threefs: ThreeFSClient | None = None,
         clock: Callable[[], float] = time.time,
+        time_calibration: CalibrationCache | None = None,
     ) -> None:
         self.config = config
         prom = config["prometheus"]
@@ -401,7 +405,9 @@ class DiagnosticEngine:
                 user_env=threefs_config.get("user_env", "THREEFS_CLICKHOUSE_USER"),
                 password_env=threefs_config.get("password_env", "THREEFS_CLICKHOUSE_PASSWORD"),
             )
-        self.clock = clock
+        calibration = time_calibration or (CalibrationCache.from_env(str(config.get("node") or os.environ.get("TELEMETRY_NODE", ""))) if clock is time.time else None)
+        self.time_calibration, self.raw_clock = calibration, clock
+        self.clock = (lambda: reference_now(calibration, clock())) if calibration is not None else clock
         self.thresholds = {**DEFAULT_THRESHOLDS, **config.get("thresholds", {})}
         self.jsonl_cache = cache_from_config(config)
         self._verified_projections: set[tuple[str, str, str]] = set()
@@ -475,6 +481,10 @@ class DiagnosticEngine:
         if type(start) not in (int, float) or start >= end:
             start = max(0.0, end - lookback)
             window = {"start": start, "end": end, "accuracy": "periodic", "source": "diagnostic_lookback"}
+            if self.time_calibration is not None and current is None:
+                raw_now = self.raw_clock()
+                window.update(self.time_calibration.project(max(0, raw_now-lookback), raw_now))
+                start, end = window["start"], window["end"]
         node = str((current or {}).get("node") or self.config.get("node", ""))
         compute_node = str(self.config.get("compute_node") or node)
         rollout_node = str(self.config.get("rollout_node") or node)
@@ -518,30 +528,29 @@ class DiagnosticEngine:
         baseline_series: dict[str, list[dict[str, Any]]] = {}
         clock_config = self.config.get("clock", {})
         clock_quality = {"status": "unchecked", "nodes": {}}
-        if clock_config.get("enabled", bool(cluster)):
+        if clock_config.get("enabled", bool(cluster)) or clock_config.get("calibration_reference") or "time_alignment" in window:
             clock_nodes = {node, compute_node, rollout_node, storage_node}
             if sandbox_config.get("enabled"):
                 clock_nodes.add(sandbox_node)
             clock_nodes.update(self.config.get("threefs", {}).get("clock_nodes", []))
-            clock_quality = assess_clocks(
+            clock_quality = assess_interval(
                 prometheus.query_range, cluster=cluster, nodes=clock_nodes,
-                start=float(start), end=end,
-                max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
-                max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
-                require_sync=clock_config.get("require_sync", True),
+                window=window, producer_node=node, config=clock_config,
+                producer_clock_nodes=self.config.get("threefs", {}).get("clock_nodes", []),
             )
             if clock_quality["status"] != "aligned":
                 missing.extend(f"clock:{name}:{item['status']}" for name, item in clock_quality["nodes"].items() if item["status"] != "aligned")
             if baseline_window_valid:
-                clock_quality["baseline"] = assess_clocks(
+                clock_quality["baseline"] = assess_interval(
                     prometheus.query_range, cluster=cluster, nodes=clock_nodes,
-                    start=float(baseline_window["start"]), end=float(baseline_window["end"]),
-                    max_skew_seconds=float(clock_config.get("max_skew_seconds", 1)),
-                    max_sample_age_seconds=float(clock_config.get("max_sample_age_seconds", 30)),
-                    require_sync=clock_config.get("require_sync", True),
+                    window=baseline_window, producer_node=str(baseline_record.get("node", node)), config=clock_config,
+                    producer_clock_nodes=self.config.get("threefs", {}).get("clock_nodes", []),
                 )
                 if clock_quality["baseline"]["status"] != "aligned":
                     missing.append("clock:baseline:unaligned")
+                if alignment_metadata(window).get("reference_session") != alignment_metadata(baseline_window).get("reference_session"):
+                    clock_quality["baseline"]["status"] = "unknown"
+                    missing.append("clock:baseline:reference_session_changed")
 
         def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]]]:
             if hasattr(prometheus, "query_range_detail"):
@@ -583,11 +592,13 @@ class DiagnosticEngine:
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir"):
             sandbox_device_mapping = device_window(Path(sandbox_config["events_dir"]), run_id, sandbox_node,
                                                   float(start), end, sandbox_config.get("device_major_minor"),
+                                                  reference_id=clock_config.get("calibration_reference"),
                                                   reader=self.jsonl_cache.read if self.jsonl_cache is not None else None)
         tool_event_span = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir") and current:
             directory = Path(sandbox_config["events_dir"])
-            tool_event = tool_span_window(directory, run_id, float(start), end, cache=self.jsonl_cache)
+            tool_event = tool_span_window(directory, run_id, float(start), end, cache=self.jsonl_cache,
+                                         reference_id=clock_config.get("calibration_reference"))
             if tool_event is not None:
                 evidence["tool_duration_seconds"] = tool_event
                 tool_event_span = tool_event["related_span"]
@@ -602,6 +613,7 @@ class DiagnosticEngine:
                     previous_tool = tool_span_window(
                         directory, run_id, float(baseline_window["start"]),
                         float(baseline_window["end"]), tool_name=tool_event["tool"], cache=self.jsonl_cache,
+                        reference_id=clock_config.get("calibration_reference"),
                     )
                     if previous_tool is not None:
                         baseline_metrics["tool_duration_seconds"] = previous_tool
@@ -1186,6 +1198,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         "data_origin": report.get("data_origin", "observed"),
         "step": report.get("step"), "record_id": report.get("trigger_record_id"),
         "observed_at": window.get("end"), "boundary_accuracy": window.get("accuracy"),
+        "time_reference": alignment_metadata(window).get("reference_id"),
+        "time_uncertainty_seconds": alignment_metadata(window).get("uncertainty_seconds"),
         "window_start_ms": math.floor(window["start"] * 1000) if finite(window.get("start")) is not None else None,
         "window_end_ms": math.ceil(window["end"] * 1000) if finite(window.get("end")) is not None else None,
         "baseline_record_id": comparison.get("baseline_record_id"),
@@ -1293,9 +1307,9 @@ def run_once(
     for record, previous in plan["pending"]:
         attempted_at = engine.clock()
         if analyzer is None:
-            observed = finite(record.get("observed_at"))
+            observed = observation_time(record)
             prior = [item for item in history if observed is not None
-                     and finite(item.get("observed_at")) is not None and item["observed_at"] < observed]
+                     and observation_time(item) is not None and observation_time(item) < observed]
             report = engine.analyze(record, prior)
         else:
             report = analyzer.analyze(record, history_path)

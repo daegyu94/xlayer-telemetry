@@ -220,6 +220,8 @@ Prometheus target의 instance·cluster가 collector를 구분하며 파일명이
 Counter는 collector 시작 이후의 처리 횟수이며 재시작하면 reset됩니다.
 동일한 불량 파일을 매 poll마다 읽으면 계속 증가하므로 고유 record 손실 개수가 아닙니다.
 Node/freshness 필터로 정상 제외한 snapshot은 오류로 집계하지 않습니다.
+선택적 [time calibration](time-alignment.md)을 사용하면 application·GPU·sandbox freshness gauge는 reference time을 사용합니다.
+Snapshot의 원본 local timestamp는 유지하며 보정이 불가능하면 timestamp gauge를 생략하여 정상 값 `0`으로 오해하지 않게 합니다.
 이 이름들은 collector 전용이며 application snapshot이 같은 이름을 보내면 거부합니다.
 
 CLI collector는 최대 1,024개 파일·원본 크기 합계 16 MiB의 decoded snapshot을 process-local cache에 보관합니다.

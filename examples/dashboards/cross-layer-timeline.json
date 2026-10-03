@@ -323,7 +323,9 @@
               "stage_summary": 7,
               "record_id": 8,
               "boundary_accuracy": 5,
-              "cluster": 0
+              "cluster": 0,
+              "time_reference": 11,
+              "time_uncertainty_seconds": 12
             },
             "renameByName": {}
           }
@@ -610,6 +612,22 @@
                 "value": 130
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time_uncertainty_seconds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Time uncertainty"
+              }
+            ]
           }
         ]
       },
@@ -626,8 +644,8 @@
     {
       "id": 2,
       "type": "state-timeline",
-      "title": "Exact workload spans",
-      "description": "Producer node의 wall clock으로 기록한 실제 span 경계입니다. Node 간 정렬에는 clock 동기화가 필요하며 wall-clock jump가 감지된 span은 제외합니다.",
+      "title": "Workload spans: exact / calibrated",
+      "description": "Exact는 node clock 경계, calibrated는 monitoring clock에 보정한 추정 경계입니다. Calibrated lane의 ± uncertainty를 확인합니다. Clock jump·보정 실패 구간은 제외합니다.",
       "gridPos": {
         "x": 0,
         "y": 9,
@@ -641,7 +659,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=\"exact\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=~\"exact|calibrated\" | line_format \"{\\\"start_time_ms\\\":{{.start_time_ms}},\\\"end_time_ms\\\":{{.end_time_ms}},\\\"phase\\\":\\\"{{if .span_boundary_label}}{{.span_boundary_label}}{{else}}{{.phase}} [exact, node clock]{{end}}\\\"}\"",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -1024,7 +1042,7 @@
         {
           "id": 9,
           "type": "table",
-          "title": "Exact spans: open step, logs, or diagnosis",
+          "title": "Workload spans: open step, logs, or diagnosis",
           "gridPos": {
             "x": 0,
             "y": 35,
@@ -1077,7 +1095,9 @@
                   "trace_id": 8,
                   "span_id": 9,
                   "boundary_accuracy": 10,
-                  "cluster": 0
+                  "cluster": 0,
+                  "time_reference": 11,
+                  "time_uncertainty_seconds": 12
                 },
                 "renameByName": {}
               }
@@ -1377,10 +1397,26 @@
                     "value": 130
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "time_uncertainty_seconds"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  },
+                  {
+                    "id": "displayName",
+                    "value": "Time uncertainty"
+                  }
+                ]
               }
             ]
           },
-          "description": "Span ID link로 실제 span 시간 구간의 Cross-Layer Timeline·diagnosis·log를 엽니다. Trace 관계와 시간 정렬의 정확도는 별도로 확인합니다.",
+          "description": "Boundary accuracy와 Time uncertainty를 확인합니다. Calibrated는 추정된 공통 시각이며 원본 timestamp와 monotonic duration은 JSONL에 보존됩니다.",
           "options": {
             "showHeader": true,
             "cellHeight": "lg",
