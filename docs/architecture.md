@@ -347,6 +347,9 @@ Source마다 저장소와 화면이 달라서 endpoint를 하나 등록하는 �
 3FS의 POSIX/FUSE mount 용량과 node disk I/O는 host 관측치입니다.
 3FS service latency는 ClickHouse 진단 경로이고, Grafana의 Data & Storage 패널에 자동 표시되지 않습니다.
 vLLM KV offload rate도 vLLM endpoint의 지표이며 filesystem tier나 특정 3FS write량을 직접 뜻하지 않습니다.
+[Mooncake Store](agent-rl.md#observe-mooncake-kv-storage)는 같은 Prometheus native 경로로 connector RPC·master cache·client DFS evidence를 추가합니다.
+VERL + vLLM + Mooncake + 3FS 배포에서는 기본 관측 대상이며 다른 workload에 Mooncake 설치를 요구하지 않습니다.
+Client의 descriptor DFS metric과 3FS ClickHouse service metric은 별도 scope이며 Mooncake를 XLayer 내부 runtime이나 필수 dependency로 넣지 않습니다.
 각 source를 켜는 명령과 전제 조건은 [확장 가이드](agent-rl.md#choose-the-next-source)와 [Monitoring Guide](monitoring.md#add-run-logs-with-loki)에 있습니다.
 
 ## Match Identity and Time

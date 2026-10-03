@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "name": "rollout-0",
+      "kind": "vllm",
+      "target": "rollout-0.internal:8000",
+      "labels": {
+        "node": "rollout-0",
+        "role": "rollout"
+      }
+    },
+    {
+      "name": "mooncake-master-0",
+      "kind": "mooncake",
+      "target": "cache-0.internal:9003",
+      "labels": {
+        "node": "cache-0",
+        "role": "cache-master"
+      }
+    },
+    {
+      "name": "mooncake-client-0",
+      "kind": "mooncake",
+      "target": "rollout-0.internal:9300",
+      "labels": {
+        "node": "rollout-0",
+        "role": "cache-client"
+      }
+    }
+  ]
+}

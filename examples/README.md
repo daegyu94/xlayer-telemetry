@@ -14,6 +14,7 @@ Optional dependency는 해당 예제를 사용할 때만 필요합니다.
 | 기존 VERL 명령을 한 host에서 연결 | [verl-local.conf](verl-local.conf) | 실행 가능한 VERL 명령을 입력하고 [quickstart](../docs/verl-quickstart.md)를 따릅니다. |
 | Monitoring server 설정을 복사 | [monitoring-server.conf](monitoring-server.conf) | Collector 주소를 바꾸고 [monitoring 절차](../docs/monitoring.md#monitor-one-gpu-node)를 따릅니다. |
 | vLLM·Ray endpoint 등록 | [verl/native-sources.json](verl/native-sources.json) | 실제 endpoint만 남기고 주소를 수정합니다. 3FS exporter는 별도 설치된 경우에만 사용합니다. |
+| Mooncake KV storage 수집·직접 분석 | [mooncake/native-sources.json](mooncake/native-sources.json), [mooncake/prometheus.json](mooncake/prometheus.json) | Store 배포의 기본 connector·master·client 관측 설정입니다. [HTTP 연결 방법과 version 범위](../docs/agent-rl.md#observe-mooncake-kv-storage)를 확인합니다. |
 | Rule diagnosis와 multi-node scope 설정 | [verl/diagnostics.json](verl/diagnostics.json), [multinode/diagnostics.json](multinode/diagnostics.json) | Backend 주소·cluster·node·device를 실제 배치에 맞춥니다. 첫 설정의 3FS section은 해당 source가 없으면 제거합니다. |
 | GPU 없이 전체 synthetic dashboard 확인 | [synthetic-demo.toml](synthetic-demo.toml), [live-demo/](live-demo/) | Metric·native source fixture와 diagnosis/log/span을 연결합니다. [Try the Demo](../docs/monitoring.md#try-the-demo)를 사용하며 실제 성능 측정이 아닙니다. |
 | Docker로 monitoring server 배치 | [dashboards/](dashboards/README.md) | Docker Compose와 실행 중인 node collector가 필요합니다. 현재 공통 metrics dashboard 5개를 사용합니다. |

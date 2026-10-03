@@ -20,7 +20,7 @@ def test_cli_finds_checkout_topology_without_an_explicit_directory(tmp_path) -> 
     config = output.read_text()
     assert "nodename: gpu-node-0" in config
     assert "nodename: storage-node-0" in config
-    assert config.count("__metrics_path__:") == 23
+    assert config.count("__metrics_path__:") == 25
 
 
 def test_demo_matches_the_b300_and_storage_topology() -> None:
@@ -46,7 +46,7 @@ def test_demo_matches_the_b300_and_storage_topology() -> None:
     assert len([sample for sample in storage if sample.name == "smartctl_device"]) == 4
     assert len([sample for sample in topology if sample.labels.get("role") == "B300"]) == 32
     assert len([sample for sample in topology if sample.labels.get("role") == "ssd"]) == 32
-    assert config.count("__metrics_path__:") == 23
+    assert config.count("__metrics_path__:") == 25
     assert "nodename: gpu-node-0" in config
     assert "job_name: telemetry" in config
     assert "job_name: storage-smart" in config
@@ -58,7 +58,7 @@ def test_all_prometheus_dashboard_metrics_have_synthetic_producers():
     from xlayer_telemetry.metrics.prometheus import format_gauges
     demo = Demo(ROOT / "examples/live-demo")
     names = {"up"}
-    for endpoint in [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], "topology", "vllm", "ray"]:
+    for endpoint in [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], "topology", "vllm", "ray", "mooncake-master", "mooncake-client"]:
         samples = demo.metrics(endpoint)
         names.update(sample.name for sample in samples)
         format_gauges(samples)  # Reject conflicting definitions and invalid samples.
@@ -85,7 +85,9 @@ def test_native_and_gpu_labels_match_actual_dashboard_filters():
     assert "job_name: native" in config
     assert "telemetry_source: vllm" in config and "instance: synthetic-vllm-0" in config
     assert "telemetry_source: ray" in config and "node: gpu-node-0" in config
-    assert config.count("data_origin: synthetic") == 23
+    assert config.count("data_origin: synthetic") == 25
+    assert config.count("telemetry_source: mooncake") == 2
+    assert "component: mooncake-master-0" in config and "instance: synthetic-mooncake-client-0" in config
 
 
 def test_synthetic_counters_increase_and_histogram_buckets_remain_cumulative(monkeypatch):

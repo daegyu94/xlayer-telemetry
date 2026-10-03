@@ -198,6 +198,10 @@ Service/engine signal을 함께 보되 서로 다른 engine의 queue·KV·preemp
 Weight sync, policy lag, tool 시간은 해당 source가 기록된 경우에만 나타납니다.
 `vLLM throughput & latency`는 prompt/generation tokens/s와 TTFT·queue·E2E latency p95를 engine·model별로 보여 줍니다.
 `Ray orchestration`은 task·actor state, logical CPU/GPU 자원, object store 위치별 bytes와 OOM eviction rate를 보여 줍니다.
+`Mooncake / KV storage`는 Store 배포의 기본 subsystem row이며 connector RPC·bytes, master RAM·lookup hit, client DFS bytes·successful keys·batch p95·errors를 보여 줍니다.
+초기에는 접혀 있고 별도의 feature 활성화 옵션은 없습니다.
+[Endpoint 연결](agent-rl.md#observe-mooncake-kv-storage) 후 Resource node를 선택하며, 지원하지 않거나 비활성인 client DFS 신호는 `N/A`로 남습니다.
+Connector bytes와 DFS bytes는 다른 단계의 값이며 합산하지 않습니다.
 Ray state는 분산 delta를 합산하므로 cluster 전체를 보려면 Resource node를 `All`로 둡니다.
 Logical resource는 물리 utilization이 아니며 native metric을 제공하지 않는 version·설정에서는 N/A가 정상입니다.
 Histogram p95와 counter rate는 `$__rate_interval` 구간의 값이며 step 단위 측정이 아닙니다.

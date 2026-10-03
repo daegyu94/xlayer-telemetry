@@ -46,8 +46,8 @@ def load_topology(directory: Path) -> tuple[dict, dict]:
                 or network["bandwidth_gbps"] <= 0):
             raise ValueError("invalid network topology")
     nodes = gpu["gpu_nodes"] + storage["storage_nodes"]
-    if len(set(nodes)) != len(nodes) or set(nodes) & {"topology", "vllm", "ray"}:
-        raise ValueError("demo node names must be unique and not topology, vllm, or ray")
+    if len(set(nodes)) != len(nodes) or set(nodes) & {"topology", "vllm", "ray", "mooncake-master", "mooncake-client"}:
+        raise ValueError("demo node names must be unique and not reserved native endpoints")
     return gpu, storage
 
 
@@ -95,6 +95,10 @@ class Demo:
                 return self._vllm(now, values)
             if endpoint == "ray":
                 return self._ray(now, values)
+            if endpoint == "mooncake-master":
+                return self._mooncake_master(now)
+            if endpoint == "mooncake-client":
+                return self._mooncake_client(now)
         raise ValueError(f"unknown demo endpoint: {endpoint}")
 
     def _gpu_node(self, node: str, now: float, phase: str, value: dict[str, float]) -> list[GaugeSample]:
@@ -240,7 +244,7 @@ class Demo:
         return samples
 
     def _vllm(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
-        labels = {"model_name": "synthetic-model"}
+        labels = {"model_name": "synthetic-model", "engine": "0"}
         waiting = 8 if value["busy"] > .5 else 1
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
@@ -263,6 +267,64 @@ class Demo:
                 metric = f"vllm:{name}_bucket"
                 samples.append(GaugeSample(metric, "Synthetic cumulative latency bucket counter.",
                     self._counter("vllm", name + bound, fraction * 10, now), {**labels, "le": bound}, kind="counter"))
+        for operation, calls, byte_rate in (("save_exists", 4, 0), ("save_put", 4, .2 * _GIB),
+                                            ("load_get", 2, .1 * _GIB), ("lookup_exists", 2, 0)):
+            operation_labels = {**labels, "operation": operation, "status": "ok"}
+            for name, rate in (("operation_total", calls), ("operation_keys_total", calls * 8),
+                               ("operation_bytes_total", byte_rate), ("operation_failed_keys_total", 0)):
+                samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
+                    self._counter("vllm", operation + name, rate, now), operation_labels, kind="counter"))
+            self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
+                            ("0.001", "0.01", "0.1", "1", "+Inf"), (.1, .7, .95, 1, 1),
+                            calls, now, operation_labels)
+            for name in ("operation_total", "operation_failed_keys_total"):
+                samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
+                    self._counter("vllm", operation + name + "error", 0, now),
+                    {**operation_labels, "status": "error"}, kind="counter"))
+        return samples
+
+    def _histogram(self, samples: list[GaugeSample], endpoint: str, name: str,
+                   bounds: tuple[str, ...], fractions: tuple[float, ...], calls: float,
+                   now: float, labels: dict[str, str]) -> None:
+        """Emit cumulative buckets and count with one consistent label identity."""
+        identity = name + str(sorted(labels.items()))
+        for bound, fraction in zip(bounds, fractions):
+            samples.append(GaugeSample(name + "_bucket", "Synthetic cumulative Mooncake latency bucket counter.",
+                self._counter(endpoint, identity + bound, fraction * calls, now),
+                {**labels, "le": bound}, kind="counter"))
+        samples.append(GaugeSample(name + "_count", "Synthetic Mooncake latency observation counter.",
+            self._counter(endpoint, identity + "count", calls, now),
+            {} if endpoint == "mooncake-client" else labels, kind="counter"))
+
+    def _mooncake_master(self, now: float) -> list[GaugeSample]:
+        samples = [GaugeSample(name, "Synthetic Mooncake master gauge.", number) for name, number in {
+            "master_allocated_bytes": 6 * _GIB, "master_total_capacity_bytes": 16 * _GIB}.items()]
+        for name, rate in {"mem_cache_hit_nums_": 12, "file_cache_hit_nums_": 4,
+                           "valid_get_nums_": 16, "total_get_nums_": 20,
+                           "master_put_start_failures_total": 0}.items():
+            samples.append(GaugeSample(name, "Synthetic Mooncake master counter.",
+                self._counter("mooncake-master", name, rate, now), kind="counter"))
+        return samples
+
+    def _mooncake_client(self, now: float) -> list[GaugeSample]:
+        labels = {"client_mode": "real", "cluster_id": "synthetic-store"}
+        samples = []
+        for direction, byte_rate, calls in (("read", .1 * _GIB, 16), ("write", .2 * _GIB, 32)):
+            for name, rate in ((f"mooncake_dfs_{direction}_bytes_total", byte_rate),
+                               (f"mooncake_dfs_{direction}_ops_total", calls)):
+                samples.append(GaugeSample(name, "Synthetic successful DFS key counter.",
+                    self._counter("mooncake-client", name, rate, now), labels, kind="counter"))
+            self._histogram(samples, "mooncake-client", f"mooncake_dfs_{direction}_latency_us",
+                            ("100", "1000", "10000", "100000", "+Inf"),
+                            (.1, .7, .95, 1, 1), calls / 8, now, labels)
+            errors = f"mooncake_dfs_{direction}_errors_total"
+            error = "FILE_READ_FAIL" if direction == "read" else "FILE_WRITE_FAIL"
+            samples.append(GaugeSample(errors, "Synthetic DFS failed key counter by error code.",
+                self._counter("mooncake-client", errors, 0, now), {**labels, "error": error}, kind="counter"))
+        self._histogram(samples, "mooncake-client", "mooncake_dfs_write_staging_latency_us",
+                        ("50", "100", "1000", "10000", "+Inf"), (.1, .7, .95, 1, 1), 4, now, labels)
+        samples.append(GaugeSample("mooncake_dfs_writes_skipped_total", "Synthetic unattempted DFS key counter.",
+            self._counter("mooncake-client", "skipped", 0, now), labels, kind="counter"))
         return samples
 
     def _ray(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
@@ -351,12 +413,13 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
     lines += targets("telemetry", [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], "topology"])
     lines += targets("storage-smart", demo.storage["storage_nodes"], "          storage_system: demo")
     lines += ["  - job_name: native", "    static_configs:"]
-    for source in ("vllm", "ray"):
+    for endpoint, source in (("vllm", "vllm"), ("ray", "ray"),
+                             ("mooncake-master", "mooncake"), ("mooncake-client", "mooncake")):
         node = demo.gpu["gpu_nodes"][0]
         lines += [f"      - targets: ['{address}']", "        labels:", f"          cluster: {cluster}",
                   "          data_origin: synthetic", f"          telemetry_source: {source}",
-                  f"          node: {node}", f"          nodename: {node}", f"          instance: synthetic-{source}-0",
-                  f"          __metrics_path__: /metrics/{source}"]
+                  f"          node: {node}", f"          nodename: {node}", f"          instance: synthetic-{endpoint}-0",
+                  f"          component: {endpoint}-0", f"          __metrics_path__: /metrics/{endpoint}"]
     return "\n".join(lines) + "\n"
 
 

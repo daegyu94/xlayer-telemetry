@@ -20,6 +20,7 @@ Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel 
 | CPU / memory / network / disk | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `node_network_receive_bytes_total`, `node_disk_io_time_seconds_total` | Node Exporter; GPU 없는 node는 `ENABLE_GPU_METRICS=0` | Node / interface / device |
 | RDMA | `node_infiniband_port_data_received_bytes_total`, `node_infiniband_port_data_transmitted_bytes_total` | 지원되는 host의 InfiniBand counter를 Node Exporter가 읽음 | Interface / port; NCCL 호출별 bytes는 아님 |
 | vLLM | `vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total` | VERL/vLLM에서 native metric을 켜고 monitoring server에 endpoint 등록 | Serving engine; metric 이름은 version별 확인 |
+| Mooncake KV storage | `vllm:mooncake_store_operation_*`, `master_allocated_bytes`, `mooncake_dfs_*` | [Store connector·master·client endpoint 연결](agent-rl.md#observe-mooncake-kv-storage); client HTTP는 기본 비활성 | Connector RPC / shared master / client batch; 물리 SSD I/O나 run 소유량이 아님 |
 | Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; Stage Correlation의 Ray row |
 | SSD health | `smartctl_device_*` | 선택적 SMART exporter와 device 접근 권한 | SSD device; local sandbox와 3FS storage node를 구분 |
 | 3FS service | ClickHouse distributions의 p99·mean과 raw counter의 identity·min/max/last·sample count·freshness | 기존 ClickHouse 설정으로 `xltel sources threefs` 조회 | Shared service; recorder reset·gauge가 섞여 rate나 누적 총량을 자동 계산하지 않음 |
@@ -33,6 +34,12 @@ Device memory와 process memory를 합산하거나 run 소유량으로 해석하
 Sandbox pool의 `sandbox_active`, `sandbox_queued`, create/reset latency는 runtime이 제공해야 하는 optional contract입니다.
 Docker를 실행했다는 이유만으로 이 값이 자동 생성되지는 않습니다.
 KV offload metric도 해당 vLLM connector와 exporter가 제공하는 경우에만 나타납니다.
+Mooncake DFS ops는 성공한 KV key 수이며 read/write latency histogram은 batch 단위 microseconds입니다.
+Mooncake Store를 사용하는 구성에서는 connector·master·노출 가능한 client DFS metric을 기본 수집 대상으로 삼습니다.
+Dashboard는 histogram을 seconds로 변환하며 write D2H staging을 별도로 표시합니다.
+Master의 memory/file lookup hit counter로 rate를 계산하지만 현재 key 개수로 cache hit ratio를 만들지는 않습니다.
+Master `PutStart` failure는 admission/RPC 요청 단위이며 client DFS 실패 key와 합산하지 않습니다.
+`mooncake_ssd_*`는 별도 FileStorage 경로이므로 descriptor DFS·3FS USRBIO metric을 대체하지 않습니다.
 수집 경로와 endpoint 등록 절차는 [Cross-Layer Integration](agent-rl.md#choose-the-next-source)에 있습니다.
 
 수집 범위의 한계도 구분합니다.

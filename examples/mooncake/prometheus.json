@@ -1,0 +1,82 @@
+{
+  "prometheus_url": "http://127.0.0.1:19090",
+  "cluster": "training-cluster",
+  "lookback_seconds": 60,
+  "query_step_seconds": 5,
+  "clock": {
+    "nodes": [
+      "rollout-0",
+      "cache-0"
+    ]
+  },
+  "context": {
+    "workload": "Mooncake Store KV investigation; select the actual step interval and comparable baseline before interpreting correlations."
+  },
+  "queries": [
+    {
+      "signal": "mooncake_connector_load_p95_seconds",
+      "query": "(histogram_quantile(0.95, sum by (cluster, node, component, instance, model_name, engine, engine_id, operation, status, le) (rate(vllm:mooncake_store_operation_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"rollout-0\",operation=\"load_get\"}[1m])))) and (sum by (cluster, node, component, instance, model_name, engine, engine_id, operation, status) (rate(vllm:mooncake_store_operation_time_seconds_count{job=\"native\",telemetry_source=\"vllm\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"rollout-0\",operation=\"load_get\"}[1m])) > 0)",
+      "unit": "seconds",
+      "scope": "shared-engine"
+    },
+    {
+      "signal": "mooncake_connector_load_failed_keys",
+      "query": "vllm:mooncake_store_operation_failed_keys_total{job=\"native\",telemetry_source=\"vllm\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"rollout-0\",operation=\"load_get\"}",
+      "unit": "keys",
+      "scope": "shared-engine",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_master_memory_used_ratio",
+      "query": "master_allocated_bytes{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"cache-0\",component=\"mooncake-master-0\"} / (master_total_capacity_bytes{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"cache-0\",component=\"mooncake-master-0\"} > 0)",
+      "unit": "ratio",
+      "scope": "shared-service"
+    },
+    {
+      "signal": "mooncake_master_put_start_failures",
+      "query": "master_put_start_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"cache-0\",component=\"mooncake-master-0\"}",
+      "unit": "requests",
+      "scope": "shared-service",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_dfs_read_bytes",
+      "query": "mooncake_dfs_read_bytes_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
+      "unit": "bytes",
+      "scope": "client",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_dfs_read_batch_p95_seconds",
+      "query": "(histogram_quantile(0.95, sum by (cluster, node, component, instance, client_mode, cluster_id, le) (rate(mooncake_dfs_read_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}[1m]))) / 1e6) and (sum by (cluster, node, component, instance, client_mode, cluster_id) (rate(mooncake_dfs_read_latency_us_bucket{le=\"+Inf\",job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}[1m])) > 0)",
+      "unit": "seconds",
+      "scope": "client"
+    },
+    {
+      "signal": "mooncake_dfs_write_bytes",
+      "query": "mooncake_dfs_write_bytes_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
+      "unit": "bytes",
+      "scope": "client",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_dfs_write_batch_p95_seconds",
+      "query": "(histogram_quantile(0.95, sum by (cluster, node, component, instance, client_mode, cluster_id, le) (rate(mooncake_dfs_write_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}[1m]))) / 1e6) and (sum by (cluster, node, component, instance, client_mode, cluster_id) (rate(mooncake_dfs_write_latency_us_bucket{le=\"+Inf\",job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}[1m])) > 0)",
+      "unit": "seconds",
+      "scope": "client"
+    },
+    {
+      "signal": "mooncake_dfs_failed_keys",
+      "query": "mooncake_dfs_read_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"} or mooncake_dfs_write_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
+      "unit": "keys",
+      "scope": "client",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_scrape_up",
+      "query": "up{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",component=~\"mooncake-master-0|mooncake-client-0\"}",
+      "unit": "boolean",
+      "scope": "endpoint"
+    }
+  ]
+}

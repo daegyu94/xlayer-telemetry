@@ -1109,6 +1109,118 @@
       "scope": "collector process",
       "source": "application textfile collector",
       "policy": "always; cumulative scan operations, not unique lost records"
+    },
+    {
+      "name": "mooncake_dfs_read_bytes_total",
+      "category": "storage",
+      "unit": "bytes",
+      "scope": "client",
+      "source": "Mooncake native DFS client (successful KV payload bytes)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_read_ops_total",
+      "category": "storage",
+      "unit": "keys",
+      "scope": "client",
+      "source": "Mooncake native DFS client (successful KV key count, not block IOPS)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_read_latency_seconds",
+      "category": "storage",
+      "unit": "s",
+      "scope": "client",
+      "source": "Mooncake native DFS client (batch histogram in microseconds converted to seconds)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_read_errors_total",
+      "category": "storage",
+      "unit": "keys",
+      "scope": "client",
+      "source": "Mooncake native DFS client (failed KV keys by error code)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_write_bytes_total",
+      "category": "storage",
+      "unit": "bytes",
+      "scope": "client",
+      "source": "Mooncake native DFS client (successful KV payload bytes)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_write_ops_total",
+      "category": "storage",
+      "unit": "keys",
+      "scope": "client",
+      "source": "Mooncake native DFS client (successful KV key count, not block IOPS)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_write_latency_seconds",
+      "category": "storage",
+      "unit": "s",
+      "scope": "client",
+      "source": "Mooncake native DFS client (batch histogram in microseconds converted to seconds)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_write_errors_total",
+      "category": "storage",
+      "unit": "keys",
+      "scope": "client",
+      "source": "Mooncake native DFS client (failed KV keys by error code)",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_write_staging_latency_seconds",
+      "category": "data_movement",
+      "unit": "s",
+      "scope": "client",
+      "source": "Mooncake native DFS D2H staging histogram in microseconds, excluding DFS write",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_dfs_writes_skipped_total",
+      "category": "storage",
+      "unit": "keys",
+      "scope": "client",
+      "source": "Mooncake native DFS skipped keys; write not attempted after earlier non-DFS transfer failure",
+      "policy": "native; baseline for Mooncake Store DFS deployments; requires supported client HTTP metrics"
+    },
+    {
+      "name": "mooncake_store_operation_time_seconds",
+      "category": "data_movement",
+      "unit": "s",
+      "scope": "shared-engine operation/status",
+      "source": "vLLM native vllm:mooncake_store_operation_time_seconds histogram",
+      "policy": "native; baseline for MooncakeStoreConnector deployments"
+    },
+    {
+      "name": "mooncake_store_operation_bytes_total",
+      "category": "data_movement",
+      "unit": "bytes",
+      "scope": "shared-engine operation/status",
+      "source": "vLLM native vllm:mooncake_store_operation_bytes_total counter",
+      "policy": "native; baseline for MooncakeStoreConnector deployments"
+    },
+    {
+      "name": "mooncake_store_operation_failed_keys_total",
+      "category": "data_movement",
+      "unit": "keys",
+      "scope": "shared-engine operation/status",
+      "source": "vLLM native vllm:mooncake_store_operation_failed_keys_total counter",
+      "policy": "native; baseline for MooncakeStoreConnector deployments"
+    },
+    {
+      "name": "mooncake_master_put_start_failures_total",
+      "category": "storage",
+      "unit": "requests",
+      "scope": "shared-service",
+      "source": "Mooncake native master_put_start_failures_total; PutStart admission/RPC failure, not DFS failed keys",
+      "policy": "native; baseline for Mooncake Store deployments"
     }
   ],
   "$schema": "./metrics.schema.json",

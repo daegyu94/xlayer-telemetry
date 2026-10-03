@@ -1,0 +1,224 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-03",
+  "scope": "Mooncake Store baseline telemetry integration; real CPU 3FS USRBIO and POSIX descriptor DFS, not VERL training or physical multi-node validation",
+  "versions": {
+    "mooncake_source_revision": "e88aacf20cd83461ac4e6ff18a8b50a1e2b3f349",
+    "installed_wheel_metadata": "0.3.12.post1",
+    "exported_build_info": "0.3.13 (git: e88aacf)",
+    "exported_rpc_version": "2.0.0",
+    "vllm_source_review": "0.24.0",
+    "prometheus": "3.5.0"
+  },
+  "native_validation": {
+    "status": "passed",
+    "pipeline": "native exporter -> real Prometheus -> query -> LLM observation packet",
+    "dfs_adapter": "posix",
+    "iterations": 40,
+    "payload_bytes": 65536,
+    "counter_deltas": {
+      "mooncake_dfs_read_bytes_total": 2621440.0,
+      "mooncake_dfs_write_bytes_total": 2621440.0,
+      "mooncake_dfs_read_ops_total": 40.0,
+      "mooncake_dfs_write_ops_total": 40.0,
+      "mooncake_dfs_read_latency_us_count": 40.0,
+      "mooncake_dfs_write_latency_us_count": 40.0
+    },
+    "readback_verified": true,
+    "master_and_client_scrape_up": true,
+    "packet_observation_count": 7,
+    "observed_signals": [
+      "mooncake_dfs_read_batch_p95_seconds",
+      "mooncake_dfs_read_bytes",
+      "mooncake_dfs_write_batch_p95_seconds",
+      "mooncake_dfs_write_bytes",
+      "mooncake_master_memory_used_ratio",
+      "mooncake_scrape_up"
+    ],
+    "missing_sources": [
+      "current:mooncake_connector_load_p95_seconds:no_data",
+      "baseline:mooncake_connector_load_p95_seconds:no_data",
+      "current:mooncake_connector_load_failed_keys:no_data",
+      "baseline:mooncake_connector_load_failed_keys:no_data",
+      "current:mooncake_dfs_failed_keys:no_data",
+      "baseline:mooncake_dfs_failed_keys:no_data"
+    ],
+    "dashboard_queries": 20,
+    "dashboard_queries_with_observations": 12,
+    "all_returned_values_finite": true,
+    "latency_converted_from_microseconds_to_seconds": true,
+    "clock_quality": "unknown",
+    "run_id_added_to_native_series": false,
+    "model_call_performed": false
+  },
+  "regressions": {
+    "pytest": {
+      "passed": 715,
+      "duration_seconds": 88.35,
+      "promtool_enabled": true
+    },
+    "new_cases": [
+      "Native source scope, missing values and units",
+      "Synthetic producer and cumulative histogram identity",
+      "Real PromQL evaluation: two clients, two engines, other cluster excluded, idle and missing sources",
+      "Master admission failure is visible even when DFS I/O errors are absent"
+    ],
+    "exporter_compatibility": "Pinned DFS exporter buckets have client_mode/cluster_id but _count does not. Availability uses the identically scoped +Inf bucket.",
+    "strict_sphinx_build": "passed",
+    "compileall": "passed"
+  },
+  "limitations": [
+    "No new VERL/vLLM GPU training, RDMA or physical multi-node run.",
+    "vLLM connector metrics were checked against upstream source and synthetic PromQL fixtures; they were absent in the isolated native run.",
+    "GPU D2H staging and error counters were not produced by successful CPU DFS operations and remain missing.",
+    "Unknown clock quality is preserved; shared Mooncake observations do not establish run ownership or causal attribution.",
+    "vLLM 0.24.0 embedded Store worker does not forward client HTTP setup options; standalone client settings do not automatically enable that endpoint.",
+    "No real Grafana browser rendering was performed for this subsystem row; queries and provisioning regressions were tested.",
+    "USRBIO was validated with small CPU payloads; no claim of GPU D2H staging, sustained training throughput or large-scale storage performance."
+  ],
+  "cleanup": {
+    "owned_processes_stopped": true,
+    "all_owned_ports_closed": true,
+    "test_keys_removed": true,
+    "pre_existing_services_modified": false,
+    "temporary_validation_directory_removed": true,
+    "pre_existing_service_health_after_validation": {
+      "prometheus_http_status": 200,
+      "grafana_http_status": 200,
+      "loki_http_status": 200
+    },
+    "compact_validation_record_preserved": true
+  },
+  "collection_policy": {
+    "mooncake_store_deployment": "baseline subsystem telemetry",
+    "separate_feature_flag": false,
+    "native_endpoints_require_registration": true,
+    "client_http_support_is_a_source_requirement": true
+  },
+  "usrbio_validation": {
+    "status": "passed",
+    "adapter": "hf3fs-usrbio",
+    "adapter_evidence": {
+      "configured_adapter": "hf3fs",
+      "active_filesystem_type": "fuse.hf3fs",
+      "source_built_wheel_revision": "e88aacf",
+      "readback_verified": true,
+      "data_path": "Client -> DistributedStorageBackend -> Hf3fsAdapter::WriteAt/ReadAt -> hf3fs_prep_io/submit_ios/wait_for_ios; no adapter fallback in verified source"
+    },
+    "operation_limit": {
+      "successful_usrbio_round_trips": 19,
+      "failed_dfs_putstart_attempts": 1,
+      "total_dfs_put_attempts": 20
+    },
+    "final_attempt": {
+      "iterations": 5,
+      "payload_bytes": 65536,
+      "counter_deltas": {
+        "mooncake_dfs_read_bytes_total": 327680.0,
+        "mooncake_dfs_write_bytes_total": 327680.0,
+        "mooncake_dfs_read_ops_total": 5.0,
+        "mooncake_dfs_write_ops_total": 5.0,
+        "mooncake_dfs_read_latency_us_count": 5.0,
+        "mooncake_dfs_write_latency_us_count": 5.0
+      },
+      "packet_observation_count": 7,
+      "observed_signals": [
+        "mooncake_dfs_read_batch_p95_seconds",
+        "mooncake_dfs_read_bytes",
+        "mooncake_dfs_write_batch_p95_seconds",
+        "mooncake_dfs_write_bytes",
+        "mooncake_master_memory_used_ratio",
+        "mooncake_scrape_up"
+      ],
+      "missing_sources": [
+        "current:mooncake_connector_load_p95_seconds:no_data",
+        "baseline:mooncake_connector_load_p95_seconds:no_data",
+        "current:mooncake_connector_load_failed_keys:no_data",
+        "baseline:mooncake_connector_load_failed_keys:no_data",
+        "baseline:mooncake_dfs_read_bytes:no_data",
+        "baseline:mooncake_dfs_read_batch_p95_seconds:no_data",
+        "baseline:mooncake_dfs_write_bytes:no_data",
+        "baseline:mooncake_dfs_write_batch_p95_seconds:no_data",
+        "current:mooncake_dfs_failed_keys:no_data",
+        "baseline:mooncake_dfs_failed_keys:no_data"
+      ],
+      "clock_quality": "unknown",
+      "dashboard_queries_evaluated_before_master_admission_addition": 20,
+      "dashboard_queries_with_observations": 12,
+      "model_call_performed": false
+    },
+    "first_attempt": {
+      "status": "fixture_capacity_failure_preserved",
+      "successful_round_trips": 14,
+      "failed_putstart_attempts": 1,
+      "failure_stage": "PutStart admission before DFS BatchWrite",
+      "logged_error_name": "NO_AVAILABLE_HANDLE",
+      "error_numeric_code_from_verified_source": -200,
+      "python_return_numeric_value_directly_captured": false,
+      "cause_assessment": "Observed insufficient-space rejection is consistent with the 1 MiB test shard and deferred reclamation; live allocator occupancy was not captured.",
+      "code_confirmed_mechanics": [
+        "DistributedStorageConfig defaults deferred_free_duration to 30 seconds.",
+        "Free retains allocation handles in pending_free until expiry.",
+        "Allocate normalizes aligned payload size plus alignment-1 before allocating."
+      ],
+      "source_refs": [
+        "mooncake-store/include/config/distributed_storage_config.h:23",
+        "mooncake-store/src/storage/distributed/dfs_global_allocator.cpp:256",
+        "mooncake-store/src/storage/distributed/dfs_global_allocator.cpp:374",
+        "mooncake-store/src/client_service.cpp:1925"
+      ],
+      "observed_metric_maxima": {
+        "mooncake_dfs_read_bytes_total": 917504.0,
+        "mooncake_dfs_write_bytes_total": 917504.0,
+        "mooncake_dfs_read_ops_total": 14.0,
+        "mooncake_dfs_write_ops_total": 14.0,
+        "mooncake_dfs_read_latency_us_count": 14.0,
+        "mooncake_dfs_write_latency_us_count": 14.0,
+        "mooncake_dfs_read_errors_total": null,
+        "mooncake_dfs_write_errors_total": null,
+        "master_put_start_requests_total": 16.0,
+        "master_put_start_failures_total": 1.0,
+        "master_put_start_alloc_failures_total": 0.0
+      },
+      "error_metric_scope": "master_put_start_failures_total reached 1; master_put_start_alloc_failures_total stayed 0; DFS read/write errors were not exposed because admission failed before DFS BatchWrite."
+    },
+    "master_admission_query": {
+      "status": "passed",
+      "source": "preserved native first-attempt Prometheus TSDB; no collector, client, workload or 3FS I/O started",
+      "rate_minimum": 0.0,
+      "rate_maximum": 0.017789583333333334,
+      "raw_counter_minimum": 0.0,
+      "raw_counter_maximum": 1.0,
+      "packet_scope": "shared-service",
+      "packet_kind": "counter",
+      "packet_sampled_increase": 1.0,
+      "identity_fields": [
+        "__name__",
+        "cluster",
+        "component",
+        "instance",
+        "job",
+        "node",
+        "role",
+        "telemetry_source"
+      ],
+      "additional_3fs_io_performed": false
+    },
+    "cleanup": {
+      "owned_processes_stopped": true,
+      "all_owned_ports_closed": true,
+      "test_namespace_directories_removed": true,
+      "test_keys_remaining": 0,
+      "registration_entries_remaining": 0,
+      "usrbio_shared_memory_entries_remaining": 0,
+      "foreign_registrations_manually_removed": 0,
+      "ownership_verification": {
+        "payload_directories": "fresh UUID name and current UID/inode checked before deletion; only regular owned dfs_shard_*.data files deleted",
+        "keys": "generated by the isolated owned client; segment-scoped replica clear verifies client ownership; all successful keys explicitly removed",
+        "registrations": "released by normal store.close/process exit; before-after snapshots show zero new registration/shared-memory entries remaining; live per-UUID mapping snapshot was not captured",
+        "foreign_registrations_manually_removed": 0
+      },
+      "additional_history_readers_stopped": true
+    }
+  }
+}

@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Mooncake telemetry](mooncake-telemetry-20261003.json) | 실제 client DFS read/write·master/client endpoint·Prometheus query·진단 입력, optional source 결측과 단위·engine 분리 검증 |
 | [Subsystem telemetry](subsystem-telemetry-20261003.json) | 실제 3FS O_DIRECT I/O·ClickHouse·diagnosis·Loki/Grafana, GPU 2개·cgroup, source coverage와 누락 상태 |
 | [TDD failure regressions](tdd-regression-20261003.json) | 부분 저장·log 재작성·SDK 초기화·sidecar/child 종료·stale PGID 장애 재현, 신규 35개 포함 656개 test와 cleanup |
 | [Greenfield architecture review](greenfield-review-20261003.json) | Fresh CLI·Grafana 실행, health/artifact 경계·event/query provenance 개선, 621개 test·source 조회 benchmark·cleanup |

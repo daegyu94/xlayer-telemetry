@@ -1476,6 +1476,406 @@
           }
         }
       ]
+    },
+    {
+      "id": 94,
+      "type": "row",
+      "title": "Mooncake / KV storage",
+      "description": "Run/step 없이 등록한 Mooncake master·client와 vLLM Store connector endpoint를 확인합니다. Mooncake/connector version별 metric 지원이 다르며 미설정·미지원 source는 N/A입니다. Resource node=All에서 다른 node의 master도 함께 봅니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 30,
+          "type": "timeseries",
+          "title": "Mooncake Store connector RPC p95",
+          "description": "vLLM MooncakeStoreConnector의 operation·status별 RPC latency p95입니다. Endpoint·engine identity별 histogram bucket을 사용하며 idle histogram과 미지원 version은 N/A입니다. Store RPC 전체 구간으로 DFS I/O·GPU staging이 포함될 수 있으며 Run별 귀속은 아닙니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 53,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(histogram_quantile(0.95, sum by (cluster, node, instance, component, model_name, engine, engine_id, operation, status, le) (rate(vllm:mooncake_store_operation_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))) and (sum by (cluster, node, instance, component, model_name, engine, engine_id, operation, status) (rate(vllm:mooncake_store_operation_time_seconds_count{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])) > 0)",
+              "legendFormat": "{{node}} {{instance}} {{model_name}} engine={{engine}} {{engine_id}} {{operation}} {{status}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "Mooncake Store connector byte rate",
+          "description": "vLLM connector가 operation·status별 기록한 payload bytes의 초당 증가량입니다. Memory·DFS 등 선택된 Store 경로를 포함하므로 이 값만으로 3FS 전송량을 판단하지 않습니다. 실제 DFS bytes는 client panel에서 확인합니다. 미지원 version은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 53,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(vllm:mooncake_store_operation_bytes_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{instance}} {{model_name}} engine={{engine}} {{engine_id}} {{operation}} {{status}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 32,
+          "type": "timeseries",
+          "title": "Mooncake master memory capacity",
+          "description": "Master가 추적하는 전체 memory segment의 현재 allocation과 capacity입니다. 각 master endpoint를 따로 표시하며 3FS shard 용량은 포함하지 않습니다. 미등록 source와 미지원 metric은 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 61,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "master_allocated_bytes{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{node}} {{component}} {{instance}} allocated RAM"
+            },
+            {
+              "refId": "B",
+              "expr": "master_total_capacity_bytes{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{node}} {{component}} {{instance}} RAM capacity"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 33,
+          "type": "timeseries",
+          "title": "Mooncake master cache lookup rates",
+          "description": "GetReplicaList lookup counter의 초당 증가량입니다. Memory·file tier hit, 유효 replica를 반환한 lookup, 전체 lookup을 master별 표시합니다. File tier는 producer의 SSD cache 의미이며 DFS payload bytes나 vLLM request/token cache hit ratio가 아닙니다. 미지원 version은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 61,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(mem_cache_hit_nums_{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} memory tier hits/s"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(file_cache_hit_nums_{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} file tier hits/s"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(valid_get_nums_{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} valid replica lookups/s"
+            },
+            {
+              "refId": "D",
+              "expr": "rate(total_get_nums_{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} all lookups/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 34,
+          "type": "timeseries",
+          "title": "Mooncake client DFS byte rate",
+          "description": "Mooncake client가 성공한 DFS key의 read/write bytes를 기록한 counter rate입니다. hf3fs adapter를 쓸 때 3FS data path를 관측하지만 실제 adapter 설정은 별도로 확인합니다. Memory transfer·SSD offload bytes는 포함하지 않으며 endpoint별 조회 범위입니다. DFS metric 미지원 version은 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 69,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(mooncake_dfs_read_bytes_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} read"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(mooncake_dfs_write_bytes_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} write"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 35,
+          "type": "timeseries",
+          "title": "Mooncake client DFS key operation rate",
+          "description": "성공한 DFS read/write key의 초당 개수입니다. 한 operation은 key 하나이며 batch RPC 수나 3FS 내부 IOPS는 아닙니다. Client endpoint·client_mode·cluster_id를 유지하고 Run에 자동 귀속하지 않습니다. 미지원 version은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 69,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(mooncake_dfs_read_ops_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} read keys/s"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(mooncake_dfs_write_ops_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} write keys/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 36,
+          "type": "timeseries",
+          "title": "Mooncake client DFS batch latency p95",
+          "description": "Client DFS BatchRead/BatchWrite와 GPU device-to-host staging의 batch latency p95입니다. Native microseconds를 seconds로 변환합니다. Write I/O는 D2H staging을 제외하므로 staging을 별도 곡선으로 표시합니다. Endpoint별 bucket을 사용하며 idle histogram과 미지원 version은 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 77,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(histogram_quantile(0.95, sum by (cluster, node, instance, component, client_mode, cluster_id, le) (rate(mooncake_dfs_read_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval]))) / 1000000) and (sum by (cluster, node, instance, component, client_mode, cluster_id) (rate(mooncake_dfs_read_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\",le=\"+Inf\"}[$__rate_interval])) > 0)",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} DFS read"
+            },
+            {
+              "refId": "B",
+              "expr": "(histogram_quantile(0.95, sum by (cluster, node, instance, component, client_mode, cluster_id, le) (rate(mooncake_dfs_write_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval]))) / 1000000) and (sum by (cluster, node, instance, component, client_mode, cluster_id) (rate(mooncake_dfs_write_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\",le=\"+Inf\"}[$__rate_interval])) > 0)",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} DFS write"
+            },
+            {
+              "refId": "C",
+              "expr": "(histogram_quantile(0.95, sum by (cluster, node, instance, component, client_mode, cluster_id, le) (rate(mooncake_dfs_write_staging_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval]))) / 1000000) and (sum by (cluster, node, instance, component, client_mode, cluster_id) (rate(mooncake_dfs_write_staging_latency_us_bucket{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\",le=\"+Inf\"}[$__rate_interval])) > 0)",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} D2H staging"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        },
+        {
+          "id": 37,
+          "type": "timeseries",
+          "title": "Mooncake failures and skipped DFS keys",
+          "description": "DFS error code별 실패 key/s, 선행 non-DFS replica 실패로 미시도한 DFS key/s, vLLM Store의 실패 key/s·error RPC/s, master PutStart failure/s를 endpoint별 표시합니다. PutStart는 DFS I/O 전 admission에서도 실패하므로 client DFS error와 구분합니다. 서로 다른 범위·계수 단위이므로 합산하지 않습니다. 없는 error label·미지원 metric은 N/A이며 관측한 0만 0으로 표시합니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 77,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(mooncake_dfs_read_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} read failed keys/s {{error}}"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(mooncake_dfs_write_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} write failed keys/s {{error}}"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(mooncake_dfs_writes_skipped_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} {{client_mode}} {{cluster_id}} unattempted DFS keys/s"
+            },
+            {
+              "refId": "D",
+              "expr": "rate(vllm:mooncake_store_operation_failed_keys_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{instance}} {{model_name}} engine={{engine}} {{engine_id}} {{operation}} {{status}} failed keys/s"
+            },
+            {
+              "refId": "E",
+              "expr": "rate(vllm:mooncake_store_operation_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\",status=\"error\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{instance}} {{model_name}} engine={{engine}} {{engine_id}} {{operation}} error RPC/s"
+            },
+            {
+              "refId": "F",
+              "expr": "rate(master_put_start_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} master PutStart failures/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "5s",

@@ -71,6 +71,7 @@ Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine�
 | VERL | Run Overview의 training 지표, Stage Correlation의 stage·reward·throughput | File logger bridge |
 | vLLM | Stage Correlation의 queue·KV·offload·token throughput·request latency p95 | Native endpoint 등록 |
 | Ray | Stage Correlation의 task·actor state, logical CPU/GPU, object store, OOM eviction | Native endpoint 등록 |
+| Mooncake | Stage Correlation의 Mooncake row: connector RPC·master cache·client DFS 지표 | [Mooncake 연결](#observe-mooncake-kv-storage)과 지원 버전 |
 | 기타 native exporter | `sources`의 endpoint별 Explore 링크 | Native endpoint 등록 |
 | GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector, SSD는 선택적 SMART exporter |
 | 3FS service metrics | `threefs` 명령의 시간 구간별 distributions·raw counters·freshness | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
@@ -171,7 +172,88 @@ Native endpoint의 metric에는 VERL `run_id`가 자동으로 붙지 않으므�
 
 3FS에도 Prometheus endpoint가 있다면 같은 방법으로 등록할 수 있습니다.
 다만 endpoint 등록만으로 3FS 서비스 전용 dashboard가 생기지는 않습니다.
-ClickHouse에 저장하는 3FS metric은 다음 진단 경로를 사용합니다.
+ClickHouse에 저장하는 3FS metric은 [3FS 조회](#inspect-one-subsystem)와 기존 diagnosis 설정을 사용합니다.
+
+## Observe Mooncake KV Storage
+
+VERL + vLLM + Mooncake + 3FS 구성에서는 Mooncake를 기본 관측 대상에 포함합니다.
+`MooncakeStoreConnector`를 사용하는 vLLM endpoint의 connector metric은 기존 수집에 함께 들어오며 master/client endpoint도 native source에 등록합니다.
+별도의 Mooncake 활성화 옵션은 없고, 등록된 endpoint는 기존 Prometheus native job으로 수집합니다.
+Connector RPC 지연, cache lookup, client DFS I/O를 추가하면 rollout 지연이 KV 조회·전송·DFS 단계 중 어디와 함께 변했는지 조사할 수 있습니다.
+Prefill/decode 간 전송용 `MooncakeConnector`와 Store connector는 다른 경로이므로 Store 전용 metric이 양쪽에서 나온다고 가정하지 않습니다.
+
+```text
+VERL rollout -> vLLM MooncakeStoreConnector -> Mooncake client -> DFS / 3FS
+                       |                          |                 |
+                connector RPC metrics       client DFS metrics  ClickHouse
+                       |                          |                 |
+                       +------ Prometheus --------+-------- XLayer --+
+```
+
+### Register the Endpoints
+
+기존 native source 파일에 [Mooncake 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/mooncake/native-sources.json)의 실제 endpoint를 추가합니다.
+이미 등록된 vLLM endpoint는 다시 등록하지 않고, 배포에 존재하지 않는 endpoint는 제거합니다.
+Mooncake의 `kind`는 `mooncake`, `labels.node`는 해당 process가 실행되는 node 이름으로 지정합니다.
+Master가 dedicated node에 있어도 동일한 schema를 사용하며 native source에 `run_id`를 붙이지 않습니다.
+
+| Endpoint | 활성화 방법 | 확인할 신호 |
+| --- | --- | --- |
+| vLLM `/metrics` | 기존 VERL Prometheus 설정과 `MooncakeStoreConnector` | `vllm:mooncake_store_operation_time_seconds`, operation·bytes·failed keys counter |
+| Mooncake master `/metrics` | Master의 `--metrics_port=9003` 또는 실제 설정 port | RAM capacity·cache lookup·`master_put_start_failures_total` |
+| Mooncake client `/metrics` | Client의 `setup()`에서 HTTP endpoint 활성화 | `mooncake_dfs_*` bytes·successful keys·batch latency·errors |
+
+Programmatic client가 HTTP 옵션을 지원한다면 초기화 호출에 다음 인자를 전달합니다.
+여러 worker가 같은 host에 있으면 client별로 다른 port를 지정합니다.
+
+```python
+store.setup(
+    # Existing connection and storage arguments ...
+    enable_client_http_server=True,
+    client_http_port=9300,
+)
+```
+
+`MC_STORE_CLIENT_METRIC=0`이면 client metric 수집이 비활성화되며 HTTP endpoint만 켜도 `/metrics`는 503을 반환할 수 있습니다.
+`MOONCAKE_ENABLE_CLIENT_HTTP_SERVER=true`는 standalone `mooncake_store_service`의 설정으로, embedded vLLM client에 자동 적용되는 옵션이 아닙니다.
+검토한 vLLM 0.24.0의 Store worker는 위 HTTP 인자를 전달하지 않으므로 Mooncake wheel이 지원하더라도 배포 측 connector가 이를 전달해야 DFS endpoint가 열립니다.
+이 경우 vLLM connector와 master metric부터 연결하고, client DFS panel은 `N/A`로 유지합니다.
+
+```bash
+xltel sources refresh
+xltel sources
+```
+
+이미 native job이 활성화되어 있으면 refresh로 갱신하며, 첫 연결은 `xltel restart --role server`가 필요합니다.
+`xltel sources`의 endpoint별 Explore 링크와 Stage Correlation의 **Mooncake / KV storage** row에서 단독으로 조사할 수 있습니다.
+Row는 초기 화면의 정보 밀도를 줄이기 위해 접혀 있으며, Mooncake를 사용하는 배포에서는 기본 조사 항목입니다.
+Resource node를 rollout/client 또는 master node로 바꿔 보며, `vLLM engine`은 connector panel에만 적용됩니다.
+Mooncake log도 [Subsystem log](#inspect-one-subsystem)의 기존 log root 방식으로 연결합니다.
+
+### Interpret the Evidence
+
+DFS bytes와 ops는 client가 성공한 KV key를 처리한 양이며 물리 SSD bytes·block IOPS가 아닙니다.
+DFS latency는 batch 단위 microseconds이고 dashboard는 seconds로 변환합니다.
+검토한 client exporter는 histogram의 `_count`에 bucket과 같은 client label을 붙이지 않으므로 dashboard는 동일 label의 `+Inf` bucket으로 관측 여부를 확인합니다.
+Write의 GPU→host staging은 별도 histogram으로 표시하며 DFS write latency에 포함하지 않습니다.
+실패한 key와 미시도 skipped write는 따로 확인하며, 성공 latency만 정상이어도 실패가 없다고 판단하지 않습니다.
+`master_put_start_failures_total`은 DFS I/O 전 admission에서도 증가하므로 client DFS error와 별도로 봅니다.
+
+Master memory는 Store 전체의 RAM tier이며 vLLM GPU KV cache와 다릅니다.
+Memory/file cache hit counter는 lookup hit rate로 읽고 현재 저장된 key gauge를 분모로 hit ratio를 만들지 않습니다.
+검토한 Mooncake revision의 file hit counter는 descriptor DFS hit를 포함하지 않으므로 3FS cache hit rate로 읽지 않습니다.
+`mooncake_ssd_*`나 legacy master file capacity를 descriptor 기반 DFS·USRBIO의 사용량으로 대체하지 않습니다.
+Client에 DFS metric이 없으면 다른 storage metric으로 채우지 않으며 [Metrics Contract](metrics.md#what-is-actually-collected)에서 source와 단위를 확인합니다.
+
+Selected step의 Timeline 시간 범위를 유지해 Stage Correlation으로 이동한 뒤 connector·client·3FS service 신호를 비교합니다.
+공유 master/client 신호는 해당 run의 소유량이나 3FS가 원인이라는 증명이 아닙니다.
+Optional LLM은 [Mooncake query 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/mooncake/prometheus.json)의 cluster·node·component와 시간 구간을 실제 조사 대상에 맞춰 [직접 수집](local-llm.md#diagnose-collected-metrics-directly)할 수 있습니다.
+`--collect-only`로 metric·label·missing source를 먼저 확인하고 필요할 때만 모델에 전달합니다.
+새 rule을 자동 활성화하거나 training 중 LLM을 호출하지 않습니다.
+
+[실측 기록](validation/mooncake-telemetry-20261003.json)은 설치된 Mooncake의 DFS read/write, Prometheus query, 진단 입력과 미검증 범위를 구분합니다.
+
+설정·metric 지원은 [Mooncake observability](https://kvcache-ai.github.io/Mooncake/getting_started/observability.html), [DFS 계측 소스](https://github.com/kvcache-ai/Mooncake/blob/e88aacf20cd83461ac4e6ff18a8b50a1e2b3f349/mooncake-store/include/client_metric.h), [vLLM Store metrics](https://docs.vllm.ai/en/latest/api/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/metrics/)를 기준으로 하며 배포 버전의 `/metrics`에서 실제 존재 여부를 확인합니다.
 
 ## Map Multiple Nodes to a Run
 
