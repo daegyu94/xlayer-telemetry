@@ -6,6 +6,8 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Metric collection coverage audit](metric-coverage-audit-20261003.md) | 133개 baseline 계약 전체 분류, 수집 경로·미수집 영역·cardinality/overhead 감사, native evidence·budget 개선과 검증 한계 |
+| [Restricted Node Exporter smoke](metric-node-exporter-smoke-20261003.json) | 공식 1.9.1의 제한된 cloud Linux 관측; meminfo/vmstat/netstat/loopback/filesystem 확인, PSI/sysfs 및 physical hardware 미검증 |
 | [Subsystem telemetry](subsystem-telemetry-20261003.json) | 실제 3FS O_DIRECT I/O·ClickHouse·diagnosis·Loki/Grafana, GPU 2개·cgroup, source coverage와 누락 상태 |
 | [TDD failure regressions](tdd-regression-20261003.json) | 부분 저장·log 재작성·SDK 초기화·sidecar/child 종료·stale PGID 장애 재현, 신규 35개 포함 656개 test와 cleanup |
 | [Greenfield architecture review](greenfield-review-20261003.json) | Fresh CLI·Grafana 실행, health/artifact 경계·event/query provenance 개선, 621개 test·source 조회 benchmark·cleanup |
@@ -39,4 +41,7 @@
 :hidden:
 
 e2e-user-experience
+metric-coverage-audit-20261003
 ```
+
+- [Metric audit final verification](metric-audit-verification-20261003.json): 775 passed, zero failed/skipped; hardware validation boundaries are explicit.

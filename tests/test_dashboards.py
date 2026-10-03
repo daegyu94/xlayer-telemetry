@@ -923,7 +923,7 @@ def test_subsystem_rows_work_without_run_and_preserve_native_semantics():
             assert 'node=~"$node"' in target['expr']
         assert panel['fieldConfig']['defaults']['noValue'] == 'N/A'
     assert 'histogram_quantile' in str(panels[21]['targets'])
-    assert 'instance, model_name, le' in str(panels[21]['targets'])
+    assert 'instance, model_name, engine, le' in str(panels[21]['targets'])
     assert all('rate(' not in str(panels[i]['targets']) for i in [22, 23, 24, 25])
     assert 'Name=~"CPU|GPU"' in panels[24]['targets'][0]['expr']
     assert panels[25]['fieldConfig']['defaults']['unit'] == 'bytes'

@@ -11,12 +11,16 @@ import statistics
 from typing import Any, Mapping
 
 from ..measurements import finite_number as finite
+from .metric_queries import PROFILE_SIGNALS
 
 
 SIGNAL_SCOPE = {
     "step_duration_seconds": "application",
     "rollout_duration_seconds": "application",
     "communication_duration_seconds": "application",
+    "actor_update_duration_seconds": "application",
+    "critic_update_duration_seconds": "application",
+    "checkpoint_duration_seconds": "application",
     "gpu_utilization_percent": "device",
     "gpu_memory_usage_ratio": "device",
     "gpu_evictions_delta": "process",
@@ -37,7 +41,10 @@ SIGNAL_SCOPE = {
     "sandbox_io_pressure_ratio": "cgroup",
     "sandbox_device_busy_ratio": "device",
 }
+SIGNAL_SCOPE.update({name: spec.scope for name, spec in PROFILE_SIGNALS.items()})
 BASELINE_REQUIRED = {
+    "vllm_queue_p95_seconds",
+    "actor_update_duration_seconds", "critic_update_duration_seconds", "checkpoint_duration_seconds",
     "step_duration_seconds", "rollout_duration_seconds",
     "communication_duration_seconds", "gpu_utilization_percent",
     "rdma_bytes_per_second", "threefs_p99_latency",
@@ -278,6 +285,31 @@ def evaluate_rules(
         ("host_memory_available_ratio", low("host_memory_available_ratio", thresholds.get("memory_available_ratio", 0.1))),
         ("host_swap_activity", high("host_swap_activity", 1)),
         ], scope="node")
+    # PSI directly measures stalls, unlike busy percentage. These mixed-scope
+    # overlaps justify inspection, but cannot establish the workload owns them.
+    if slow:
+        for resource in ("cpu", "memory", "io"):
+            name = f"host_{resource}_pressure_ratio"
+            if high(name, thresholds.get("host_pressure_ratio", 0.2)):
+                add(f"host_{resource}_stalls", "host", f"Slow step overlaps measured host {resource.upper()} stalls", [
+                    ("step_duration_seconds", slow),
+                    (name, True),
+                ], scope="mixed", cap_state="supporting_signal")
+        if high("ray_mmap_disk_bytes", 1):
+            add("ray_object_store_disk_pressure", "ray", "Slow step overlaps Ray objects using disk-backed mmap", [
+                ("step_duration_seconds", slow), ("ray_mmap_disk_bytes", True),
+            ], scope="mixed", cap_state="supporting_signal")
+    for stage, resource in (("actor_update", "cpu"), ("critic_update", "cpu"), ("checkpoint", "io")):
+        duration_name = f"{stage}_duration_seconds"
+        pressure_name = f"host_{resource}_pressure_ratio"
+        if raised(duration_name, thresholds.get("step_slowdown_ratio", 1.5)) and high(pressure_name, thresholds.get("host_pressure_ratio", 0.2)):
+            add(f"{stage}_{resource}_stalls", "host", f"Slower {stage.replace('_', ' ')} overlaps step-window host {resource.upper()} stalls", [
+                (duration_name, True), (pressure_name, True),
+            ], scope="mixed", cap_state="supporting_signal")
+    if raised("rollout_duration_seconds", thresholds.get("step_slowdown_ratio", 1.5)) and raised("vllm_queue_p95_seconds", thresholds.get("step_slowdown_ratio", 1.5)):
+        add("rollout_queue_latency", "rollout", "Longer rollout overlaps increased vLLM queue latency", [
+            ("rollout_duration_seconds", True), ("vllm_queue_p95_seconds", True),
+        ], scope="mixed", cap_state="supporting_signal")
     # A cgroup and a device can overlap the tool interval without proving
     # ownership of that device's load. Never promote this candidate to strong.
     if raised("tool_duration_seconds", thresholds.get("tool_slowdown_ratio", 1.5)):

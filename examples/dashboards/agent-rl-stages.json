@@ -527,22 +527,22 @@
         {
           "refId": "A",
           "expr": "vllm:num_requests_waiting{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
-          "legendFormat": "waiting {{component}} {{instance}}"
+          "legendFormat": "waiting {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         },
         {
           "refId": "B",
           "expr": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
-          "legendFormat": "KV usage {{component}} {{instance}}"
+          "legendFormat": "KV cache {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         },
         {
           "refId": "C",
           "expr": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
-          "legendFormat": "preemptions/s {{component}} {{instance}}"
+          "legendFormat": "preemptions/s {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         },
         {
           "refId": "D",
           "expr": "vllm:num_requests_running{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
-          "legendFormat": "running {{component}} {{instance}}"
+          "legendFormat": "running {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         }
       ],
       "fieldConfig": {
@@ -608,7 +608,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "vLLM KV offload store and load",
-      "description": "Native vLLM offload counter의 전송률입니다. 설정된 모든 tier를 포함하며 Run으로 분리되지 않습니다. File offload 여부는 connector 설정과 host disk I/O를 함께 확인합니다.",
+      "description": "Native vLLM offload bytes/s입니다. 새 flat store/load counter를 우선하고 같은 engine의 deprecated transfer_type counter는 fallback만 사용합니다. 중복 합산하지 않습니다. CPU·file 등 tier와 Run attribution은 connector 설정에서 확인합니다.",
       "gridPos": {
         "h": 8,
         "w": 24,
@@ -622,13 +622,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",transfer_type=\"GPU_to_CPU\"}[$__rate_interval])",
-          "legendFormat": "store {{telemetry_name}} {{instance}}"
+          "expr": "rate(vllm:kv_offload_store_bytes_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) or on (cluster, node, instance, model_name, engine) rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",transfer_type=\"GPU_to_CPU\"}[$__rate_interval])",
+          "legendFormat": "store {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         },
         {
           "refId": "B",
-          "expr": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",transfer_type=\"CPU_to_GPU\"}[$__rate_interval])",
-          "legendFormat": "load {{telemetry_name}} {{instance}}"
+          "expr": "rate(vllm:kv_offload_load_bytes_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) or on (cluster, node, instance, model_name, engine) rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",transfer_type=\"CPU_to_GPU\"}[$__rate_interval])",
+          "legendFormat": "load {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         }
       ],
       "fieldConfig": {
@@ -1184,12 +1184,12 @@
             {
               "refId": "A",
               "expr": "rate(vllm:prompt_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
-              "legendFormat": "prompt tokens/s {{instance}} {{model_name}}"
+              "legendFormat": "prompt tokens/s {{instance}} {{model_name}} engine={{engine}}"
             },
             {
               "refId": "B",
               "expr": "rate(vllm:generation_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
-              "legendFormat": "generation tokens/s {{instance}} {{model_name}}"
+              "legendFormat": "generation tokens/s {{instance}} {{model_name}} engine={{engine}}"
             }
           ],
           "fieldConfig": {
@@ -1228,18 +1228,18 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:time_to_first_token_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
-              "legendFormat": "TTFT {{instance}} {{model_name}}"
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:time_to_first_token_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "TTFT {{instance}} {{model_name}} engine={{engine}}"
             },
             {
               "refId": "B",
-              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:request_queue_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
-              "legendFormat": "queue {{instance}} {{model_name}}"
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_queue_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "queue {{instance}} {{model_name}} engine={{engine}}"
             },
             {
               "refId": "C",
-              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
-              "legendFormat": "E2E {{instance}} {{model_name}}"
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "E2E {{instance}} {{model_name}} engine={{engine}}"
             }
           ],
           "fieldConfig": {
@@ -1257,6 +1257,289 @@
                 "lastNotNull",
                 "max"
               ]
+            }
+          }
+        },
+        {
+          "id": 27,
+          "type": "timeseries",
+          "title": "vLLM prefill and decode latency p95",
+          "description": "Engine·model별 완료 request histogram의 prefill/decode p95와 inter-token p95입니다. Inter-token은 request 평균 TPOT와 다르며 stage duration을 합산해 end-to-end p95를 만들지 않습니다. Source version 미지원은 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 59,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_prefill_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} prefill"
+            },
+            {
+              "refId": "B",
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:request_decode_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} decode"
+            },
+            {
+              "refId": "C",
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:inter_token_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} inter-token"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 28,
+          "type": "timeseries",
+          "title": "vLLM prefix cache token hit ratio",
+          "description": "조회된 prefix tokens 대비 cache-hit tokens 비율입니다. Request hit ratio가 아니며 external connector cache는 별도 series입니다. 조회가 0이거나 counter 미지원이면 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 59,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(rate(vllm:prefix_cache_hits_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])) / (rate(vllm:prefix_cache_queries_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) > 0)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} local"
+            },
+            {
+              "refId": "B",
+              "expr": "(rate(vllm:external_prefix_cache_hits_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])) / (rate(vllm:external_prefix_cache_queries_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) > 0)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} external_"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 29,
+          "type": "timeseries",
+          "title": "vLLM completed requests by finish reason",
+          "description": "Engine의 request_success_total을 finish reason별로 표시합니다. stop/length/abort 등 실제 label을 확인하며 HTTP error rate나 모든 실패를 대표하지 않습니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 67,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(vllm:request_success_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} {{finished_reason}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 30,
+          "type": "timeseries",
+          "title": "vLLM KV offload mean transfer time",
+          "description": "누적 transfer seconds / transfer-size histogram count의 평균 seconds/op입니다. Parallel transfer 시간을 포함할 수 있고 wall-time 비율·p95가 아닙니다. Flat metric 미지원·무전송은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 67,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(rate(vllm:kv_offload_store_time_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])) / (rate(vllm:kv_offload_store_size_count{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) > 0)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} store"
+            },
+            {
+              "refId": "B",
+              "expr": "(rate(vllm:kv_offload_load_time_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])) / (rate(vllm:kv_offload_load_size_count{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval]) > 0)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} load"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "vLLM KV offload allocation failures",
+          "description": "Offload store allocation 실패 시도/s입니다. File I/O error·network retry 전체와 다르며 해당 connector/version이 counter를 제공할 때만 표시합니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 75,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(vllm:kv_offload_allocation_failure_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} allocation failures"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 32,
+          "type": "timeseries",
+          "title": "vLLM KV offload lookup latency p95",
+          "description": "선택적 connector lookup sync/async histogram p95입니다. Async는 첫 defer 이후 resolve/finish까지의 지연입니다. Transfer·disk latency와 별도이며 version별 미지원은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 75,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:kv_offload_lookup_sync_delay_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} sync"
+            },
+            {
+              "refId": "B",
+              "expr": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, engine, le) (rate(vllm:kv_offload_lookup_async_delay_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])))",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}} async"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
             }
           }
         }
@@ -1472,6 +1755,241 @@
                 "lastNotNull",
                 "max"
               ]
+            }
+          }
+        },
+        {
+          "id": 33,
+          "type": "timeseries",
+          "title": "Ray retried task states",
+          "description": "IsRetry=1인 Ray task state gauge를 session/state별 합산합니다. 누적 retry counter가 아니므로 rate를 적용하지 않습니다. 전체 분산 상태는 Resource node=All에서 확인합니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 68,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\",IsRetry=\"1\"})",
+              "legendFormat": "{{cluster}}/{{SessionName}} {{State}} retry"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 34,
+          "type": "timeseries",
+          "title": "Ray placement group states",
+          "description": "Ray placement group의 상태별 gauge입니다. Pending은 resource bundle 배치를 기다릴 수 있으므로 logical resources와 비교합니다. Run별 queue로 귀속하지 않습니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 76,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (cluster, SessionName, State) (ray_placement_groups{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\"})",
+              "legendFormat": "{{cluster}}/{{SessionName}} {{State}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "type": "row",
+      "title": "Native endpoint collection health",
+      "description": "미등록 endpoint와 scrape 실패, 수집 비용을 확인합니다. Source completeness나 workload 정상 상태를 up만으로 판단하지 않습니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 40,
+          "type": "timeseries",
+          "title": "Native endpoint scrape health",
+          "description": "Endpoint별 1=Up, 0=Down입니다. N/A는 현재 선택 범위의 target 미등록/미관측입니다. Engine selector는 vLLM에만 적용되므로 이 row는 Node 전체 native source를 보여 줍니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 53,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "up{job=\"native\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{telemetry_source}} {{component}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "Native endpoint scrape duration",
+          "description": "Prometheus가 측정한 endpoint scrape seconds입니다. Scrape timeout과 비교해 collection overhead를 확인하며 application latency로 해석하지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 53,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "scrape_duration_seconds{job=\"native\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{telemetry_source}} {{component}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 42,
+          "type": "timeseries",
+          "title": "Native endpoint scraped samples",
+          "description": "Scrape 전/metric relabel 후 sample 수입니다. Cardinality/비용의 변화와 sample limit 초과 시 up=0을 함께 확인합니다. Run별 activity가 아닙니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 61,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "scrape_samples_scraped{job=\"native\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{telemetry_source}} scraped"
+            },
+            {
+              "refId": "B",
+              "expr": "scrape_samples_post_metric_relabeling{job=\"native\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{telemetry_source}} retained"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
             }
           }
         }

@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-03",
+  "data_origin": "observed",
+  "binary_source": "https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz",
+  "binary_version": "1.9.1",
+  "binary_revision": "f2ec547b49af53815038a50265aa2adcd1275959",
+  "binary_sha256": "207944f321e69b3c933988f80cb8530c45c9469537868d0e94228977b27c24a0",
+  "scope": "Current cloud Linux container-visible host/kernel resources; loopback HTTP export only. No physical GPU, RDMA device, workload, real storage backend, or induced pressure verified.",
+  "exposition_bytes": 49705,
+  "sample_count": 359,
+  "scrape_seconds": 0.004041,
+  "selected_family_series": {
+    "node_cpu_seconds_total": 0,
+    "node_memory_MemAvailable_bytes": 1,
+    "node_vmstat_pswpin": 1,
+    "node_vmstat_pgmajfault": 1,
+    "node_pressure_cpu_waiting_seconds_total": 0,
+    "node_pressure_memory_waiting_seconds_total": 0,
+    "node_pressure_memory_stalled_seconds_total": 0,
+    "node_pressure_io_waiting_seconds_total": 0,
+    "node_pressure_io_stalled_seconds_total": 0,
+    "node_disk_read_bytes_total": 0,
+    "node_disk_read_time_seconds_total": 0,
+    "node_disk_reads_completed_total": 0,
+    "node_disk_write_time_seconds_total": 0,
+    "node_disk_io_time_weighted_seconds_total": 0,
+    "node_disk_flush_requests_time_seconds_total": 0,
+    "node_disk_flush_requests_total": 0,
+    "node_filesystem_avail_bytes": 20,
+    "node_filesystem_files_free": 20,
+    "node_filesystem_device_error": 20,
+    "node_network_receive_bytes_total": 1,
+    "node_network_receive_errs_total": 1,
+    "node_network_transmit_drop_total": 1,
+    "node_netstat_Tcp_RetransSegs": 1,
+    "node_time_seconds": 1,
+    "node_timex_sync_status": 0,
+    "node_infiniband_port_data_received_bytes_total": 0,
+    "node_infiniband_port_transmit_wait_total": 0
+  },
+  "node_scrape_collector_success": {
+    "filesystem": 1.0,
+    "meminfo": 1.0,
+    "netdev": 1.0,
+    "netstat": 1.0,
+    "pressure": 0.0,
+    "time": 0.0,
+    "vmstat": 1.0
+  },
+  "failed_collectors": [
+    "pressure",
+    "time"
+  ],
+  "cleanup": "Exporter terminated after evidence collection; no persistent service or systemwide installation.",
+  "default_collector_startup": "blocked: official node_exporter1.9.1 default startup panics because /sys does not exist in this execution sandbox",
+  "collector_arguments": [
+    "--collector.disable-defaults",
+    "--collector.netdev",
+    "--no-collector.netdev.netlink",
+    "--collector.meminfo",
+    "--collector.vmstat",
+    "--collector.pressure",
+    "--collector.filesystem",
+    "--collector.netstat",
+    "--collector.time"
+  ],
+  "limitations": [
+    "No /sys, so CPU/diskstats/default collector startup cannot be validated without changing the observed source.",
+    "/proc/pressure missing: PSI no series, collector success=0, not zero pressure.",
+    "Time collector emits node_time_seconds but fails additional clock fields: inspect source error, do not infer synced clock.",
+    "Network observed interface is the container-visible loopback only, not a physical NIC or RDMA link.",
+    "Filesystem values are container-visible mounts; not validation of storage hardware or per-workload IO."
+  ],
+  "sample_name_count": 168,
+  "gather_errors": {
+    "count": 17,
+    "kind": "duplicate filesystem series from virtual/container mount namespace",
+    "collector_success_is_not_full_gather_success": true
+  }
+}

@@ -350,12 +350,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} RX"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} TX"
         }
       ],
@@ -391,12 +391,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}}/{{port}} RX"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}}/{{port}} TX"
         }
       ],
@@ -631,6 +631,963 @@
         "colorMode": "value"
       },
       "description": "선택한 node의 가장 오래된 GPU sample입니다. 30초부터 Stale입니다. CPU-only node 또는 sampler 미설정은 N/A이며 GPU idle과 다릅니다."
+    },
+    {
+      "id": 94,
+      "type": "row",
+      "title": "Host pressure and collection health",
+      "description": "CPU utilization 이외의 stalls·faults·OOM·queue와 collector completeness를 확인합니다. 접힌 row는 필요할 때만 펼칩니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 30,
+          "type": "timeseries",
+          "title": "Host CPU busy, I/O wait and steal",
+          "description": "Node 전체 CPU 비율입니다. Busy에는 I/O wait·steal이 포함되므로 세 값을 더하지 않습니다. I/O wait만으로 disk 병목을 확정하지 않습니다. Run별 수치가 아닙니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 60,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "1 - avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"idle\"}[$__rate_interval]))",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} busy"
+            },
+            {
+              "refId": "B",
+              "expr": "avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"iowait\"}[$__rate_interval]))",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} iowait"
+            },
+            {
+              "refId": "C",
+              "expr": "avg by (cluster, nodename, instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mode=\"steal\"}[$__rate_interval]))",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} steal"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 31,
+          "type": "timeseries",
+          "title": "Host pressure stalls (some)",
+          "description": "Linux PSI 누적 stalled seconds의 rate입니다. Some은 적어도 한 task가 자원을 기다린 wall-time 비율이며 CPU·memory·I/O를 합산하지 않습니다. PSI kernel/collector 미지원은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 60,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_pressure_cpu_waiting_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} cpu some"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_pressure_memory_waiting_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} memory some"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(node_pressure_io_waiting_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} io some"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 32,
+          "type": "timeseries",
+          "title": "Host pressure stalls (full)",
+          "description": "Linux PSI full은 모든 non-idle task가 memory 또는 I/O로 막힌 시간 비율입니다. Run별 stall이 아니며 kernel·pressure collector가 필요합니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 68,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_pressure_memory_stalled_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} memory full"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_pressure_io_stalled_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} io full"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 33,
+          "type": "timeseries",
+          "title": "Host major faults and OOM kills",
+          "description": "Node 전체 major page fault와 kernel OOM kill 발생률입니다. Major fault는 disk-backed page fault이며 모든 fault가 swap 때문은 아닙니다. vmstat가 제공하지 않으면 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 68,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_vmstat_pgmajfault{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} major faults"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_vmstat_oom_kill{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} OOM kills"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 34,
+          "type": "timeseries",
+          "title": "Runnable and blocked processes",
+          "description": "Node 전체 runnable·uninterruptible blocked process snapshot입니다. CPU core 수와 PSI를 함께 보며 load average나 특정 Run queue와 동일시하지 않습니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 76,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_procs_running{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} runnable"
+            },
+            {
+              "refId": "B",
+              "expr": "node_procs_blocked{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} blocked"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 35,
+          "type": "timeseries",
+          "title": "Node exporter collector health",
+          "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 76,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "node_scrape_collector_success{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",collector=~\"cpu|meminfo|vmstat|pressure|diskstats|filesystem|netdev|netstat|infiniband\"}",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{collector}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "type": "row",
+      "title": "Network and RDMA backpressure",
+      "description": "Throughput과 함께 errors·drops·retransmits·port wait를 봅니다. 공유 node/port signal이며 Run 귀속량은 아닙니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 40,
+          "type": "timeseries",
+          "title": "NIC errors and dropped packets",
+          "description": "NIC/interface 누적 packet error·drop 발생률입니다. Endpoint pair나 특정 weight sync·3FS traffic의 실패율은 아닙니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 61,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_network_receive_errs_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} receive errs"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_network_receive_drop_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} receive drop"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(node_network_transmit_errs_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} transmit errs"
+            },
+            {
+              "refId": "D",
+              "expr": "rate(node_network_transmit_drop_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} transmit drop"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "pps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "TCP retransmissions",
+          "description": "Node TCP retransmitted segments/s입니다. RDMA 재전송 지표가 아니며 retransmits만으로 원격 장애 원인을 확정하지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 61,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_netstat_Tcp_RetransSegs{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} retransmitted segments"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "pps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 42,
+          "type": "timeseries",
+          "title": "RDMA errors and discards",
+          "description": "InfiniBand/RoCE port의 packet errors·discard rate입니다. NIC·driver가 제공하는 counter만 표시합니다. Run 또는 NCCL collective별 오류량은 아닙니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 69,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_infiniband_port_errors_received_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} RX errors"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_infiniband_port_discards_received_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} RX discards"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(node_infiniband_port_discards_transmitted_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} TX discards"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "pps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 43,
+          "type": "timeseries",
+          "title": "RDMA transmit wait ticks",
+          "description": "송신할 data가 있지만 보내지 못한 hardware ticks/s입니다. Tick 시간은 장치별로 달라 seconds나 stall 비율로 변환하지 않습니다. Counter 미지원은 N/A입니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 69,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_infiniband_port_transmit_wait_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} wait ticks"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:ticks/s",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 44,
+          "type": "timeseries",
+          "title": "RDMA link recovery events",
+          "description": "Port link recovery와 link-down counter 발생률입니다. Receiver·switch·fabric 상태 및 NIC log와 함께 확인합니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 77,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_infiniband_link_downed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} link down"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_infiniband_link_error_recovery_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} link recovery"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 45,
+          "type": "timeseries",
+          "title": "RDMA physical link errors",
+          "description": "지원 InfiniBand/RoCE port의 symbol·local-link-integrity error 발생률입니다. Physical link 문제를 조사할 때 discards·link recovery와 비교합니다. ECN·QP retry counter는 bundled Node Exporter 1.9.1에서 제공하지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 77,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(node_infiniband_symbol_error_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} symbol errors"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(node_infiniband_local_link_integrity_errors_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}}/{{port}} link integrity errors"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 96,
+      "type": "row",
+      "title": "DCGM device health and profiling (optional)",
+      "description": "기존 DCGM endpoint를 native kind=dcgm으로 연결한 경우 펼칩니다. 새 collector를 시작하지 않습니다. GPU sampler를 끈 경우 이 row를 사용하고 두 source를 합산하지 않습니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 50,
+          "type": "timeseries",
+          "title": "DCGM GPU activity",
+          "description": "기존 DCGM exporter의 device utilization·tensor pipe·DRAM activity입니다. Tensor/DRAM은 profiling 지원 GPU와 field 설정이 필요합니다. Sentinel·범위 밖 값은 제외하며 sampler와 합산하지 않습니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 62,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(DCGM_FI_DEV_GPU_UTIL{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 <= 100) / 100",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} utilization"
+            },
+            {
+              "refId": "B",
+              "expr": "(DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 <= 1)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} tensor"
+            },
+            {
+              "refId": "C",
+              "expr": "(DCGM_FI_PROF_DRAM_ACTIVE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 <= 1)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} DRAM"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 51,
+          "type": "timeseries",
+          "title": "DCGM PCIe throughput",
+          "description": "DCGM profiling PCIe RX/TX는 이미 bytes/s인 gauge입니다. rate를 다시 적용하지 않습니다. GPU/PCIe traffic이며 KV offload·weight transfer 소유량은 별도 근거가 필요합니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 62,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(DCGM_FI_PROF_PCIE_RX_BYTES{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e18)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} RX"
+            },
+            {
+              "refId": "B",
+              "expr": "(DCGM_FI_PROF_PCIE_TX_BYTES{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e18)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} TX"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 52,
+          "type": "timeseries",
+          "title": "DCGM last XID error",
+          "description": "마지막으로 보고한 XID error code gauge입니다. 0은 보고된 no-error 값, N/A는 미수집/미지원입니다. 발생 횟수·error rate가 아니며 새 오류 시점은 GPU log에서 확인합니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 70,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(DCGM_FI_DEV_XID_ERRORS{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e9)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} XID"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 53,
+          "type": "timeseries",
+          "title": "DCGM PCIe retries",
+          "description": "PCIe replay counter 증가율입니다. 유효하지 않은 sentinel가 rate window에 포함되면 제외합니다. GPU/NVLink/NCCL 오류 전체를 대표하지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 70,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) and (max_over_time(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) < 1e18)",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} PCIe retries"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 54,
+          "type": "timeseries",
+          "title": "DCGM framebuffer memory",
+          "description": "Device framebuffer used/free MiB를 bytes로 변환합니다. CUDA process memory와 같지 않으며 GPU sampler device total과 중복 합산하지 않습니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 78,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(DCGM_FI_DEV_FB_USED{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e18) * 1024 * 1024",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} used"
+            },
+            {
+              "refId": "B",
+              "expr": "(DCGM_FI_DEV_FB_FREE{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e18) * 1024 * 1024",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} free"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 55,
+          "type": "timeseries",
+          "title": "DCGM power and thermal throttling",
+          "description": "선택적 DCGM violation field가 제공하는 누적 nanoseconds를 초당 비율로 변환합니다. Exporter field를 별도 활성화해야 할 수 있으며 원인별 값을 합산하지 않습니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 78,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(rate(DCGM_FI_DEV_POWER_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) and (max_over_time(DCGM_FI_DEV_POWER_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) < 1e18)) / 1e9",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} power"
+            },
+            {
+              "refId": "B",
+              "expr": "(rate(DCGM_FI_DEV_THERMAL_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) and (max_over_time(DCGM_FI_DEV_THERMAL_VIOLATION{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"}[$__rate_interval]) < 1e18)) / 1e9",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} thermal"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        },
+        {
+          "id": 56,
+          "type": "timeseries",
+          "title": "DCGM endpoint scrape health",
+          "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 86,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "up{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\"}",
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} {{component}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -649,8 +1606,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"telemetry\"}, cluster)",
-        "query": "label_values(up{job=\"telemetry\"}, cluster)",
+        "definition": "label_values(up, cluster)",
+        "query": "label_values(up, cluster)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -671,8 +1628,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "definition": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
+        "query": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -683,7 +1640,8 @@
           ]
         },
         "refresh": 2,
-        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다.",
+        "regex": "/node=\"([^\"]+)\"/"
       },
       {
         "name": "run_id",
@@ -776,8 +1734,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}, gpu)",
-        "query": "label_values(telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}, gpu)",
+        "definition": "query_result(count by (gpu) (telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} or DCGM_FI_DEV_GPU_UTIL{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\"}))",
+        "query": "query_result(count by (gpu) (telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} or DCGM_FI_DEV_GPU_UTIL{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\"}))",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -788,7 +1746,8 @@
           ]
         },
         "refresh": 2,
-        "description": "GPU index를 선택합니다. UUID·PID와 다른 식별자이며 GPU signal의 device 범위를 좁힙니다."
+        "description": "GPU index를 선택합니다. UUID·PID와 다른 식별자이며 GPU signal의 device 범위를 좁힙니다.",
+        "regex": "/gpu=\"([^\"]+)\"/"
       },
       {
         "name": "log_run_id",

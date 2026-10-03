@@ -144,6 +144,14 @@ VERL은 자신의 Prometheus 설정 파일 전체를 다시 쓰므로 `actor_rol
 }
 ```
 
+DCGM Exporter가 이미 있으면 `kind="dcgm"`과 정확한 `node` label로 해당 endpoint를 한 번 등록합니다.
+해당 GPU node의 `ENABLE_GPU_METRICS=0`을 설정하면 nvidia-smi device collector를 중복 실행하지 않습니다.
+Compute/Communication의 DCGM row는 실제 노출되는 GPU/tensor/DRAM activity, framebuffer,
+PCIe throughput/replay, XID와 power/thermal throttling 신호만 표시합니다. Field 지원은 DCGM 설정·GPU에 따라 다르고
+XID는 마지막 error code gauge이며 발생 횟수 counter가 아닙니다.
+DCGM 설치·field 활성화와 exporter 접근 권한은 기존 배포에서 준비해야 합니다.
+예제의 3FS endpoint도 기존 exporter를 등록하는 자리이며 XLayer가 3FS exporter를 만들거나 시작하지 않습니다.
+
 Source 파일 경로는 `$HOME/telemetry/config/native-sources.json`을 사용합니다.
 Node collector도 실행되어 있어야 합니다.
 `verl-local.conf`에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 지정한 뒤 `down` → `up`으로 재시작합니다.

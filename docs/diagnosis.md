@@ -101,6 +101,108 @@ Primary integration: VERL                 XLayer core
 새 adapter는 원래의 step/iteration와 phase 이름을 보존하면서 이 공통 모델에 대응시키며, 모든 framework의 integration을 제공한다는 뜻은 아닙니다.
 `EventRecorder`의 기존 `trace_id`·`span_id`를 재사용하며 OpenTelemetry Collector는 필수 요소가 아닙니다.
 
+## Optional Exporter Metric Profiles
+
+기본 진단의 12개 query는 유지합니다. 추가 evidence는 기존 exporter를 재사용하는
+`prometheus.metric_profiles`에서 필요한 profile만 선택합니다. 별도 collector나
+기본 scrape 주기를 추가하지 않습니다. `examples/verl/diagnostics.json`은
+`["host", "disk", "vllm"]`을 선택한 예입니다.
+
+```json
+{
+  "prometheus": {
+    "url": "http://monitor.internal:19090",
+    "metric_profiles": ["host", "disk", "vllm"]
+  }
+}
+```
+
+위 코드는 기존 diagnostics config의 `prometheus` 설정에 합칠 부분입니다.
+전체 config의 `schema_version` 및 기존 source/clock 설정은 유지합니다.
+
+| Profile | 추가 query 수 | 관측 항목 |
+| --- | ---: | --- |
+| `host` | 6 | CPU busy, CPU/memory/I/O PSI stall fraction, major faults/s, runnable processes |
+| `disk` | 7 | read/write/flush mean latency, average queue depth, read/write IOPS, write bytes/s |
+| `filesystem` | 4 | available bytes/inodes ratio, read-only, device error |
+| `network` | 7 | RX/TX bytes/s, RX/TX error/drop rates, TCP retransmits/s |
+| `rdma` | 3 | receive errors, transmit discards, transmit-wait ticks/s |
+| `vllm` | 6 | per-entity TTFT/TPOT/queue/E2E p95, prompt/generated tokens/s |
+| `kv_offload` | 5 | load/store bytes/s, allocation failures/s, sync/async lookup p95 |
+| `ray` | 5 | spilled bytes, disk-backed mmap bytes, pending spill/restore bytes, worker eviction rate |
+| `dcgm` | 7 | GPU utilization, tensor/DRAM activity, PCIe RX/TX bytes/s, PCIe replays/s, last XID code |
+
+`host`/`disk`/`filesystem`/`network`/`rdma`는 Node Exporter의 `instance={node}`를
+조회합니다. Native profile은 `job="native"`, 등록된 `telemetry_source`와
+`node={rollout_node}`(vLLM/Ray), `node={compute_node}`(DCGM)를 요구합니다.
+노드·cluster labels를 실제 discovery와 맞춥니다. Storage service node의 독립적인
+장치/네트워크 관측에는 기존 `storage_node`/`storage_device` 및 명시적
+`prometheus.queries` override를 사용합니다. 이 profile들이 trainer node를 모든
+3FS/pNFS storage node로 간주하지는 않습니다.
+
+- `prometheus.queries`의 동일 signal override가 profile보다 우선합니다.
+- Unknown/중복 profile은 오류로 거절합니다. 전체 profile도 고정 50개 추가 query입니다.
+  예제의 3개 profile은 총 31개이며 baseline이 있으면 최대 62개 metric request가
+  필요합니다. Clock/freshness query는 별도입니다. 전체 profile을 무조건 켜지 말고
+  `query_execution`/`missing_sources`를 확인합니다. 기존 30초 query budget과
+  60초 worker deadline을 늘리지 않습니다.
+- `comparison.signals`에 단위, 실행 query, window statistic 및 선택한 entity labels를
+  보존합니다. 현재 window에서 선택한 entity와 **동일한 labels**의 baseline만
+  비교합니다. 장치/endpoint 교체나 label 불일치는 baseline을 누락으로 기록합니다.
+  서로 다른 signal의 최대값이 같은 entity라는 의미는 아닙니다.
+- Rate는 reset-aware `rate(...[1m])`입니다. 짧은 step에서는 앞선 구간이 포함될 수
+  있으며 per-step byte total이 아닙니다. Idle/zero denominator의 latency/capacity
+  ratio는 0으로 꾸미지 않고 제외합니다. Device busy fraction은 NVMe의 실제 포화나
+  NAND writes/WAF를 증명하지 않습니다.
+- vLLM p95는 각 endpoint/model/engine의 histogram으로 계산한 추정치입니다.
+  TPOT는 `request_time_per_output_token_seconds`이며 inter-output latency와 다릅니다.
+  KV offload byte query는 새 `kv_offload_{load,store}_bytes_total`을 우선하고
+  legacy `kv_offload_total_bytes_total{transfer_type=...}`를 fallback으로 사용해
+  둘 다 노출될 때 중복 합산하지 않습니다. Lookup/allocation metrics는 최신 connector
+  구현에만 있을 수 있습니다. Connector가 어떤 offload medium을 쓰는지는 배포 설정으로
+  확인해야 하며 byte metric만으로 NVMe/3FS 사용을 판단하지 않습니다.
+- Ray `SPILLED`/`MMAP_DISK`는 현재 gauge 값으로 throughput이 아닙니다.
+  Pending spill/restore는 raylet 구현의 version-dependent gauge입니다.
+  Ray의 lifetime active-transfer throughput을 step-window throughput으로 사용하지 않습니다.
+- DCGM 미지원 sentinel/range 밖 값은 query에서 제외합니다. PCIe profiling metric은
+  이미 bytes/s인 gauge이고 XID는 마지막 error code라 `rate()`하지 않습니다.
+  XID 발생 시점은 GPU log로 확인해야 합니다. DCGM은 기존 NVML series와 device identity를
+  임의로 합치거나 대체하지 않고 독립적인 evidence로 남습니다.
+- PSI와 step/actor update/critic update/checkpoint slowdown이 겹치거나 rollout slowdown과
+  queue p95 증가가 겹치면 최대 `supporting_signal` 후보를 만듭니다. Resource window는
+  전체 step이므로 특정 stage의 정확한 I/O attribution을 주장하지 않습니다.
+  높은 busy percentage만으로 새로운 stall 후보를 만들지 않습니다.
+
+### Source contracts and remaining gaps
+
+Node Exporter는 bundled **v1.9.1**의
+[PSI](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/pressure_linux.go),
+[diskstats](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/diskstats_linux.go),
+[InfiniBand](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/infiniband_linux.go)
+계약을 확인했습니다. Newer mlx5 hardware ACK/ECN/retry counters, NVMe SMART physical
+writes/endurance, filesystem operation latency/errors, per-process/cgroup ownership,
+NCCL per-collective stall 시간은 이 profile에 없습니다. 필요하면 별도 검증된 exporter,
+profiler 또는 application spans를 연결합니다. SMART 값은 shared-device context이며
+정확한 run별 WAF나 physical writes로 환산하지 않습니다.
+
+vLLM은 commit `5f30fc7031cae49bf51073fc953d419b08f8887c`의
+[request metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/v1/metrics/loggers.py)와
+[offload metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/distributed/kv_transfer/kv_connector/v1/offloading/metrics.py),
+DCGM은 commit `fafd151148052628061a80450b4ee037a5fa0c3c`의
+[default counters](https://github.com/NVIDIA/dcgm-exporter/blob/fafd151148052628061a80450b4ee037a5fa0c3c/etc/default-counters.csv)를
+기준으로 합니다. 설치 버전의 실제 `/metrics`에서 이름·labels·지원 여부를 확인합니다.
+Ray의 documented object-store/eviction 계약은
+[Ray 2.58 system metrics](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html)를
+확인했습니다. Pending spill/restore는 Ray commit `43b706d733c590cf497cc322c57b9fd610bf214f`의
+[metric definitions](https://github.com/ray-project/ray/blob/43b706d733c590cf497cc322c57b9fd610bf214f/src/ray/raylet/metrics.h)와
+[emission semantics](https://github.com/ray-project/ray/blob/43b706d733c590cf497cc322c57b9fd610bf214f/src/ray/raylet/local_object_manager.cc)를
+확인했습니다. Source semantics/CPU fixture 검증이며 실제 GPU, RDMA, Ray, vLLM 및
+3FS workload에서의 수집 또는 학습 성능 검증을 뜻하지 않습니다.
+
+3FS distributions 조회도 byte cap 8 MiB 외에 최대 1,000 metric을 허용합니다.
+`LIMIT 1001`로 초과를 확인해 누락으로 보고하며 부분 결과를 정상으로 내보내지 않습니다.
+3FS의 raw counter table은 producer별 reset/gauge 의미를 모르므로 자동 rate를 만들지 않습니다.
+
 ## Backend Query Budget
 
 `query_budget_seconds`는 한 번의 rule analysis가 backend 요청에 사용할 budget이며 기본 30초입니다.
