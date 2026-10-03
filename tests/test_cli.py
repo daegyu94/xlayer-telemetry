@@ -110,7 +110,7 @@ def test_status_checks_identity_health_and_freshness(tmp_path, monkeypatch):
     (run / "telemetry-metrics/verl-trainer-driver.json").write_text(json.dumps({"step": 124, "observed_at": time.time()-3600}))
     from xlayer_telemetry.operations import health
     monkeypatch.setattr(health, "probe", lambda url, **kw: {"health": "healthy", "data":
-        {"database": "ok", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up"}]}}})
+        {"database": "ok", "status": "success", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up"}]}}})
     result = status(config)
     assert result["investigation_url"] == "http://127.0.0.1:13000/d/xlayer-start-here?var-cluster=training-cluster&var-node=gpu-local"
     assert result["status"] == "healthy"

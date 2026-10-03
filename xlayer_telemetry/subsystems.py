@@ -9,7 +9,6 @@ import time
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from .analysis.diagnostics import ThreeFSClient, load_config
 from .prometheus import escape_label
 from .source_discovery import build_file_discovery
 
@@ -23,22 +22,45 @@ def explore_url(base: str, selector: str) -> str:
         'schemaVersion': 1, 'panes': json.dumps(pane, separators=(',', ':'))})
 
 
+def parse_target_response(payload: dict) -> list[dict]:
+    """Reject unavailable/malformed discovery instead of reporting missing targets."""
+    if not isinstance(payload, dict) or payload.get("status") != "success":
+        raise ValueError("unsuccessful target response")
+    data = payload.get("data")
+    targets = data.get("activeTargets") if isinstance(data, dict) else None
+    if not isinstance(targets, list) or any(
+        not isinstance(t, dict) or not isinstance(t.get("labels"), dict)
+        or any(not isinstance(k, str) or not isinstance(v, str) for k, v in t["labels"].items())
+        for t in targets
+    ):
+        raise ValueError("invalid activeTargets")
+    return targets
+
+
 def inspect_sources(groups: list[dict], prometheus: str, grafana: str, cluster: str,
                     *, timeout: float = 5) -> dict:
-    """Use actual target discovery, not configured addresses as proof of collection."""
-    targets = []
-    error = None
+    """Fetch once; the same pure summary is used by aggregate CLI health."""
+    targets, error = [], None
     try:
         with urlopen(prometheus.rstrip('/') + '/api/v1/targets?state=active', timeout=timeout) as response:
-            payload = json.loads(response.read(4 * 1024 * 1024 + 1))
-        if not isinstance(payload, dict) or payload.get('status') != 'success':
-            raise ValueError('unsuccessful target response')
-        targets = payload['data']['activeTargets']
-        if not isinstance(targets, list) or any(not isinstance(t, dict) for t in targets):
-            raise ValueError('invalid activeTargets')
+            body = response.read(4 * 1024 * 1024 + 1)
+        if len(body) > 4 * 1024 * 1024:
+            raise ValueError("target response exceeds limit")
+        targets = parse_target_response(json.loads(body))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         # Backend error strings may contain URLs or credentials.
         error = type(exc).__name__
+    return summarize_sources(groups, targets, grafana, cluster, backend_error=error)
+
+
+def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
+                      cluster: str, *, backend_error: str | None = None) -> dict:
+    """Match stable source identities against one discovery snapshot, without I/O."""
+    keys = ("job", "cluster", "telemetry_source", "component", "instance")
+    index = {}
+    for target in targets:
+        labels = target.get("labels", {})
+        index.setdefault(tuple(labels.get(key) for key in keys), []).append(target)
     rows = []
     for group in groups:
         labels = group['labels']
@@ -46,21 +68,21 @@ def inspect_sources(groups: list[dict], prometheus: str, grafana: str, cluster: 
         identity = {'job': labels.get('job', 'native'), 'cluster': cluster,
                     'telemetry_source': labels['telemetry_source'],
                     'component': labels['component'], 'instance': labels.get('instance', group['targets'][0])}
-        matches = [t for t in targets if isinstance(t.get('labels'), dict)
-                   and all(t['labels'].get(k) == v for k, v in identity.items())]
-        status = ('unavailable' if error else 'not_discovered' if not matches else
+        matches = index.get(tuple(identity[key] for key in keys), [])
+        status = ('unavailable' if backend_error else 'not_discovered' if not matches else
                   'up' if all(t.get('health') == 'up' for t in matches) else
                   'down' if any(t.get('health') == 'down' for t in matches) else 'unknown')
         selector = '{' + ','.join(f'{k}="{escape_label(v)}"' for k, v in identity.items()) + '}'
         rows.append({**identity, 'status': status, 'scope': 'endpoint/shared-service',
                      'last_scrape': [t.get('lastScrape') for t in matches],
                      'metrics_url': explore_url(grafana, selector)})
-    return {'backend_error': error, 'sources': rows}
+    return {'backend_error': backend_error, 'sources': rows}
 
 
 def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = None) -> dict:
     if not math.isfinite(seconds) or not 0 < seconds <= 86400:
         raise ValueError('window must be between 0 and 86400 seconds')
+    from .analysis.diagnostics import ThreeFSClient
     settings = config.get('threefs')
     if not settings:
         return {'status': 'not_configured'}
@@ -91,6 +113,7 @@ def main() -> None:
         if args.threefs:
             if not args.diagnostics_config:
                 parser.error('--threefs requires --diagnostics-config')
+            from .analysis.diagnostics import load_config
             result = inspect_threefs(load_config(args.diagnostics_config), seconds=args.window_seconds)
         else:
             groups = build_file_discovery(json.loads(args.sources.read_text())) if args.sources else []

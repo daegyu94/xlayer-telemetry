@@ -15,8 +15,9 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from .config import assets_root
+from .run_artifacts import read_run_state
 from ..source_discovery import build_file_discovery
-from ..subsystems import inspect_sources
+from ..subsystems import inspect_sources, parse_target_response, summarize_sources
 
 
 def dashboard_url(config: dict[str, str], uid: str, **variables: str) -> str:
@@ -56,11 +57,19 @@ def probe(url: str, *, json_body: bool = False) -> dict:
         return {"health": "unreachable", "data": None}
 
 
-def sources(config: dict[str, str]) -> dict:
+def sources(config: dict[str, str], *, targets: list[dict] | None = None,
+            backend_error: str | None = None) -> dict:
     path = config.get("TELEMETRY_SOURCES_FILE")
     if not path:
         return {"status": "not_configured", "sources": []}
-    groups = build_file_discovery(json.loads(Path(path).read_text()))
+    try:
+        groups = build_file_discovery(json.loads(Path(path).read_text()))
+    except (OSError, ValueError, TypeError) as exc:
+        return {"status": "invalid_config", "config_error": type(exc).__name__, "sources": [],
+                "next_action": "Check TELEMETRY_SOURCES_FILE with xltel config validate."}
+    if targets is not None:
+        return summarize_sources(groups, targets, config["GRAFANA_URL"], config["CLUSTER_NAME"],
+                                 backend_error=backend_error)
     return inspect_sources(groups, config["PROMETHEUS_URL"], config["GRAFANA_URL"],
                            config["CLUSTER_NAME"], timeout=2)
 
@@ -107,11 +116,12 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
     for service_role in ("server", "node"):
         services[service_role]["ownership"] = "managed_launcher"
     target_result = probe(config["PROMETHEUS_URL"] + "/api/v1/targets?state=active", json_body=True)
-    target_data = (target_result.get("data") or {}).get("data", {})
-    targets = target_data.get("activeTargets", []) if isinstance(target_data, dict) else []
-    if not isinstance(targets, list):
+    target_error = None
+    try:
+        targets = parse_target_response(target_result.get("data"))
+    except ValueError:
         targets = []
-    targets = [t for t in targets if isinstance(t, dict) and isinstance(t.get("labels"), dict)]
+        target_error = "unreachable" if target_result["health"] != "healthy" else "invalid_response"
     matching = [target for target in targets if target.get("labels", {}).get("job") == "telemetry"
                 and target["labels"].get("cluster") == config["CLUSTER_NAME"]
                 and target["labels"].get("nodename") == config["NODE_NAME"]]
@@ -139,48 +149,40 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
            "unavailable" if gpu_age is None else "clock_skew" if gpu_age < -5 else
            "fresh" if gpu_age <= 30 else "stale", "age_seconds": gpu_age}
     run = latest_run(config)
-    manifest = read_json(run / "telemetry-manifest.json") if run else {}
-    health = read_json(run / "telemetry-health.json") if run else {}
-    snapshots = list((run / "telemetry-metrics").glob("verl-trainer-driver*.json")) if run else []
-    latest = max(snapshots, key=lambda p: p.stat().st_mtime) if snapshots else None
-    sample = read_json(latest) if latest else {}
-    # Producer time, not file mtime, determines metric freshness.
-    timestamp = sample.get("observed_at", sample.get("timestamp", sample.get("timestamp_unix_seconds")))
-    if timestamp is None:
-        timestamp = sample.get("timestamp_unix_nano")
-        if isinstance(timestamp, (float, int)):
-            timestamp /= 1e9
-    age = now - timestamp if type(timestamp) in {float, int} and math.isfinite(timestamp) else None
-    metrics = {"gpu": gpu, "verl": {"health": "not_configured" if run is None else
-               "unavailable" if age is None else "clock_skew" if age < -5 else
-               "fresh" if age <= float(config["TELEMETRY_METRICS_MAX_AGE_SECONDS"]) else "stale",
-               "age_seconds": age}}
-    native = sources(config)
+    saved_run = read_run_state(run, now=now,
+        max_age_seconds=float(config["TELEMETRY_METRICS_MAX_AGE_SECONDS"])) if run else None
+    snapshot = saved_run["snapshot"] if saved_run else {
+        "scope": "stored_artifact", "health": "not_configured", "age_seconds": None}
+    metrics = {"gpu": gpu, "verl": snapshot}
+    native = sources(config, targets=targets, backend_error=target_error)
     selected = ("server", "node") if role == "all" else (role,)
     owned = all(services[selected_role]["process"] == "running" for selected_role in selected)
     endpoints_ok = all(services[name]["health"] in {"healthy", "disabled"}
                        for name in ("prometheus", "grafana", "loki", "node"))
     if role == "all":
         endpoints_ok = endpoints_ok and collectors_ok
-    native_ok = not native.get("backend_error") and all(row["status"] == "up" for row in native["sources"])
+    native_ok = not (native.get("backend_error") or native.get("config_error")) and all(row["status"] == "up" for row in native["sources"])
     if role == "server":
         endpoints_ok = services["server"]["health"] == "healthy" and collectors_ok
         gpu = {"health": "not_applicable", "age_seconds": None}
         metrics["gpu"] = gpu
+    if role == "node":
+        # A collector depends on scrape/log delivery, not a remote UI or engines.
+        endpoints_ok = services["node"]["health"] == "healthy" and services["loki"]["health"] in {"healthy", "disabled"}
+        native_ok = True
     healthy = owned and endpoints_ok and native_ok and gpu["health"] in {"fresh", "disabled"}
     if role == "server":
         healthy = owned and endpoints_ok and native_ok
     reachable = any(services[name]["health"] == "healthy" for name in ("prometheus", "grafana", "node"))
     return {"status": "healthy" if healthy else "degraded" if owned or reachable else "stopped", "managed_role": role,
             "services": services, "metrics": metrics, "native_sources": native,
-            "latest_run": {"path": str(run), "run_id": manifest.get("run_id"),
-                           "execution_mode": manifest.get("configuration", {}).get("execution_mode"),
-                           "step": sample.get("step"), "telemetry": health.get("status")} if run else None,
+            "latest_run": saved_run,
             "grafana_url": config["GRAFANA_URL"],
             "investigation_url": dashboard_url(config, "xlayer-start-here", cluster=config["CLUSTER_NAME"], node=config["NODE_NAME"]),
+            "target_discovery": {"status": "unavailable" if target_error else "observed", "error": target_error},
             "collector_targets": [{"node": node, "health": "up" if node in target_nodes and
                                     all(t.get("health") == "up" for t in cluster_targets if t["labels"].get("nodename") == node)
-                                    else "down" if node in target_nodes else "not_discovered"} for node in sorted(expected)],
+                                    else "down" if node in target_nodes else "unavailable" if target_error else "not_discovered"} for node in sorted(expected)],
             "optional_sources": {"threefs": "configured_not_probed" if config.get("DIAGNOSTICS_CONFIG") and
                                  read_json(Path(config["DIAGNOSTICS_CONFIG"])).get("threefs") else "not_configured"},
             "note": "Endpoint health is not process ownership. Stale completed-run data is not a workload failure."}

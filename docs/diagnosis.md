@@ -79,6 +79,8 @@ Trainer duration은 application/run 범위이고 GPU utilization은 device 범�
 GPU·host·disk 지표를 특정 run의 병목 근거로 해석하는 실험은 해당 run이 자원을 단독 사용하거나 다른 workload의 부하를 통제한 환경에서 가장 신뢰할 수 있습니다.
 같은 시간에 관측됐다는 이유만으로 3FS 전체 latency나 NIC traffic을 특정 run에 귀속하지 않습니다.
 Candidate의 각 evidence는 `source`, `observation_scope`, `window`, `boundary_accuracy`, current/baseline 값을 보존합니다.
+Prometheus evidence의 `query`는 context 변수를 치환한 실제 실행식이며 canonical signal 이름에 연결됩니다.
+Tool event를 대신 사용하는 evidence는 trace/span과 span 경계를 보존하고 Prometheus sampling 품질을 이어받지 않습니다.
 
 Baseline은 같은 run·node·worker·boundary scope의 이전 유효 구간에서 고릅니다(세부 조건은 아래).
 Phase alias는 canonical을 우선해 중복 사용하지 않고, vLLM은 같은 engine의 signal끼리 비교합니다.

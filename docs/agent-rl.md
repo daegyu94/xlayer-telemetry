@@ -548,10 +548,10 @@ Colocated에서 `node`를 생략하면 rollout/trainer record의 node를 사용�
 ```
 
 `events_dir`는 진단 process가 읽을 수 있는 선택적 경로입니다.
-Producer는 `agent`로 시작해야 이 fallback의 파일 검색에 포함됩니다.
-`agent*.jsonl`의 정상 종료 `tool.call` 중 해당 run·구간에 완전히 포함된 최대 duration을 사용하며 baseline은 같은 tool끼리 비교합니다.
+Producer 이름과 무관하게 EventRecorder JSONL의 정상 종료 `tool.call` 중 해당 run·구간에 완전히 포함된 최대 duration을 사용하며 baseline은 같은 tool끼리 비교합니다.
 Span이 없으면 `agent_tool_call_duration_seconds`를 사용하고 첫 step은 이전 baseline이 없어 slowdown을 판단하지 않습니다.
-Event scan은 매 분석마다 파일을 읽으므로 장시간·대규모 run은 Prometheus duration을 우선합니다.
+Event 조회는 설정된 incremental cache를 재사용하며, cache를 끄거나 한도를 넘으면 scan하므로 장시간 run의 비용을 확인합니다.
+Event fallback의 evidence는 span boundary와 trace/span을 보존하며 Prometheus query·sampling metadata를 사용하지 않습니다.
 Exact span도 approximate step 귀속은 correlation이며, cgroup PSI와 지정 local device busy는 별도 scope입니다.
 개별 sandbox·trajectory 문맥은 trace/span attribute에서 확인합니다.
 

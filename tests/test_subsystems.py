@@ -87,6 +87,17 @@ def test_bad_backend_is_not_reported_as_missing_target(backend):
     assert result['sources'][0]['status'] == 'unavailable'
 
 
+@pytest.mark.parametrize("labels", [None, [], "broken", {"component": {"invalid": "value"}}])
+def test_malformed_target_identity_is_unavailable(backend, labels):
+    url, state, _ = backend
+    state['payload']['data']['activeTargets'] = [{"labels": labels, "health": "up"}]
+    groups = build_file_discovery({'schema_version': 1, 'sources': [
+        {'name': 'engine', 'kind': 'vllm', 'target': 'node:8000'}]})
+    result = inspect_sources(groups, url, 'http://grafana', 'a')
+    assert result['backend_error'] == 'ValueError'
+    assert result['sources'][0]['status'] == 'unavailable'
+
+
 def test_threefs_standalone_window_reuses_filters_and_settle(backend):
     url, _, requests = backend
     result = inspect_threefs({'threefs': {'url': url, 'filters': {'mount_name': 'training'},
@@ -150,3 +161,41 @@ def test_threefs_cli_and_backend_failure_do_not_require_training(tmp_path, backe
                             cwd=ROOT, capture_output=True, text=True, timeout=10)
     assert result.returncode == 1
     assert json.loads(result.stdout)['sources'][0]['status'] == 'unavailable'
+
+
+def test_aggregate_health_reuses_one_target_snapshot_and_isolates_config_error(tmp_path, backend):
+    from xlayer_telemetry.operations.config import load_config
+    from xlayer_telemetry.operations.health import status
+    url, state, requests = backend
+    sources = tmp_path / "sources.json"
+    sources.write_text(json.dumps({"schema_version": 1, "sources": [
+        {"name": "engine", "kind": "vllm", "target": "node:8000"}]}))
+    path = tmp_path / "config.toml"
+    path.write_text('[telemetry]\n' + '\n'.join(
+        f'{key}={json.dumps(str(value))}' for key, value in {
+            "TELEMETRY_HOME": tmp_path, "ENABLE_GPU_METRICS": "0",
+            "PROMETHEUS_URL": url, "GRAFANA_URL": url, "TELEMETRY_SOURCES_FILE": sources}.items()))
+    config, _ = load_config(path)
+    state['payload']['data']['activeTargets'] = [{"labels": {
+        "job": "native", "cluster": "training-cluster", "telemetry_source": "vllm",
+        "component": "engine", "instance": "node:8000"}, "health": "up"}]
+    result = status(config)
+    assert result["native_sources"]["sources"][0]["status"] == "up"
+    assert requests.count('/api/v1/targets?state=active') == 1
+    sources.write_text('{broken with private information')
+    result = status(config)
+    assert result["native_sources"]["status"] == "invalid_config"
+    assert result["services"]["prometheus"]["health"] == "healthy"
+    assert "private information" not in json.dumps(result)
+    state['payload'] = {"status": "error"}
+    result = status(config)
+    assert result["target_discovery"]["error"] == "invalid_response"
+    assert result["collector_targets"][0]["health"] == "unavailable"
+
+
+def test_native_health_does_not_import_diagnosis_engine():
+    result = subprocess.run([sys.executable, '-c',
+        'import sys; import xlayer_telemetry.operations.health; '
+        'assert "xlayer_telemetry.analysis.diagnostics" not in sys.modules'],
+        capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr

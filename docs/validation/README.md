@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Greenfield architecture review](greenfield-review-20261003.json) | Fresh CLI·Grafana 실행, health/artifact 경계·event/query provenance 개선, 621개 test·source 조회 benchmark·cleanup |
 | [Product user journey](product-user-journey-20261003.json) | Fresh clone·4회 loop, CLI run 문맥 보존·오류 안내, 실제 Grafana 9화면의 900/1440px 탐색·138 query·602개 test와 cleanup |
 | [Synthetic coverage](dashboards/synthetic-coverage-20261003.json) | 10개 dashboard·138개 query의 실제 Prometheus/Loki 결과, 접힌 row 포함 117개 panel rendering, native/sandbox fixture·wheel 실행·599개 test |
 | [Fresh User Experience](e2e-user-experience.md) | Fresh clone·CLI·Grafana 실제 클릭, 4회 개선 loop·591개 test·900/1440px 전체 panel 점검과 cleanup |

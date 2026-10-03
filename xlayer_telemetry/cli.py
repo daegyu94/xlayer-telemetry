@@ -11,10 +11,12 @@ import re
 import signal
 import subprocess
 import sys
+import time
 import uuid
 
 from .operations.config import KEYS, ConfigError, assets_root, config_path, initialize, load_config, migrate, snapshot, validate
-from .operations.health import dashboard_url, doctor, latest_run, read_json, sources, status
+from .operations.run_artifacts import read_run_state
+from .operations.health import dashboard_url, doctor, latest_run, sources, status
 
 
 def parser() -> argparse.ArgumentParser:
@@ -92,7 +94,10 @@ def _print_health(result: dict) -> None:
         label = "managed " + name if name in {"server", "node"} else name
         print(f"{label:<22} {data.get('process', data.get('ownership', '-')):<24} {data.get('health', '-')}")
     for name, data in result["metrics"].items():
-        print(f"{name + ' metrics':<22} {'sample':<24} {data['health']}")
+        label = "VERL saved snapshot" if name == "verl" else name + " metrics"
+        print(f"{label:<22} {data.get('scope', 'sample'):<24} {data['health']}")
+    if result["native_sources"].get("config_error"):
+        print("Native sources: invalid_config; " + result["native_sources"]["next_action"])
     for data in result["native_sources"]["sources"]:
         print(f"{data['telemetry_source']:<22} {'configured source':<24} {data['status']}")
     for name, value in result.get("optional_sources", {}).items():
@@ -101,7 +106,8 @@ def _print_health(result: dict) -> None:
         print(f"{target['node']:<22} {'collector target':<24} {target['health']}")
     if result["latest_run"]:
         run = result["latest_run"]
-        print(f"\nLatest run: {run['run_id']}  mode={run['execution_mode']}  step={run['step']}")
+        print(f"\nLatest saved run: {run['run_id']}  mode={run['execution_mode']}  step={run['step']}")
+        print(f"Recorded workload: {run['workload']['status']}  exit={run['workload']['exit_code']}  telemetry={run['telemetry']}")
     print(f"\nGrafana: {result['grafana_url']}\nStart Here: {result['investigation_url']}\n{result['note']}")
 
 
@@ -219,17 +225,11 @@ def execute(args) -> int:
             raise ConfigError("No run artifacts found; run a workload first or pass xltel inspect RUN_DIR.")
         from .show_run import summarize
         print(summarize(run))
-        manifest = read_json(run / "telemetry-manifest.json")
-        run_id = manifest.get("run_id")
-        settings = manifest.get("configuration", {})
-        if not isinstance(settings, dict):
-            settings = {}
-        cluster = settings.get("cluster")
-        node = settings.get("observer_node")
-        if not isinstance(cluster, str) or not cluster:
-            cluster = config["CLUSTER_NAME"]
-        if not isinstance(node, str):
-            node = ""
+        saved = read_run_state(run, now=time.time(),
+            max_age_seconds=float(config["TELEMETRY_METRICS_MAX_AGE_SECONDS"]))
+        run_id = saved["run_id"]
+        cluster = saved["cluster"] or config["CLUSTER_NAME"]
+        node = saved["observer_node"] or ""
         if isinstance(run_id, str):
             print("\nRun Overview: " + dashboard_url(config, "telemetry-overview",
                   cluster=cluster, run_id=run_id, node=node, source_node=node))
@@ -260,9 +260,11 @@ def execute(args) -> int:
             for row in result["sources"]:
                 print(f"{row['telemetry_source']:<20} {row['status']:<18} {row['scope']}")
                 print(f"  {row['metrics_url']}")
-            if not result["sources"]:
+            if result.get("config_error"):
+                print("Native sources: invalid_config; " + result["next_action"])
+            elif not result["sources"]:
                 print("No native sources configured; set TELEMETRY_SOURCES_FILE.")
-        return 1 if result.get("backend_error") or any(r["status"] != "up" for r in result.get("sources", [])) else 0
+        return 1 if result.get("backend_error") or result.get("config_error") or any(r["status"] != "up" for r in result.get("sources", [])) else 0
     return 0
 
 

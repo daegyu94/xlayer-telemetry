@@ -137,13 +137,18 @@ Collector의 run parent를 바꾸면 `restart`가 필요합니다.
 ## Health and Ownership
 
 `status`는 PID·시작 시각·boot ID, backend HTTP 응답, Prometheus의 해당 cluster/node target과 sample age를 구분합니다.
-GPU freshness는 collector textfile의 producer timestamp, VERL freshness는 최근 저장된 trainer snapshot을 확인합니다.
+GPU freshness는 collector textfile의 producer timestamp, `VERL saved snapshot`은 저장된 run의 trainer snapshot을 확인합니다.
+Snapshot은 manifest의 run·observer와 내용의 identity가 일치하는 값 중 producer timestamp가 최신인 것을 사용합니다.
+JSON의 `metrics.verl.scope=stored_artifact`와 `latest_run.workload.recorded_at`은 현재 process 상태와 구분하기 위한 정보입니다.
 이는 Prometheus에 모든 sample이 도착했다는 보증이나 workload correctness 판정이 아닙니다.
 종료된 run의 stale sample은 workload failure로 취급하지 않습니다.
 
 `endpoint_only`는 endpoint를 조회했지만 process ownership은 확인하지 않았다는 뜻입니다.
 Docker·systemd로 따로 시작한 server가 응답하더라도 `xltel down`은 이를 종료하지 않습니다.
 `status`의 전체 healthy 상태에는 이 config의 managed server·node, 필수 endpoint·target, 활성 GPU의 fresh sample과 등록된 native source의 scrape 성공이 필요합니다.
+`status --role node`는 node scrape·GPU 및 활성화된 Loki endpoint 상태를 확인하며 원격 Grafana UI나 다른 native engine의 상태로 collector를 unhealthy로 만들지 않습니다.
+Collector와 native source는 한 번의 target 조회를 공유합니다.
+Optional source 파일이 잘못되면 `invalid_config`와 수정 명령을 표시하면서 core 상태 조회 결과를 유지하고, `config validate`는 해당 설정을 거부합니다.
 3FS는 `sources threefs`로 직접 조회하며 `status`는 ClickHouse query를 자동 실행하지 않습니다.
 
 ```bash

@@ -145,7 +145,7 @@ def test_role_specific_health_and_missing_remote_target(tmp_path, monkeypatch):
     targets = [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": name}, "health": "up"}
                for name in ("gpu-a", "sandbox-a")]
     monkeypatch.setattr(health, "probe", lambda *a, **kw: {"health": "healthy", "data":
-                          {"database": "ok", "data": {"activeTargets": targets}}})
+                          {"database": "ok", "status": "success", "data": {"activeTargets": targets}}})
     result = health.status(config, role="server")
     assert result["status"] == "healthy"
     assert result["metrics"]["gpu"]["health"] == "not_applicable"
@@ -160,6 +160,16 @@ def test_role_specific_health_and_missing_remote_target(tmp_path, monkeypatch):
     assert health.status(config, role="all")["status"] == "degraded"
     (state / "server.pid").write_text(identity)
     assert health.status(config, role="all")["status"] == "degraded"  # remote sandbox target missing
+    def ui_down(url, **kwargs):
+        if url.endswith("/api/health"):
+            return {"health": "unreachable", "data": None}
+        return {"health": "healthy", "data": {"status": "success", "data": {"activeTargets": targets}}}
+    monkeypatch.setattr(health, "probe", ui_down)
+    assert health.status(config, role="node")["status"] == "healthy"
+    assert health.status(config, role="server")["status"] == "degraded"
+    targets[0]["health"] = "down"
+    assert health.status(config, role="node")["status"] == "degraded"
+
     monkeypatch.setattr(health, "assets_root", lambda: ROOT)
     result = health.doctor(config, role="node")
     names = {c["component"] for c in result["checks"]}

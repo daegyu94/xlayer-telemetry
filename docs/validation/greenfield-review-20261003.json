@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-03",
+  "baseline": "7598670; fresh remote clone at 6b0b454 before editable install of the reviewed changes",
+  "validation_environment": "Fresh clone, venv, isolated config/state, CPU wrapper workload, synthetic metrics and precomputed diagnosis; existing monitoring binaries reused read-only.",
+  "iterations": [
+    {
+      "hypothesis": "Health should be a role-scoped snapshot, independent of an optional config failure.",
+      "changes": [
+        "Share target discovery between native and collector health; index source identities.",
+        "Isolate invalid source config and distinguish failed discovery from absent targets.",
+        "Node role does not depend on remote Grafana or unrelated engines."
+      ],
+      "validation": "Live malformed-source status retains healthy core; unavailable Grafana endpoint leaves node role healthy; target requests per status reduced from two to one."
+    },
+    {
+      "hypothesis": "Evidence follows record semantics and actual queries, not file naming conventions.",
+      "changes": [
+        "Find tool.call across producer names with existing run/window/status/cache filters.",
+        "Persist executed query and canonical preemption signal provenance.",
+        "Keep event boundary provenance without unrelated Prometheus sampling metadata."
+      ],
+      "validation": "Custom SDK producer + cached/uncached event fallback, same-tool baseline, executed-query equality, credential non-disclosure and mixed-record negative tests."
+    },
+    {
+      "hypothesis": "Saved run artifacts and live collection require distinct read models.",
+      "changes": [
+        "Common saved-run reader used by status/inspect.",
+        "Select content run/node identity and producer timestamp; mark ambiguous/legacy identity.",
+        "Preserve recorded outcome/completeness independently of snapshot age."
+      ],
+      "validation": "Copied stale snapshot and mixed-node negative fixtures; actual CPU run -> bridge -> manifest -> status/inspect -> finished exit 0."
+    }
+  ],
+  "classification": {
+    "KEEP": [
+      "Collect/Correlate/Diagnose",
+      "existing provider backends",
+      "wrapper ownership and exit semantics",
+      "SDK/adapter/collector boundary",
+      "Grafana navigation and canonical panels"
+    ],
+    "REFACTOR": [
+      "source status aggregation",
+      "saved-run read model",
+      "semantic event discovery",
+      "query provenance"
+    ],
+    "REDESIGN_LATER": [
+      "configured source capabilities for query selection",
+      "one declarative config/launcher contract after parity tests"
+    ]
+  },
+  "checks": {
+    "pytest": "621 passed; real promtool enabled",
+    "strict_sphinx": "passed",
+    "compileall": "passed",
+    "shell_syntax": "passed",
+    "diff_check": "passed",
+    "live_dashboard_queries": "138/138",
+    "grafana_journeys": [
+      {
+        "width": 1440,
+        "screens": 9,
+        "status": "passed"
+      },
+      {
+        "width": 900,
+        "screens": 9,
+        "status": "passed"
+      }
+    ],
+    "repeated_down": "passed"
+  },
+  "source_matching_microbenchmark": {
+    "sources": 500,
+    "targets": 500,
+    "old_nested_match_ms": 63.026237301528454,
+    "new_full_summary_ms": 5.8060260489583015,
+    "note": "Old measures matching only; new includes Explore URL formatting. Microbenchmark, not workload overhead."
+  },
+  "limitations": [
+    "Not a real VERL/GPU training, Docker cgroup, 3FS, Ollama or multi-node deployment revalidation.",
+    "Monitoring binary installer/download not rerun.",
+    "Synthetic precomputed candidate and live metric curves are independent illustrative fixtures.",
+    "Grafana JSON/UID/query semantics unchanged; no new app or tracing backend.",
+    "Persistent index and config/launcher rewrite deferred pending workload measurements/parity gates."
+  ],
+  "cleanup": {
+    "stack_stopped": true,
+    "owned_ports_closed": true,
+    "temporary_root_removed": true,
+    "pre_existing_services_http_status": {
+      "grafana": 200,
+      "prometheus": 200,
+      "loki": 200,
+      "node_exporter": 200
+    },
+    "preserved": "source/test/doc changes and this compact report only; no new Docker resources",
+    "owned_pytest_roots_removed": [
+      "pytest-1213",
+      "pytest-1214",
+      "pytest-1215"
+    ]
+  }
+}

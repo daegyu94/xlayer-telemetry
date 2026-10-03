@@ -471,3 +471,107 @@ def test_query_configuration_preserves_explicit_overrides_and_optional_scopes():
     assert 'device="{sandbox_device}"' in queries['sandbox_device_busy_ratio']
     assert 'instance="{storage_node}"' in queries['storage_device_busy_ratio']
     assert 'sandbox_io_pressure_ratio' not in engine._queries('cluster-a')
+
+
+def test_candidate_provenance_uses_executed_queries_and_canonical_signal_names():
+    class CapturingPrometheus(FakePrometheus):
+        def __init__(self):
+            super().__init__({
+                "num_requests_waiting": {"max": 5},
+                "custom_kv_usage": {"max": 0.95},
+                "num_preemptions_total": {"max_series_delta": 3},
+            })
+            self.queries = []
+
+        def query_range(self, query, start, end, step):
+            self.queries.append(query)
+            return super().query_range(query, start, end, step)
+
+    prom = CapturingPrometheus()
+    config = {
+        "prometheus": {
+            "url": "http://user:backend-secret@prometheus",
+            "queries": {"vllm_kv_cache_usage": 'custom_kv_usage{cluster="{cluster}",node="{rollout_node}"}'},
+        },
+        "cluster": "cluster-a", "rollout_node": "rollout-b",
+        "clock": {"enabled": False},
+    }
+    engine = DiagnosticEngine(config, prometheus=prom, clock=lambda: 101)
+    current = {"record_id": "one", "run_id": "run-1", "node": "trainer-a", "step": 1,
+               "analysis_window": {"start": 90, "end": 100}, "step_duration_seconds": 20}
+    report = engine.analyze(current, [])
+    candidate = next(item for item in report["candidates"] if item["id"] == "kv_cache_pressure")
+    evidence = {item["signal"]: item for item in candidate["evidence"]}
+    assert candidate["state"] == "strong_signal"
+    for item in evidence.values():
+        assert item["source"] == "prometheus"
+        assert item["query"] in prom.queries
+        assert 'node="rollout-b"' in item["query"]
+        assert "{cluster}" not in item["query"]
+        assert "{rollout_node}" not in item["query"]
+    assert "num_preemptions_total" in evidence["vllm_preemptions_delta"]["query"]
+    assert evidence["vllm_kv_cache_usage"]["query"] == 'custom_kv_usage{cluster="cluster-a",node="rollout-b"}'
+    assert "backend-secret" not in json.dumps(report)
+    assert "{rollout_node}" in config["prometheus"]["queries"]["vllm_kv_cache_usage"]
+
+
+@pytest.mark.parametrize("cached", [False, True])
+def test_tool_span_evidence_uses_semantics_instead_of_producer_filename(tmp_path, cached):
+    from xlayer_telemetry.events import CorrelationContext, EventRecorder
+    from xlayer_telemetry.analysis.jsonl_cache import JSONLCache
+
+    times = iter(int(second * 1e9) for second in (1, 2, 21, 24))
+    events = EventRecorder(tmp_path, CorrelationContext(
+        run_id="run-1", producer="swebench-runtime", role="rollout", worker_id="0", node="gpu-a"),
+        clock_ns=lambda: next(times))
+    for _ in range(2):
+        with events.span("tool.call", phase="environment", attributes={"tool": "pytest"}):
+            pass
+    valid = json.loads(events.path.read_text().splitlines()[-1])
+    unrelated = [
+        {**valid, "run_id": "other-run"},
+        {**valid, "status": "error"},
+        {**valid, "boundary_accuracy": "clock_discontinuity"},
+        {**valid, "name": "sandbox.exec"},
+        {**valid, "record_type": "event"},
+    ]
+    (tmp_path / "other-producer.jsonl").write_text(
+        "{malformed}\n" + "".join(json.dumps(item) + "\n" for item in unrelated))
+    cache = JSONLCache() if cached else None
+    baseline = diagnostics.tool_span_window(tmp_path, "run-1", 0, 10, cache=cache)
+    current = diagnostics.tool_span_window(tmp_path, "run-1", 20, 30, cache=cache)
+    assert baseline["max"] == 1
+    assert current["max"] == 3
+    assert current["sample_count"] == 1
+    assert current["boundary_accuracy"] == "exact"
+    assert current["related_span"] == f"{valid['trace_id']}:{valid['span_id']}"
+    assert diagnostics.tool_span_window(tmp_path, "run-1", 20, 30, tool_name="grep", cache=cache) is None
+    assert diagnostics.tool_span_window(tmp_path, "run-1", 22, 30, cache=cache) is None
+
+    engine = DiagnosticEngine({
+        "prometheus": {"url": "http://unused"},
+        "jsonl_cache": {"enabled": cached},
+        "sandbox": {"enabled": True, "events_dir": str(tmp_path),
+                    "node": "sandbox-a", "device": "nvme0n1"},
+    }, prometheus=FakePrometheus({
+        "sandbox_io_pressure_ratio": {"max": 0.4, "sample_count": 6},
+        'device="nvme0n1"': {"max": 0.95, "sample_count": 6},
+        "agent_tool_call_duration_seconds": {"max": 100, "sample_count": 6},
+    }), clock=lambda: 31)
+    before = {"record_id": "before", "run_id": "run-1", "node": "gpu-a", "worker_id": "driver",
+              "boundary_scope": "rl_step", "observed_at": 10, "step_duration_seconds": 10,
+              "analysis_window": {"start": 0, "end": 10, "accuracy": "approximate"}}
+    now = {**before, "record_id": "now", "observed_at": 30,
+           "analysis_window": {"start": 20, "end": 30, "accuracy": "approximate"}}
+    report = engine.analyze(now, [before])
+    candidate = next(item for item in report["candidates"] if item["id"] == "sandbox_local_storage_pressure")
+    evidence = next(item for item in candidate["evidence"] if item["signal"] == "tool_duration_seconds")
+    assert evidence["value"] == 3
+    assert evidence["baseline"] == 1
+    assert evidence["source"] == "event_span_time_window"
+    assert evidence["query"] is None
+    assert evidence["sampling_quality"] is None
+    assert "tool_duration_seconds" not in report["sampling_quality"]
+    assert report["evidence"]["tool_duration_seconds"]["boundary_accuracy"] == "exact"
+    assert candidate["related_spans"] == [current["related_span"]]
+    assert candidate["state"] == "supporting_signal"  # Correlation does not prove ownership.

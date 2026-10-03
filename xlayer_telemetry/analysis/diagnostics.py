@@ -234,7 +234,9 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
     max_duration: float | None = None
     count = 0
     try:
-        paths = list(directory.glob("agent*.jsonl"))
+        # Producer names identify ownership, not event semantics. External
+        # adapters may use any SDK producer name for the same tool.call span.
+        paths = list(directory.glob("*.jsonl"))
     except OSError:
         return None
     for path in paths:
@@ -270,6 +272,7 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
     return {"max": max_duration,
             "sample_count": count,
             "tool": longest["attributes"]["tool"],
+            "boundary_accuracy": longest.get("boundary_accuracy", "unknown"),
             "related_span": f"{longest['trace_id']}:{longest['span_id']}"}
 
 
@@ -428,6 +431,7 @@ class DiagnosticEngine:
                                  and finite(baseline_window.get("end")) is not None
                                  and baseline_window["start"] < baseline_window["end"])
         baseline_metrics: dict[str, Any] = {}
+        executed_queries: dict[str, str] = {}
         sampling_quality: dict[str, dict] = {}
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
@@ -469,6 +473,7 @@ class DiagnosticEngine:
                 query = str(template)
                 for key, value in query_context.items():
                     query = query.replace("{" + key + "}", escape_label(value))
+                executed_queries[name] = query
                 stats, series = query_with_detail(query, float(start), end)
                 source_sample = check_source(prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
                 sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample)}
@@ -505,7 +510,9 @@ class DiagnosticEngine:
             if tool_event is not None:
                 evidence["tool_duration_seconds"] = tool_event
                 tool_event_span = tool_event["related_span"]
-                queries.pop("tool_duration_seconds", None)
+                executed_queries.pop("tool_duration_seconds", None)
+                # A completed event span is not a Prometheus query evaluation.
+                sampling_quality.pop("tool_duration_seconds", None)
                 missing = [item for item in missing
                            if not item.startswith("prometheus:tool_duration_seconds")]
                 baseline_metrics.pop("tool_duration_seconds", None)
@@ -665,7 +672,14 @@ class DiagnosticEngine:
                         signals["storage_request_bytes"] = float(request["weighted_mean"])
         # An adjacent shared-service window remains useful in the legacy
         # findings, but is not presented as a same-run step baseline.
-        sources = {name: "prometheus" for name in queries}
+        # Preserve the expression actually sent to Prometheus, keyed by the
+        # canonical signal used by the rule catalog. Do not include backend
+        # URLs or configuration, which can contain authentication material.
+        signal_queries = {
+            ("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name): query
+            for name, query in executed_queries.items()
+        }
+        sources = {name: "prometheus" for name in signal_queries}
         if tool_event_span is not None:
             sources["tool_duration_seconds"] = "event_span_time_window"
         sources.update({
@@ -689,7 +703,7 @@ class DiagnosticEngine:
                      "sandbox_device": sandbox_device if sandbox_config.get("enabled") else None,
                      "related_spans": (current or {}).get("related_spans", []),
                      "tool_related_spans": [tool_event_span] if tool_event_span else [],
-                     "queries": queries,
+                     "queries": signal_queries,
                      "signal_labels": signal_labels,
                      "signal_scopes": signal_scopes,
                      "participant_durations_seconds": (current or {}).get("participant_durations_seconds", {})},
