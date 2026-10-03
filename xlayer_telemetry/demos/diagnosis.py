@@ -60,9 +60,36 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         CorrelationContext(run_id=run_id, producer="demo", role="rollout", worker_id="worker-0", node=node),
         clock_ns=event_clock.__next__,
     )
-    with recorder.span("rollout.generate", phase="rollout", step=127) as span:
+    with recorder.span("rollout.generate", phase="rollout", step=127, attributes={"data_origin": "synthetic"}) as span:
         pass
-    recorder.event("queue.backlog", phase="rollout", step=127, trace_id=span.trace_id, attributes={"waiting": 3})
+    recorder.event("queue.backlog", phase="rollout", step=127, trace_id=span.trace_id,
+                   attributes={"waiting": 3, "data_origin": "synthetic"})
+    # These boundaries belong to an explicitly synthetic scenario, not a real
+    # runtime or measured filesystem. Keep IDs in events rather than labels.
+    offsets = iter((3, 3.2, 3.4, 3.6, 7.4, 7.8, 8.0, 8.4))
+    tools = EventRecorder(output / "telemetry-events", recorder.context,
+        clock_ns=lambda: int((start + next(offsets)) * 1e9))
+    with tools.span("tool.call", phase="environment", step=127,
+                    attributes={"tool": "pytest", "data_origin": "synthetic"}) as tool:
+        with tools.span("sandbox.acquire", phase="environment", step=127,
+                        trace_id=tool.trace_id, parent_span_id=tool.span_id,
+                        attributes={"deployment": "colocated", "data_origin": "synthetic"}):
+            pass
+        with tools.span("sandbox.exec", phase="environment", step=127,
+                        trace_id=tool.trace_id, parent_span_id=tool.span_id,
+                        attributes={"tool": "pytest", "runtime": "containerd", "filesystem": "overlayfs",
+                                    "sandbox_id": "demo-sandbox", "data_origin": "synthetic"}):
+            pass
+        tools.event("sandbox.resource_sample", phase="environment", step=127,
+                    trace_id=tool.trace_id, span_id=tool.span_id,
+                    attributes={"observation_scope": "cgroup", "io_pressure_ratio": .43,
+                                "data_origin": "synthetic"})
+    logs = output / "logs"
+    logs.mkdir()
+    (logs / "agent.log").write_text(
+        f"[synthetic] run={run_id} step=127 tool=pytest sandbox=demo-sandbox status=ok\n"
+        "[synthetic] illustration only: local NVMe pressure is correlated evidence, not proven causality\n",
+        encoding="utf-8")
     report = {
         "schema_version": 1, "record_type": "bottleneck_diagnosis",
         "generated_at": datetime.fromtimestamp(end, timezone.utc).isoformat(),

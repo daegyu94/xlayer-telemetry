@@ -1,0 +1,1550 @@
+{
+  "data_origin": "synthetic",
+  "cluster": "demo-b300",
+  "run_id": "verl-agent-demo",
+  "all_queries_covered": true,
+  "log_lookback_seconds": 3600,
+  "query_count": 138,
+  "covered": 138,
+  "checks": [
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Completed RL step",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",role=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Reward mean",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "reward_mean{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Worker sample age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",role=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Completed RL stage duration (step boundary)",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",phase=~\".*\",role=~\".*\",worker_id=~\".*\"}",
+      "status": "covered",
+      "series": 6
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Completed step throughput and response length",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "training_tokens_per_second_per_gpu{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Completed step throughput and response length",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rollout_output_tokens_mean{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "GPU utilization by selected node",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Weight sync and policy lag",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",phase=\"weight_sync\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Weight sync and policy lag",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "policy_version_lag{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Tool and reward signals",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "agent_tool_call_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Tool and reward signals",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",phase=\"reward\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Live rollout engine signals",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_waiting{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Live rollout engine signals",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Live rollout engine signals",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Live rollout engine signals",
+      "ref_id": "D",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_running{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM KV offload store and load",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\",transfer_type=\"GPU_to_CPU\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM KV offload store and load",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:kv_offload_total_bytes_total{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\",transfer_type=\"CPU_to_GPU\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox pool occupancy",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_active{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox pool occupancy",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_queued{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker and device pressure",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker I/O rate",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_io_read_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker I/O rate",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_io_write_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker I/O operations",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_io_read_ops_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker I/O operations",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_io_write_ops_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker memory",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_memory_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker memory",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_memory_peak_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker CPU and OOM",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_cpu_usage_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker CPU and OOM",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox worker CPU and OOM",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Sandbox sample age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "time() - sandbox_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM token throughput",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:prompt_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM token throughput",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:generation_tokens_total{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM request latency p95",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:time_to_first_token_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM request latency p95",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:request_queue_time_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "vLLM request latency p95",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "histogram_quantile(0.95, sum by (cluster, node, instance, model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=\"native\",telemetry_source=\"vllm\",cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}[1m])))",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Ray task states",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"})",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Ray actor states",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, SessionName, State) (ray_actors{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"})",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Ray logical CPU / GPU resources",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, node, instance, SessionName, Name, State) (ray_resources{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\",Name=~\"CPU|GPU\"})",
+      "status": "covered",
+      "series": 4
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Ray object store memory",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, node, instance, SessionName, Location) (ray_object_store_memory{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "agent-rl-stage-correlation",
+      "panel": "Ray OOM worker evictions",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, node, instance, SessionName, Type) (rate(ray_memory_manager_worker_eviction_total{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"}[1m]))",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-bottleneck-summary",
+      "panel": "Selected symptom",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_diagnosis\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\".*\" | run_id=~\"verl\\\\-agent\\\\-demo\" | row_kind=\"summary\" | record_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-bottleneck-summary",
+      "panel": "Measured changes versus same-run baseline",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_diagnosis\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\".*\" | run_id=~\"verl\\\\-agent\\\\-demo\" | row_kind=\"comparison\" | record_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 7
+    },
+    {
+      "dashboard": "xlayer-bottleneck-summary",
+      "panel": "Bottleneck candidates and evidence",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_diagnosis\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\".*\" | run_id=~\"verl\\\\-agent\\\\-demo\" | row_kind=\"candidate\" | record_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 3
+    },
+    {
+      "dashboard": "xlayer-bottleneck-summary",
+      "panel": "Evidence details: supporting, counter, and missing",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_diagnosis\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\".*\" | run_id=~\"verl\\\\-agent\\\\-demo\" | row_kind=\"evidence\" | record_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 11
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU utilization matrix (latest sample)",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "label_join((telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)), \"node\", \"/\", \"cluster\", \"nodename\")",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU utilization",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU power",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_power_watts{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU temperature",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_temperature_celsius{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU SM clock",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_sm_clock_mhz{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "Compute-process GPU memory",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_process_memory_bytes{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "Worker-local application timers",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(training_timer_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} < 300)",
+      "status": "covered",
+      "series": 5
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "TCP/Ethernet throughput by interface",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "TCP/Ethernet throughput by interface",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "RDMA throughput by port",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance, device, port) (rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "RDMA throughput by port",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance, device, port) (rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU allocation matrix",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "label_join((training_gpu_allocation{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} < 300)), \"worker\", \"/\", \"cluster\", \"instance\", \"run_id\", \"producer\", \"role\", \"worker_id\")",
+      "status": "covered",
+      "series": 8
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "Compute topology matrix",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "label_join(label_join(max by (cluster, source, destination) (telemetry_topology_edge_info{job=\"telemetry\",cluster=~\"demo\\\\-b300\",kind=\"compute\"}), \"source_key\", \"/\", \"cluster\", \"source\"), \"destination_key\", \"/\", \"cluster\", \"destination\")",
+      "status": "covered",
+      "series": 228
+    },
+    {
+      "dashboard": "xlayer-compute-communication",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Selected step and reported stages",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"verl_step\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | record_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Exact workload spans",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_event\",cluster=~\"demo\\\\-b300\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | trace_id=~\".*\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=\"exact\"",
+      "status": "covered",
+      "series": 4
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Approximate VERL step interval",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"verl_step\",cluster=~\"demo\\\\-b300\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | record_id=~\".*\" | window_start_ms != \"\" | __error__=\"\"",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "GPU utilization",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "telemetry_gpu_utilization_percent{cluster=~\"demo\\\\-b300\",nodename=~\".*\",gpu=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "vLLM waiting requests",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_waiting{cluster=~\"demo\\\\-b300\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "RDMA bytes per second",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_infiniband_port_data_received_bytes_total{cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 20
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Device busy ratio",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 68
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Exact spans: open step, logs, or diagnosis",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_event\",cluster=~\"demo\\\\-b300\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | trace_id=~\".*\" | record_type=\"span\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 4
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Related EventRecorder events",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"xlayer_event\",cluster=~\"demo\\\\-b300\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | record_type=\"event\" | trace_id=~\".*\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Host CPU busy",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",mode=\"idle\"}[1m])))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Host memory used",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} - node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "TCP/Ethernet receive and transmit",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "TCP/Ethernet receive and transmit",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device!~\"lo|docker.*|veth.*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Local disk read and write",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance) (rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Local disk read and write",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (instance) (rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]))",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Sandbox I/O pressure (sampled)",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Node clock offset from scrape time",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "node_time_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-cross-layer-timeline",
+      "panel": "Node clock synchronization status",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "node_timex_sync_status{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Disk read and write throughput",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_read_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Disk read and write throughput",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_written_bytes_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Disk IOPS",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Disk IOPS",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Disk I/O busy time",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Filesystem used",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "1 - node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Filesystem free space",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "node_filesystem_avail_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",mountpoint=~\".*\",fstype!~\"tmpfs|overlay\"}",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Storage topology components",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max by (cluster, kind, component, role) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"demo\\\\-b300\",kind=\"storage\"})",
+      "status": "covered",
+      "series": 41
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Storage topology matrix",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "label_join(label_join(max by (cluster, source, destination) (telemetry_topology_edge_info{job=\"telemetry\",cluster=~\"demo\\\\-b300\",kind=\"storage\"}), \"source_key\", \"/\", \"cluster\", \"source\"), \"destination_key\", \"/\", \"cluster\", \"destination\")",
+      "status": "covered",
+      "series": 40
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSDs with critical warnings",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum(smartctl_device_critical_warning{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"} != bool 0)",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Maximum SSD temperature",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(smartctl_device_temperature{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\",temperature_type=\"current\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Maximum endurance used",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Minimum available spare",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "min(smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD temperature",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_temperature{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\",temperature_type=\"current\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD endurance and available spare",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD endurance and available spare",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "NVMe media errors",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_media_errors{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "Lifetime host bytes written by SSD",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_bytes_written{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max by (cluster, storage_system, instance, device, protocol, model_name, firmware_version) (smartctl_device{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"})",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_smart_status{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-data-storage",
+      "panel": "SSD inventory and SMART status",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "smartctl_device_smartctl_exit_status{job=\"storage-smart\",cluster=~\"demo\\\\-b300\",storage_system=~\".*\",instance=~\".*\",device=~\".*\"}",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-run-logs",
+      "panel": "Node-local run logs",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{cluster=~\"demo\\\\-b300\", node=~\".*\", workload=~\".*\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"verl\\\\-agent\\\\-demo\"",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Collector health",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "min(up{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Application age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Completed step",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Training step time",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(training_step_time_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} < 300)",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Completed steps · select to investigate",
+      "ref_id": "A",
+      "datasource": "telemetry-loki",
+      "query": "{signal=\"verl_step\",cluster=~\"demo\\\\-b300\",node=~\"gpu\\\\-node\\\\-0\"} | json | run_id=~\"verl\\\\-agent\\\\-demo\" | window_start_ms != \"\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Training throughput (tokens/s)",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(training_tokens_per_second{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} < 300)",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Training loss",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(training_loss{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"} < 300)",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Host available memory by node",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Host swap used by node",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "node_memory_SwapTotal_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} - node_memory_SwapFree_bytes{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "telemetry-overview",
+      "panel": "Host swap I/O pages per second",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_vmstat_pswpin{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m]) + rate(node_vmstat_pswpout{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 12
+    },
+    {
+      "dashboard": "xlayer-start-here",
+      "panel": "Collector health",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "min(up{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-start-here",
+      "panel": "Application age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-start-here",
+      "panel": "GPU sample age",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-start-here",
+      "panel": "Completed step",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "max(training_step{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"})",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-start-here",
+      "panel": "Observed runs · select to investigate",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "VERL · Stage duration",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",phase=~\".*\",role=~\".*\",worker_id=~\".*\"}",
+      "status": "covered",
+      "series": 6
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_waiting{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "D",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_running{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Ray · Task states",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"})",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Compute · GPU utilization",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Local storage · Busy",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-workspace-focus",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "VERL · Stage duration",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rl_stage_duration_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\"gpu\\\\-node\\\\-0\",run_id=~\"verl\\\\-agent\\\\-demo\",phase=~\".*\",role=~\".*\",worker_id=~\".*\"}",
+      "status": "covered",
+      "series": 6
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_waiting{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "vLLM · Queue & KV",
+      "ref_id": "D",
+      "datasource": "telemetry-prometheus",
+      "query": "vllm:num_requests_running{job=\"native\",cluster=~\"demo\\\\-b300\",telemetry_source=\"vllm\",node=~\".*\",instance=~\".*\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Ray · Task states",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sum by (cluster, SessionName, State) (ray_tasks{job=\"native\",telemetry_source=\"ray\",cluster=~\"demo\\\\-b300\",node=~\".*\"})",
+      "status": "covered",
+      "series": 2
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Compute · GPU utilization",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "(telemetry_gpu_utilization_percent{gpu=~\".*\",job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"} < 30)",
+      "status": "covered",
+      "series": 32
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Local storage · Busy",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",device=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "A",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_io_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "B",
+      "datasource": "telemetry-prometheus",
+      "query": "rate(node_disk_io_time_seconds_total{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\"}[1m])",
+      "status": "covered",
+      "series": 36
+    },
+    {
+      "dashboard": "xlayer-workspace-overview",
+      "panel": "Sandbox · I/O pressure",
+      "ref_id": "C",
+      "datasource": "telemetry-prometheus",
+      "query": "sandbox_cpu_pressure_ratio{job=\"telemetry\",cluster=~\"demo\\\\-b300\",nodename=~\".*\",role=\"sandbox\"}",
+      "status": "covered",
+      "series": 1
+    }
+  ],
+  "limitations": [
+    "Nonempty query results do not validate real runtime instrumentation or causality.",
+    "Checks use All resource filters and one selected run/observer; arbitrary selections may correctly be empty.",
+    "Classic histogram bucket counters are illustrative; no real vLLM/Ray/3FS is started.",
+    "Precomputed diagnosis evidence and live curves are independent synthetic examples, not one time-consistent workload simulation.",
+    "3FS ClickHouse evidence is synthetic; real DB/profilers/runtimes were not launched."
+  ],
+  "date": "2026-10-03",
+  "grafana_version": "12.1.0",
+  "rendering": {
+    "dashboards": [
+      {
+        "uid": "xlayer-start-here",
+        "rendered_panels": 7,
+        "expanded_rows": []
+      },
+      {
+        "uid": "telemetry-overview",
+        "rendered_panels": 13,
+        "expanded_rows": [
+          "Application SDK signals (optional)",
+          "Host memory / paging details"
+        ]
+      },
+      {
+        "uid": "agent-rl-stage-correlation",
+        "rendered_panels": 25,
+        "expanded_rows": [
+          "Ray orchestration (optional)",
+          "Sandbox signals (optional)",
+          "vLLM throughput & latency (optional)"
+        ]
+      },
+      {
+        "uid": "xlayer-bottleneck-summary",
+        "rendered_panels": 6,
+        "expanded_rows": []
+      },
+      {
+        "uid": "xlayer-cross-layer-timeline",
+        "rendered_panels": 18,
+        "expanded_rows": [
+          "Clock quality",
+          "Host / network / local storage",
+          "Sandbox signals (optional)",
+          "Span and event records"
+        ]
+      },
+      {
+        "uid": "xlayer-compute-communication",
+        "rendered_panels": 14,
+        "expanded_rows": []
+      },
+      {
+        "uid": "xlayer-data-storage",
+        "rendered_panels": 18,
+        "expanded_rows": [
+          "SSD health / SMART (optional)"
+        ]
+      },
+      {
+        "uid": "xlayer-run-logs",
+        "rendered_panels": 2,
+        "expanded_rows": []
+      },
+      {
+        "uid": "xlayer-workspace-focus",
+        "rendered_panels": 7,
+        "expanded_rows": [
+          "Compute",
+          "Local storage",
+          "Ray",
+          "Sandbox",
+          "vLLM"
+        ]
+      },
+      {
+        "uid": "xlayer-workspace-overview",
+        "rendered_panels": 7,
+        "expanded_rows": []
+      }
+    ],
+    "browser_errors": []
+  },
+  "journey": {
+    "status": "passed",
+    "data_origin": "synthetic",
+    "viewport_width": 1440,
+    "screens": [
+      {
+        "screen": "01-start-here",
+        "url": "http://127.0.0.1:23000/d/xlayer-start-here/00-c2b7-start-here?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&refresh=off&orgId=1&from=now-1h&to=now&timezone=browser&var-source_node=.%2A&var-record_id=.%2A&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-xlayer_theme=",
+        "context_preserved": true
+      },
+      {
+        "screen": "02-run-overview",
+        "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=.%2A&var-trace_id=.%2A&from=now-1h&to=now&timezone=Asia%2FSeoul&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&theme=&var-xlayer_theme=&orgId=1&var-training_max_age=300&var-diagnosis_method=rule&refresh=5s",
+        "context_preserved": true
+      },
+      {
+        "screen": "03-bottleneck-summary",
+        "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+        "context_preserved": true
+      },
+      {
+        "screen": "04-evidence",
+        "url": "http://127.0.0.1:23000/d/xlayer-bottleneck-summary/03-c2b7-bottleneck-summary?from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&var-cluster=demo-b300&var-run_id=verl-agent-demo&var-record_id=a65341f9c7a8cfe0ec26834b&var-node=gpu-node-0&var-source_node=gpu-node-0&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=.%2A&var-trace_id=.%2A&theme=&var-xlayer_theme=&timezone=browser&orgId=1&refresh=10s",
+        "context_preserved": true
+      },
+      {
+        "screen": "05-timeline",
+        "url": "http://127.0.0.1:23000/d/xlayer-cross-layer-timeline/04-c2b7-cross-layer-timeline?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&timezone=Asia%2FSeoul&orgId=1&refresh=10s",
+        "context_preserved": true
+      },
+      {
+        "screen": "06-storage",
+        "url": "http://127.0.0.1:23000/d/xlayer-data-storage/06-c2b7-data-and-storage?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=.%2A&var-sandbox_node=$__all&theme=&var-xlayer_theme=&from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&timezone=Asia%2FSeoul&orgId=1&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&refresh=5s",
+        "context_preserved": true
+      },
+      {
+        "screen": "07-overview-view",
+        "url": "http://127.0.0.1:23000/d/xlayer-workspace-overview/workspace-c2b7-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-gpu=.%2A&var-engine=$__all&var-sandbox_node=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&timezone=Asia%2FSeoul&orgId=1&var-phase=$__all&var-role=$__all&var-worker=$__all&var-training_max_age=300&refresh=5s",
+        "context_preserved": true
+      },
+      {
+        "screen": "08-focus-view",
+        "url": "http://127.0.0.1:23000/d/xlayer-workspace-focus/workspace-c2b7-focus?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+        "context_preserved": true
+      },
+      {
+        "screen": "09-guided-view",
+        "url": "http://127.0.0.1:23000/d/telemetry-overview/01-c2b7-run-overview?var-cluster=demo-b300&var-node=gpu-node-0&var-run_id=verl-agent-demo&var-source_node=gpu-node-0&var-record_id=a65341f9c7a8cfe0ec26834b&var-trace_id=.%2A&var-diagnosis_method=rule&var-log_run_id=.%2A&var-sandbox_node=$__all&var-engine=$__all&var-gpu=.%2A&var-phase=$__all&var-role=$__all&var-worker=$__all&var-device=$__all&var-mount=$__all&var-storage_system=$__all&var-storage_node=$__all&var-ssd=$__all&theme=&var-xlayer_theme=&from=2026-10-03T01:12:29.260Z&to=2026-10-03T01:12:47.661Z&timezone=Asia%2FSeoul&orgId=1&var-training_max_age=300&refresh=5s",
+        "context_preserved": true
+      }
+    ],
+    "browser_errors": [],
+    "datasource_queries": [
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      },
+      {
+        "http_status": 200,
+        "errors": []
+      }
+    ],
+    "limitations": [
+      "Synthetic candidate values; not real VERL or storage causality validation.",
+      "Screenshots do not replace backend query validation."
+    ]
+  },
+  "validation": {
+    "pytest": "599 passed",
+    "compileall": "passed",
+    "shell_syntax": "passed",
+    "wheel_outside_checkout": "23 targets and custom cluster; bundled topology loaded",
+    "docs_strict_build": "passed"
+  },
+  "cleanup": {
+    "status": "verified",
+    "temporary_environment_removed": true,
+    "owned_processes_remaining": 0,
+    "owned_listening_ports_remaining": 0,
+    "existing_monitoring_services": "Grafana/Prometheus/Loki HTTP 200; untouched"
+  }
+}

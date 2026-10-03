@@ -31,26 +31,77 @@ GPU 없는 sandbox·storage host는 `ENABLE_GPU_METRICS=0`으로 host metric만 
 
 ## Try the Demo
 
-GPU나 VERL 없이 synthetic metric으로 화면을 확인합니다.
+GPU·VERL·vLLM·Ray 없이 현재 dashboard를 synthetic 데이터로 확인합니다.
+[전용 config](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/synthetic-demo.toml)는 기존 stack과 다른 state·port를 사용하며 설치한 binary는 재사용합니다.
+Config를 복사한 뒤 `TOOLS_DIR`을 실제 설치 위치에 맞춥니다.
 
 ```bash
-. .venv/bin/activate
-export TOOLS_DIR="$HOME/telemetry/tools"
-bash scripts/install_telemetry_tools.sh server
-OUTPUT_DIR="$HOME/telemetry/state/demo" \
-DEMO_LIVE=1 \
-  bash scripts/run_telemetry.sh server
+mkdir -p "$HOME/.config/xlayer"
+cp -n examples/synthetic-demo.toml "$HOME/.config/xlayer/demo.toml"
+export XLAYER_CONFIG="$HOME/.config/xlayer/demo.toml"
+xltel doctor
+# 도구가 없을 때만 실행
+xltel install-tools
+DEMO_LIVE=1 DEMO_PORT=29110 xltel up
+xltel status
 ```
 
-[Start Here](http://127.0.0.1:13000/d/xlayer-start-here) → Run Overview에서 `cluster=demo-b300`, `node=All`, `run_id=live-demo`를 선택합니다.
-`Collector availability=Up`과 fresh sample age로 연결을 확인하고 GPU별 값은 Compute의 matrix에서 봅니다.
-Stage Correlation의 `verl-agent-demo`·`gpu-node-0`에서는 완료 step이 증가합니다.
-화면이 비면 terminal 오류와 `OUTPUT_DIR/startup-summary.json`을 확인합니다.
-합성 exporter이므로 실제 GPU·VERL·3FS 연결이나 학습 성능을 검증하는 값은 아닙니다.
+[Start Here](http://127.0.0.1:23000/d/xlayer-start-here)에서 `cluster=demo-b300`, `Resource node=All`, `Run=verl-agent-demo`를 선택합니다.
+Rate graph는 최소 두 번의 scrape 이후 채워집니다.
+Step·candidate·span·log까지 보려면 metric 수집 시작 후 약 30초가 지난 뒤 아래 fixture를 한 번 생성합니다.
+Output은 새 directory여야 하며 기존 run을 덮어쓰지 않습니다.
 
-이미 `xltel up`으로 monitoring을 시작했다면 `xltel down` 후 이 별도 demo server를 실행합니다.
-실제 node를 연결하기 전 `Ctrl+C`로 demo를 종료해 동일한 service port를 비웁니다.
-기존 CLI stack에서 Step·candidate 탐색만 연습하려면 [synthetic candidate 예제](diagnosis.md#practice-with-a-synthetic-candidate)를 사용합니다.
+```bash
+python -m xlayer_telemetry.demos.diagnosis \
+  --output "$HOME/telemetry-demo/runs/verl-agent-demo" \
+  --run-id verl-agent-demo --node gpu-node-0
+xltel inspect verl-agent-demo
+```
+
+Alloy 수집 후 Run Overview의 Step 127 Duration → Bottleneck Summary → Evidence → Timeline으로 이동합니다.
+Logs는 `Log directory=verl-agent-demo`, `Run context=verl-agent-demo`를 선택합니다.
+다시 fixture를 만들려면 config의 `TELEMETRY_HOME`을 새 demo directory로 바꿔 기존 결과를 보존합니다.
+Custom config에서는 output·node·cluster·backend URL을 설정에 맞춥니다.
+
+| 화면 / 계층 | Synthetic coverage |
+| --- | --- |
+| Start Here / Run Overview | Collector health·freshness·step·throughput·loss·CPU·memory·swap |
+| Stage Correlation / Workspaces | VERL stages·vLLM queue/KV/preemption/offload/token/latency·Ray tasks/actors/resources/object store/evictions |
+| Compute & Communication | GPU matrix·allocation·process memory·power·temperature·clock·worker timers·Ethernet·RDMA·topology |
+| Data & Storage | GPU/storage node의 disk·filesystem·SSD SMART·storage topology |
+| Sandbox row / Timeline | Pool·PSI·I/O·CPU·memory·OOM·clock status와 exact synthetic tool/sandbox span |
+| Bottleneck Summary / Logs | Baseline/current·candidate·supporting/counter/missing evidence·관련 event·raw log |
+
+모든 metric scrape에 `data_origin=synthetic` label을 붙입니다.
+3FS ClickHouse 관련 내용은 **기존 diagnosis fixture의 synthetic evidence**이며 실제 DB query를 실행하지 않습니다.
+Live resource curve와 precomputed Step 127의 evidence 수치는 독립적인 예제이며 일치하는 시뮬레이션이나 인과관계 검증이 아닙니다.
+OOM=0은 정상값이고, 없는 topology edge나 per-run attribution 같은 missing evidence는 비워 둡니다.
+Profile artifact는 실제 profiler 실행이 필요한 별도 deep dive이며 fake trace를 생성하지 않습니다.
+
+### Check Dashboard Coverage
+
+기존 stack에 dashboard query를 그대로 실행해 비어 있거나 nonfinite인 결과를 찾습니다.
+새 JSON 파일을 지정하며 Loki를 생략한 query는 `not_validated`로 기록하고 전체 성공으로 처리하지 않습니다.
+
+```bash
+python examples/investigation/validate_demo_coverage.py \
+  --dashboard-dir "$HOME/telemetry-demo/state/server/dashboards" \
+  --prometheus-url http://127.0.0.1:29090 \
+  --loki-url http://127.0.0.1:23100 \
+  --output /tmp/xlayer-demo-coverage.json
+```
+
+검사는 한 Run·observer와 All resource filter를 사용합니다.
+Metric은 현재값, Loki는 기본 최근 1시간을 조회하며 `--lookback-seconds`로 log 조회 범위를 바꿀 수 있습니다.
+임의의 다른 Run·node·engine을 선택하면 데이터가 없는 것이 정상일 수 있습니다.
+[실제 query 검증 기록](validation/dashboards/synthetic-coverage-20261003.json)과 [browser journey](dashboards.md#browser-journey-validation)를 참고합니다.
+
+```bash
+xltel down
+unset XLAYER_CONFIG
+```
+
+`down`은 demo process를 종료하고 config·run·log를 보존합니다.
 상세한 가상 구성과 화면 예시는 [Demo Details](#demo-details)에 있습니다.
 
 ## Monitor One GPU Node

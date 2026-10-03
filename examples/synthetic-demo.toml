@@ -1,0 +1,15 @@
+# Independent synthetic stack; shares installed binaries, not production state.
+[telemetry]
+TELEMETRY_HOME = "~/telemetry-demo"
+TOOLS_DIR = "~/telemetry/tools"
+CLUSTER_NAME = "demo-b300"
+NODE_NAME = "gpu-node-0"
+NODE_ADDR = "127.0.0.4"
+ENABLE_GPU_METRICS = false
+ENABLE_LOGS = true
+PROMETHEUS_PORT = 29090
+GRAFANA_PORT = 23000
+LOKI_PORT = 23100
+ALLOY_PORT = 22345
+
+[workload]

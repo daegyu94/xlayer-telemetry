@@ -385,6 +385,7 @@ elif [[ "$role" == server ]]; then
     demo_topology_dir="${DEMO_TOPOLOGY_DIR:-$PWD/examples/live-demo}"
     "${PYTHON:-python3}" -m xlayer_telemetry.demos.live \
       --listen "$demo_addr:$demo_port" --topology-dir "$demo_topology_dir" \
+      --cluster "$cluster_name" \
       --write-prometheus-config "$output_dir/prometheus.yml"
     if [[ "${SERVER_CONFIG_ONLY:-0}" != 1 ]]; then
       "${PYTHON:-python3}" -m xlayer_telemetry.demos.live \

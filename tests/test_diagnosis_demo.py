@@ -16,6 +16,12 @@ def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_pa
     events = [json.loads(line) for line in next((root / "telemetry-events").glob("demo-rollout-worker%2D0*.jsonl")).read_text().splitlines()]
     assert {event["record_type"] for event in events} == {"span", "event"}
     assert events[0]["trace_id"] == events[1]["trace_id"]
+    tool = next(e for e in events if e["name"] == "tool.call")
+    sandbox = next(e for e in events if e["name"] == "sandbox.exec")
+    assert sandbox["trace_id"] == tool["trace_id"]
+    assert sandbox["parent_span_id"] == tool["span_id"]
+    assert all(e["attributes"]["data_origin"] == "synthetic" for e in events)
+    assert "[synthetic]" in (root / "logs/agent.log").read_text()
     rows = [json.loads(line) for line in next((root / "diagnostics/investigation").glob("*.jsonl")).read_text().splitlines()]
     assert next(row for row in rows if row["row_kind"] == "summary")["primary_candidate"] == "storage_queue_saturation"
     assert all(row["data_origin"] == "synthetic" for row in rows)
