@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 
 from .prometheus import escape_label
-from .source_discovery import build_file_discovery
+from .source_discovery import load_file_discovery
 
 
 def explore_url(base: str, selector: str) -> str:
@@ -138,7 +138,7 @@ def main() -> None:
             from .analysis.diagnostics import load_config
             result = inspect_threefs(load_config(args.diagnostics_config), seconds=args.window_seconds)
         else:
-            groups = build_file_discovery(json.loads(args.sources.read_text())) if args.sources else []
+            groups = load_file_discovery(args.sources) if args.sources else []
             result = inspect_sources(groups, args.prometheus, args.grafana, args.cluster) if groups else {
                 'sources': [], 'status': 'not_configured', 'next_action': 'Set TELEMETRY_SOURCES_FILE.'}
             result['note'] = 'Up means scrape success, not workload health. Native sources are not run-scoped.'

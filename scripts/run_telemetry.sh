@@ -95,6 +95,23 @@ start_smartctl_exporter() {
     > "$output_dir/smartctl-exporter.log" 2>&1 &
   pids+=("$!")
 }
+# Validate before writing an active scrape configuration. CPU-only nodes do
+# not need to invoke Python when no Python collector is enabled.
+if [[ "$role" == server ]]; then
+"${PYTHON:-python3}" - "${PROMETHEUS_SAMPLE_LIMIT:-100000}" "${PROMETHEUS_TARGET_LIMIT:-1024}" \
+  "${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}" "${NATIVE_SCRAPE_INTERVAL_SECONDS:-5}" \
+  "${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}" "${GPU_PROCESS_METRICS:-0}" "${GPU_MAX_PROCESSES:-256}" <<'PYBUDGET'
+import sys
+from xlayer_telemetry.operations.config import ConfigError, validate_collection_budgets
+keys = ("PROMETHEUS_SAMPLE_LIMIT", "PROMETHEUS_TARGET_LIMIT", "PROMETHEUS_BODY_SIZE_LIMIT_MB",
+        "NATIVE_SCRAPE_INTERVAL_SECONDS", "NATIVE_SCRAPE_TIMEOUT_SECONDS", "GPU_PROCESS_METRICS", "GPU_MAX_PROCESSES")
+try:
+    validate_collection_budgets(dict(zip(keys, sys.argv[1:])))
+except ConfigError as error:
+    print(error, file=sys.stderr)
+    raise SystemExit(2)
+PYBUDGET
+fi
 if [[ "$role" == node ]]; then
   : "${NODE_ADDR:?Set NODE_ADDR to this node management address}"
   node_name="${NODE_NAME:-$(hostname)}"
@@ -294,6 +311,15 @@ EOF
     echo "ENABLE_GPU_METRICS must be 0 or 1" >&2
     exit 2
   fi
+  if [[ "${ENABLE_GPU_METRICS:-1}" == 1 ]]; then
+    if [[ "${GPU_PROCESS_METRICS:-0}" != 0 && "${GPU_PROCESS_METRICS:-0}" != 1 ]]; then
+      echo "GPU_PROCESS_METRICS must be 0 or 1" >&2; exit 2
+    fi
+    max_processes="${GPU_MAX_PROCESSES:-256}"
+    if [[ ! "$max_processes" =~ ^[0-9]{1,4}$ ]] || (( 10#$max_processes < 1 || 10#$max_processes > 4096 )); then
+      echo "GPU_MAX_PROCESSES must be an integer from 1 to 4096" >&2; exit 2
+    fi
+  fi
   mkdir -p "$output_dir/textfile"
   printf '# HELP telemetry_gpu_collection_enabled Whether this collector is configured to sample GPUs.\n# TYPE telemetry_gpu_collection_enabled gauge\ntelemetry_gpu_collection_enabled %s\n' "${ENABLE_GPU_METRICS:-1}" > "$output_dir/textfile/collector.prom"
   "$tools_dir/node_exporter-1.9.1.linux-$release_arch/node_exporter" \
@@ -307,7 +333,9 @@ EOF
     gpu_sampler_args=(
       --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl"
       --textfile-dir "$output_dir/textfile"
+      --max-processes "${GPU_MAX_PROCESSES:-256}"
     )
+    [[ "${GPU_PROCESS_METRICS:-0}" != 1 ]] || gpu_sampler_args+=(--process-metrics)
     if [[ -n "${DURATION:-}" ]]; then
       gpu_sampler_args+=(--duration "$DURATION")
     fi
@@ -406,6 +434,13 @@ PY
   cat > "$output_dir/prometheus.yml" <<EOF
 global:
   scrape_interval: 2s
+  scrape_timeout: 2s
+  sample_limit: ${PROMETHEUS_SAMPLE_LIMIT:-100000}
+  target_limit: ${PROMETHEUS_TARGET_LIMIT:-1024}
+  body_size_limit: ${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}MB
+  label_limit: 40
+  label_name_length_limit: 128
+  label_value_length_limit: 1024
 scrape_configs:
   - job_name: telemetry
     static_configs:
@@ -441,6 +476,8 @@ EOF
       --input "$TELEMETRY_SOURCES_FILE" --output "$native_targets"
     cat >> "$output_dir/prometheus.yml" <<EOF
   - job_name: native
+    scrape_interval: ${NATIVE_SCRAPE_INTERVAL_SECONDS:-5}s
+    scrape_timeout: ${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}s
     file_sd_configs:
       - files:
           - '$native_targets'
@@ -460,6 +497,7 @@ EOF
     cat >> "$output_dir/prometheus.yml" <<EOF
   - job_name: storage-smart
     scrape_interval: 60s
+    scrape_timeout: 10s
     static_configs:
 EOF
     seen_storage_nodes=""

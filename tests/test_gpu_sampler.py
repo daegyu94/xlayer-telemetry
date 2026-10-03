@@ -23,7 +23,7 @@ def test_optional_process_query_failure_preserves_device_samples(monkeypatch, fa
             return [["0", "47", "100", "45", "900", "[N/A]", "[N/A]", "GPU-example"]]
         raise failure
     monkeypatch.setattr(gpu_sampler, "query", query)
-    value = gpu_sampler.snapshot()
+    value = gpu_sampler.snapshot(include_processes=True)
     assert value["gpus"][0]["utilization.gpu"] == 47
     assert value["compute_processes"] == []
     assert value["compute_processes_error"] == type(failure).__name__
@@ -36,7 +36,7 @@ def test_device_and_process_memory_are_independent(monkeypatch):
         return [["GPU-example", "123", "python", "412"]]
 
     monkeypatch.setattr(gpu_sampler, "query", fake_query)
-    value = gpu_sampler.snapshot()
+    value = gpu_sampler.snapshot(include_processes=True)
     assert value["gpus"][0]["memory.used"] is None
     assert value["compute_processes"][0]["used_gpu_memory_mib"] == 412
 
@@ -50,7 +50,7 @@ def test_sampler_runs_without_a_default_deadline(tmp_path, monkeypatch):
         )
     )
 
-    def snapshot():
+    def snapshot(**kwargs):
         value = next(samples)
         if isinstance(value, Exception):
             raise value
@@ -68,7 +68,7 @@ def test_sampler_runs_without_a_default_deadline(tmp_path, monkeypatch):
 
 @pytest.fixture
 def gpu_textfile(tmp_path, monkeypatch):
-    def collect(device_rows, process_rows=()):
+    def collect(device_rows, process_rows=(), *, process_metrics=True):
         monkeypatch.setattr(
             gpu_sampler, "query", lambda kind, fields: device_rows if kind == "gpu" else process_rows
         )
@@ -78,7 +78,7 @@ def gpu_textfile(tmp_path, monkeypatch):
         monkeypatch.setattr(sys, "argv", [
             "gpu_sampler", "--output", str(tmp_path / "gpu.jsonl"),
             "--textfile-dir", str(tmp_path), "--duration", "1",
-        ])
+        ] + (["--process-metrics"] if process_metrics else []))
         gpu_sampler.main()
         return (tmp_path / "gpu.prom").read_text()
     return collect
@@ -120,3 +120,37 @@ def test_process_memory_gpu_selector_uses_device_uuid_and_preserves_unmapped_pro
     assert measurements['telemetry_gpu_process_memory_bytes{gpu="0",gpu_uuid="GPU-first",pid="456"}'] == 256 * 1024**2
     assert measurements['telemetry_gpu_process_memory_bytes{gpu_uuid="GPU-unmapped",pid="789"}'] == 128 * 1024**2
     assert not any(name.startswith("telemetry_gpu_memory_") for name in measurements)
+
+
+def test_default_collection_does_not_query_or_export_pids(gpu_textfile):
+    text = gpu_textfile([["0", "47", "100", "45", "900", "1024", "8192", "GPU-1"]],
+                        [["GPU-1", "1", "python", "256"]], process_metrics=False)
+    assert "telemetry_gpu_process_memory_bytes" not in text
+    assert "telemetry_gpu_process_collection_enabled 0" in text
+    assert "telemetry_gpu_process_samples_truncated" not in text
+
+
+def test_process_collection_cap_and_malformed_device_identity(monkeypatch):
+    calls = []
+    def query(kind, fields):
+        calls.append(kind)
+        if kind == "gpu":
+            return [["N/A"], ["0"]]
+        return [["GPU-1", str(pid), "python", "100"] for pid in range(1, 6)]
+    monkeypatch.setattr(gpu_sampler, "query", query)
+    value = gpu_sampler.snapshot()
+    assert calls == ["gpu"]
+    assert len(value["gpus"]) == 1 and value["gpus"][0]["memory.used"] is None
+    value = gpu_sampler.snapshot(include_processes=True, max_processes=2)
+    assert len(value["compute_processes"]) == 2
+    assert value["compute_processes_truncated"] == 3
+
+
+@pytest.mark.parametrize("argument,value", [("--interval", "nan"), ("--interval", "inf"),
+    ("--duration", "nan"), ("--duration", "inf"), ("--max-processes", "0"), ("--max-processes", "4097")])
+def test_invalid_collection_budget_fails_before_creating_output(tmp_path, monkeypatch, argument, value):
+    output = tmp_path / "gpu.jsonl"
+    monkeypatch.setattr(sys, "argv", ["gpu_sampler", "--output", str(output), argument, value])
+    with pytest.raises(SystemExit):
+        gpu_sampler.main()
+    assert not output.exists()

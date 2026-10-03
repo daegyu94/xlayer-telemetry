@@ -27,7 +27,9 @@ Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel 
 | Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_memory_pressure_ratio`, `sandbox_cpu_throttled_seconds_total` | Stable worker cgroup v2 경로를 sandbox sampler에 전달; CPU·memory·I/O와 압력·event counter | Worker cgroup; CPU quota 통계는 선택 cgroup 자체의 제한 |
 
 GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 않는 field는 0 대신 생략합니다.
-`telemetry_gpu_process_memory_bytes`는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
+`telemetry_gpu_process_memory_bytes`는 `GPU_PROCESS_METRICS=1`일 때만 수집하는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
+기본값은 `0`이며 PID churn을 상시 Prometheus 시계열에 넣지 않습니다. 짧은 진단에서만 켜고 `GPU_MAX_PROCESSES`(기본 256, 최대 4096)로 snapshot별 행을 제한합니다.
+`telemetry_gpu_process_collection_enabled`와 `telemetry_gpu_process_samples_truncated`로 설정·잘린 행 수를 구분합니다. 이 한도는 보존 기간 전체의 PID churn이나 nvidia-smi 응답 크기 자체의 한도가 아닙니다.
 Device memory와 process memory를 합산하거나 run 소유량으로 해석하지 않습니다.
 
 Sandbox pool의 `sandbox_active`, `sandbox_queued`, create/reset latency는 runtime이 제공해야 하는 optional contract입니다.
@@ -219,3 +221,38 @@ CLI collector는 최대 1,024개 파일·원본 크기 합계 16 MiB의 decoded 
 Producer는 SDK처럼 atomic replace로 snapshot을 갱신하며, 삭제되거나 종료된 run의 cache는 제거합니다.
 Identity·크기·mtime·ctime이 모두 같은 제자리 수정은 감지할 수 없으므로 외부 producer도 이 갱신 계약을 따릅니다.
 Cache hit는 `snapshot_reads_total`에 포함하지 않고 rejection counter는 계속 검증 시도마다 증가합니다.
+
+
+## Bounded Collection and Pressure Evidence
+
+Host pressure·disk await/queue·network error 신호는 이미 실행하는 Node Exporter를 재사용합니다.
+별도의 `/proc` polling collector를 추가하지 않습니다. `pressure`, `diskstats`, `netdev`,
+`netstat`, `vmstat`, `filesystem`, `infiniband` collector가 host/kernel에서 실제 성공했는지
+`node_scrape_collector_success`와 endpoint 원본으로 확인합니다. 없는 신호를 0으로 바꾸지 않습니다.
+NVMe에서는 busy fraction만으로 포화라고 판단하지 않고 queue·operation latency·IOPS를 함께 봅니다.
+네트워크 오류/retransmit은 node/port evidence이며 해당 run의 NCCL 전송 오류로 귀속하지 않습니다.
+
+실제 collector용 generated server config는 host 2초/timeout 2초, native 5초/timeout 4초,
+SMART 60초/timeout 10초로 조회합니다. 모든 job은 기본적으로 scrape당 100,000 samples,
+1,024 targets/job, uncompressed body 16 MB, 40 labels/sample, label name 128 bytes,
+label value 1,024 bytes 제한을 상속합니다. 한도 초과 시 일부 값만 성공으로 표시하지 않고
+scrape 전체가 실패하므로 `up`, scrape duration·sample count와 Prometheus Targets 오류를 확인합니다.
+필요한 경우 `PROMETHEUS_SAMPLE_LIMIT`, `PROMETHEUS_TARGET_LIMIT`,
+`PROMETHEUS_BODY_SIZE_LIMIT_MB`, `NATIVE_SCRAPE_INTERVAL_SECONDS`,
+`NATIVE_SCRAPE_TIMEOUT_SECONDS`를 bounded positive 값으로 조정합니다.
+`0`으로 한도를 제거하는 설정은 허용하지 않습니다. Retention·label churn·전체 cluster TSDB
+메모리 사용량은 별도 운영 예산이며 per-scrape 한도만으로 제한되지 않습니다.
+
+Native source 등록은 1 MiB 파일, 1,024 endpoint, endpoint당 16개 사용자 label,
+값당 256 UTF-8 bytes를 허용합니다. 내부 `__*` label과 같은 endpoint의 중복 등록을
+거부해 scrape interval override나 exporter 이중 수집을 방지합니다. Path는 query/fragment 없는
+metrics path만 받습니다. Prometheus의 metric 이름·label을 강제로 삭제해 서로 다른 시계열을
+합치지 않습니다. 기존 외부 Prometheus 사용자는 같은 예산을 해당 설정에 적용합니다.
+
+설정 필드의 의미는 [Prometheus scrape configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/),
+host 수집 조건은 [Node Exporter collectors](https://github.com/prometheus/node_exporter#collectors)를 따릅니다.
+
+Shared Prometheus range-query client는 응답을 JSON decoding 전에 8 MiB로 제한하고,
+한 query 결과의 series 1,000개·points 200,000개를 초과하면 전체 query를 missing evidence로 처리합니다.
+부분 표본으로 정상 결과를 만들지 않습니다. 초과 시 selector와 시간 창을 좁히거나 query step을 늘립니다.
+이 예산은 Prometheus backend 자체의 query CPU/RAM 한도가 아니므로 backend 운영 한도도 별도로 둡니다.

@@ -16,7 +16,7 @@ from urllib.request import urlopen
 
 from .config import assets_root
 from .run_artifacts import read_run_state
-from ..source_discovery import build_file_discovery
+from ..source_discovery import load_file_discovery
 from ..subsystems import inspect_sources, parse_target_response, summarize_sources
 
 
@@ -63,7 +63,7 @@ def sources(config: dict[str, str], *, targets: list[dict] | None = None,
     if not path:
         return {"status": "not_configured", "sources": []}
     try:
-        groups = build_file_discovery(json.loads(Path(path).read_text()))
+        groups = load_file_discovery(Path(path))
     except (OSError, ValueError, TypeError) as exc:
         return {"status": "invalid_config", "config_error": type(exc).__name__, "sources": [],
                 "next_action": "Check TELEMETRY_SOURCES_FILE with xltel config validate."}
@@ -234,7 +234,7 @@ def doctor(config: dict[str, str], *, role: str = "all") -> dict:
     else:
         check("GPU metrics", False, optional=True)
     if config.get("TELEMETRY_SOURCES_FILE"):
-        build_file_discovery(json.loads(Path(config["TELEMETRY_SOURCES_FILE"]).read_text()))
+        load_file_discovery(Path(config["TELEMETRY_SOURCES_FILE"]))
         check("native sources config", True)
     if config.get("DIAGNOSTICS_CONFIG"):
         from ..analysis.diagnostics import load_config

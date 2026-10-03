@@ -12,7 +12,7 @@ from xlayer_telemetry.adapters.verl import (
 from xlayer_telemetry.metrics import MetricEmitter
 
 
-@pytest.mark.parametrize("duration,expected", [(None, 8.0), (float("nan"), 8.0), (6.0, 6.0)])
+@pytest.mark.parametrize("duration,expected", [(None, 8.0), (float("nan"), 8.0), (-1.0, 8.0), (0.0, 0.0), (6.0, 6.0)])
 def test_step_duration_fallback_preserves_primary_metric(duration, expected) -> None:
     data = {"timing_s/step": 8.0}
     if duration is not None:
@@ -108,3 +108,28 @@ def test_invalid_logger_numbers_do_not_hide_valid_metrics():
     assert metrics['training_step_time_seconds'] == 2
     assert metrics['reward_mean'] == .5
     assert all(sample.labels.get('verl_stage') != 'gen' for sample in samples)
+
+
+@pytest.mark.parametrize("key", ["timing_s/gen", "timing_per_token_ms/gen", "perf/time_per_step"])
+def test_negative_durations_are_omitted_without_hiding_signed_rewards(key):
+    samples = VerlMetricsAdapter.translate({key: -0.5, "critic/rewards/mean": -1.0})
+    assert [(sample.name, sample.value) for sample in samples] == [("reward_mean", -1.0)]
+
+
+def test_nonnegative_timers_preserve_zero_and_convert_milliseconds():
+    samples = VerlMetricsAdapter.translate({
+        "timing_s/gen": 0.0, "timing_per_token_ms/gen": 0.0, "perf/time_per_step": 0.0,
+    })
+    assert len(samples) == 3
+    assert all(sample.value == 0.0 for sample in samples)
+
+
+def test_invalid_primary_duration_agrees_with_step_history(tmp_path):
+    from xlayer_telemetry.step_history import StepHistoryWriter
+
+    record = {"step": 1, "data": {"perf/time_per_step": -2.0, "timing_s/step": 3.0}}
+    history = StepHistoryWriter(tmp_path / "history.jsonl", run_id="r", node="n", worker_id="driver")
+    observation = history.append(record)
+    samples = VerlMetricsAdapter.translate(record["data"])
+    step = next(sample for sample in samples if sample.name == "training_step_time_seconds")
+    assert step.value == observation["step_duration_seconds"] == 3.0

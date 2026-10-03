@@ -27,13 +27,15 @@ KEYS = (
     "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME",
     "TELEMETRY_TARGETS", "LOKI_LISTEN_ADDR",
     "PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT", "ALLOY_PORT",
-    "PROMETHEUS_RETENTION",
+    "PROMETHEUS_RETENTION", "PROMETHEUS_SAMPLE_LIMIT", "PROMETHEUS_TARGET_LIMIT",
+    "PROMETHEUS_BODY_SIZE_LIMIT_MB", "NATIVE_SCRAPE_INTERVAL_SECONDS",
+    "NATIVE_SCRAPE_TIMEOUT_SECONDS", "GPU_PROCESS_METRICS", "GPU_MAX_PROCESSES",
 )
 
 PATH_KEYS = {"TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
              "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_DIR", "TELEMETRY_SOURCES_FILE", "DIAGNOSTICS_CONFIG",
              "TELEMETRY_PYTHON"}
-BOOL_KEYS = {"ENABLE_LOGS", "ENABLE_GPU_METRICS", "ENABLE_ALERTS"}
+BOOL_KEYS = {"ENABLE_LOGS", "ENABLE_GPU_METRICS", "ENABLE_ALERTS", "GPU_PROCESS_METRICS"}
 AGE_KEYS = {"TELEMETRY_METRICS_MAX_AGE_SECONDS", "TELEMETRY_HEALTH_MAX_AGE_SECONDS"}
 PORT_KEYS = {"PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT", "ALLOY_PORT"}
 
@@ -75,6 +77,9 @@ def defaults() -> dict[str, str]:
         "GF_USERS_DEFAULT_THEME": "dark",
         "PROMETHEUS_PORT": "19090", "GRAFANA_PORT": "13000", "LOKI_PORT": "13100", "ALLOY_PORT": "12345",
         "PROMETHEUS_RETENTION": "1d",
+        "PROMETHEUS_SAMPLE_LIMIT": "100000", "PROMETHEUS_TARGET_LIMIT": "1024",
+        "PROMETHEUS_BODY_SIZE_LIMIT_MB": "16", "NATIVE_SCRAPE_INTERVAL_SECONDS": "5",
+        "NATIVE_SCRAPE_TIMEOUT_SECONDS": "4", "GPU_PROCESS_METRICS": "0", "GPU_MAX_PROCESSES": "256",
     }
 
 
@@ -214,7 +219,29 @@ def validate_prometheus_retention(value: str) -> None:
         raise ConfigError(error)
 
 
+def validate_collection_budgets(config: dict[str, str]) -> None:
+    """Keep generated scrape requests and opt-in process series explicitly bounded."""
+    bounds = {
+        "PROMETHEUS_SAMPLE_LIMIT": (1, 1000000),
+        "PROMETHEUS_TARGET_LIMIT": (1, 10000),
+        "PROMETHEUS_BODY_SIZE_LIMIT_MB": (1, 256),
+        "NATIVE_SCRAPE_INTERVAL_SECONDS": (2, 300),
+        "NATIVE_SCRAPE_TIMEOUT_SECONDS": (1, 300),
+        "GPU_MAX_PROCESSES": (1, 4096),
+    }
+    values = defaults() | config
+    for key, (minimum, maximum) in bounds.items():
+        value = values[key]
+        if not re.fullmatch(r"[0-9]{1,7}", value) or not minimum <= int(value) <= maximum:
+            raise ConfigError(f"{key} must be an integer from {minimum} to {maximum}.")
+    if int(values["NATIVE_SCRAPE_TIMEOUT_SECONDS"]) > int(values["NATIVE_SCRAPE_INTERVAL_SECONDS"]):
+        raise ConfigError("NATIVE_SCRAPE_TIMEOUT_SECONDS must not exceed NATIVE_SCRAPE_INTERVAL_SECONDS.")
+    if values["GPU_PROCESS_METRICS"] not in {"0", "1"}:
+        raise ConfigError("GPU_PROCESS_METRICS must be 0 or 1.")
+
+
 def validate(config: dict[str, str]) -> None:
+    validate_collection_budgets(config)
     validate_prometheus_retention(config.get("PROMETHEUS_RETENTION", "1d"))
     for key in PORT_KEYS:
         if config.get(key) and (not config[key].isdigit() or not 1 <= int(config[key]) <= 65535):
