@@ -83,6 +83,8 @@ bash scripts/docs.sh serve
 SVG는 alt text와 title·description을 포함합니다.
 웹 문서의 테마 버튼 옆 **Figure** 선택기로 D2·Excalidraw를 페이지 전체에 적용하며 선택은 다음 페이지에서도 유지됩니다.
 모바일에서는 전체 그림을 화면 폭에 맞추고 **확대 보기**로 원본 SVG를 엽니다.
+그림 아래에는 alt text를 짧은 caption으로 표시하고 **D2 원본** 링크를 제공합니다.
+Alt text는 그림의 목적을 한 문장으로 설명하며, 상세 설명은 본문에 둡니다.
 
 ```bash
 python scripts/render_diagrams.py --install

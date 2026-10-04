@@ -12,9 +12,10 @@
     const selectors = [];
     const apply = () => {
       selectors.forEach((select) => { select.value = style; });
-      figures.forEach(({ image, link, source, alternate, download }) => {
+      figures.forEach(({ image, link, zoom, source, alternate, download }) => {
         image.src = style === "excalidraw" ? alternate : source;
         link.href = image.src;
+        zoom.href = image.src;
         download.hidden = style !== "excalidraw";
       });
     };
@@ -47,7 +48,10 @@
     document.querySelectorAll("article img[src$='.svg']").forEach((image) => {
       const source = image.src;
       const name = new URL(source).pathname.split("/").pop();
-      const wrapper = document.createElement("span");
+      const paragraph = image.parentElement;
+      const standalone = paragraph.tagName === "P" && [...paragraph.childNodes].every(
+        (node) => node === image || (node.nodeType === Node.TEXT_NODE && !node.textContent.trim()));
+      const wrapper = document.createElement(standalone ? "figure" : "span");
       wrapper.className = "xlayer-diagram";
       const link = document.createElement("a");
       link.className = "xlayer-diagram-link";
@@ -55,29 +59,47 @@
       link.target = "_blank";
       link.rel = "noopener";
       link.title = "그림을 눌러 SVG 확대 보기";
-      image.parentNode.insertBefore(wrapper, image);
+      if (standalone) paragraph.replaceWith(wrapper);
+      else image.parentNode.insertBefore(wrapper, image);
       wrapper.appendChild(link);
       link.appendChild(image);
       image.classList.add("xlayer-diagram-image");
-      const zoom = document.createElement("span");
+      const caption = document.createElement(standalone ? "figcaption" : "span");
+      caption.className = "xlayer-diagram-caption";
+      caption.textContent = image.alt;
+      wrapper.appendChild(caption);
+      const actions = document.createElement("span");
+      actions.className = "xlayer-diagram-actions";
+      wrapper.appendChild(actions);
+      const zoom = document.createElement("a");
       zoom.className = "xlayer-diagram-zoom";
+      zoom.href = source;
+      zoom.target = "_blank";
+      zoom.rel = "noopener";
       zoom.textContent = "확대 보기";
-      link.appendChild(zoom);
+      actions.appendChild(zoom);
+      const original = document.createElement("a");
+      original.className = "xlayer-diagram-source";
+      original.href = "https://github.com/daegyu94/xlayer-telemetry/blob/main/docs/diagrams/"
+        + encodeURIComponent(name.replace(/\.svg$/, ".d2"));
+      original.textContent = "D2 원본";
+      actions.appendChild(original);
       const download = document.createElement("a");
       download.className = "xlayer-diagram-download";
       download.href = new URL(name.replace(/\.svg$/, ".excalidraw"), assets).href;
       download.download = name.replace(/\.svg$/, ".excalidraw");
       download.textContent = "Excalidraw 편집용 원본";
-      wrapper.appendChild(download);
+      actions.appendChild(download);
       const alternate = new URL(name, assets).href;
       image.addEventListener("error", () => {
         if (image.src !== source) {
           image.src = source;
           link.href = source;
+          zoom.href = source;
           download.hidden = true;
         }
       });
-      figures.push({ image, link, source, alternate, download });
+      figures.push({ image, link, zoom, source, alternate, download });
     });
     apply();
   });

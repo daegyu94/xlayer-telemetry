@@ -23,6 +23,7 @@ SDK 직접 계측은 [Application Metrics](application-metrics.md), 현재 실�
 
 테마 버튼 옆 **Figure** 선택기로 문서 전체 그림을 D2·Excalidraw 스타일로 전환합니다.
 선택은 다음 페이지에서도 유지되며, 작은 화면에서는 **확대 보기**로 SVG를 자세히 읽을 수 있습니다.
+그림 아래의 짧은 설명과 **D2 원본** 링크로 의미와 편집 위치를 확인할 수 있습니다.
 
 ## Prepare a Checkout
 

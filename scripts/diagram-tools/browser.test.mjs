@@ -157,6 +157,27 @@ test("style persists across document navigation and reload; editable downloads a
   await page.close();
 });
 
+test("figures have readable captions and canonical source links in either style", async () => {
+  const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
+  await page.goto(address);
+  for (const style of ["d2", "excalidraw"]) {
+    await page.locator(".xlayer-figure-control:visible select").selectOption(style);
+    await loaded(page);
+    const figures = await page.locator("article figure.xlayer-diagram").all();
+    assert.equal(figures.length, 25);
+    for (const figure of figures) {
+      const name = await figure.locator("img").getAttribute("alt");
+      assert.equal(await figure.locator("figcaption").textContent(), name);
+      assert.equal(await figure.locator(".xlayer-diagram-source").getAttribute("href"),
+        `https://github.com/daegyu94/xlayer-telemetry/blob/main/docs/diagrams/${name.replace(/\.svg$/, ".d2")}`);
+    }
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+    await page.locator(".xlayer-diagram-source").first().focus();
+    assert.equal(await page.locator(".xlayer-diagram-source").first().evaluate((a) => a === document.activeElement), true);
+  }
+  await page.close();
+});
+
 test("unavailable storage does not disable switching, and failed alternates fall back to D2", async () => {
   const page = await browser.newPage();
   await page.addInitScript(() => Object.defineProperty(window, "localStorage", { get() { throw new Error("Storage disabled"); } }));
