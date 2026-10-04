@@ -24,7 +24,8 @@ before(async () => {
       const path = new URL(request.url, "http://localhost").pathname;
       if (path === "/" || path === "/next.html") { response.setHeader("Content-Type", "text/html"); response.end(html); return; }
       if (path.startsWith("/site/") && process.env.XLAYER_DOCS_SITE) {
-        const base = resolve(process.env.XLAYER_DOCS_SITE);
+        // npm --prefix changes cwd; documented relative paths start at the repo.
+        const base = resolve(root, process.env.XLAYER_DOCS_SITE);
         const target = resolve(base, path.slice(6));
         if (!target.startsWith(base + "/")) throw new Error("Invalid site path");
         response.setHeader("Content-Type", path.endsWith(".js") ? "text/javascript" : path.endsWith(".svg") ? "image/svg+xml" : path.endsWith(".css") ? "text/css" : path.endsWith(".png") ? "image/png" : "text/html");

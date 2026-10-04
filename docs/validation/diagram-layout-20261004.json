@@ -114,7 +114,13 @@
     "root_cause": "Host Chrome 145 and CI Chromium 153 produced different text metrics; for one label, width was 85.800064 versus 85px.",
     "change": "Regeneration/check always use the Chromium pinned by the Playwright lockfile. Host Chrome remains usable for reader/browser tests only.",
     "pinned_generation_browser": "Chromium Headless Shell 153.0.8010.12 / revision 1243",
-    "repeat_regeneration_check": "passed"
+    "repeat_regeneration_check": "passed",
+    "site_relative_path_regression": {
+      "failed_docs_ci_run": 37194963728,
+      "cause": "npm --prefix changes cwd; the browser site helper resolved repository-relative paths under scripts/diagram-tools.",
+      "fix": "Resolve XLAYER_DOCS_SITE relative to the repository root, preserving absolute paths.",
+      "validation": "Reproduced 404 using a relative temporary site path, then all seven browser tests passed after the one-line correction."
+    }
   },
   "validation": {
     "strict_sphinx": "passed",
