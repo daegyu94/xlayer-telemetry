@@ -4,14 +4,15 @@
 
 direction: down
 node: Workload / resource node {
-  grid-columns: 1
-  app: "VERL file logger\nBridge > snapshot > application.prom" {class: source}
-  gpu: "GPU sampler > gpu.prom" {class: source}
-  host: "CPU / memory / network / disk" {class: source}
+  textfiles: Textfile inputs {
+    grid-columns: 1
+    app: "Application snapshot\nBridge / SDK\napplication.prom" {class: source}
+    gpu: "GPU sampler\ngpu.prom" {class: source}
+  }
+  host: "Native host collectors\nCPU / memory\nNetwork / disk" {class: source}
   exporter: "Node Exporter :19100" {class: process}
-  app -> exporter
-  gpu -> exporter
-  host -> exporter: native collectors {style.font-size: 20}
+  textfiles -> exporter
+  host -> exporter
 }
 prometheus: "Prometheus\nMonitoring host" {class: process}
 grafana: "Grafana metric dashboards" {class: evidence}

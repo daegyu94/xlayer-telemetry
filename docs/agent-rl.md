@@ -379,6 +379,9 @@ XLayer는 외부 runtime의 lifecycle을 기록하고 cgroup을 읽으며 생성
 
 ![Dedicated sandbox: RPC trace context와 별도 node의 cgroup·local NVMe 관측](figures/diagrams/sandbox-dedicated.svg)
 
+실선은 실행·RPC 경로, 점선은 관측 경로입니다.
+Cgroup과 device의 동시 변화는 supporting signal이며 원인이나 run별 I/O를 증명하지 않습니다.
+
 두 배치는 `role=sandbox`와 같은 metric 이름을 사용합니다.
 `node`와 `deployment`만 실제 위치에 맞게 달라지고, dedicated 배치에서는 sandbox node에도 [node collector](monitoring.md)를 실행해 monitoring server의 target에 등록합니다.
 Manifest의 role mapping에도 `sandbox=sandbox-0`을 추가할 수 있지만 manifest만으로 collector가 시작되지는 않습니다.

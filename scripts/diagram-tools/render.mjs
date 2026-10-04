@@ -44,10 +44,9 @@ try {
   });
   await writeFile(join(temporary, "index.html"), '<!doctype html><meta charset="utf-8"><style>body{margin:0}</style><script>window.EXCALIDRAW_ASSET_PATH="/";</script><script src="export.js"></script>');
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  browser = await chromium.launch({
-    ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
+  // SVG text geometry varies by browser version. Generation/check always use
+  // the Chromium pinned by package-lock.json, never a host-specific Chrome.
+  browser = await chromium.launch({ args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   const page = await browser.newPage({ viewport: { width: 4096, height: 4096 } });
   await page.goto(`http://127.0.0.1:${server.address().port}/index.html`);
   await page.waitForFunction(() => window.xlayerExport);

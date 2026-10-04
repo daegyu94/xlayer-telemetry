@@ -38,9 +38,10 @@ jobs:
           npm ci --prefix scripts/diagram-tools
           ./scripts/diagram-tools/node_modules/.bin/playwright install --with-deps chromium
           npm run check --prefix scripts/diagram-tools
-          npm test --prefix scripts/diagram-tools
       - name: Build and check internal references
         run: python -m sphinx -n -W --keep-going -b html docs artifacts/docs-site
+      - name: Check diagram geometry and rendered documentation
+        run: XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/diagram-tools
       - uses: actions/upload-pages-artifact@v4
         with:
           path: artifacts/docs-site

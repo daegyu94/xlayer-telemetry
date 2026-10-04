@@ -111,6 +111,9 @@ npm test --prefix scripts/diagram-tools
 
 Excalidraw 0.18.1·Node dependency는 lockfile로 고정한 문서 생성 도구입니다.
 공식 [SVG export API](https://docs.excalidraw.com/docs/@excalidraw/excalidraw/api/utils/export)를 사용합니다.
-기존 Chrome을 사용하려면 `CHROME_PATH`를 지정합니다.
+생성·재생성 검사에는 lockfile과 함께 고정된 Playwright Chromium을 사용합니다.
+SVG text geometry가 browser version마다 달라 host Chrome으로 생성하지 않습니다.
+Browser regression만 기존 Chrome에서 실행하려면 `CHROME_PATH`를 지정할 수 있습니다.
+Sphinx build 결과까지 검사하려면 `XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/diagram-tools`을 실행합니다.
 문서 독자에게는 폰트를 포함한 SVG만 제공하며 editor·CDN·Node를 요구하지 않습니다.
 GitHub Markdown은 기본 D2 그림을 표시하고 스타일 전환은 GitHub Pages에서 제공합니다.

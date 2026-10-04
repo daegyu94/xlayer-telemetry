@@ -11,7 +11,5 @@ nodes: Configured cluster {
 }
 monitor: "Monitoring host\nPrometheus / optional Loki" {class: process}
 view: "XLayer diagnosis\nGrafana Timeline" {class: evidence}
-nodes.trainer -> monitor: node=gpu-a {style.font-size: 20}
-nodes.rollout -> monitor: node=gpu-b {style.font-size: 20}
-nodes.storage -> monitor: node=storage-a {style.font-size: 20}
+nodes -> monitor: preserve cluster + node {style.font-size: 20}
 monitor -> view

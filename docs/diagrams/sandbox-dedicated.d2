@@ -1,5 +1,5 @@
 # Title: Dedicated sandbox
-# Description: RPC carries trace context to a separate sandbox node; that node collects its cgroup and local device metrics.
+# Description: Solid edges show execution/RPC; dashed edges show separate cgroup and device observations on the dedicated sandbox node.
 ...@_style
 
 direction: down
@@ -7,16 +7,16 @@ gpu: GPU / rollout node {
   agent: "AgentLoop / tool.call" {class: source}
 }
 remote: Dedicated sandbox node {
-  sandbox: "Sandbox worker / sandbox.exec\nExplicit trace / parent context" {class: source}
+  sandbox: "Sandbox worker / sandbox.exec\nExternal runtime\nrole=sandbox / deployment=dedicated\nExplicit trace / parent context" {class: source}
   filesystem: "Workspace filesystem\nExample: OverlayFS" {class: process}
-  nvme: "Local SSD / NVMe" {class: process}
-  cgroup: "Sandbox cgroup v2" {class: process}
-  collector: "Node collector / Node Exporter\nrole=sandbox / deployment=dedicated" {class: process}
-  sandbox -> filesystem -> nvme: workload path {style.font-size: 20}
-  sandbox -> cgroup
-  cgroup -> collector: sandbox.prom {style.font-size: 20}
-  nvme -> collector: host / device metrics {style.font-size: 20}
+  nvme: "Local SSD / NVMe\nDevice scope" {class: process}
+  cgroup: "Registered sandbox cgroup v2\nI/O / PSI / CPU / memory\nCgroup scope" {class: process}
+  collector: "Cgroup sampler > sandbox.prom\nNode Exporter" {class: process}
+  sandbox -> filesystem -> nvme
+  sandbox -> cgroup: observe {style.stroke-dash: 4; style.font-size: 20}
+  cgroup -> collector {style.stroke-dash: 4}
+  nvme -> collector {style.stroke-dash: 4}
 }
 gpu.agent -> remote.sandbox: sandbox RPC + trace context {style.font-size: 20}
 prom: "Prometheus / XLayer\nSame metric schema, separate node identity" {class: evidence}
-remote.collector -> prom
+remote.collector -> prom: scrape {style.stroke-dash: 4; style.font-size: 20}

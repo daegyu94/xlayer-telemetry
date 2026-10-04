@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-04",
+  "baseline_commit": "79898c48a73a07eabd09f3f4f673dc9a9dac3561",
+  "scope": "Greenfield review of all 25 diagram layouts; retain semantics while improving explanation and routing.",
+  "layout_changes": [
+    {
+      "diagram": "system-overview",
+      "decision": "REFACTOR",
+      "reason": "Read Collect -> Correlate -> Diagnose vertically instead of a wide three-column strip.",
+      "before_px": [
+        979,
+        955
+      ],
+      "after_px": [
+        710,
+        1297
+      ]
+    },
+    {
+      "diagram": "node-metrics",
+      "decision": "REFACTOR",
+      "reason": "Separate native host collectors from independent application/GPU textfiles; avoid source-crossing arrows.",
+      "before_px": [
+        801,
+        831
+      ],
+      "after_px": [
+        761,
+        1162
+      ]
+    },
+    {
+      "diagram": "multi-node",
+      "decision": "REFACTOR",
+      "reason": "Group separately named collectors into one cluster input rather than repeat three overlapping links.",
+      "before_px": [
+        790,
+        704
+      ],
+      "after_px": [
+        487,
+        961
+      ]
+    },
+    {
+      "diagram": "sandbox-colocated",
+      "decision": "REFACTOR",
+      "reason": "Distinguish execution from observation and retain cgroup/device scopes and external runtime boundary.",
+      "before_px": [
+        605,
+        1480
+      ],
+      "after_px": [
+        696,
+        1187
+      ]
+    },
+    {
+      "diagram": "sandbox-dedicated",
+      "decision": "REFACTOR",
+      "reason": "Use the same visual grammar as colocated deployment, with RPC and explicit remote trace context.",
+      "before_px": [
+        620,
+        1525
+      ],
+      "after_px": [
+        696,
+        1413
+      ]
+    },
+    {
+      "diagram": "verl-bridge",
+      "decision": "REFACTOR",
+      "reason": "Separate latest metric state from completed-step history as two named pipelines.",
+      "before_px": [
+        1049,
+        714
+      ],
+      "after_px": [
+        899,
+        880
+      ]
+    }
+  ],
+  "kept": [
+    "artifact-layout",
+    "cli-commands",
+    "cli-runtime",
+    "clock-alignment",
+    "collect-correlate-diagnose",
+    "evidence-scope",
+    "framework-mapping",
+    "investigation-flow",
+    "llm-diagnosis",
+    "mooncake-path",
+    "node-metrics-and-events",
+    "node-registration",
+    "package-layout",
+    "pipeline-events",
+    "pipeline-metrics",
+    "runtime-architecture",
+    "sdk-example",
+    "storage-path",
+    "validation-journey"
+  ],
+  "keeping_reason": "The remaining diagrams already present a focused workflow, sequence, evidence boundary or responsibility map; no layout change was needed.",
+  "route_reproduction": {
+    "node_metric_arrows_crossing_unrelated_sources_before": 3,
+    "after": 0,
+    "browser_regression_added": true
+  },
+  "reproducibility_fix": {
+    "failed_docs_ci_run": 37193831963,
+    "root_cause": "Host Chrome 145 and CI Chromium 153 produced different text metrics; for one label, width was 85.800064 versus 85px.",
+    "change": "Regeneration/check always use the Chromium pinned by the Playwright lockfile. Host Chrome remains usable for reader/browser tests only.",
+    "pinned_generation_browser": "Chromium Headless Shell 153.0.8010.12 / revision 1243",
+    "repeat_regeneration_check": "passed"
+  },
+  "validation": {
+    "strict_sphinx": "passed",
+    "python_diagram_tests": 7,
+    "browser_regressions": 7,
+    "built_pages": 12,
+    "viewport_widths": [
+      320,
+      390,
+      430,
+      900,
+      1440
+    ],
+    "styles": [
+      "d2",
+      "excalidraw"
+    ],
+    "actual_site_combinations": 120,
+    "svg_files_rendered": 50,
+    "overlapping_labels": 0,
+    "clipped_figures": 0,
+    "page_overflows": 0,
+    "host_chrome_145_rendering": "passed",
+    "pinned_chromium_153_rendering": "passed",
+    "preceding_full_suite": "827 passed; no runtime code changed in this layout follow-up"
+  },
+  "limitations": [
+    "Dense diagrams still require the zoom link for individual labels on narrow phones.",
+    "GitHub Markdown uses the default D2 SVG; the global selector is on GitHub Pages."
+  ],
+  "cleanup": {
+    "temporary_site_screenshots_and_browser_processes_removed": true,
+    "validation_node_dependencies_d2_browser_cache_removed": true,
+    "pre_existing_services_modified": false
+  }
+}

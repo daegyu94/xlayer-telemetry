@@ -23,6 +23,14 @@ before(async () => {
     try {
       const path = new URL(request.url, "http://localhost").pathname;
       if (path === "/" || path === "/next.html") { response.setHeader("Content-Type", "text/html"); response.end(html); return; }
+      if (path.startsWith("/site/") && process.env.XLAYER_DOCS_SITE) {
+        const base = resolve(process.env.XLAYER_DOCS_SITE);
+        const target = resolve(base, path.slice(6));
+        if (!target.startsWith(base + "/")) throw new Error("Invalid site path");
+        response.setHeader("Content-Type", path.endsWith(".js") ? "text/javascript" : path.endsWith(".svg") ? "image/svg+xml" : path.endsWith(".css") ? "text/css" : path.endsWith(".png") ? "image/png" : "text/html");
+        response.end(await readFile(target));
+        return;
+      }
       const relative = path.startsWith("/_images/") ? `docs/figures/diagrams/${path.slice(9)}` : `docs/${path.slice(1)}`;
       const target = resolve(root, relative);
       if (!target.startsWith(root + "/")) throw new Error("Invalid path");
@@ -33,6 +41,59 @@ before(async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   address = `http://127.0.0.1:${server.address().port}`;
   browser = await chromium.launch({ ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+});
+
+test("node collector paths do not cross unrelated metric sources", async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(address + "/_images/node-metrics.svg");
+  const crossings = await page.evaluate(() => {
+    const sources = [...document.querySelectorAll("g.source > g.shape > rect")].map((r) => r.getBoundingClientRect());
+    const paths = [...document.querySelectorAll("path.connection")];
+    const inside = (p, r, margin = 0) => p.x > r.left + margin && p.x < r.right - margin && p.y > r.top + margin && p.y < r.bottom - margin;
+    const failures = [];
+    for (const path of paths) {
+      const length = path.getTotalLength();
+      const matrix = path.getScreenCTM();
+      const at = (n) => path.getPointAtLength(n).matrixTransform(matrix);
+      for (const box of sources) {
+        // Exclude the source/target attached to this path, including arrow padding.
+        if (inside(at(0), box, -6) || inside(at(length), box, -6)) continue;
+        for (let n = 0; n <= length; n += 8) {
+          if (inside(at(n), box, 2)) { failures.push(path.getAttribute("d")); break; }
+        }
+      }
+    }
+    return failures;
+  });
+  assert.deepEqual(crossings, [], "Parallel inputs must not look like a serial pipeline through another source");
+  await page.close();
+});
+
+test("built documentation has one visible global selector and full figures at every breakpoint", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
+  const documents = ["index", "agent-rl", "architecture", "cli", "dashboards", "diagnosis", "grafana-ui-ux-review", "local-llm", "monitoring", "time-alignment", "validation/e2e-user-experience", "verl-quickstart"];
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  for (const width of [320, 390, 430, 900, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const document of documents) {
+      await page.goto(`${address}/site/${document}.html`);
+      const selector = page.locator(".xlayer-figure-control:visible select");
+      assert.equal(await selector.count(), 1, `${width} ${document}`);
+      for (const style of ["d2", "excalidraw"]) {
+        await selector.selectOption(style);
+        await page.waitForFunction(() => [...window.document.querySelectorAll(".xlayer-diagram-image")].every((i) => i.complete && i.naturalWidth));
+        const clipped = await page.locator(".xlayer-diagram-image").evaluateAll((images) => images.filter((i) => {
+          const image = i.getBoundingClientRect(), article = i.closest("article").getBoundingClientRect();
+          return image.left < article.left - 1 || image.right > article.right + 1;
+        }).map((i) => i.alt));
+        assert.deepEqual(clipped, [], `${width} ${document} ${style}`);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${width} ${document} ${style}`);
+      }
+    }
+  }
+  assert.deepEqual(errors, []);
+  await page.close();
 });
 after(async () => {
   await browser?.close();
