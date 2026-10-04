@@ -1,5 +1,6 @@
 """Keep diagram sources, published images and documentation references together."""
 import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -13,6 +14,40 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = ROOT / "docs/diagrams"
 SVG = ROOT / "docs/figures/diagrams"
 NS = {"svg": "http://www.w3.org/2000/svg"}
+
+
+def test_excalidraw_preserves_labels_and_connection_directions():
+    """Alternative figures are editable scenes, not raster/style lookalikes."""
+    alternate = ROOT / "docs/_static/excalidraw"
+    assert {p.stem for p in alternate.glob("*.svg")} == {p.stem for p in SVG.glob("*.svg")}
+    assert {p.stem for p in alternate.glob("*.excalidraw")} == {p.stem for p in SVG.glob("*.svg")}
+    for path in SVG.glob("*.svg"):
+        original = ET.parse(path).getroot()
+        scene = json.loads((alternate / f"{path.stem}.excalidraw").read_text())
+        assert scene["type"] == "excalidraw" and scene["version"] == 2
+        digest = hashlib.sha256(path.read_bytes() + scene["xlayer"]["excalidrawVersion"].encode()).hexdigest()
+        assert scene["xlayer"]["sourceSha256"] == digest, f"Regenerate {path.stem}"
+        expected = []
+        for label in original.findall(".//svg:text", NS):
+            lines = label.findall("svg:tspan", NS)
+            expected.append("\n".join("".join(line.itertext()) for line in lines) if lines else "".join(label.itertext()))
+        actual = [e for e in scene["elements"] if e["type"] == "text"]
+        assert [e["text"] for e in actual] == expected, path
+        assert all(e["fontSize"] >= 20 for e in actual), path
+        connections = [e for e in original.findall(".//svg:path", NS) if "connection" in e.get("class", "").split()]
+        drawn = [e for e in scene["elements"] if e["type"] in {"line", "arrow"}]
+        assert len(connections) == len(drawn), path
+        for source, target in zip(connections, drawn):
+            assert bool(source.get("marker-start")) == bool(target.get("startArrowhead")), path
+            assert bool(source.get("marker-end")) == bool(target.get("endArrowhead")), path
+            assert ("stroke-dasharray" in source.get("style", "")) == (target["strokeStyle"] == "dashed"), path
+        rendered = (alternate / path.name).read_text()
+        image = ET.fromstring(rendered)
+        assert image.get("role") == "img" and image.find("svg:title", NS).text
+        assert f"source-sha256:{digest}" in rendered
+        assert not image.findall(".//svg:script", NS)
+        # Exports embed their font; readers never load editor/CDN dependencies.
+        assert not re.search(r'(?:href|src)="https?://|url\(["\x27]?https?://', rendered)
 
 
 def test_all_diagram_sources_have_accessible_current_svg():

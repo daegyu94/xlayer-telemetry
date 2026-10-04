@@ -11,8 +11,8 @@ clusters: Workload and resource telemetry {
 }
 xlayer: XLayer Telemetry {
   grid-columns: 3
-  collect: "1. Collect\nMetrics / logs\nEvents / artifacts\nExisting backends" {class: process}
-  correlate: "2. Correlate\nRun / step / phase\nNode / worker / device\nTopology / scope" {class: process}
+  collect: "1. Collect\nMetrics / logs / events\nPrometheus / Loki\nClickHouse queries" {class: process}
+  correlate: "2. Correlate\nRun / step / phase\nNode / role / worker\nDevice / topology / scope" {class: process}
   diagnose: "3. Diagnose\nBaseline / candidate\nSupporting / counter\nMissing evidence" {class: evidence}
   collect -> correlate -> diagnose
 }

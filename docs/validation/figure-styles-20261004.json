@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-04",
+  "baseline_commit": "ee7ca3dbcbfdc03cf0847f22bfe5ff85defd5ddd",
+  "scope": "Documentation diagram fidelity, responsive rendering and global figure style selection",
+  "original_ascii_baseline": "a0b7fed10c3e9c6ac179fb7c942f6af866fba424",
+  "semantic_review": {
+    "original_ascii_blocks_reviewed": 24,
+    "d2_sources_reviewed": 25,
+    "corrections": [
+      "Keep configured workload log files separate from run JSONL artifacts; both reach optional Alloy/Loki, but only JSONL artifacts feed inspect/show_run in this pipeline.",
+      "Restore role and named Prometheus/Loki/ClickHouse query responsibilities in the system overview.",
+      "Label example artifacts as SDK outputs, rather than implying the ordinary file roundtrip is the telemetry producer."
+    ],
+    "intentional_abstraction": "CLI/package trees summarize responsibilities; exact command options and module paths remain in adjacent reference tables.",
+    "two_style_parity": "25 scene pairs preserve all 240 text blocks, connection counts, arrow direction and dashed relationship semantics."
+  },
+  "mobile_reproduction": {
+    "published_page": "https://daegyu94.github.io/xlayer-telemetry/architecture.html",
+    "viewport_px": 390,
+    "content_width_px": 354,
+    "diagram_widths_px_before": [
+      692,
+      640,
+      539,
+      793,
+      721,
+      944,
+      764
+    ],
+    "root_cause": "Minimum widths intentionally forced local horizontal scrolling. Previous page-overflow checks did not require full-figure visibility.",
+    "after": "Fit the entire figure; provide a visible zoom link. Do not force a minimum pixel width."
+  },
+  "generation": {
+    "excalidraw_version": "0.18.1",
+    "d2_version": "0.9.0",
+    "editable_scene_files": 25,
+    "additional_svg_files": 25,
+    "single_source_of_truth": "D2 sources; Excalidraw scene/SVG derived from generated D2 geometry",
+    "node_dependencies": "Build-time only, pinned package-lock.json; no reader CDN/editor dependency",
+    "regeneration_check": "passed for both styles"
+  },
+  "browser": {
+    "pages": [
+      "index",
+      "agent-rl",
+      "architecture",
+      "cli",
+      "dashboards",
+      "diagnosis",
+      "grafana-ui-ux-review",
+      "local-llm",
+      "monitoring",
+      "time-alignment",
+      "validation/e2e-user-experience",
+      "verl-quickstart"
+    ],
+    "viewport_widths": [
+      320,
+      390,
+      430,
+      900,
+      1440
+    ],
+    "styles": [
+      "d2",
+      "excalidraw"
+    ],
+    "document_checks": 120,
+    "errors": [],
+    "page_overflows": [],
+    "clipped_images": [],
+    "text_overlaps": [],
+    "outside_viewbox": [],
+    "nested_page_preference_and_zoom": "passed",
+    "rendered_svg_files": 50,
+    "rendered_labels": {
+      "d2": 240,
+      "excalidraw": 391
+    }
+  },
+  "automated_tests": {
+    "full_python_suite": {
+      "passed": 827,
+      "failed": 0,
+      "seconds": 67.83,
+      "promtool_enabled": true
+    },
+    "final_diagram_tests": {
+      "passed": 7,
+      "failed": 0
+    },
+    "browser_regressions": {
+      "passed": 5,
+      "failed": 0
+    },
+    "strict_sphinx": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "Very dense figures need zoom for individual labels on narrow phones.",
+    "The style selector is available in GitHub Pages; GitHub Markdown displays the default D2 SVG.",
+    "This run does not repeat GPU/VERL/3FS workload validation; telemetry runtime code is unchanged."
+  ],
+  "cleanup": {
+    "temporary_site_browser_screenshots_and_processes_removed": true,
+    "validation_installed_d2_and_node_dependencies_removed": true,
+    "pre_existing_services_modified": false,
+    "preserved": [
+      "Canonical diagrams",
+      "Excalidraw scenes/SVGs",
+      "Build tooling and regression tests",
+      "This validation record"
+    ]
+  }
+}
