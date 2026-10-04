@@ -15,6 +15,7 @@ html_title = "XLayer Telemetry"
 html_baseurl = "https://daegyu94.github.io/xlayer-telemetry/"
 html_static_path = ["_static"]
 html_css_files = ["xlayer.css"]
+html_js_files = ["diagrams.js"]
 html_theme_options = {
     "source_repository": "https://github.com/daegyu94/xlayer-telemetry/",
     "source_branch": "main",

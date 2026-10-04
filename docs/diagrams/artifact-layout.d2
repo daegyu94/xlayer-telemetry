@@ -1,0 +1,23 @@
+# Title: Persistent artifacts and collector state
+# Description: Run artifacts persist after down; collector output and backend state have a separate owner and lifetime.
+...@_style
+
+direction: down
+run: "Run root: runs/<RUN_ID>/" {
+  grid-columns: 2
+  manifest: "telemetry-manifest.json\nRun / observer context" {class: source}
+  logs: "logs/\nverl-metrics.jsonl\ntelemetry-bridge.log" {class: source}
+  metrics: "telemetry-metrics/*.json\nLatest SDK snapshots" {class: source}
+  events: "telemetry-events/\nverl-steps.jsonl / span JSONL" {class: source}
+  health: "telemetry-health.json\nWorkload outcome / telemetry status" {class: evidence}
+  diagnosis: "diagnostics/\nlatest.json / diagnostics.jsonl\ninvestigation/*.jsonl\n(Loki projection)" {class: evidence}
+}
+collector: "Collector output: state/node/ or OUTPUT_DIR" {
+  grid-columns: 2
+  textfile: "textfile/\napplication.prom / gpu.prom" {class: process}
+  gpu: "gpu-*.jsonl\nGPU samples" {class: process}
+  exporter: "node-exporter.log\nCollector errors" {class: process}
+  alloy: "alloy-data/\nWhen logs are enabled" {class: optional}
+}
+
+run -> collector: {style.opacity: 0}

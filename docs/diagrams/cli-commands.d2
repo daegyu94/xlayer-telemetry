@@ -1,0 +1,16 @@
+# Title: xltel command groups
+# Description: Setup, monitoring lifecycle, workload inspection, sources, configuration and optional clock calibration share one CLI.
+...@_style
+
+direction: down
+cli: "xltel" {
+  grid-columns: 2
+  setup: "Setup\ninit / doctor / install-tools" {class: source}
+  lifecycle: "Monitoring lifecycle\nup / down / restart / status" {class: process}
+  workload: "Workload\nrun -- COMMAND / inspect" {class: source}
+  logs: "Logs\nlogs [server|node] / --follow" {class: process}
+  sources: "Sources\nsources / refresh / threefs" {class: process}
+  config: "Config\npath / show / validate / migrate" {class: process}
+  completion: "Completion\nbash / zsh / fish" {class: optional}
+  clock: "Optional clock\nserve / calibrate / status" {class: optional}
+}

@@ -1,0 +1,17 @@
+# Title: Declare node and source identity
+# Description: Trainer and rollout node exporters and native rollout endpoints carry stable node labels; topology describes placement separately.
+...@_style
+
+direction: down
+# Keep the placement lane below the metric registration lane.
+trainer: "trainer-0\nNode Exporter :19100" {class: source}
+rollout: "rollout-0\nNode Exporter :19100" {class: source}
+vllm: "vLLM /metrics\nlabels.node=rollout-0" {class: source}
+prom: "Prometheus > Grafana" {class: process}
+trainer -> prom
+rollout -> prom
+vllm -> prom
+manifest: "Driver run\nTopology manifest" {class: source}
+placement: "Declared role / node placement\nNo inferred traffic attribution" {class: evidence}
+manifest -> placement
+prom -> manifest: {style.opacity: 0}

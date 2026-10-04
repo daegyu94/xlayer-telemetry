@@ -1,0 +1,19 @@
+# Title: Application and native metric paths
+# Description: VERL snapshots and node metrics use Node Exporter; vLLM and Ray expose native scrape endpoints.
+...@_style
+
+direction: down
+trainer: "VERL trainer\nStage / reward / step metrics" {class: source}
+logger: "logs/verl-metrics.jsonl" {class: source}
+bridge: "File logger bridge" {class: process}
+snapshot: "Application snapshot\nNode collector > application.prom" {class: process}
+node: "GPU sampler > gpu.prom\nHost / NIC / filesystem collectors\nIncluding configured 3FS FUSE mount" {class: source}
+exporter: "Node Exporter :19100" {class: process}
+native: "vLLM / Ray native endpoints" {class: source}
+prom: "Prometheus" {class: process}
+views: "Grafana metric dashboards\nXLayer run diagnosis / inspect" {class: evidence}
+trainer -> logger -> bridge -> snapshot -> exporter
+node -> exporter
+exporter -> prom: scrape {style.font-size: 20}
+native -> prom: scrape {style.font-size: 20}
+prom -> views: query {style.font-size: 20}

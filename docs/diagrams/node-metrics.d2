@@ -1,0 +1,19 @@
+# Title: Node metric collection
+# Description: Application textfiles and GPU textfiles are exposed with host metrics by Node Exporter and scraped by Prometheus.
+...@_style
+
+direction: down
+node: Workload / resource node {
+  grid-columns: 1
+  app: "VERL file logger\nBridge > snapshot > application.prom" {class: source}
+  gpu: "GPU sampler > gpu.prom" {class: source}
+  host: "CPU / memory / network / disk" {class: source}
+  exporter: "Node Exporter :19100" {class: process}
+  app -> exporter
+  gpu -> exporter
+  host -> exporter: native collectors {style.font-size: 20}
+}
+prometheus: "Prometheus\nMonitoring host" {class: process}
+grafana: "Grafana metric dashboards" {class: evidence}
+node.exporter -> prometheus: scrape {style.font-size: 20}
+prometheus -> grafana: query {style.font-size: 20}

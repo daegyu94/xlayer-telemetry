@@ -3,9 +3,9 @@ name: Documentation
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "requirements-docs.txt", "scripts/docs.sh", ".github/workflows/docs.yml"]
+    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", ".github/workflows/docs.yml"]
   pull_request:
-    paths: ["docs/**", "requirements-docs.txt", "scripts/docs.sh", ".github/workflows/docs.yml"]
+    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-docs.txt
       - run: python -m pip install -r requirements-docs.txt
+      - name: Verify D2 sources and committed SVGs
+        run: python scripts/render_diagrams.py --install --check
       - name: Build and check internal references
         run: python -m sphinx -n -W --keep-going -b html docs artifacts/docs-site
       - uses: actions/upload-pages-artifact@v4

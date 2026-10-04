@@ -1,0 +1,14 @@
+# Title: Declared storage investigation path
+# Description: Workload, network, shared-service and device observations preserve their own scope along a declared data path.
+...@_style
+
+direction: down
+trainer: "Trainer" {class: source}
+rollout: "Rollout / vLLM\nWorkload step / span" {class: source}
+nic: "GPU node NIC\nNode / interface scope" {class: process}
+fs: "3FS service\nShared-service scope" {class: process}
+node: "Storage node\nHost scope" {class: process}
+ssd: "SSD\nDevice scope" {class: process}
+trainer -> rollout -> nic -> fs -> node -> ssd: declared path {style.font-size: 20; style.stroke-dash: 4}
+note: "Edge attribution needs measured edge evidence\nNode totals do not prove per-run traffic" {class: evidence}
+ssd -> note: investigate {style.font-size: 20}

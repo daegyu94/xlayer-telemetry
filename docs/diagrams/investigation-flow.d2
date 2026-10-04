@@ -1,0 +1,15 @@
+# Title: Investigate a slow run
+# Description: Select a completed step, compare evidence and open timeline, subsystem detail or a targeted profiler.
+...@_style
+
+direction: down
+start: "Start Here\nCollection health / observed runs" {class: source}
+run: "Run Overview\nCompleted steps / duration trend" {class: source}
+step: "Select slow step / interval\nClick Duration" {class: process}
+summary: "Bottleneck Summary\nSymptom / same-run baseline\nCandidate / supporting / counter / missing" {class: evidence}
+timeline: "Cross-Layer Timeline\nExact or calibrated spans\nApproximate step / sampled metrics" {class: evidence}
+detail: "Compute / Storage / Stage / Logs\nRun / node / step / time context" {class: process}
+profile: "Targeted profile\nPyTorch Profiler / Nsight\nNCCL baseline" {class: optional}
+start -> run -> step -> summary -> timeline -> detail
+summary -> detail
+summary -> profile

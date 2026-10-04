@@ -10,6 +10,10 @@ case "${1:---help}" in
     "${PYTHON:-python3}" -m venv "$docs_env"
     "$docs_env/bin/python" -m pip install -r "$repo_root/requirements-docs.txt"
     ;;
+  diagrams)
+    shift
+    exec "${PYTHON:-python3}" "$repo_root/scripts/render_diagrams.py" "$@"
+    ;;
   build|serve)
     [[ -x "$docs_env/bin/python" ]] || {
       echo "Run bash scripts/docs.sh install first (Python 3.11+)." >&2
@@ -21,7 +25,7 @@ case "${1:---help}" in
     fi
     ;;
   -h|--help)
-    echo "Usage: bash scripts/docs.sh {install|build|serve}"
+    echo "Usage: bash scripts/docs.sh {install|build|serve|diagrams [--install|--check]}"
     echo "Optional: PYTHON, DOCS_ENV, DOCS_PORT (default: 18080)"
     ;;
   *) echo "Unknown command: $1" >&2; exit 2 ;;

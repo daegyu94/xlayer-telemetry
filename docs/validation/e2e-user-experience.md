@@ -46,14 +46,7 @@ Collector health는 선택한 범위의 모든 target이 Up일 때 Up입니다.
 
 실제 클릭 경로는 다음과 같습니다.
 
-```text
-Start Here > Run Overview > Step duration > Bottleneck Summary
-                                          |
-                                          +-> Evidence
-                                          +-> Cross-Layer Timeline > Data & Storage
-                                                                     |
-                                                                     +-> Overview > Focus > Guided
-```
+![당시 실제 검증한 Step·Evidence·Storage·View 탐색 순서](../figures/diagrams/validation-journey.svg)
 
 Run·cluster·resource node·observer node·record ID·선택 시간 범위를 확인했습니다.
 Grafana가 시간 URL을 ISO 형식으로 바꿀 수 있으므로 같은 timestamp인지 비교했습니다.

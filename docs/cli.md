@@ -29,28 +29,22 @@ xltel down
 
 ## Commands
 
-```text
-xltel
-  +-- init
-  +-- doctor [--json] [--role all|server|node]
-  +-- install-tools [--role all|server|node]
-  +-- up / down / restart [--role all|server|node]
-  +-- status [--json] [--role all|server|node]
-  +-- run [--mode auto|sync|async] [--run-id ID] [--output DIR] [--node NAME] -- COMMAND
-  +-- inspect [RUN_ID | RUN_DIR]
-  +-- logs [server|node] [--follow] [--lines N]
-  +-- sources [--json]
-  |     +-- refresh
-  |     +-- threefs [--window-seconds N]
-  +-- config
-  |     +-- path / show / validate
-  |     +-- migrate --output FILE.toml
-  +-- completion bash|zsh|fish
-  +-- clock
-        +-- serve --reference-id ID [--bind ADDRESS] [--port PORT]
-        +-- calibrate --url URL --reference-id ID --node NODE --file FILE
-        +-- status --node NODE --file FILE
-```
+![xltel의 setup·lifecycle·workload·source·config·clock command 그룹](figures/diagrams/cli-commands.svg)
+
+| Command | 주요 option / 하위 command |
+| --- | --- |
+| `init` | 기존 config를 보존하며 초기 설정 생성 |
+| `doctor`, `status` | `--json`, `--role all\|server\|node` |
+| `install-tools`, `up`, `down`, `restart` | `--role all\|server\|node` |
+| `run` | `--mode auto\|sync\|async`, `--run-id ID`, `--output DIR`, `--node NAME`, `-- COMMAND` |
+| `inspect` | `[RUN_ID \| RUN_DIR]` |
+| `logs` | `[server\|node]`, `--follow`, `--lines N` |
+| `sources` | `--json`, `refresh`, `threefs --window-seconds N` |
+| `config` | `path`, `show`, `validate`, `migrate --output FILE.toml` |
+| `completion` | `bash\|zsh\|fish` |
+| `clock serve` | `--reference-id ID`, `--bind ADDRESS`, `--port PORT` |
+| `clock calibrate` | `--url URL`, `--reference-id ID`, `--node NODE`, `--file FILE` |
+| `clock status` | `--node NODE`, `--file FILE` |
 
 `status`는 현재 system, `inspect`는 저장된 run 결과를 확인합니다.
 `status`의 Start Here 링크는 cluster·node를, `run/inspect`의 Run Overview 링크는 Run을 선택한 상태로 Grafana를 엽니다.
@@ -168,16 +162,7 @@ JSON은 stdout, 오류 안내는 stderr로 나갑니다.
 
 ## Runtime Boundary
 
-```text
-xltel
-  +-- Python config / health / artifact and source inspection
-  +-- existing local lifecycle launcher
-  |     +-- server: Prometheus / Grafana / optional Loki
-  |     +-- node: GPU / Node Exporter / textfile / optional Alloy
-  +-- existing VERL wrapper
-        +-- original workload
-        +-- bridge / manifest / health / optional diagnostics
-```
+![xltel이 Python 조회 로직과 기존 lifecycle·VERL wrapper를 재사용하는 구조](figures/diagrams/cli-runtime.svg)
 
 Lifecycle 변경은 기존 `flock`과 PID ownership 검사를 사용합니다.
 Resolved config snapshot은 background child가 읽을 수 있도록 private `state/cli-configs/`에 보존합니다.

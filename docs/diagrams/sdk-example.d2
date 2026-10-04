@@ -1,0 +1,17 @@
+# Title: CPU SDK example trace and artifacts
+# Description: Iteration, tool and sandbox spans share a trace; the example writes snapshots and events but does not sample cgroup resources.
+...@_style
+
+direction: down
+iteration: "iteration\nrole=rollout / step" {class: source}
+tool: "tool.call\nSame trace / parent=iteration" {class: source}
+sandbox: "sandbox.exec\nrole=sandbox / parent=tool.call" {class: source}
+file: "Ordinary local file roundtrip\nNo cgroup resource sample" {class: process}
+iteration -> tool -> sandbox -> file
+artifacts: Run directory {
+  grid-columns: 1
+  metrics: "telemetry-metrics/\nLatest SDK snapshot" {class: process}
+  events: "telemetry-events/\nExact spans for each iteration" {class: process}
+  workspace: "workspace/\nExample-owned; empty after execution" {class: optional}
+}
+file -> artifacts: persisted outputs {style.font-size: 20}

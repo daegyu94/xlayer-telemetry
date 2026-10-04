@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-04",
+  "baseline_commit": "a0b7fed10c3e9c6ac179fb7c942f6af866fba424",
+  "scope": "Replace documentation ASCII diagrams with D2 sources and committed SVGs; telemetry runtime unchanged",
+  "ascii_blocks_replaced": 24,
+  "unique_diagrams": 25,
+  "additional_diagrams": [
+    "four-timestamp userspace calibration",
+    "mixed observation scope and attribution boundaries"
+  ],
+  "generation": {
+    "d2_version": "0.9.0",
+    "layout": "elk",
+    "release_checksum_verified": true,
+    "regeneration_check": "passed",
+    "svg_external_render_dependencies": false,
+    "runtime_dependency_added": false
+  },
+  "automated_tests": {
+    "full_suite": {
+      "passed": 826,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 66.89,
+      "promtool_enabled": true
+    },
+    "final_diagram_regressions": {
+      "passed": 6,
+      "failed": 0
+    },
+    "strict_sphinx": "passed",
+    "python_compile": "passed",
+    "shell_syntax": "passed",
+    "git_diff_check": "passed"
+  },
+  "browser": {
+    "engine": "Chrome 145.0.7632.116 via Playwright",
+    "svg_files_rendered": 25,
+    "labels_checked": 238,
+    "text_outside_shape_or_viewbox": 0,
+    "overlapping_text_labels": 0,
+    "document_pages": [
+      "agent-rl",
+      "architecture",
+      "cli",
+      "dashboards",
+      "diagnosis",
+      "grafana-ui-ux-review",
+      "local-llm",
+      "monitoring",
+      "time-alignment",
+      "validation/e2e-user-experience",
+      "verl-quickstart"
+    ],
+    "viewport_widths": [
+      1440,
+      900,
+      390
+    ],
+    "page_horizontal_overflows": 0,
+    "javascript_errors": [],
+    "zoom_link_navigation": "passed at each viewport",
+    "svg_source_font_min_px": 20,
+    "minimum_display_font_px_approximate": 17.99,
+    "small_screen_policy": "Scroll the diagram locally instead of shrinking labels below approximately 18px"
+  },
+  "limitations": [
+    "No GitHub-hosted browser rendering or remote CI execution verified locally",
+    "No GPU/VERL/3FS workload rerun: this change affects documentation generation and presentation only"
+  ],
+  "cleanup": {
+    "temporary_browser_site_downloads_screenshots_and_processes_removed": true,
+    "validation_installed_d2_cache_removed": true,
+    "pre_existing_user_services_modified": false,
+    "preserved": [
+      "D2 sources",
+      "SVGs",
+      "code and documentation changes",
+      "this validation record"
+    ]
+  }
+}

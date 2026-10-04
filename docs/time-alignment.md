@@ -69,6 +69,8 @@ xltel inspect
 
 ## What Changes
 
+![Four-timestamp exchange가 원본 시각을 보존하며 공통 reference 시간축을 만드는 과정](figures/diagrams/clock-alignment.svg)
+
 | 데이터 | 원본 | Investigation에서 사용하는 시간 |
 | --- | --- | --- |
 | VERL step | `observed_at`, `ingested_at` 보존 | `analysis_window`, `window_start_ms/end_ms`, `correlation_observed_at` |

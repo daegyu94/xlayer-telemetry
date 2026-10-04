@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [D2 documentation diagrams](d2-diagrams-20261004.json) | ASCII 그림 24개 교체, D2/SVG 25개·label 238개 실제 Chrome 확인, 11개 문서의 1440/900/390px·확대 링크·넘침 검사와 826개 test |
 | [Userspace time alignment](userspace-time-alignment-20261004.json) | OS clock 변경 없이 reference 시간축 보정; 독립 process clock +12/-7초, 실제 Prometheus/Loki/Alloy 조회·Timeline, TDD 신규 36개 포함 820개 test와 cleanup |
 | [Live dashboard UX](dashboards/live-ui-20261003.md) | 실제 Chrome navigation·baseline·optional row·stale/결측 화면, Timeline identity·policy lag 단위·숨겨진 filter 개선과 784개 test |
 | [Mooncake telemetry](mooncake-telemetry-20261003.json) | 실제 client DFS read/write·master/client endpoint·Prometheus query·진단 입력, optional source 결측과 단위·engine 분리 검증 |

@@ -1,0 +1,18 @@
+# Title: Collect, correlate, diagnose
+# Description: Existing telemetry sources feed workload semantics, baseline comparison and inspectable hypotheses.
+...@_style
+
+direction: down
+sources: Telemetry sources {
+  grid-columns: 2
+  application: "VERL / AgentLoop\nvLLM / Ray / tool / sandbox" {class: source}
+  resources: "GPU / host / network / RDMA\nFilesystem / 3FS / SSD" {class: source}
+  signals: "Metrics / logs / events" {class: source}
+  profiles: "Optional profile artifacts" {class: optional}
+}
+collect: "Collect / query configured sources" {class: process}
+context: "Run > step / iteration > phase > span / event\nNode / role / worker / rank / GPU / topology / scope" {class: process}
+comparison: "Symptom + comparable baseline" {class: evidence}
+candidate: "Candidate\nSupporting / counter / missing evidence" {class: evidence}
+detail: "Grafana / Loki / PyTorch Profiler\nNsight / NCCL baseline" {class: optional}
+sources -> collect -> context -> comparison -> candidate -> detail

@@ -1,0 +1,19 @@
+# Title: Colocated sandbox
+# Description: AgentLoop and sandbox share a physical node while cgroup and local NVMe evidence retain distinct scopes.
+...@_style
+
+direction: down
+node: GPU / rollout node {
+  agent: "AgentLoop > tool.call" {class: source}
+  sandbox: "Sandbox worker\nExternal runtime / sandbox.exec" {class: source}
+  filesystem: "Workspace filesystem\nExample: OverlayFS" {class: process}
+  nvme: "Local SSD / NVMe\nDevice scope" {class: process}
+  cgroup: "Sandbox cgroup v2\nI/O / PSI / CPU / memory" {class: process}
+  collector: "Node collector / Node Exporter" {class: process}
+  agent -> sandbox -> filesystem -> nvme: workload path {style.font-size: 20}
+  sandbox -> cgroup: scoped resource sampling {style.font-size: 20}
+  cgroup -> collector: sandbox.prom {style.font-size: 20}
+  nvme -> collector: host / device metrics {style.font-size: 20}
+}
+prom: "Prometheus\nCorrelated observations, not causal proof" {class: evidence}
+node.collector -> prom

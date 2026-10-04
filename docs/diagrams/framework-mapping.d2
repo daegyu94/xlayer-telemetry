@@ -1,0 +1,13 @@
+# Title: Framework semantics map to the XLayer core
+# Description: VERL concepts map to a common execution hierarchy, resource identity and subsystem evidence.
+...@_style
+
+direction: down
+mapping: Primary integration: VERL to XLayer core {
+  grid-columns: 1
+  execution: "Update / rollout / reward\nMap to run > step / iteration\nPhase > span / event" {class: source}
+  identity: "Worker / rank / node / GPU\nMap to resource identity + scope" {class: process}
+  evidence: "vLLM / Ray / sandbox / storage\nMap to related subsystem evidence" {class: process}
+}
+result: "Comparison > candidate > evidence" {class: evidence}
+mapping -> result

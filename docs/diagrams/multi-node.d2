@@ -1,0 +1,17 @@
+# Title: GPU and storage nodes share a monitoring host
+# Description: Separate node identities and collectors feed one configured cluster; physical roles are independent of observation scope.
+...@_style
+
+direction: down
+nodes: Configured cluster {
+  grid-columns: 1
+  trainer: "gpu-a\nTrainer + node collector" {class: source}
+  rollout: "gpu-b\nRollout / vLLM + node collector" {class: source}
+  storage: "storage-a\n3FS / local SSD\nHost collector + SMART" {class: source}
+}
+monitor: "Monitoring host\nPrometheus / optional Loki" {class: process}
+view: "XLayer diagnosis\nGrafana Timeline" {class: evidence}
+nodes.trainer -> monitor: node=gpu-a {style.font-size: 20}
+nodes.rollout -> monitor: node=gpu-b {style.font-size: 20}
+nodes.storage -> monitor: node=storage-a {style.font-size: 20}
+monitor -> view

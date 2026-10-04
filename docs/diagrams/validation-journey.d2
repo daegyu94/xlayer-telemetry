@@ -1,0 +1,14 @@
+# Title: Recorded user journey
+# Description: The recorded validation follows step duration to evidence and storage detail, then checks selectable views.
+...@_style
+
+direction: down
+start: "Start Here > Run Overview" {class: source}
+step: "Step duration > Bottleneck Summary" {class: process}
+evidence: "Evidence" {class: evidence}
+timeline: "Cross-Layer Timeline" {class: evidence}
+storage: "Data & Storage" {class: process}
+views: "Overview > Focus > Guided" {class: optional}
+start -> step
+step -> evidence
+step -> timeline -> storage -> views

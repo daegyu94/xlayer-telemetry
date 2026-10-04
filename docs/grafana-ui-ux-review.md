@@ -8,13 +8,7 @@ Metric producer·label·backend는 변경하지 않습니다.
 Baseline table을 기본 노출하므로 Summary 진입 시 기존 comparison query 한 개가 추가로 실행됩니다.
 선택한 run·record·time 범위와 기존 5,000행 limit은 유지합니다.
 
-```text
-Start Here -> Run Overview -> Bottleneck Summary -> Cross-Layer Timeline
-                 |                  |                       |
-                 +-- Step ----------+-----------------------+
-                                    |
-                                    +-> Stage / Compute / Storage / Logs
-```
+![Run과 step context를 유지하는 Grafana investigation navigation](figures/diagrams/investigation-flow.svg)
 
 ## Current dashboard audit
 

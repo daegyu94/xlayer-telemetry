@@ -1,0 +1,16 @@
+# Title: Logs, events and 3FS evidence
+# Description: Alloy projects configured JSONL/log streams to Loki; diagnostics query ClickHouse separately from metrics.
+...@_style
+
+direction: down
+streams: "Tool spans / completed step events\nConfigured workload log files" {class: source}
+artifacts: "Run JSONL artifacts\nxltel inspect / show_run" {class: process}
+alloy: "Optional Alloy" {class: optional}
+loki: "Loki" {class: process}
+grafana: "Grafana\nRun Logs / Step Explorer / Timeline" {class: evidence}
+streams -> artifacts
+artifacts -> alloy -> loki -> grafana
+fs: "3FS service distributions" {class: source}
+ch: "ClickHouse" {class: process}
+diag: "Selected shared-service window\nDiagnostics / standalone threefs query" {class: evidence}
+fs -> ch -> diag

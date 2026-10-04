@@ -1,0 +1,18 @@
+# Title: Mooncake and 3FS evidence paths
+# Description: The connector and client expose distinct metric scopes; 3FS service distributions are queried through ClickHouse.
+...@_style
+
+direction: down
+rollout: "VERL rollout" {class: source}
+connector: "vLLM MooncakeStoreConnector\nConnector RPC metrics" {class: source}
+client: "Mooncake client\nClient DFS metrics" {class: source}
+fs: "DFS / 3FS\nService distributions" {class: source}
+rollout -> connector -> client -> fs: workload path {style.font-size: 20}
+prom: "Prometheus\nDistinct connector / client series" {class: process}
+ch: "ClickHouse\nShared-service evidence" {class: process}
+connector -> prom: scrape {style.font-size: 20}
+client -> prom: scrape {style.font-size: 20}
+fs -> ch
+xlayer: "XLayer\nCorrelate scoped evidence / diagnose" {class: evidence}
+prom -> xlayer
+ch -> xlayer

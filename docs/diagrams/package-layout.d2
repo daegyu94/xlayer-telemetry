@@ -1,0 +1,18 @@
+# Title: Python package responsibilities
+# Description: Packages separate SDK emission, adapters, collection, analysis, operations and explicitly synthetic demos.
+...@_style
+
+direction: down
+package: xlayer_telemetry {
+  grid-columns: 2
+  sdk: "events.py / sandbox.py\nPublic instrumentation\nSpan / sandbox SDK" {class: source}
+  metrics: "metrics/\nApplication SDK\nTextfile export" {class: source}
+  adapters: "adapters/\nVERL / HF native concept mapping" {class: process}
+  collectors: "collectors/\nGPU / host / cgroup / topology" {class: process}
+  analysis: "analysis/\nRules / queries\nReport lifecycle\nClock / evidence quality\nOptional LLM investigation" {class: evidence}
+  context: "manifest.py / step_history.py\nRun / step context" {class: process}
+  backend: "prometheus.py\nShared query / parser" {class: process}
+  operations: "cli.py / operations/\nConfig / lifecycle / health / clock" {class: process}
+  tools: "show_run.py / stack.py\nArtifact and target inspection" {class: optional}
+  demos: "demos/\nExplicitly synthetic fixtures" {class: optional}
+}

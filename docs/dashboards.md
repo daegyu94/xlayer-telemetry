@@ -110,24 +110,7 @@ Run과 Sample age를 누르면 해당 run의 Run Overview로 이동합니다.
 Age의 green은 fresh sample을 뜻하며 workload가 healthy하다는 뜻이 아닙니다.
 느린 step을 찾으면 다음 순서로 조사합니다.
 
-```text
-Start Here -> Run Overview (completed steps)
-                  |
-                  | click Duration
-                  v
-          Bottleneck Summary
-                  |
-         supporting / counter / missing
-                  |
-                  v
-         Cross-Layer Timeline
-         step / spans / sampled resources
-                  |
-          +-------+-------+----------+
-          |               |          |
-          v               v          v
-       Compute         Storage   Stage / Logs
-```
+![Start Here에서 느린 step과 evidence를 선택하고 subsystem detail로 조사하는 흐름](figures/diagrams/investigation-flow.svg)
 `00`부터 `07`까지의 제목은 탐색 위치를 구분하며, 각 화면의 상단 `Start Here` 링크로 돌아올 수 있습니다.
 완료 step 목록은 Loki를 활성화했을 때 Run Overview에 추가됩니다.
 Loki를 끈 server에는 metrics 화면만 provision하고, 설치하지 않은 investigation 화면의 링크는 `requires Loki` 안내로 바꿉니다.

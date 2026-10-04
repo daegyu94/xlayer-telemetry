@@ -8,35 +8,9 @@
 VERL 실행에서는 trainer metric과 node 자원 지표를 Prometheus에서 시간 기준으로 비교합니다.
 추가 source는 수집 방식에 따라 Grafana metric, log, run 진단 결과로 나뉩니다.
 
-```text
-Agent RL / VERL                          GPU / host node
-+-----------------------------+          +-----------------------------------+
-| VERL trainer                |          | GPU > GPU sampler > gpu.prom       |
-| stage / reward / step time   |          | CPU / network / filesystem        |
-+-------------+---------------+          | (including 3FS FUSE mount)        |
-              | file logger              +----------------+------------------+
-              v                                           |
-     logs/verl-metrics.jsonl                              |
-              | bridge                                    |
-              v                                           |
-     application snapshot                                 |
-              |                                           |
-              v                                           v
-        Node collector ---------------------------> Node Exporter (:19100)
-        (application.prom)                                |
-                                                          | scrape
-                                                          v
-vLLM / Ray metrics endpoints ----------------------> Prometheus
-                                                          |
-                                                          v
-                                                  Grafana metric dashboards
+![VERL·GPU·host·vLLM·Ray metric의 수집 경로](figures/diagrams/pipeline-metrics.svg)
 
-3FS service latency > ClickHouse > diagnostics / standalone threefs query
-Prometheus ----------------------> Run diagnostics / show_run
-Tool call spans > Run event JSONL / show_run
-Workload log files > Alloy > Loki > Grafana Run Logs
-VERL step events > JSONL > Alloy > Loki > Grafana Step Explorer
-```
+![Log·span·step event와 3FS ClickHouse evidence의 경로](figures/diagrams/pipeline-events.svg)
 
 Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 변환하고, GPU sampler와 host 지표도 Node Exporter를 거쳐 Prometheus에 수집됩니다.
 Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
@@ -190,13 +164,7 @@ VERL + vLLM + Mooncake + 3FS 구성에서는 Mooncake를 기본 관측 대상에
 Connector RPC 지연, cache lookup, client DFS I/O를 추가하면 rollout 지연이 KV 조회·전송·DFS 단계 중 어디와 함께 변했는지 조사할 수 있습니다.
 Prefill/decode 간 전송용 `MooncakeConnector`와 Store connector는 다른 경로이므로 Store 전용 metric이 양쪽에서 나온다고 가정하지 않습니다.
 
-```text
-VERL rollout -> vLLM MooncakeStoreConnector -> Mooncake client -> DFS / 3FS
-                       |                          |                 |
-                connector RPC metrics       client DFS metrics  ClickHouse
-                       |                          |                 |
-                       +------ Prometheus --------+-------- XLayer --+
-```
+![VERL·vLLM·Mooncake·3FS 경로와 서로 다른 scope의 metric 수집](figures/diagrams/mooncake-path.svg)
 
 ### Register the Endpoints
 
@@ -269,13 +237,7 @@ Optional LLM은 [Mooncake query 예제](https://github.com/daegyu94/xlayer-telem
 분리된 trainer·rollout의 role 배치는 별도 manifest로 기록합니다.
 각 node collector와 `TELEMETRY_TARGETS`, native source 파일은 각각 설정하며 role manifest로 대체되지 않습니다.
 
-```text
-trainer-0 > node exporter :19100 --------+
-rollout-0 > node exporter :19100 --------+--> Prometheus > Grafana
-rollout-0 > vLLM /metrics ---------------+
-             | labels.node=rollout-0
-driver run > topology manifest -----------> declared role / node placement
-```
+![Node와 native endpoint 등록 및 topology manifest의 역할](figures/diagrams/node-registration.svg)
 
 아래 명령은 기존 wrapper manifest를 보존하면서 topology 참고 파일을 만듭니다.
 
@@ -413,17 +375,9 @@ Agent tool latency에는 sandbox 준비·실행·filesystem 작업이 포함될 
 XLayer는 외부 runtime의 lifecycle을 기록하고 cgroup을 읽으며 생성·배치는 담당하지 않습니다.
 기본 예시는 OverlayFS + local SSD/NVMe이고 `filesystem`은 btrfs·zfs·plain workspace·VM 등 실제 배포로 지정합니다.
 
-```text
-Colocated
-GPU / rollout node
-+-- AgentLoop > tool.call > sandbox worker > OverlayFS > local NVMe
-+-- Node collector > Node Exporter > Prometheus
+![Colocated sandbox: 같은 node에서 cgroup과 local NVMe를 별도 scope로 관측](figures/diagrams/sandbox-colocated.svg)
 
-Dedicated
-GPU / rollout node > sandbox RPC > sandbox node
-                                 +-- sandbox worker > OverlayFS > local NVMe
-                                 +-- Node collector > Node Exporter > Prometheus
-```
+![Dedicated sandbox: RPC trace context와 별도 node의 cgroup·local NVMe 관측](figures/diagrams/sandbox-dedicated.svg)
 
 두 배치는 `role=sandbox`와 같은 metric 이름을 사용합니다.
 `node`와 `deployment`만 실제 위치에 맞게 달라지고, dedicated 배치에서는 sandbox node에도 [node collector](monitoring.md)를 실행해 monitoring server의 target에 등록합니다.

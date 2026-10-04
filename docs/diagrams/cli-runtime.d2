@@ -1,0 +1,19 @@
+# Title: CLI reuses existing launchers
+# Description: Python inspection and configuration share the public entrypoint with existing safe lifecycle and workload launchers.
+...@_style
+
+direction: down
+cli: xltel {
+  grid-columns: 1
+  python: "Python config / health\nArtifact / source inspection" {class: process}
+  lifecycle: Existing local lifecycle launcher {
+    grid-columns: 1
+    server: "Server: Prometheus / Grafana\nOptional Loki" {class: process}
+    node: "Node: GPU / Node Exporter / textfile\nOptional Alloy" {class: process}
+  }
+  wrapper: Existing VERL wrapper {
+    grid-columns: 1
+    workload: "Original workload" {class: source}
+    sidecars: "Bridge / manifest / health\nOptional diagnostics" {class: optional}
+  }
+}

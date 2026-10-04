@@ -183,21 +183,7 @@ Collector와 correlation은 분산 실행을 지원하지만, GPU 두 개가 있
 먼저 각 node의 논리 이름, monitoring host에서 접근할 주소, 실제 workload 역할을 정합니다.
 GPU/rollout node와 storage node 모두 같은 cluster에 등록하고, 모든 application·native source·manifest·Loki 설정에서 같은 node 이름을 사용합니다.
 
-```text
-GPU node gpu-a            GPU node gpu-b           Storage node storage-a
-  trainer                  rollout / vLLM           3FS / local SSD
-  node collector           node collector           host collector + SMART
-       |                        |                          |
-       +------------------------+--------------------------+
-                                |
-                                v
-                       Monitoring host
-                       Prometheus / Loki
-                                |
-                                v
-                         XLayer diagnosis
-                         Grafana timeline
-```
+![GPU·rollout·storage node의 collector가 monitoring host에 연결되는 구조](figures/diagrams/multi-node.svg)
 
 각 GPU node에서 기존 `node` collector를 실행합니다.
 Storage node에는 GPU가 없어도 다음처럼 host collector를 실행할 수 있습니다.

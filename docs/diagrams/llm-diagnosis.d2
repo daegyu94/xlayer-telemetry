@@ -1,0 +1,12 @@
+# Title: Optional local LLM diagnosis
+# Description: Scoped observations produce hypotheses that undergo a separate evidence review before acceptance.
+...@_style
+
+direction: down
+input: "Prometheus series\nSelected intervals / workload context" {class: source}
+packet: "Scoped observation packet\nCurrent / baseline / quality / missing sources" {class: process}
+model: "Ollama + local model\nOne allocated GPU" {class: optional}
+hypotheses: "Draft hypotheses" {class: evidence}
+review: "Evidence review\nFresh model context" {class: evidence}
+output: "Accepted or revised diagnosis JSON\nInspectable evidence / limitations" {class: evidence}
+input -> packet -> model -> hypotheses -> review -> output

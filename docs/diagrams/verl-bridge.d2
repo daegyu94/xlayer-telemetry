@@ -1,0 +1,19 @@
+# Title: VERL bridge outputs
+# Description: One completed step creates a latest metric snapshot and a historical step event with different backend paths.
+...@_style
+
+direction: down
+record: "VERL record\nstep=7\ntiming_s/gen=2.4\nperf/time_per_step=8.0" {class: source}
+bridge: "VERL bridge" {class: process}
+snapshot: "Latest snapshot\nstep=7 / rollout=2.4s / step_time=8.0s" {class: process}
+metrics: "application.prom\nNode Exporter > Prometheus" {class: process}
+step_events: "verl-steps.jsonl" {class: process}
+loki: "Optional Alloy > Loki" {class: optional}
+views: Grafana views {
+  grid-columns: 2
+  metrics: "Agent RL panels" {class: evidence}
+  history: "Step Explorer" {class: evidence}
+}
+record -> bridge
+bridge -> snapshot -> metrics -> views.metrics
+bridge -> step_events -> loki -> views.history

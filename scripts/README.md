@@ -36,6 +36,7 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 | `run_profile.sh` | 작은 PyTorch DDP profile·collective 예제 실행 | CUDA PyTorch와 할당한 GPU/node가 있는 profiling 검증 |
 | `run_nccl_baseline.sh` | 외부 nccl-tests binary를 MPI로 실행 | MPI·nccl-tests가 준비된 통신 baseline; PyTorch profile과 별개 |
 | `docs.sh` | 선택적 문서 환경 설치·strict build·local preview | Python 3.11 이상; telemetry 환경과 독립 |
+| `render_diagrams.py` | D2 원본을 SVG로 생성하거나 변경 누락 검사 | 문서 그림 변경 시; pinned D2 설치·checksum 검증 지원 |
 | `capture_dashboard_demo.py` | 지정한 Grafana run/step 화면을 GIF로 기록 | 선택적 Playwright·ffmpeg; workload나 측정값을 생성하지 않음 |
 
 `setup.sh`·`check_tools.sh`는 script 위치를 기준으로 checkout을 찾으므로 다른 directory에서도 절대 경로로 호출할 수 있습니다.
@@ -73,4 +74,22 @@ bash scripts/docs.sh serve
 `bash scripts/docs.sh build`는 broken internal reference도 실패로 처리합니다.
 `.github/workflows/docs.yml`은 PR에서 빌드를 검사하고 main의 문서 변경을 GitHub Pages에 배포합니다.
 처음 배포할 때 저장소 `Settings > Pages > Source`를 `GitHub Actions`로 설정합니다.
+
+### Documentation Diagrams
+
+`docs/diagrams/*.d2`가 그림의 원본이고 `docs/figures/diagrams/*.svg`가 GitHub·문서 사이트에서 사용하는 생성 결과입니다.
+공통 색상·글꼴은 `_style.d2`에 있으며 D2 0.9.0과 ELK layout을 고정해 재생성합니다.
+SVG는 alt text와 title·description을 포함하고, 웹 문서에서는 클릭해 원본을 열거나 좁은 화면에서 가로 스크롤할 수 있습니다.
+
+```bash
+python scripts/render_diagrams.py --install
+# Edit docs/diagrams/*.d2, then regenerate:
+python scripts/render_diagrams.py
+python scripts/render_diagrams.py --check
+```
+
+`--install`은 공식 release의 고정 SHA256을 확인하고 `artifacts/docs-tools/`에만 D2를 설치합니다.
+Linux/macOS의 x86_64·ARM64를 지원하며 다른 환경은 같은 version을 설치한 뒤 `--d2 PATH`로 지정합니다.
+D2 원본과 SVG를 함께 commit하며 docs CI가 재생성 결과와 일치하는지 확인합니다.
+일반 문서 열람·Sphinx build·telemetry 실행에는 D2가 필요하지 않습니다.
 생성물은 `artifacts/docs-site/`에 두며 Git에 추가하지 않습니다.

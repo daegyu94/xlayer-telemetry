@@ -41,20 +41,7 @@ python -m examples.application.quickstart --output artifacts/sdk-example
 python -m xlayer_telemetry.show_run artifacts/sdk-example
 ```
 
-```text
-iteration (role=rollout, step)
-  |
-  +--> tool.call (same trace, parent=iteration)
-         |
-         +--> sandbox.exec (role=sandbox, parent=tool.call)
-                |
-                +--> ordinary local file roundtrip
-
-run directory
-  +-- telemetry-metrics/  latest SDK snapshot
-  +-- telemetry-events/   exact spans for every iteration
-  +-- workspace/          example-owned empty directory after execution
-```
+![CPU SDK 예제의 iteration·tool·sandbox span 연결과 생성 artifact](../docs/figures/diagrams/sdk-example.svg)
 
 `show_run`의 summary/manifest가 없다는 안내는 이 최소 SDK 예제에서는 정상입니다.
 `trajectory_id`와 `sandbox_id`는 event attribute에만 기록하며 Prometheus label에 추가하지 않습니다.

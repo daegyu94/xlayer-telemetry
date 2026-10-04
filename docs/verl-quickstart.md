@@ -10,13 +10,7 @@ VERL wrapper는 기존 명령에 file logger를 붙이고 bridge를 함께 실�
 Bridge는 완료된 step을 최신 metric snapshot과 누적 step event로 나눠 기록합니다.
 Node collector는 snapshot·GPU·host 정보를 Node Exporter로 노출하고 monitoring server가 이를 Prometheus와 Grafana에 연결합니다.
 
-```text
-VERL > file logger > bridge > snapshot > application.prom --+
-GPU sampler > gpu.prom --------------------------------------+--> Node Exporter :19100 --> Prometheus --> Grafana
-CPU / memory / network / disk -------------------------------+
-
-VERL bridge > step event JSONL > optional Alloy > Loki > Grafana Step Explorer
-```
+![Quickstart의 metric 수집과 optional completed step event 경로](figures/diagrams/node-metrics-and-events.svg)
 
 완료 step 하나가 실제로 어떤 이름의 metric과 event가 되는지는 [step 7 예제](architecture.md#follow-one-completed-step)를 확인합니다.
 기본 연결만으로는 vLLM queue·Ray task·3FS service latency·tool event가 생기지 않습니다.
@@ -108,19 +102,7 @@ Native endpoint의 실시간 수집 상태는 같은 config의 `sources` 명령�
 xltel inspect
 ```
 
-```text
-$HOME/telemetry/runs/<RUN_ID>/     one VERL run
-  logs/verl-metrics.jsonl          original completed step records
-  logs/telemetry-bridge.log        bridge errors
-  telemetry-metrics/*.json         latest step snapshot
-  telemetry-events/*.jsonl         completed step events
-  telemetry-manifest.json          run context
-
-$HOME/telemetry/state/node/        collector state
-  textfile/application.prom        translated application metrics
-  textfile/gpu.prom                latest GPU metrics
-  node-exporter.log                exporter errors
-```
+![VERL run artifact와 node collector state의 분리](figures/diagrams/artifact-layout.svg)
 
 위 파일 순서로 확인하고 `application.prom`에 값이 있으면 target·시간·Cluster/Node/Run filter를 봅니다.
 Snapshot은 최신 step, logger·event JSONL은 이력을 보존합니다.

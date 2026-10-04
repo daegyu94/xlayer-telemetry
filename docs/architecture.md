@@ -9,21 +9,7 @@ XLayer는 VERL과 서브시스템의 telemetry를 **Collect → Correlate → Di
 Run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 missing evidence를 제시합니다.
 Prometheus·Grafana·Loki는 저장·query·시각화를, XLayer는 workload 문맥·baseline·investigation을 담당합니다.
 
-```text
-1. Collect: VERL and its subsystem telemetry
-  VERL trainer / AgentLoop   vLLM / Ray   tool / sandbox
-  GPU / host   network / RDMA   filesystem / 3FS / SSD
-  configured metrics / logs / events + optional profile artifacts
-  |
-  +--> 2. Correlate: XLayer workload context
-       run > step/iteration > phase > span/event
-       + node / role / worker / rank / GPU / topology / observation scope
-       |
-       +--> 3. Diagnose: XLayer investigation
-            symptom > baseline comparison > candidate > evidence / missing evidence
-            |
-            +--> Existing detail tools: Grafana / Loki / PyTorch Profiler / Nsight / NCCL
-```
+![Telemetry source에서 workload correlation과 evidence 기반 diagnosis로 이어지는 흐름](figures/diagrams/collect-correlate-diagnose.svg)
 
 **Collect**는 설정한 source를 수집·조회합니다.
 Wrapper는 file logger bridge를 시작하며 native endpoint·node collector·log·ClickHouse는 별도로 연결합니다.
@@ -61,31 +47,9 @@ Integration은 VERL 중심이지만 SDK·core 모델은 다른 framework adapter
 XLayer가 소유할 핵심은 실행 문맥과 evidence 해석이며, process 관리와 source 수집은 작은 경계로 분리합니다.
 CLI의 `up/status/down`은 현재 수집 상태, `run/inspect`는 workload 실행과 저장된 결과를 다룹니다.
 
-```text
-xltel init / doctor / up / status / down
-  +--> local ownership + one target-discovery snapshot
-  |      +--> node collectors --> Prometheus --> Grafana health / detail
-  |      +--> optional logs --> Alloy --> Loki
-  |
-xltel run -- existing VERL command
-  +--> wrapper --> workload + bridge
-         +--> latest snapshot --> node collector
-         +--> manifest / steps / spans / health --> run artifacts
-                                      |
-                                      v
-                   interval + entity + scope + provenance
-                                      |
-                     current / comparable baseline
-                                      |
-                   rule or explicit LLM investigation
-                                      |
-              candidate + supporting / counter / missing evidence
-                                      |
-                     JSON report --> Loki --> Grafana
-                                      +----> inspect / targeted profiler
+![Monitoring과 workload lifecycle을 별도 launcher로 관리하는 CLI 구조](figures/diagrams/cli-runtime.svg)
 
-3FS ClickHouse --------> selected shared-service evidence window
-```
+![Monitoring lifecycle과 workload 실행·저장된 run 분석의 역할 분리](figures/diagrams/runtime-architecture.svg)
 
 ### Requirements and Invariants
 
@@ -146,24 +110,7 @@ Config는 사용자 입력, `state/`는 managed service의 PID·generated config
 루트의 `events.py`, `sandbox.py`, `manifest.py`, step 이력은 application에서 사용하는 실행 문맥을 제공하고, 작은 공통 파일·수치·identity helper도 유지합니다.
 Python import와 module 실행 경로도 책임별 package로 통일합니다.
 
-```text
-xlayer_telemetry/
-+-- metrics/                   application metric SDK + textfile export
-+-- adapters/                  VERL / HF native concept mapping
-+-- collectors/                GPU / host / cgroup / topology sampling
-+-- demos/                     explicitly synthetic metrics + diagnosis
-+-- analysis/
-|   +-- diagnosis_analysis.py  baseline comparison + rule catalog
-|   +-- diagnostics.py         source queries + correlation + report lifecycle
-|   +-- clock_quality.py       multi-node clock screening
-|   +-- evidence_quality.py    query resolution + source freshness
-|   +-- llm_diagnosis.py        optional Ollama diagnosis
-|   +-- llm_investigation.py    explicit selected-step projection
-+-- events.py / sandbox.py     public instrumentation SDK
-+-- manifest.py / step_history.py
-+-- prometheus.py              shared backend query/parser
-+-- show_run.py / stack.py
-```
+![Python package별 SDK·수집·분석·운영 책임](figures/diagrams/package-layout.svg)
 
 `metrics`와 `events`를 import해도 collector나 LLM diagnosis를 함께 적재하지 않습니다.
 Collector는 관측치를 생산하고 `analysis`는 그 값의 시간·entity·scope·품질을 확인하므로 수집 코드가 diagnosis 판정에 의존하지 않습니다.
@@ -225,12 +172,7 @@ Sandbox filesystem의 syscall·OverlayFS copy-up 원인이 계속 누락될 때�
 Node collector와 monitoring server는 별도 process입니다.
 Wrapper는 VERL과 bridge를 함께 시작하고, node collector는 같은 node의 snapshot을 Prometheus 형식으로 노출하며, monitoring server는 exporter를 조회합니다.
 
-```text
-GPU node                                                      Monitoring host
-VERL > file logger > bridge > snapshot > application.prom --+
-GPU > GPU sampler > gpu.prom --------------------------------+--> Node Exporter :19100 --> Prometheus --> Grafana
-CPU / memory / network / disk -------------------------------+
-```
+![Application·GPU textfile과 host metric의 Node Exporter 수집](figures/diagrams/node-metrics.svg)
 
 Bridge는 VERL의 `logs/verl-metrics.jsonl`에서 완료된 step record를 읽고 알려진 scalar를 공통 metric 이름으로 변환합니다.
 예를 들어 `timing_s/gen`은 `rl_stage_duration_seconds{phase="rollout"}`으로, `perf/time_per_step`은 `training_step_time_seconds`로 옮깁니다.
@@ -249,19 +191,7 @@ Snapshot 교체에는 쓰기마다 별도의 임시 파일을 사용해 같은 p
 예를 들어 VERL file logger가 step 7의 `timing_s/gen=2.4`와 `perf/time_per_step=8.0`을 기록했다고 가정합니다.
 아래 숫자는 변환 경로를 설명하기 위한 예시이며 실제 학습 측정값이 아닙니다.
 
-```text
-VERL record: step=7, timing_s/gen=2.4, perf/time_per_step=8.0
-  |
-  +> bridge
-       |
-       +> latest snapshot: step=7, rollout=2.4s, step_time=8.0s
-       |      |
-       |      +> application.prom > Node Exporter > Prometheus
-       |                                    |
-       |                                    +> Grafana Agent RL panel
-       |
-       +> verl-steps.jsonl > Alloy > Loki > Grafana Step Explorer
-```
+![하나의 VERL record가 metric snapshot과 completed step event로 변환되는 경로](figures/diagrams/verl-bridge.svg)
 
 Bridge가 변환한 step 7 snapshot을 collector가 읽고 Prometheus가 scrape하면 panel이 갱신됩니다.
 다음 step 완료 전까지 이전 값이 유지됩니다.
@@ -275,22 +205,7 @@ Logger의 stage duration에는 start/end timestamp가 없어 시간 구간은 �
 `verl_local.sh node`는 기본적으로 `RUN_ROOT` 부모의 `*/telemetry-metrics`를 발견하며, 직접 실행 시 `TELEMETRY_RUNS_ROOT`로 선택합니다.
 발견 모드는 기본 300초 freshness·run 종료 상태를 확인하되 원본 파일은 보존합니다.
 
-```text
-$RUN_ROOT/                              $OUTPUT_DIR/
-  telemetry-manifest.json                 textfile/
-  logs/                                     application.prom
-    verl-metrics.jsonl                     gpu.prom
-    telemetry-bridge.log                 gpu-*.jsonl
-  telemetry-metrics/                     node-exporter.log
-    verl-trainer-driver@NODE@RUN.json      alloy-data/         (logs enabled)
-  telemetry-events/
-    verl-steps.jsonl
-  telemetry-health.json                  (workload outcome + telemetry status)
-  diagnostics/
-    latest.json
-    diagnostics.jsonl
-    investigation/*.jsonl          (Loki projection, diagnostics enabled)
-```
+![Workload run artifact와 node collector state의 경로·보존 범위](figures/diagrams/artifact-layout.svg)
 
 JSON snapshot은 최신 상태를 빠르게 노출하기 위한 것이므로 모든 step의 이력이 아닙니다.
 원본 step scalar 이력은 VERL file logger에, 관측된 완료 경계는 event JSONL에 남습니다.

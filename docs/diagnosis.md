@@ -10,23 +10,7 @@ LLM 경로는 rule catalog와 기존 판정을 입력에 넣지 않는 별도 �
 
 ## Investigation Workflow
 
-```text
-Run Overview
-  |
-  +> Slow step / interval
-       |
-       +> Bottleneck Summary
-            |  symptom + same-run baseline
-            |  candidate + supporting/counter/missing evidence
-            |
-            +> Cross-Layer Timeline
-                 |  exact EventRecorder spans
-                 |  approximate VERL step window
-                 |  sampled Prometheus metrics
-                 |
-                 +> Timeline / Compute / Storage / Logs
-                 +> targeted PyTorch Profiler / Nsight or NCCL baseline
-```
+![Run·step·candidate·evidence·Timeline과 targeted profile의 조사 흐름](figures/diagrams/investigation-flow.svg)
 
 `ENABLE_LOGS=1`인 monitoring server에 `03 · Bottleneck Summary`와 `04 · Cross-Layer Timeline`이 provision됩니다.
 Node collector의 Alloy가 run root의 `diagnostics/investigation/*.jsonl`과 `telemetry-events/*.jsonl`을 Loki에 보내야 후보와 span 행이 채워집니다.
@@ -87,14 +71,7 @@ Phase alias는 canonical을 우선해 중복 사용하지 않고, vLLM은 같은
 
 ## Semantic Model and Adapter Boundary
 
-```text
-Primary integration: VERL                 XLayer core
-  update / rollout / reward ------------> run > step/iteration > phase > span/event
-  worker / rank / node / GPU ------------> resource identity + observation scope
-  vLLM / Ray / sandbox / storage --------> related subsystem evidence
-                                          |
-                                          +> comparison > candidate > evidence
-```
+![VERL 실행 개념을 framework-independent XLayer context로 mapping](figures/diagrams/framework-mapping.svg)
 
 현재 자동 step adapter는 VERL file logger bridge입니다.
 `diagnosis_analysis.py`는 framework 이름을 모르는 signal과 participant map을 입력으로 받으므로 다른 framework에도 adapter로 이식할 수 있습니다.
@@ -418,12 +395,11 @@ Timeline의 `Span and event records` 행을 펼쳐 span 표를 확인합니다.
 `span_id`에서 같은 시간 창의 Timeline·Logs·Diagnosis로 이동하고, `trace_id`로 기록한 관련 event를 필터링할 수 있습니다.
 Clock skew, scrape 간격, shared resource의 다른 사용자 때문에 눈으로 겹친 구간도 추가 확인이 필요합니다.
 
+![같은 workload window의 cgroup·device·shared-service evidence를 scope별로 보존하는 조사 모델](figures/diagrams/evidence-scope.svg)
+
 ### Follow the Data Path
 
-```text
-Trainer > rollout / vLLM > GPU node NIC > 3FS service > storage node > SSD
-             step/span          network        shared-service        device
-```
+![Declared storage path와 workload·network·shared-service·device scope](figures/diagrams/storage-path.svg)
 
 Bottleneck Summary의 `Inspect declared topology and storage path` 링크는 기존 Data & Storage 화면의 component·edge 표로 이동합니다.
 그 edge는 사용자가 제공한 topology 관계이며 throughput·latency·error·queue가 실제로 측정된 edge만 해당 값을 붙일 수 있습니다.

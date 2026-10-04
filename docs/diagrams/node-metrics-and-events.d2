@@ -1,0 +1,14 @@
+# Title: Quickstart metric and step paths
+# Description: Node Exporter carries metric snapshots; optional Alloy and Loki carry completed step events.
+...@_style
+
+direction: down
+metrics: "VERL bridge > application.prom\nGPU sampler > gpu.prom\nHost collectors" {class: source}
+exporter: "Node Exporter :19100" {class: process}
+prom: "Prometheus" {class: process}
+step_events: "VERL bridge\nCompleted step JSONL" {class: source}
+alloy: "Optional Alloy" {class: optional}
+loki: "Optional Loki" {class: optional}
+views: "Grafana\nRun Overview / Stage / resource detail" {class: evidence}
+metrics -> exporter -> prom -> views
+step_events -> alloy -> loki -> views: Step Explorer {style.font-size: 20}

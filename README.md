@@ -25,26 +25,7 @@ Logs와 profiler artifact는 관련 증거를 확인하는 경로이며 모든 l
 기존 VERL 실행부터 연결하고 필요할 때 3FS·multi-node를 추가합니다.
 SDK·adapter는 다른 framework에도 이식할 수 있으며, 주된 integration은 VERL입니다.
 
-```text
-+------------------------------------+         +--------------------------------+
-| GPU CLUSTER                        |         | STORAGE CLUSTER                |
-| VERL stages / vLLM rollout         |         | 3FS services                   |
-| GPU / host / NIC                   |         | Service latency                |
-| 3FS client                         |-- I/O > | SSDs / device health           |
-+------------------------------------+         +--------------------------------+
-          | telemetry                                   | telemetry
-          +----------------------+----------------------+
-                                 |
-+-------------------------------------------------------------------------------+
-| XLAYER TELEMETRY                                                              |
-| 1. Collect   > metrics / logs / events / run artifacts                        |
-| Prometheus / Loki / existing exporters / ClickHouse queries                   |
-| 2. Correlate > run / step / phase + node / role / worker / device / topology  |
-| 3. Diagnose  > baseline > candidate > evidence / missing evidence > deep dive |
-+-------------------------------------------------------------------------------+
-                                 |
-                                 +----> Grafana investigation / show_run / profiler
-```
+![GPU·storage telemetry를 workload context와 연결하는 XLayer 전체 구조](docs/figures/diagrams/system-overview.svg)
 
 Application은 `run_id`로, system·shared service는 시간·node·topology로 비교합니다.
 동시 변화는 원인 후보이며 공유 자원의 run별 사용량을 뜻하지 않습니다.

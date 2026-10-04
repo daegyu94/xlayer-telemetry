@@ -6,19 +6,7 @@ Rule catalog·threshold·기존 판정은 입력하지 않으며 명시적으로
 후보 제목은 `Possible storage device saturation` 같은 English noun phrase입니다.
 `attribution`도 영어로 쓰고 문장을 두 언어로 반복하지 않습니다.
 
-```text
-Prometheus series + selected intervals + workload context
-  |
-  +--> Scoped observation packet
-         |
-         +--> Ollama + local model on one GPU
-                |
-                +--> Draft hypotheses
-                       |
-                       +--> Evidence review in a fresh model context
-                              |
-                              +--> Accepted or revised LLM diagnosis JSON
-```
+![Scoped observation packet에서 가설 생성과 별도 evidence review로 이어지는 LLM 진단](figures/diagrams/llm-diagnosis.svg)
 
 CLI로 선택한 구간을 분석한 뒤 [structured JSON schema](https://docs.ollama.com/capabilities/structured-outputs)·evidence ID·관측 구간을 검사합니다.
 없는 ID, 현재 값 없는 evidence, 같은 ID의 supporting/counter 중복과 label로 확인되는 engine·worker·rank 혼합을 거부합니다.
