@@ -4,6 +4,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 artifacts/
-scripts/diagram-tools/node_modules/
+scripts/docs-browser/node_modules/
 build/
 *.egg-info/

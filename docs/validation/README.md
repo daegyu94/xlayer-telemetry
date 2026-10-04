@@ -6,8 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
-| [Diagram layout review](diagram-layout-20261004.json) | 25개 그림의 설명 구조 재검토·6개 재설계, source를 관통하던 화살표 3곳 제거, 고정 Chromium 생성·실제 Sphinx 페이지 browser regression |
-| [Figure styles and mobile rendering](figure-styles-20261004.json) | 원본 ASCII 의미 대조·log/event 경로 보정, D2/Excalidraw 25쌍·전역 선택기, 12개 페이지의 320–1440px 실제 Chrome 검사, 827개 Python test·5개 browser regression |
+| [Diagram layout review](diagram-layout-20261004.json) | D2 25개 그림의 설명 구조 재검토·6개 재설계, source를 관통하던 화살표 3곳 제거, caption·확대·원본 링크와 12개 페이지의 320–1440px browser regression |
 | [D2 documentation diagrams](d2-diagrams-20261004.json) | ASCII 그림 24개 교체, D2/SVG 25개·label 238개 실제 Chrome 확인, 11개 문서의 1440/900/390px·확대 링크·넘침 검사와 826개 test |
 | [Userspace time alignment](userspace-time-alignment-20261004.json) | OS clock 변경 없이 reference 시간축 보정; 독립 process clock +12/-7초, 실제 Prometheus/Loki/Alloy 조회·Timeline, TDD 신규 36개 포함 820개 test와 cleanup |
 | [Live dashboard UX](dashboards/live-ui-20261003.md) | 실제 Chrome navigation·baseline·optional row·stale/결측 화면, Timeline identity·policy lag 단위·숨겨진 filter 개선과 784개 test |

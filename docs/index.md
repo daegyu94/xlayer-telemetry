@@ -21,8 +21,7 @@ Prometheus·Grafana·Loki와 기존 exporter를 활용하며, 저수준 분석�
 용어는 [Metric·Event·Span과 Scope](diagnosis.md#what-the-signals-mean)에서 확인합니다.
 SDK 직접 계측은 [Application Metrics](application-metrics.md), 현재 실환경 검증 범위와 GIF는 [Real VERL Demo](real-verl-demo.md)에 있습니다.
 
-테마 버튼 옆 **Figure** 선택기로 문서 전체 그림을 D2·Excalidraw 스타일로 전환합니다.
-선택은 다음 페이지에서도 유지되며, 작은 화면에서는 **확대 보기**로 SVG를 자세히 읽을 수 있습니다.
+문서 그림은 D2 원본에서 생성한 SVG로 표시하며, 작은 화면에서는 **확대 보기**로 자세히 읽을 수 있습니다.
 그림 아래의 짧은 설명과 **D2 원본** 링크로 의미와 편집 위치를 확인할 수 있습니다.
 
 ## Prepare a Checkout

@@ -37,7 +37,7 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 | `run_nccl_baseline.sh` | 외부 nccl-tests binary를 MPI로 실행 | MPI·nccl-tests가 준비된 통신 baseline; PyTorch profile과 별개 |
 | `docs.sh` | 선택적 문서 환경 설치·strict build·local preview | Python 3.11 이상; telemetry 환경과 독립 |
 | `render_diagrams.py` | D2 원본을 SVG로 생성하거나 변경 누락 검사 | 문서 그림 변경 시; pinned D2 설치·checksum 검증 지원 |
-| `diagram-tools/` | D2 SVG에서 Excalidraw scene·SVG 생성 및 browser regression | 그림 변경 시 사용하는 문서 전용 Node 도구 |
+| `docs-browser/` | 문서 그림·caption·확대 링크의 browser regression | 문서 변경 시 사용하는 선택적 Playwright 검사 |
 | `capture_dashboard_demo.py` | 지정한 Grafana run/step 화면을 GIF로 기록 | 선택적 Playwright·ffmpeg; workload나 측정값을 생성하지 않음 |
 
 `setup.sh`·`check_tools.sh`는 script 위치를 기준으로 checkout을 찾으므로 다른 directory에서도 절대 경로로 호출할 수 있습니다.
@@ -81,7 +81,6 @@ bash scripts/docs.sh serve
 `docs/diagrams/*.d2`가 그림의 원본이고 `docs/figures/diagrams/*.svg`가 GitHub·문서 사이트에서 사용하는 생성 결과입니다.
 공통 색상·글꼴은 `_style.d2`에 있으며 D2 0.9.0과 ELK layout을 고정해 재생성합니다.
 SVG는 alt text와 title·description을 포함합니다.
-웹 문서의 테마 버튼 옆 **Figure** 선택기로 D2·Excalidraw를 페이지 전체에 적용하며 선택은 다음 페이지에서도 유지됩니다.
 모바일에서는 전체 그림을 화면 폭에 맞추고 **확대 보기**로 원본 SVG를 엽니다.
 그림 아래에는 alt text를 짧은 caption으로 표시하고 **D2 원본** 링크를 제공합니다.
 Alt text는 그림의 목적을 한 문장으로 설명하며, 상세 설명은 본문에 둡니다.
@@ -99,23 +98,15 @@ D2 원본과 SVG를 함께 commit하며 docs CI가 재생성 결과와 일치하
 일반 문서 열람·Sphinx build·telemetry 실행에는 D2가 필요하지 않습니다.
 생성물은 `artifacts/docs-site/`에 두며 Git에 추가하지 않습니다.
 
-Excalidraw 버전은 D2 SVG의 label·배치·연결 방향·점선을 유지해 생성합니다.
-`docs/_static/excalidraw/`의 SVG와 편집 가능한 `.excalidraw`를 함께 commit합니다.
-편집용 원본을 열 수 있지만 내용 수정은 D2 원본에서 수행해야 다음 재생성에 보존됩니다.
+문서 사이트의 모바일 표시·caption·원본 링크·SVG geometry는 Playwright로 검사합니다.
 
 ```bash
-npm ci --prefix scripts/diagram-tools
-./scripts/diagram-tools/node_modules/.bin/playwright install chromium
-npm run render --prefix scripts/diagram-tools
-npm run check --prefix scripts/diagram-tools
-npm test --prefix scripts/diagram-tools
+npm ci --prefix scripts/docs-browser
+./scripts/docs-browser/node_modules/.bin/playwright install chromium
+bash scripts/docs.sh build
+XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/docs-browser
 ```
 
-Excalidraw 0.18.1·Node dependency는 lockfile로 고정한 문서 생성 도구입니다.
-공식 [SVG export API](https://docs.excalidraw.com/docs/@excalidraw/excalidraw/api/utils/export)를 사용합니다.
-생성·재생성 검사에는 lockfile과 함께 고정된 Playwright Chromium을 사용합니다.
-SVG text geometry가 browser version마다 달라 host Chrome으로 생성하지 않습니다.
-Browser regression만 기존 Chrome에서 실행하려면 `CHROME_PATH`를 지정할 수 있습니다.
-Sphinx build 결과까지 검사하려면 `XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/diagram-tools`을 실행합니다.
-문서 독자에게는 폰트를 포함한 SVG만 제공하며 editor·CDN·Node를 요구하지 않습니다.
-GitHub Markdown은 기본 D2 그림을 표시하고 스타일 전환은 GitHub Pages에서 제공합니다.
+기존 Chrome으로 검사하려면 `CHROME_PATH`를 지정합니다.
+Node·Playwright는 browser 검사에만 필요하며 문서 build·열람이나 D2 생성에는 필요하지 않습니다.
+GitHub Markdown과 GitHub Pages는 같은 D2 SVG를 표시합니다.

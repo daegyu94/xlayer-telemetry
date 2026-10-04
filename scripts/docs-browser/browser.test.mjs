@@ -1,4 +1,4 @@
-/** Browser regressions for full-figure fit, global choice and progressive enhancement. */
+/** Browser regressions for D2 geometry, responsive figures and reader actions. */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -22,7 +22,7 @@ before(async () => {
   server = createServer(async (request, response) => {
     try {
       const path = new URL(request.url, "http://localhost").pathname;
-      if (path === "/" || path === "/next.html") { response.setHeader("Content-Type", "text/html"); response.end(html); return; }
+      if (path === "/") { response.setHeader("Content-Type", "text/html"); response.end(html); return; }
       if (path.startsWith("/site/") && process.env.XLAYER_DOCS_SITE) {
         // npm --prefix changes cwd; documented relative paths start at the repo.
         const base = resolve(root, process.env.XLAYER_DOCS_SITE);
@@ -70,7 +70,20 @@ test("node collector paths do not cross unrelated metric sources", async () => {
   await page.close();
 });
 
-test("built documentation has one visible global selector and full figures at every breakpoint", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
+test("documentation uses D2 SVGs without a style selector", async () => {
+  const page = await browser.newPage();
+  await page.goto(address);
+  await loaded(page);
+  assert.equal(await page.locator("select").count(), 0);
+  for (const image of await page.locator("article img").all()) {
+    const src = await image.evaluate((i) => i.src);
+    assert.ok(new URL(src).pathname.startsWith("/_images/"));
+    assert.equal(await image.locator("..").getAttribute("href"), src);
+  }
+  await page.close();
+});
+
+test("built documentation has full D2 figures and captions at every breakpoint", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
   const documents = ["index", "agent-rl", "architecture", "cli", "dashboards", "diagnosis", "grafana-ui-ux-review", "local-llm", "monitoring", "time-alignment", "validation/e2e-user-experience", "verl-quickstart"];
   const page = await browser.newPage();
   const errors = [];
@@ -79,18 +92,22 @@ test("built documentation has one visible global selector and full figures at ev
     await page.setViewportSize({ width, height: 900 });
     for (const document of documents) {
       await page.goto(`${address}/site/${document}.html`);
-      const selector = page.locator(".xlayer-figure-control:visible select");
-      assert.equal(await selector.count(), 1, `${width} ${document}`);
-      for (const style of ["d2", "excalidraw"]) {
-        await selector.selectOption(style);
-        await page.waitForFunction(() => [...window.document.querySelectorAll(".xlayer-diagram-image")].every((i) => i.complete && i.naturalWidth));
-        const clipped = await page.locator(".xlayer-diagram-image").evaluateAll((images) => images.filter((i) => {
-          const image = i.getBoundingClientRect(), article = i.closest("article").getBoundingClientRect();
-          return image.left < article.left - 1 || image.right > article.right + 1;
-        }).map((i) => i.alt));
-        assert.deepEqual(clipped, [], `${width} ${document} ${style}`);
-        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${width} ${document} ${style}`);
+      assert.equal(await page.locator(".xlayer-figure-control").count(), 0, `${width} ${document}`);
+      await page.waitForFunction(() => [...window.document.querySelectorAll(".xlayer-diagram-image")].every((i) => i.complete && i.naturalWidth));
+      const figures = await page.locator("figure.xlayer-diagram").all();
+      for (const figure of figures) {
+        const image = figure.locator("img");
+        assert.equal(await figure.locator("figcaption").textContent(), await image.getAttribute("alt"));
+        const src = await image.evaluate((i) => i.src);
+        assert.ok(new URL(src).pathname.includes("/_images/"));
+        assert.equal(await figure.locator(".xlayer-diagram-zoom").getAttribute("href"), src);
       }
+      const clipped = await page.locator(".xlayer-diagram-image").evaluateAll((images) => images.filter((i) => {
+        const image = i.getBoundingClientRect(), article = i.closest("article").getBoundingClientRect();
+        return image.left < article.left - 1 || image.right > article.right + 1;
+      }).map((i) => i.alt));
+      assert.deepEqual(clipped, [], `${width} ${document}`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${width} ${document}`);
     }
   }
   assert.deepEqual(errors, []);
@@ -112,23 +129,19 @@ async function fits(page) {
   assert.deepEqual(failures, [], "Every diagram must fit completely, not just hide page overflow");
 }
 
-test("all 25 figures fit mobile/desktop in both styles and open the selected SVG", async () => {
+test("all 25 D2 figures fit mobile/desktop and open their SVG", async () => {
   const page = await browser.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(address);
   assert.equal(await page.locator("article img").count(), 25);
   for (const width of [320, 390, 900, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    assert.equal(await page.locator(".xlayer-figure-control:visible").count(), 1, "Hidden theme controls must not leak duplicate selectors");
-    for (const style of ["d2", "excalidraw"]) {
-      await page.locator(".xlayer-figure-control:visible select").selectOption(style);
-      await loaded(page);
-      await fits(page);
-      for (const image of await page.locator("article img").all()) {
-        const src = await image.getAttribute("src");
-        assert.equal(new URL(src).pathname.startsWith("/_static/excalidraw/"), style === "excalidraw");
-        assert.equal(await image.locator("..").getAttribute("href"), src);
-      }
+    await loaded(page);
+    await fits(page);
+    for (const image of await page.locator("article img").all()) {
+      const src = await image.evaluate((i) => i.src);
+      assert.ok(new URL(src).pathname.startsWith("/_images/"));
+      assert.equal(await image.locator("..").getAttribute("href"), src);
     }
   }
   const popup = page.waitForEvent("popup");
@@ -141,56 +154,31 @@ test("all 25 figures fit mobile/desktop in both styles and open the selected SVG
   await page.close();
 });
 
-test("style persists across document navigation and reload; editable downloads are real scenes", async () => {
-  const page = await browser.newPage();
-  await page.goto(address);
-  await page.locator(".xlayer-figure-control:visible select").selectOption("excalidraw");
-  await page.goto(address + "/next.html");
-  await loaded(page);
-  assert.equal(await page.locator(".xlayer-figure-control:visible select").inputValue(), "excalidraw");
-  await page.reload();
-  await loaded(page);
-  const source = await page.locator(".xlayer-diagram-download").first().getAttribute("href");
-  assert.equal((await (await page.request.get(source)).json()).type, "excalidraw");
-  await page.locator(".xlayer-figure-control:visible select").selectOption("d2");
-  assert.equal(await page.locator(".xlayer-diagram-download:visible").count(), 0);
-  await page.close();
-});
-
-test("figures have readable captions and canonical source links in either style", async () => {
+test("D2 figures have readable captions and canonical source links", async () => {
   const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
   await page.goto(address);
-  for (const style of ["d2", "excalidraw"]) {
-    await page.locator(".xlayer-figure-control:visible select").selectOption(style);
-    await loaded(page);
-    const figures = await page.locator("article figure.xlayer-diagram").all();
-    assert.equal(figures.length, 25);
-    for (const figure of figures) {
-      const name = await figure.locator("img").getAttribute("alt");
-      assert.equal(await figure.locator("figcaption").textContent(), name);
-      assert.equal(await figure.locator(".xlayer-diagram-source").getAttribute("href"),
-        `https://github.com/daegyu94/xlayer-telemetry/blob/main/docs/diagrams/${name.replace(/\.svg$/, ".d2")}`);
-    }
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
-    await page.locator(".xlayer-diagram-source").first().focus();
-    assert.equal(await page.locator(".xlayer-diagram-source").first().evaluate((a) => a === document.activeElement), true);
+  await loaded(page);
+  const figures = await page.locator("article figure.xlayer-diagram").all();
+  assert.equal(figures.length, 25);
+  for (const figure of figures) {
+    const name = await figure.locator("img").getAttribute("alt");
+    assert.equal(await figure.locator("figcaption").textContent(), name);
+    assert.equal(await figure.locator(".xlayer-diagram-source").getAttribute("href"),
+      `https://github.com/daegyu94/xlayer-telemetry/blob/main/docs/diagrams/${name.replace(/\.svg$/, ".d2")}`);
   }
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+  await page.locator(".xlayer-diagram-source").first().focus();
+  assert.equal(await page.locator(".xlayer-diagram-source").first().evaluate((a) => a === document.activeElement), true);
   await page.close();
 });
 
-test("unavailable storage does not disable switching, and failed alternates fall back to D2", async () => {
+test("reader actions do not depend on local storage", async () => {
   const page = await browser.newPage();
   await page.addInitScript(() => Object.defineProperty(window, "localStorage", { get() { throw new Error("Storage disabled"); } }));
   await page.goto(address);
-  await page.locator(".xlayer-figure-control:visible select").selectOption("excalidraw");
   await loaded(page);
-  assert.ok((await page.locator("article img").first().getAttribute("src")).includes("excalidraw"));
-  await page.locator(".xlayer-figure-control:visible select").selectOption("d2");
-  await loaded(page);
-  await page.route("**/_static/excalidraw/*.svg", (route) => route.fulfill({ status: 404, body: "missing" }));
-  await page.locator(".xlayer-figure-control:visible select").selectOption("excalidraw");
-  await page.waitForFunction(() => [...document.querySelectorAll("article img")].every((i) => i.src.includes("/_images/") && i.complete && i.naturalWidth));
-  assert.equal(await page.locator(".xlayer-diagram-download:visible").count(), 0);
+  assert.equal(await page.locator("figure.xlayer-diagram").count(), 25);
+  assert.equal(await page.locator(".xlayer-diagram-zoom").count(), 25);
   await page.close();
 });
 
@@ -203,28 +191,26 @@ test("without JavaScript, canonical figures still load and fit", async () => {
   await context.close();
 });
 
-test("both exports render without overlapping labels or text outside the SVG", async () => {
+test("D2 SVGs render without overlapping labels or text outside the SVG", async () => {
   const names = (await readdir(join(root, "docs/figures/diagrams"))).filter((n) => n.endsWith(".svg"));
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  for (const prefix of ["/_images/", "/_static/excalidraw/"]) {
-    for (const name of names) {
-      await page.goto(address + prefix + name);
-      await page.evaluate(() => document.fonts.ready);
-      const issues = await page.evaluate(() => {
-        const area = document.querySelector("svg").getBoundingClientRect();
-        const labels = [...document.querySelectorAll("svg text")].map((e) => ({ text: e.textContent, box: e.getBoundingClientRect() }));
-        const issues = [];
-        for (const [i, a] of labels.entries()) {
-          if (a.box.left < area.left - 1 || a.box.top < area.top - 1 || a.box.right > area.right + 1 || a.box.bottom > area.bottom + 1) issues.push(`Outside SVG: ${a.text}`);
-          for (const b of labels.slice(i + 1)) {
-            if (Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left) > 2
-              && Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top) > 2) issues.push(`Overlapping: ${a.text} / ${b.text}`);
-          }
+  for (const name of names) {
+    await page.goto(address + "/_images/" + name);
+    await page.evaluate(() => document.fonts.ready);
+    const issues = await page.evaluate(() => {
+      const area = document.querySelector("svg").getBoundingClientRect();
+      const labels = [...document.querySelectorAll("svg text")].map((e) => ({ text: e.textContent, box: e.getBoundingClientRect() }));
+      const issues = [];
+      for (const [i, a] of labels.entries()) {
+        if (a.box.left < area.left - 1 || a.box.top < area.top - 1 || a.box.right > area.right + 1 || a.box.bottom > area.bottom + 1) issues.push(`Outside SVG: ${a.text}`);
+        for (const b of labels.slice(i + 1)) {
+          if (Math.min(a.box.right, b.box.right) - Math.max(a.box.left, b.box.left) > 2
+            && Math.min(a.box.bottom, b.box.bottom) - Math.max(a.box.top, b.box.top) > 2) issues.push(`Overlapping: ${a.text} / ${b.text}`);
         }
-        return issues;
-      });
-      assert.deepEqual(issues, [], prefix + name);
-    }
+      }
+      return issues;
+    });
+    assert.deepEqual(issues, [], name);
   }
   await page.close();
 });

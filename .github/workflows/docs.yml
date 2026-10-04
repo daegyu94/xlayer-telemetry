@@ -3,9 +3,9 @@ name: Documentation
 on:
   push:
     branches: [main]
-    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/diagram-tools/**", ".github/workflows/docs.yml"]
+    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
   pull_request:
-    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/diagram-tools/**", ".github/workflows/docs.yml"]
+    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -32,16 +32,15 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: scripts/diagram-tools/package-lock.json
-      - name: Verify Excalidraw figures and browser regressions
+          cache-dependency-path: scripts/docs-browser/package-lock.json
+      - name: Install documentation browser checks
         run: |
-          npm ci --prefix scripts/diagram-tools
-          ./scripts/diagram-tools/node_modules/.bin/playwright install --with-deps chromium
-          npm run check --prefix scripts/diagram-tools
+          npm ci --prefix scripts/docs-browser
+          ./scripts/docs-browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Build and check internal references
         run: python -m sphinx -n -W --keep-going -b html docs artifacts/docs-site
       - name: Check diagram geometry and rendered documentation
-        run: XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/diagram-tools
+        run: XLAYER_DOCS_SITE=artifacts/docs-site npm test --prefix scripts/docs-browser
       - uses: actions/upload-pages-artifact@v4
         with:
           path: artifacts/docs-site

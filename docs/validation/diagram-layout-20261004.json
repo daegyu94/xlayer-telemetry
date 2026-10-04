@@ -1,6 +1,5 @@
 {
   "date": "2026-10-04",
-  "baseline_commit": "79898c48a73a07eabd09f3f4f673dc9a9dac3561",
   "scope": "Greenfield review of all 25 diagram layouts; retain semantics while improving explanation and routing.",
   "layout_changes": [
     {
@@ -109,23 +108,10 @@
     "after": 0,
     "browser_regression_added": true
   },
-  "reproducibility_fix": {
-    "failed_docs_ci_run": 37193831963,
-    "root_cause": "Host Chrome 145 and CI Chromium 153 produced different text metrics; for one label, width was 85.800064 versus 85px.",
-    "change": "Regeneration/check always use the Chromium pinned by the Playwright lockfile. Host Chrome remains usable for reader/browser tests only.",
-    "pinned_generation_browser": "Chromium Headless Shell 153.0.8010.12 / revision 1243",
-    "repeat_regeneration_check": "passed",
-    "site_relative_path_regression": {
-      "failed_docs_ci_run": 37194963728,
-      "cause": "npm --prefix changes cwd; the browser site helper resolved repository-relative paths under scripts/diagram-tools.",
-      "fix": "Resolve XLAYER_DOCS_SITE relative to the repository root, preserving absolute paths.",
-      "validation": "Reproduced 404 using a relative temporary site path, then all seven browser tests passed after the one-line correction."
-    }
-  },
   "validation": {
     "strict_sphinx": "passed",
-    "python_diagram_tests": 7,
-    "browser_regressions": 7,
+    "python_diagram_tests": 6,
+    "browser_regressions": 8,
     "built_pages": 12,
     "viewport_widths": [
       320,
@@ -134,26 +120,30 @@
       900,
       1440
     ],
-    "styles": [
-      "d2",
-      "excalidraw"
-    ],
-    "actual_site_combinations": 120,
-    "svg_files_rendered": 50,
+    "actual_site_combinations": 60,
+    "svg_files_rendered": 25,
     "overlapping_labels": 0,
     "clipped_figures": 0,
     "page_overflows": 0,
+    "rendering": "D2 SVG only, with caption, zoom and canonical source links",
     "host_chrome_145_rendering": "passed",
-    "pinned_chromium_153_rendering": "passed",
-    "preceding_full_suite": "827 passed; no runtime code changed in this layout follow-up"
+    "removed_selector_regression": "Failed before removal (2 selectors), passed afterward (0 selectors)"
   },
   "limitations": [
     "Dense diagrams still require the zoom link for individual labels on narrow phones.",
-    "GitHub Markdown uses the default D2 SVG; the global selector is on GitHub Pages."
+    "GitHub and GitHub Pages use the same committed D2 SVGs; captions and reader actions are enhanced on Pages."
   ],
   "cleanup": {
     "temporary_site_screenshots_and_browser_processes_removed": true,
-    "validation_node_dependencies_d2_browser_cache_removed": true,
+    "validation_node_dependencies_removed": true,
     "pre_existing_services_modified": false
+  },
+  "layout_review_baseline_commit": "79898c48a73a07eabd09f3f4f673dc9a9dac3561",
+  "validation_baseline_commit": "d3f5a1b604f334396fdd943c47468f547ec9f781",
+  "browser_test_dependencies": {
+    "installed_packages_before": 256,
+    "installed_packages_after": 2,
+    "production_dependencies": 0,
+    "development_dependency": "playwright 1.63.0"
   }
 }
