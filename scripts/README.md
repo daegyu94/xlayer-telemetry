@@ -81,8 +81,9 @@ bash scripts/docs.sh serve
 `docs/diagrams/*.d2`가 그림의 원본이고 `docs/figures/diagrams/*.svg`가 GitHub·문서 사이트에서 사용하는 생성 결과입니다.
 공통 색상·글꼴은 `_style.d2`에 있으며 D2 0.9.0과 ELK layout을 고정해 재생성합니다.
 SVG는 alt text와 title·description을 포함합니다.
-모바일에서는 전체 그림을 화면 폭에 맞추고 **확대 보기**로 원본 SVG를 엽니다.
-그림 아래에는 alt text를 짧은 caption으로 표시하고 **D2 원본** 링크를 제공합니다.
+모바일에서는 전체 그림을 화면 폭에 맞추며 그림 자체를 눌러 원본 SVG를 엽니다.
+Keyboard로 링크를 선택해 Enter로 열 수도 있습니다.
+Alt text는 caption과 accessible link 이름에 사용하며, D2 편집 위치는 이 절에서만 안내합니다.
 Alt text는 그림의 목적을 한 문장으로 설명하며, 상세 설명은 본문에 둡니다.
 
 ```bash
@@ -98,7 +99,7 @@ D2 원본과 SVG를 함께 commit하며 docs CI가 재생성 결과와 일치하
 일반 문서 열람·Sphinx build·telemetry 실행에는 D2가 필요하지 않습니다.
 생성물은 `artifacts/docs-site/`에 두며 Git에 추가하지 않습니다.
 
-문서 사이트의 모바일 표시·caption·원본 링크·SVG geometry는 Playwright로 검사합니다.
+문서 사이트의 모바일 표시·caption·keyboard 확대·SVG geometry는 Playwright로 검사합니다.
 
 ```bash
 npm ci --prefix scripts/docs-browser

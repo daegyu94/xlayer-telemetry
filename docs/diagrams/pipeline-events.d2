@@ -9,7 +9,7 @@ inspect: "xltel inspect / show_run" {class: evidence}
 logs: "Configured workload log files" {class: source}
 alloy: "Optional Alloy" {class: optional}
 loki: "Loki" {class: process}
-grafana: "Grafana\nRun Logs / Step Explorer / Timeline" {class: evidence}
+grafana: "Grafana\nRun Logs / Run Overview / Timeline" {class: evidence}
 streams -> artifacts
 artifacts -> inspect
 artifacts -> alloy -> loki -> grafana

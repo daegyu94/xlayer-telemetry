@@ -115,10 +115,10 @@ Age의 green은 fresh sample을 뜻하며 workload가 healthy하다는 뜻이 �
 완료 step 목록은 Loki를 활성화했을 때 Run Overview에 추가됩니다.
 Loki를 끈 server에는 metrics 화면만 provision하고, 설치하지 않은 investigation 화면의 링크는 `requires Loki` 안내로 바꿉니다.
 같은 output directory에서 Loki를 끄고 재실행하면 repository가 제공한 optional dashboard만 제거하며 사용자 dashboard 파일은 유지합니다.
-Step Explorer는 Grafana의 Run Overview와 Cross-Layer Timeline에서 사용하며 별도 UI/server를 실행하지 않습니다.
+완료 step 선택은 Run Overview, 상세 구간 조사는 Cross-Layer Timeline에서 수행합니다.
 Loki 없이 저장된 run을 읽을 때는 `python -m xlayer_telemetry.show_run "$RUN_ROOT"`으로 step event와 진단 결과를 확인합니다.
-완료 step을 클릭해 상세 구간을 여는 방법은 [Step Explorer](dashboards.md#open-in-grafana)에 있습니다.
-화면을 처음 열었다면 [필터와 시간 범위](#select-the-context)부터 확인하고, 느린 step을 찾은 뒤 [Step Explorer](#step-explorer)와 [Run Analysis](#run-analysis)로 이어갑니다.
+완료 step을 클릭해 상세 구간을 여는 방법은 [완료 step 선택](#open-in-grafana)에 있습니다.
+화면을 처음 열었다면 [필터와 시간 범위](#select-the-context)부터 확인하고, 느린 step을 찾은 뒤 [완료 step 목록](#step-explorer)와 [Run Analysis](#run-analysis)로 이어갑니다.
 
 아래 화면은 synthetic UI fixture를 실제 Grafana에서 조회한 예입니다.
 Stale run의 age와 fresh GPU sample을 구분하며 실제 학습 성능의 측정 결과는 아닙니다.
@@ -215,7 +215,7 @@ Lifecycle latency는 Prometheus 집계가 아니라 정확한 `sandbox.*` EventR
 GPU sample age와 GPU matrix를 본 뒤 `GPU` filter로 device를 좁혀 power·temperature·SM clock을 비교합니다.
 GPU utilization graph의 data link로 선택한 Node/GPU를 확대할 수 있습니다.
 0%는 측정된 idle 상태이고 빈 matrix cell은 사용 가능하다는 증거가 아닙니다.
-Compute-process GPU memory는 PID별 관측값이고 `GPU allocation matrix`는 별도로 기록한 worker 배치에 의존하므로, process를 run에 자동으로 귀속시키지 않습니다.
+`GPU_PROCESS_METRICS=1`로 수집한 compute-process GPU memory는 PID별 관측값이고 `GPU allocation matrix`는 별도로 기록한 worker 배치에 의존하므로, process를 run에 자동으로 귀속시키지 않습니다.
 
 TCP/Ethernet과 RDMA 패널은 interface 또는 port의 전송량입니다.
 이 값만으로 어느 두 endpoint 사이의 traffic인지 알 수 없으며, compute topology matrix에는 별도로 제공한 edge 정보가 있어야 합니다.
@@ -347,10 +347,10 @@ Timeline의 `Step completion (approximate)` annotation은 Loki에 기록된 file
 Stage마다 exact span이 있으면 Timeline의 별도 exact lane에서 읽습니다.
 Annotation control로 marker를 끌 수 있으며, metrics-only dashboard에는 Loki annotation을 추가하지 않습니다.
 
-아래 이미지는 실제 SWE-Bench `colocate_async` 기록의 trainer update 3을 현재 Timeline에서 연 화면입니다.
-선택한 step과 reported stage, exact span을 구분하며, 펼친 상세 행까지 포함한 흐름은 [최신 GIF](real-verl-demo.md#watch-the-recording)에서 확인할 수 있습니다.
+아래 이미지는 2026-10-01에 실제 SWE-Bench `colocate_async` 기록의 trainer update 3을 Timeline에서 연 화면입니다.
+선택한 step과 reported stage, exact span을 구분하며, 펼친 상세 행까지 포함한 흐름은 [기록된 GIF](real-verl-demo.md#watch-the-recording)에서 확인할 수 있습니다.
 
-![현재 Grafana Timeline에서 확인한 실제 SWE-Bench colocate_async trainer update 3](figures/grafana-timeline-real.png)
+![2026-10-01에 캡처한 SWE-Bench colocate_async trainer update 3의 Timeline](figures/grafana-timeline-real.png)
 
 ### Read a Step
 
@@ -539,7 +539,7 @@ Diagnosis의 clock guard가 current 또는 baseline을 unsafe·unknown으로 판
 불확실한 clock은 missing evidence로 남기며 Timeline의 raw metric/log는 조사용으로 확인할 수 있습니다.
 Grafana의 수동 timeline은 자동으로 시간축을 이동시키지 않으므로 clock 상태를 확인한 후 overlap을 해석합니다.
 
-UI 구조 검토와 적용 범위는 [Grafana Investigation UX Review](grafana-ui-ux-review.md)에 정리했습니다.
+UI 변경 당시의 비교 화면은 [검증 기록](validation/README.md)에 보존했습니다.
 
 ## Theme Selection
 
@@ -564,9 +564,11 @@ Monitoring server와 Compose 설정은 `extraThemes`를 활성화하며 기본 �
 추가 테마는 Grafana 12.1의 experimental 기능으로, 별도 plugin이나 CSS를 설치하지 않습니다.
 Server 기본값을 바꾸려면 config에 지정합니다.
 
-```bash
-GF_USERS_DEFAULT_THEME='sapphiredusk'
-GF_FEATURE_TOGGLES_ENABLE='extraThemes'
+기존 TOML의 `[telemetry]`에서 설정합니다.
+
+```toml
+GF_USERS_DEFAULT_THEME = "sapphiredusk"
+GF_FEATURE_TOGGLES_ENABLE = "extraThemes"
 ```
 
 Server를 재시작하면 적용되며 기존 user·team·organization preference가 server default보다 우선합니다.
@@ -594,7 +596,7 @@ N/A는 미등록·미지원·표본 부족일 수 있으며 `0`으로 보정하�
 | Agent RL / Ray orchestration | Retried task state, placement-group state, 기존 object-store/OOM signals | Session 내 분산 state gauge. `Node=All`로 전체 합을 확인하며 retry gauge에 rate를 적용하지 않습니다. |
 | Agent RL / Native endpoint collection health | `up`, scrape seconds, scrape/retained sample 수 | Prometheus 수집 상태·비용. Up이 workload 정상 또는 모든 metric 지원을 의미하지 않습니다. |
 
-Diagnostic use cases와 기본 비용:
+필요한 상세 row:
 
 - Host 6 panels: GPU가 idle인 동안 CPU queue·memory reclaim·I/O stalls 또는 수집 실패인지 구분합니다.
 - Network/RDMA 6 panels: Weight sync·collective 지연 시 throughput 부족과 packet loss·link 오류를 비교합니다.
@@ -604,8 +606,8 @@ Diagnostic use cases와 기본 비용:
 - Ray 2 panels: Worker가 일을 받지 못할 때 retried task와 placement-group pending state를 확인합니다.
 - Native health 3 panels: Workload idle과 endpoint scrape 실패·sample limit·collector 비용 문제를 구분합니다.
 
-추가한 35개 panel 모두 collapsed row 내부에 있고 기본 overview에는 추가 query를 실행하지 않습니다.
-기존 live vLLM offload panel의 current/legacy fallback만 기본 화면에서 개선합니다.
+접힌 row는 펼칠 때 조회합니다.
+실제 비용은 선택한 시간·series 수와 source의 수집 주기에 따라 달라집니다.
 
 Disk latency는 `rate(read/write time) / rate(completed operations)`의 평균입니다.
 분모가 0이면 N/A로 남기며 p95/p99를 생성하지 않습니다. Filesystem inode total=0과
@@ -632,18 +634,8 @@ ClickHouse evidence, application span 또는 선택적 profiler가 필요합니�
 `ray_object_store_memory{Location="SPILLED"}`의 현재 bytes로 보며 이를 disk throughput으로
 바꾸지 않습니다. 상세 metric은 upstream과 실제 `/metrics`의 이름·단위를 확인합니다.
 
-Exporter contract sources:
-[Node Exporter PSI](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/pressure_linux.go),
-[diskstats](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/diskstats_common.go),
-[InfiniBand/RoCE](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/infiniband_linux.go),
-[DCGM field definitions](https://github.com/NVIDIA/dcgm-exporter/blob/fafd151148052628061a80450b4ee037a5fa0c3c/etc/default-counters.csv),
-[vLLM engine metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/v1/metrics/loggers.py),
-[vLLM offloading metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/distributed/kv_transfer/kv_connector/v1/offloading/metrics.py),
-[Ray metrics semantics](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html).
-2026-10-03 확인 기준 vLLM commit은 `5f30fc7031cae49bf51073fc953d419b08f8887c`,
-DCGM Exporter commit은 `fafd151148052628061a80450b4ee037a5fa0c3c`입니다.
-새 optional metric은 이전 release에서 N/A일 수 있습니다. Bundled Node Exporter 1.9.1에는
-mlx5 ECN·ACK timeout·QP retransmit hardware counter가 없으므로 이 panel에 추정값을 추가하지 않습니다.
+Exporter의 version별 이름·지원 범위는 [Source contracts](diagnosis.md#source-contracts-and-remaining-gaps)를 확인합니다.
+설치한 endpoint의 실제 `/metrics`가 기준이며 optional metric이 없으면 N/A로 남깁니다.
 
 ## Browser Journey Validation
 

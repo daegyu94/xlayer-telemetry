@@ -1,5 +1,8 @@
 # Grafana Investigation UX Review
 
+2026-10-02의 설계·변경 기록입니다.
+현재 dashboard 구성과 사용 순서는 [Dashboard Guide](dashboards.md)가 기준이며, 아래 제안·panel 수·남은 범위는 당시 상태를 나타냅니다.
+
 ## Scope and decision
 
 2026-10-02 기준 dashboard JSON, provisioning, Loki projection, links와 regression test를 검토했습니다.

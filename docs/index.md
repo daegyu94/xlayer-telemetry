@@ -21,8 +21,8 @@ Prometheus·Grafana·Loki와 기존 exporter를 활용하며, 저수준 분석�
 용어는 [Metric·Event·Span과 Scope](diagnosis.md#what-the-signals-mean)에서 확인합니다.
 SDK 직접 계측은 [Application Metrics](application-metrics.md), 현재 실환경 검증 범위와 GIF는 [Real VERL Demo](real-verl-demo.md)에 있습니다.
 
-문서 그림은 D2 원본에서 생성한 SVG로 표시하며, 작은 화면에서는 **확대 보기**로 자세히 읽을 수 있습니다.
-그림 아래의 짧은 설명과 **D2 원본** 링크로 의미와 편집 위치를 확인할 수 있습니다.
+그림을 누르면 원본 SVG를 새 탭에서 확대할 수 있습니다.
+그림 편집 방법은 [문서 관리 안내](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md#documentation-diagrams)에 있습니다.
 
 ## Prepare a Checkout
 
@@ -76,6 +76,11 @@ Optional Local LLM <local-llm>
 Architecture / Design <architecture>
 Metrics / Scope <metrics>
 Real VERL Demo <real-verl-demo>
+```
+
+```{toctree}
+:hidden:
+:caption: Archive / Maintainers
+
 검증 기록 <validation/README>
-Grafana UX Review <grafana-ui-ux-review>
 ```

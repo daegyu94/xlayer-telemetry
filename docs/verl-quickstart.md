@@ -47,7 +47,7 @@ xltel install-tools
 
 Wrapper가 명령에서 `verl.trainer.main_ppo` 또는 `verl.experimental.fully_async_policy.fully_async_main`을 찾으면 `trainer.logger=["console","file"]`을 추가합니다.
 Bash launcher는 `VERL_FILE_LOGGER_PATH` 전달과 `trainer.logger`의 `file` 설정을 담당하며 `file`이 빠진 명시적 logger는 거부됩니다.
-Trainer mode를 숨긴 launcher는 `EXECUTION_MODE=async`로 지정합니다.
+Trainer mode를 숨긴 launcher는 `xltel run --mode async -- <기존 명령>`을 사용하거나 TOML의 `[telemetry]`에 `EXECUTION_MODE = "async"`를 설정합니다.
 
 기본 `auto`는 trainer mode를 감지하고 rollout server의 `mode=async`만으로 판정하지 않습니다.
 
@@ -92,7 +92,8 @@ xltel status
 ## 3. Check the First Completed Step
 
 `http://127.0.0.1:13000`을 열고 원격 접속은 [SSH tunnel](monitoring.md#open-the-dashboards)을 사용합니다.
-Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluster·Node·Run을 고릅니다(기본 Cluster·Node: `training-cluster`·`gpu-local`; Run ID는 실행 출력에 표시됩니다).
+Start Here에서 collector·sample age를 확인하고, 실행 출력의 Run Overview 링크를 엽니다.
+Stage·engine 상세는 Stage Correlation에서 확인하며 기본 Cluster·Node는 `training-cluster`·`gpu-local`입니다.
 Stage·reward·throughput은 step 완료 시, GPU·host는 별도 주기로 갱신됩니다.
 
 `inspect`는 configured/latest run의 metric·event·진단 결과를 읽으며 `xltel inspect RUN_ID`로 다른 run도 선택합니다.
@@ -136,15 +137,16 @@ vLLM의 동적 endpoint가 바뀌면 source JSON을 수정하고 `sources refres
 
 ## Add Sources When Needed
 
-설정 파일에는 자주 쓰는 선택 값이 주석으로 들어 있습니다.
-기본 연결이 동작한 뒤 필요한 값만 켜고 영향을 받는 process를 다시 시작합니다.
+기본 연결이 동작한 뒤 필요한 값만 기존 TOML의 `[telemetry]`에 추가합니다.
+Boolean은 `true`/`false`, 경로는 따옴표로 감싼 문자열이며 `$HOME` 대신 `~` 또는 절대 경로를 사용합니다.
+설정 형식과 우선순위는 [CLI Configuration](cli.md#configuration)이 기준입니다.
 
 | 원하는 기능 | Config에서 추가할 값 | 이어서 읽을 문서 |
 | --- | --- | --- |
-| Run Logs와 Run Overview의 완료 step 목록 | `ENABLE_LOGS=1`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
+| Run Logs와 Run Overview의 완료 step 목록 | `ENABLE_LOGS = true`; server·node 재시작 | [Loki 연결](monitoring.md#add-run-logs-with-loki) |
 | vLLM·Ray endpoint | `TELEMETRY_SOURCES_FILE`; 최초 server 재시작, 이후 `sources refresh` | [Native endpoint](agent-rl.md#register-native-endpoints) |
 | 자동 진단과 선택적 3FS ClickHouse | `DIAGNOSTICS_CONFIG`; 새 run 시작 | [Diagnostics](agent-rl.md#add-diagnostics) |
-| 다른 저장 위치·node 이름 | 절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME` | [구현 구조](architecture.md#what-each-file-is-for) |
+| 다른 저장 위치·node 이름 | `TELEMETRY_RUNS_ROOT`·`TELEMETRY_HOME`·`NODE_NAME`; 기존 run 위치는 유지 | [구현 구조](architecture.md#what-each-file-is-for) |
 
 `xltel`은 명령을 실행한 host의 process를 관리합니다.
 Monitoring host에서는 `up --role server`, 각 collector host에서는 `up --role node`를 사용하며 원격 host를 한 번에 배포하지는 않습니다.
@@ -161,7 +163,7 @@ Step event를 Grafana에서 보려면 Loki가 필요하며, 로컬 JSONL 확인�
 | GPU는 보이지만 run이 없음 | Config의 `RUN_ID`, wrapper log, collector가 읽는 `telemetry-metrics` 경로 |
 | JSON은 있지만 panel이 비어 있음 | `application.prom`, Prometheus target, 시간·cluster·node·run filter |
 | Stage 값이 없음 | 첫 step 완료 여부, VERL `file` logger 지원, `telemetry-bridge.log` |
-| Step Explorer만 비어 있음 | `ENABLE_LOGS`, step event 파일, Alloy·Loki 수집과 보존 기간 |
+| Run Overview의 완료 step 목록만 비어 있음 | `ENABLE_LOGS`, step event 파일, Alloy·Loki 수집과 보존 기간 |
 | vLLM panel이나 Ray·3FS 진단 근거가 없음 | vLLM·Ray의 native target과 실제 metric 이름; 3FS는 ClickHouse 설정·데이터 |
 
 ```bash

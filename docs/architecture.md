@@ -41,13 +41,12 @@ Cgroup과 local NVMe의 node/device metric은 별도 scope입니다.
 Grafana/Loki projection 없이도 원본 진단 JSON을 읽을 수 있으며 [schema·rule·조사 순서](diagnosis.md)는 한곳에서 관리합니다.
 Integration은 VERL 중심이지만 SDK·core 모델은 다른 framework adapter에도 사용할 수 있습니다.
 
-## Greenfield Design and Migration
+## Runtime Architecture
 
-지금 새로 설계해도 사용자 진입점은 `xltel`, 조사 화면은 Grafana, 저장·query는 기존 backend를 선택합니다.
-XLayer가 소유할 핵심은 실행 문맥과 evidence 해석이며, process 관리와 source 수집은 작은 경계로 분리합니다.
-CLI의 `up/status/down`은 현재 수집 상태, `run/inspect`는 workload 실행과 저장된 결과를 다룹니다.
-
-![Monitoring과 workload lifecycle을 별도 launcher로 관리하는 CLI 구조](figures/diagrams/cli-runtime.svg)
+Monitoring lifecycle과 workload 실행을 분리합니다.
+`xltel up/down`은 관리하는 monitoring process만 제어하고, `xltel run`은 기존 VERL 명령에 bridge·manifest·선택적 diagnostics를 붙입니다.
+`inspect`는 저장된 run artifact를 읽습니다.
+해당 시간의 backend 데이터가 남아 있으면 [진단 도구](diagnosis.md#investigation-workflow)로 baseline·resource evidence를 비교할 수 있습니다.
 
 ![Monitoring lifecycle과 workload 실행·저장된 run 분석의 역할 분리](figures/diagrams/runtime-architecture.svg)
 
@@ -66,26 +65,6 @@ SDK event의 cluster 구분은 현재 collector 배포 문맥에 의존하므로
 Observer는 step을 기록한 node이며 resource node는 실제 GPU·NIC·storage·sandbox가 위치한 node입니다.
 Dedicated sandbox도 같은 context 모델을 사용하고 trace/span context를 RPC 경계로 전달합니다.
 
-### Keep, Refactor, Redesign
-
-| 영역 | 판단 | 현재 적용과 후속 방향 |
-| --- | --- | --- |
-| Collect → Correlate → Diagnose | KEEP | Source 수집, interval/entity 연결, pure rule evaluation 경계를 유지합니다. |
-| Prometheus / Loki / ClickHouse | KEEP | Metric query, log·event projection, 3FS service window의 역할을 유지합니다. Run artifact는 backend 없이도 읽습니다. |
-| Wrapper / SDK / adapter / collector | KEEP | Workload launch, 계측 API, framework 명칭 변환, node 수집을 각각 담당합니다. |
-| `xltel` command와 ownership | KEEP | Lifecycle shell 구현은 하나로 유지하고 CLI에서 재사용합니다. Remote node 배치는 외부 orchestration 책임입니다. |
-| Run → Step → Candidate → Evidence → Detail | KEEP | 실제 Grafana navigation으로 검증합니다. Overview/Focus는 canonical panel을 재사용합니다. |
-| Health와 saved-run 요약 | REFACTOR | 현재 endpoint 상태와 저장된 workload outcome·snapshot을 분리합니다. Snapshot 선택은 내용의 identity와 producer timestamp를 사용합니다. |
-| Native source health | REFACTOR | 한 target snapshot을 collector/native 판단에 공유하고 source identity index로 조회합니다. Optional config 오류는 전체 health 결과를 없애지 않습니다. |
-| Event evidence와 query provenance | REFACTOR | 파일명 대신 event semantics로 tool span을 선택하고 실제 실행한 query를 canonical signal에 연결합니다. |
-| Config와 launcher 계약 | REDESIGN, 단계적 | TOML을 public 설정으로 유지하되 Python/Bash의 기본값·tool version 중복을 공통 계약으로 옮깁니다. Lifecycle parity test 이후 항목별로 이동합니다. |
-| Optional analysis source 선택 | REDESIGN, 단계적 | 기본 query 전체를 시도하는 구조에서 configured capability에 따른 query 선택으로 전환합니다. 사용자 query override와 bounded retry를 먼저 보존해야 합니다. |
-| 장시간 이력 조회 | 측정 후 결정 | Bounded cache와 deadline을 유지하고 실제 run 크기에서 비용을 측정한 뒤 persistent index를 도입합니다. |
-
-이번 refactor는 metric label, dashboard UID, 파일 schema version과 lifecycle 소유권을 바꾸지 않습니다.
-`operations/run_artifacts.py`는 CLI가 공유하는 저장된 run의 읽기 모델이며 backend 조회나 workload 생존 판정을 하지 않습니다.
-`subsystems.summarize_sources`는 이미 조회한 target을 해석하고 native source inspection은 diagnosis engine을 import하지 않습니다.
-
 ### Operational and Historical State
 
 `status`의 service/target 상태는 현재 조회 결과입니다.
@@ -100,9 +79,6 @@ Identity가 빠진 기존 `verl-trainer-driver.json`은 `legacy_unverified`로 �
 Config는 사용자 입력, `state/`는 managed service의 PID·generated config·backend data·log, `runs/`는 workload별 artifact입니다.
 `down`은 process를 종료하며 이력이나 config를 삭제하지 않습니다.
 기존 directory를 옮기는 migration은 필요하지 않고, 향후 경로 구조를 바꾼다면 명시적인 변환 도구와 기존 artifact 읽기 검증을 먼저 제공합니다.
-
-후속 migration은 **source capability 명시 → config/launcher 계약 통합 → 실규모 이력 조회 측정** 순서가 적절합니다.
-각 단계에서 기존 CLI happy path, signal/exit 처리, optional source 부재, mixed-node negative case와 Grafana context 유지 검증을 통과해야 합니다.
 
 ### Package Responsibilities
 
@@ -252,8 +228,8 @@ Source마다 저장소와 화면이 달라서 endpoint를 하나 등록하는 �
 | --- | --- | --- |
 | VERL 완료 step | File logger > bridge > snapshot > Node Exporter > Prometheus | Run Overview, Agent RL |
 | GPU·CPU·memory·network·disk | GPU sampler·Node Exporter > Prometheus | Run Overview, Compute, Data & Storage |
-| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | vLLM: Agent RL, Ray: Prometheus query 화면 또는 Grafana Explore·진단 |
-| Workload log·step event | File > Alloy > Loki | Run Logs, Grafana Step Explorer |
+| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | Stage Correlation의 vLLM·Ray row, Grafana Explore·진단 |
+| Workload log·step event | File > Alloy > Loki | Run Logs, Run Overview의 완료 step 목록 |
 | 3FS FUSE mount·SSD | Node Exporter·선택적 SMART exporter > Prometheus | Data & Storage |
 | 3FS service latency | ClickHouse > 선택적 diagnostics process | `diagnostics/latest.json`, `show_run` |
 | Custom tool span | Application SDK > JSONL event > 선택적 Alloy/Loki | `show_run`, 원본 event, Cross-Layer Timeline |
@@ -276,11 +252,11 @@ Log의 Run은 directory 이름이므로 telemetry `run_id`와 다를 수 있습�
 
 System metric과 shared vLLM·Ray·3FS service metric에는 특정 VERL `run_id`가 자동으로 붙지 않습니다.
 같은 시간대와 node·role·device를 선택해 비교하고, 여러 node에서는 clock을 동기화합니다.
-VERL file logger에는 원본 step 시작·종료 timestamp가 없어서 Step Explorer는 bridge가 관측한 완료 시각에서 보고된 step 시간을 빼 분석 구간을 추정합니다.
+VERL file logger에는 원본 step 시작·종료 timestamp가 없어서 Bridge는 관측한 완료 시각에서 보고된 step 시간을 빼 분석 구간을 추정합니다.
 Bridge 시작 전에 존재하던 기록이나 종료 후 재생한 기록은 원래 실행 시각을 복원할 수 없으므로 시간 구간을 `unknown`으로 남기고 외부 resource metric과 연결하지 않습니다.
 `ingested_at`은 파일을 읽은 시각이며 `source_event_time`을 대신하지 않습니다.
 Async mode에서는 이 구간이 trainer update를 나타내며, 동시에 실행된 rollout이나 storage I/O가 해당 update에 속한다고 보장하지 않습니다.
-구간 해석은 [Step Explorer](dashboards.md#read-a-step)에 자세히 설명합니다.
+구간 해석은 [완료 step 읽기](dashboards.md#read-a-step)를 참고합니다.
 
 ### Multi-node Correlation Boundary
 

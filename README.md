@@ -62,7 +62,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 
 | 순서 | 읽을 문서와 할 일 | 완료 확인 |
 | --- | --- | --- |
-| 1 | 아래의 [checkout 준비](#prepare-a-checkout) 후 [구현 구조와 설계 원칙](docs/architecture.md)을 읽습니다. | `RUN_ROOT`, collector `OUTPUT_DIR`, monitoring server의 역할을 구분할 수 있습니다. |
+| 1 | 아래의 [checkout 준비](#prepare-a-checkout)를 수행합니다. | `xltel --help`가 실행됩니다. |
 | 2 | [Monitoring Guide의 synthetic demo](docs/monitoring.md#try-the-demo)로 수집과 Grafana를 확인합니다. | Start Here에서 Run Overview를 열고 `Collector health`가 `Up`입니다. |
 | 3 | 이미 실행 가능한 VERL 명령을 [VERL 연결 가이드](docs/verl-quickstart.md)에 따라 한 GPU node에 붙입니다. | `show_run`에 완료 step이 나오고 Agent RL에서 step·GPU 값이 보입니다. |
 | 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM·Ray panel에서 실제 값이 나옵니다. |
@@ -90,23 +90,8 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 
 ## Terms Used in This Project
 
-| 용어 | 의미 |
-| --- | --- |
-| Node / host | 관측 대상 machine |
-| Monitoring host | Prometheus·Grafana를 실행하는 machine; 관측 node와 같은 machine이어도 됨 |
-| Exporter | metric을 HTTP endpoint로 노출하는 process |
-| Collector | JSON이나 장치 상태를 읽어 관측 가능한 metric으로 만드는 process |
-| Target / scrape | Prometheus가 정해진 주기로 조회하는 exporter 주소 / 그 조회 동작 |
-| Snapshot | 한 worker의 최신 metric을 담은 JSON; 전체 step 이력과 다름 |
-| Run / `run_id` | 한 번의 workload 실행과 그 식별자 |
-| Worker / rank | workload를 수행하는 process와 분산 실행에서의 번호 |
-| Manifest | 실행 조건, role 배치, endpoint와 산출물 위치를 기록한 JSON |
-| Span | 계측한 작업 하나의 시작·종료, 소요 시간과 상태 |
-| Trace | 같은 `trace_id`를 가진 span과 parent 관계로 연결한 호출 흐름 |
-
-Prometheus는 수치 시계열을 저장하고 Grafana는 이를 시각화합니다.
-Loki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.
-각 역할은 기존 도구를 조합하고, 이 프로젝트는 계층 사이의 공통 문맥과 연결 절차를 제공합니다.
+Run은 workload 실행, step은 완료된 실행 단위이며 phase·span은 그 안의 작업 구간입니다.
+Metric·event·span·trace·profile과 scope의 차이는 [용어 안내](docs/diagnosis.md#what-the-signals-mean), exporter·collector의 역할은 [Architecture](docs/architecture.md#the-basic-path)를 참고합니다.
 
 ## Prepare a Checkout
 
@@ -183,7 +168,11 @@ Metric·event SDK와 저장된 run 데이터의 형식은 그대로입니다.
 
 ## Local Validation
 
+개발·검증용 dependency를 설치한 뒤 실행합니다.
+SDK의 기본 설치에는 pytest가 포함되지 않습니다.
+
 ```bash
+python -m pip install -r requirements.txt
 python -m pytest -q
 for script in scripts/*.sh; do bash -n "$script"; done
 bash scripts/check_tools.sh

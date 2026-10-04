@@ -1,10 +1,10 @@
 # Real VERL Agent RL Demo
 
-실제 VERL Agent RL의 저장 데이터를 **기본 조사용 Grafana dashboard 8개**로 재생한 GIF입니다.
+실제 VERL Agent RL의 저장 데이터를 당시 Grafana 조사 화면 8개로 재생한 GIF입니다.
 학습은 2026-09-30, 캡처는 2026-10-01이며 새로운 학습·측정은 아닙니다.
 처음 연결한다면 [VERL Quickstart](verl-quickstart.md)를 따릅니다.
 
-![현재 Grafana의 실제 VERL Agent RL investigation: Run Overview, Bottleneck Summary, Timeline, vLLM, Sandbox, GPU, Storage, Logs](figures/verl-agent-rl-investigation.gif)
+![2026-10-01에 캡처한 실제 VERL Agent RL investigation: Run Overview, Bottleneck Summary, Timeline, vLLM, Sandbox, GPU, Storage, Logs](figures/verl-agent-rl-investigation.gif)
 
 ## Watch the Recording
 
@@ -60,7 +60,9 @@ Run Logs의 `Log directory`는 `swe-colocate_async`, `Run context`는 `agent-e2e
 
 ## Reproduce an Agent RL Validation
 
-실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab)·dataset·Docker image에서 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
+이 smoke recipe는 private [verl-lab](https://github.com/daegyu94/verl-lab) 접근 권한과 준비된 dataset·Docker image가 필요합니다.
+공개 VERL 도입에는 lab checkout이 필요하지 않으며 [기존 VERL 명령 연결](verl-quickstart.md)을 사용합니다.
+Lab 환경에서는 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
 [Smoke launcher](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/run_verl_lab_smoke.sh)의 cgroup 설정을 확인하고 collector·native·Loki를 켭니다.
 `show_run`·[validator](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/validate_smoke.py)로 step·trace를 검사하며 같은 명령도 동일 성능을 보장하지는 않습니다.
 

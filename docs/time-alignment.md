@@ -8,10 +8,11 @@ OS clock을 바꿀 권한이 없어도 XLayer의 Step·Span을 monitoring host�
 
 1. **Prometheus와 같은 clock을 쓰는 monitoring host**에서 reference를 실행합니다.
    아래 listener는 foreground로 실행되며 `Ctrl+C`로 종료합니다.
-   `--bind`에는 worker가 접근할 수 있는 private/VPN 주소를 지정합니다.
+   `MONITOR_PRIVATE_IP`는 monitoring host에 실제 할당된 private/VPN IP로 바꾸며, client의 `--url`에도 같은 주소를 사용합니다.
+   같은 host에서만 시험할 때에는 양쪽 주소를 `127.0.0.1`로 지정합니다.
 
    ```bash
-   xltel clock serve --bind 127.0.0.1 --port 19120 --reference-id monitor-1
+   xltel clock serve --bind MONITOR_PRIVATE_IP --port 19120 --reference-id monitor-1
    ```
 
 2. 각 workload/sandbox node에서 자신의 calibration 파일을 만듭니다.

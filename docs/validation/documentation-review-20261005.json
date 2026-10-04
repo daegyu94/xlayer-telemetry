@@ -1,0 +1,2318 @@
+{
+  "baseline": "537454fc5f53eb611b7f4f1ec5b140689046f661",
+  "date": "2026-10-05",
+  "scope": [
+    {
+      "path": ".github/workflows/docs.yml",
+      "bytes": 2155,
+      "sha256": "8fd23de1e51bcb4bc8bf4fcc8c4f6927ef66c4deda79f5b2bad578c3b818ccc9",
+      "lines": 61,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "README.md",
+      "bytes": 17146,
+      "sha256": "e1de16e15d9f4778528ffd4938bb0c682f62ca642bf7f154dd896954dfaad7c2",
+      "lines": 203,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "config/README.md",
+      "bytes": 4059,
+      "sha256": "ab901690ef7ba31d13bb44f66ca1bd78fb82717f8d53c2ee3186bfffb8e6292d",
+      "lines": 51,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/_static/diagrams.js",
+      "bytes": 2099,
+      "sha256": "48d68e8570216d7dc8932b7bd0adfe0a82b0edf714c333b031723701337bde25",
+      "lines": 45,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/_static/xlayer.css",
+      "bytes": 1272,
+      "sha256": "39206f005531b610796537bec299e5eeebf788979c18d51329e5022a04cc8cfe",
+      "lines": 22,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/agent-rl.md",
+      "bytes": 48321,
+      "sha256": "410ce94477ccd94541b753a9cb3fb6ba9a2420770c7686e46f9dd108377d8dc6",
+      "lines": 653,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/application-metrics.md",
+      "bytes": 12411,
+      "sha256": "eef2c8890a3900eb0c227ca97708ef50f658500ca0b9ae484f02fc05d2ba72cf",
+      "lines": 227,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/architecture.md",
+      "bytes": 30931,
+      "sha256": "4f7f08e1d3c65f8d40826476fdd2941811e015881c098bb79c4b774364ce998a",
+      "lines": 322,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/cli.md",
+      "bytes": 14860,
+      "sha256": "b9ac96367b8c7f5206395583cb7cfab3a9b874f7d79af74f626f0805fff891f7",
+      "lines": 250,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/conf.py",
+      "bytes": 1096,
+      "sha256": "5c616051350a76302911ebe073b14c4d1e0b1ecb7d68612448f6173132e96978",
+      "lines": 28,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/dashboards.md",
+      "bytes": 53600,
+      "sha256": "c103f065a9e42b8abc274d56b0554ee11692139d2a69c41963f2c0dafb49817f",
+      "lines": 663,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/diagnosis.md",
+      "bytes": 37456,
+      "sha256": "c6929323feec5d3d775b33e9e101981af4846589e1557eca001a86214079cd5f",
+      "lines": 428,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/diagrams/_style.d2",
+      "bytes": 521,
+      "sha256": "7cdb812f06c47f743cd4ecad0af96c3d5b6c905d6676fc4baec4c09edbd66124",
+      "lines": 9,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/artifact-layout.d2",
+      "bytes": 1136,
+      "sha256": "6404565b577758f7bed9719dd73c0b457785cba71134aa2510d7ffaaa599dbbd",
+      "lines": 23,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/cli-commands.d2",
+      "bytes": 775,
+      "sha256": "ea778c9e12c05372a2c3b80ae5cd56be7e2832e96dafa6ce70fdf9debd58f5c4",
+      "lines": 16,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/cli-runtime.d2",
+      "bytes": 736,
+      "sha256": "2c93522ae72a47b0199d7913d40a36cdc9304f0c4c9a816216408b4ba95c188a",
+      "lines": 19,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/clock-alignment.d2",
+      "bytes": 866,
+      "sha256": "24f3340d4e1af4a632af6eab2cc1e8059f1209e3d7fa78efb972eaf20f150a57",
+      "lines": 13,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/collect-correlate-diagnose.d2",
+      "bytes": 992,
+      "sha256": "f7e7ed93ba69a020465fa4167cfbb52ba8378b84f53a5c4b5e8c38a4f25b0ee1",
+      "lines": 18,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/evidence-scope.d2",
+      "bytes": 991,
+      "sha256": "6409c72b747b9b2a2680fc99359071cb84833c447aa2b6dd46f1454bb96e6ebd",
+      "lines": 17,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/framework-mapping.d2",
+      "bytes": 639,
+      "sha256": "1c464c410e38c85c90a06aa89fe1216953538437ccfa5fcd71ffc0e1d16a8846",
+      "lines": 13,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/investigation-flow.d2",
+      "bytes": 895,
+      "sha256": "ff10866b64ef7aa298c99661a474d6a7be5465461d32f7dc8e4e2672cf818583",
+      "lines": 15,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/llm-diagnosis.d2",
+      "bytes": 701,
+      "sha256": "fa86f15a4e090c476d358dbc8a75ff097d360c2b8af2b059047ed09375f6817c",
+      "lines": 12,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/mooncake-path.d2",
+      "bytes": 843,
+      "sha256": "d6cb863eadd7c26e2b379610f221beeefd3a2774aa87aa97e74a4055c2b916d3",
+      "lines": 18,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/multi-node.d2",
+      "bytes": 690,
+      "sha256": "4ba2ec97c171cb6e7a06fb601b1b030ee2be2036324de5dd31c9eac7ec4beb0a",
+      "lines": 15,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/node-metrics-and-events.d2",
+      "bytes": 697,
+      "sha256": "c31e9b767babe082fbd135681fed41f399d2bb7836af60d9e1effb5384d06424",
+      "lines": 14,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/node-metrics.d2",
+      "bytes": 805,
+      "sha256": "808a2d1d26054dd8776ea0f139e03fca781e34ebbb26ffad7f391576f3504f6a",
+      "lines": 20,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/node-registration.d2",
+      "bytes": 760,
+      "sha256": "2bc2d297f14b19d24afe62142ed5c4148cb4f162d4b8547c22b5240e090e71db",
+      "lines": 17,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/package-layout.d2",
+      "bytes": 1075,
+      "sha256": "fae510f9f5b88cb2ba1c8ef509b132ec5bcaf35653de7eb1cc5dd32af47d4764",
+      "lines": 18,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/pipeline-events.d2",
+      "bytes": 845,
+      "sha256": "f9afa790b1223ddbc93f2f2fcdfdb10aba76500b202d2b957ef7c04e18df9054",
+      "lines": 20,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/pipeline-metrics.d2",
+      "bytes": 985,
+      "sha256": "66a7774e20323e4b94747baf08b2b1983d2775992892dfd640e0cf1dd2cbff6a",
+      "lines": 19,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/runtime-architecture.d2",
+      "bytes": 956,
+      "sha256": "5a11252dcfd7cca1d4c75208b7b834589897af76c8d85124118920ae942ed409",
+      "lines": 17,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/sandbox-colocated.d2",
+      "bytes": 1049,
+      "sha256": "b5ed83dbf8fd0132f38feda78992300300849be8eb2311fb453039b4e922b1bf",
+      "lines": 19,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/sandbox-dedicated.d2",
+      "bytes": 1196,
+      "sha256": "85bc33882ce6f9c36860c6ee3d011df461799fd72c69b4e090cbe88b15cfdb40",
+      "lines": 22,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/sdk-example.d2",
+      "bytes": 863,
+      "sha256": "b466cf8bf6543a098906096bb9ce10a6347dbbc3161280539edc37e871a7a143",
+      "lines": 17,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/storage-path.d2",
+      "bytes": 775,
+      "sha256": "199b6cc24da6d7c7e472d47af1c5b5850eafd673222e8fdd713d2e34b5069a21",
+      "lines": 14,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/system-overview.d2",
+      "bytes": 1076,
+      "sha256": "3470ee1c5d5378105750f6db3b17887beaf05a16283fbbeb71706b19d27134fc",
+      "lines": 21,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/validation-journey.d2",
+      "bytes": 547,
+      "sha256": "2e23ff991215d0a42ec8d32e4c95e9e2773ba3dea2307dff33fcc192e6390d48",
+      "lines": 14,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/diagrams/verl-bridge.d2",
+      "bytes": 910,
+      "sha256": "7bca078ebc5262f479c8a858b50bb13c3de4cfaca9b2f37aeafa23403bcc2502",
+      "lines": 22,
+      "review": "source semantics, layout and current pipeline labels reviewed"
+    },
+    {
+      "path": "docs/figures/bottleneck-summary-synthetic.png",
+      "bytes": 191821,
+      "sha256": "cdcb377c8b5222a83faa0e5ce946fe438446afaecd6e38e5dcaee4e65683f362",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/diagrams/artifact-layout.svg",
+      "bytes": 17596,
+      "sha256": "10b4479e8ad09e08ac59796c5b80ed4d5193d0933f45ab31975d7e9c8dc21ba7",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/cli-commands.svg",
+      "bytes": 13553,
+      "sha256": "69ebdfb44d1f441e6838aef30d754bcbf93c4fb82cac4acf0b92bc7ca1b2e484",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/cli-runtime.svg",
+      "bytes": 14673,
+      "sha256": "66a8ecd2c5e37f505653838014989fe4b81067c61c2b0c078b1c12b79f82fb7b",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/clock-alignment.svg",
+      "bytes": 16838,
+      "sha256": "26e8135cb670599b7d7602ccd70658db9000b4e051b868da5cb7e5dc3e2a44bc",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/collect-correlate-diagnose.svg",
+      "bytes": 16604,
+      "sha256": "a80a6ce7a9283bca3e438fade44167f10c0a7d03c181fe4293750905ec5a43e7",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/evidence-scope.svg",
+      "bytes": 19495,
+      "sha256": "b1713b9b86a8c4e73372dd142ed7b934b72356209e714b03413da1cef015122d",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/framework-mapping.svg",
+      "bytes": 13767,
+      "sha256": "d334f561da82b94d497d85056e3ffbd51a464b8281f92a472093c21e74338b35",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/investigation-flow.svg",
+      "bytes": 12491,
+      "sha256": "e6d135ba0df1a4008d55f7f5f989b74a6c54528eabd3916c88f0bd4b35470963",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/llm-diagnosis.svg",
+      "bytes": 11383,
+      "sha256": "aacc49581b93df17db13d34ea2f4aadb3536b31bbd4615a00b577433a5e355ae",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/mooncake-path.svg",
+      "bytes": 16958,
+      "sha256": "65607a28f0affbe933a591ca6994598101dee988d967b51e4fddd4439ef16d73",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/multi-node.svg",
+      "bytes": 18019,
+      "sha256": "addd088781ca30e78e222dc37cb68c58209e539b61c1ab49e584f82cd8045a70",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/node-metrics-and-events.svg",
+      "bytes": 16089,
+      "sha256": "0fc8adf82ff5ebe3cb154500460e7f21c4df2739ffaf63c961fa14be4e0bab77",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/node-metrics.svg",
+      "bytes": 19907,
+      "sha256": "80a944c9b599abd52b423a20ca28ecbfdeda134e600fe59ccc73b2d01a482e2c",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/node-registration.svg",
+      "bytes": 11345,
+      "sha256": "aea000bbff903c40e1fa529c4d01421e48b4c8ab36d215f7311b15bff83946f2",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/package-layout.svg",
+      "bytes": 15588,
+      "sha256": "10cc3d996766f93c6ccf2c9611cb7b036614e4c0f87e0850017e0779e0ae735b",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/pipeline-events.svg",
+      "bytes": 13408,
+      "sha256": "2e786af357f0638d6036e98f498b8b8271d7fe8ef7713d7b9b6ebcc0ae9c7252",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/pipeline-metrics.svg",
+      "bytes": 17633,
+      "sha256": "1cb3917c7dc5832a9004ef0d4780874a190a54a6ac1a850125271255056cc391",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/runtime-architecture.svg",
+      "bytes": 16175,
+      "sha256": "6a17d83c57e15147a6384f59f9b49c1047b59f04f17b74ca15e3a1b6d577284b",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/sandbox-colocated.svg",
+      "bytes": 20666,
+      "sha256": "a8b513144edca5dcedca2191df6a8fea009605f3f4bd33b901a0511717bb737f",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/sandbox-dedicated.svg",
+      "bytes": 22783,
+      "sha256": "ac2ac012334dc7e88c743875ce790060b54bf69c6834a4e9499828fa8e728845",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/sdk-example.svg",
+      "bytes": 18337,
+      "sha256": "0970dd6444bbfe7205e9df6e129538af0d90a91d3af7f12764ac8424c4526e73",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/storage-path.svg",
+      "bytes": 17136,
+      "sha256": "b13773cd693ba5977ea07817e9a11a0b1ca1847a6639eff02608c64e5d73cf1d",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/system-overview.svg",
+      "bytes": 21554,
+      "sha256": "589ca86e5525039048316cf6f4f87e72d74832affeee15aa0545cc5f05c5fa58",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/validation-journey.svg",
+      "bytes": 10756,
+      "sha256": "47805fa0eaaa46dda2999e0392300a001a737434b89506be4ffc95420ac03abd",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/diagrams/verl-bridge.svg",
+      "bytes": 17666,
+      "sha256": "38ec827527dead2cd813aca46f553303a7a13cd104438590f8a0a08d90ea1e31",
+      "lines": null,
+      "review": "D2 hash, accessible metadata and browser geometry reviewed"
+    },
+    {
+      "path": "docs/figures/grafana-comparison-after.png",
+      "bytes": 242508,
+      "sha256": "687c9876a39e7f0bb040b5b4624d325f8997a3076d75c2fa22636fae433bf6f8",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/grafana-comparison-before.png",
+      "bytes": 208941,
+      "sha256": "9cdea55483b0e23148a77b818cc33e302f64116ea688a086a4f2447363bd7102",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/grafana-run-overview-synthetic.png",
+      "bytes": 141277,
+      "sha256": "ccf77f14c88755266b828ca887635f03b8c2231455dc438a4aa0c47b26269bc2",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/grafana-start-here.png",
+      "bytes": 154437,
+      "sha256": "4f40bd1007e5a09a2d569d96b31b6af84daa0d0487d0f6e90ecf9c257d4b1c62",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/grafana-timeline-real.png",
+      "bytes": 111536,
+      "sha256": "4001b95e1c64d9dc0499f6b49695d5bc2a75ab67aad3a91941ca2cd727bbc978",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/grafana-timeline-synthetic.png",
+      "bytes": 140738,
+      "sha256": "7541291cc1a80d7e23adfcbe6a81ecb16badcc1aa5af1736bcbda10e33bec04c",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/verl-agent-rl-investigation.gif",
+      "bytes": 1115092,
+      "sha256": "6b8560d16dbbf4e93fcc435a95993c3cd8b90dd95a8ef7e79e90a61e4a1c376b",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/figures/xlayer-investigation-synthetic.gif",
+      "bytes": 939026,
+      "sha256": "fb328c9149fa3bfffba46b55202bd3389b78a28b769b2733e66a05d7967208ab",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/grafana-ui-ux-review.md",
+      "bytes": 8232,
+      "sha256": "41085822537bb369367e8e7d7d10e7266d6be6264a517a5862b6b441994cf584",
+      "lines": 86,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/index.md",
+      "bytes": 3306,
+      "sha256": "4fdddc4bfd8b6ff57060802bb4b7b884b021cc8640cd3c72f1c26b598285b923",
+      "lines": 81,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/local-llm.md",
+      "bytes": 29892,
+      "sha256": "3442fc1fc16bffe84cdfe68a573ae2860345e4eaf44343ff6fa4858c3741fdf4",
+      "lines": 370,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/metrics.md",
+      "bytes": 21448,
+      "sha256": "3ba664abc0be9443b540ac84643473b9eb7bb0197632d0cc39ddc2363b4431fd",
+      "lines": 267,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/monitoring.md",
+      "bytes": 37594,
+      "sha256": "c3f755966c6a96885aea1f8d5a6d170088a002cdc211acf568be4fac2de3c185",
+      "lines": 580,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/real-verl-demo.md",
+      "bytes": 12608,
+      "sha256": "a830e85958fd4d3c6003edcec6b4ebaf5b51790a20b854436db1050e8bad03a2",
+      "lines": 181,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/time-alignment.md",
+      "bytes": 8150,
+      "sha256": "3c6ce8ea3b453cde4993e1eac5788c791810dec06980ab731cf12ccddbcf1c6f",
+      "lines": 138,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/validation/README.md",
+      "bytes": 7042,
+      "sha256": "ceecee8866638911826a30c90f41e86bd2063ae8d5cabf1d6dca435bf013334f",
+      "lines": 53,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/validation/async-followup-20261001.json",
+      "bytes": 3448,
+      "sha256": "324e06359087cbff887c5fb667d825a93adc8567b14ddfad4a0e63e5d7439238",
+      "lines": 117,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/core-refactor-20261001.json",
+      "bytes": 1700,
+      "sha256": "a6db8e87e3e74040d62c4d64a4c215fd4082c04f970b91cd4c8e79472f6febbd",
+      "lines": 46,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/d2-diagrams-20261004.json",
+      "bytes": 2405,
+      "sha256": "93d30c724e1794bb8443cd12bb3745386ec0da90f8a1a512aa7613f1d27f0b04",
+      "lines": 82,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/colors-20261002.json",
+      "bytes": 2024,
+      "sha256": "c4fc5b1ddb540ea731d397a516ea805acf243db6515729c33c33f742db7ddcf9",
+      "lines": 40,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/consolidation-20260930.json",
+      "bytes": 2113,
+      "sha256": "55370c73bc9f94c237294da3aa7311498fb3a618c2468c1ef10e0dde9bde7eb6",
+      "lines": 60,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/investigation-20260930.json",
+      "bytes": 1791,
+      "sha256": "96014ad8ecabae02df56e7ef505e2f9c07da843fa41201f67844d2ce56b92173",
+      "lines": 50,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003.md",
+      "bytes": 8381,
+      "sha256": "a61a5e2f60bbbaae4f462bdc38e182aaee5ff85cd94ef4036ad39b100cfdd989",
+      "lines": 91,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/baseline-after.png",
+      "bytes": 127485,
+      "sha256": "6a768045319e676c02befaa2bb7cc7a92eed3329b327106f7e58c5e8177df399",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/final-browser-errors.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "lines": 1,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/hidden-filters-after.png",
+      "bytes": 196702,
+      "sha256": "642777cfedc2f54db8d7898f4c6f6e643717a0e69876aca7b03bdc7d0e9c2d7a",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/hidden-filters-before.png",
+      "bytes": 201619,
+      "sha256": "0bf862bb3fd2346e990082c7eb0161e4e855013e6f18fde3f51262d79916263f",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/hidden-filters-before.txt",
+      "bytes": 2531,
+      "sha256": "4a00715eb2638669920f59444553dfc961312aecefb069a602b48a178484bab5",
+      "lines": 108,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/inventory.json",
+      "bytes": 7925,
+      "sha256": "6b54a88b172626b5295a16fa5669e33e29eac7318e6d6e20c3cbaa8839d8e264",
+      "lines": 462,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/mooncake-after.png",
+      "bytes": 139955,
+      "sha256": "6477f1ef3f2d5e1f5a6be1e37d4eb8cb4b01c1642cbb8bf93455907a8d43a822",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/narrow-overview-after.png",
+      "bytes": 138040,
+      "sha256": "045a79cb12d045fb0f128f993bf8b60192c0bc0b16293db3a06f6deec7a464b0",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/no-data-after.png",
+      "bytes": 112883,
+      "sha256": "12981f5f35aee4a8243b50ed2708ac971368574abb903f0fa356870fd0ae9916",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/policy-lag-after.png",
+      "bytes": 238089,
+      "sha256": "46ea24a3ba585b949a9ac219df298f407121fd006915db52752fdec719b0960b",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/policy-lag-after.txt",
+      "bytes": 2778,
+      "sha256": "55e0a3a14aa7db993bc56b2521571ff8962ca35f665767cfed6287ac05ecc560",
+      "lines": 220,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/reset-after.png",
+      "bytes": 204152,
+      "sha256": "fcd70541067b8bd5d579b954849c7462c82862a3ecaedb779da234a9d1a9ae58",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/sandbox-identity-after.png",
+      "bytes": 152917,
+      "sha256": "ef278d7ecef5225bd65bced371380d68726cbf65bbd5ad43d6a3a9ae7ccb9c13",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/spans-after.png",
+      "bytes": 156400,
+      "sha256": "f00a4fa3497ee36b1cbb02bc0bc8999b1c7ac3caeb81687259786a3926d4ac29",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/stage-before.png",
+      "bytes": 334472,
+      "sha256": "d5ab79ddcc5a0ac8ea569dd0424bb4c33a0803018d13712f5370e7f7069feb62",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/stale-after.png",
+      "bytes": 123011,
+      "sha256": "8c364138f6a53df3c61df6f147a3fc146d45c5018ae574430e6b4766e9347e59",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/stale-after.txt",
+      "bytes": 1343,
+      "sha256": "4c7be8f52bb911c7ff9e3abfb8b7eb1b42097013d29c1de8e08b959022e8f210",
+      "lines": 66,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/timeline-identity-after.png",
+      "bytes": 173650,
+      "sha256": "8d48ee343af18c1c36a534a9881739cc0fc07348fa20109b139b048a61601284",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/timeline-identity-before.png",
+      "bytes": 140737,
+      "sha256": "4b5cfff69ccc67da06c4dc87dc659da0df874e76b1f66c582ea9eaff40102d06",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/timeline-identity-before.txt",
+      "bytes": 6171,
+      "sha256": "6638e5fce62a3b2d326cd84747edc0499340de2b4fc00f2449eea2c1970cbd45",
+      "lines": 243,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/unavailable-before.png",
+      "bytes": 111490,
+      "sha256": "93bdbae6fdeb589c13daa23ab4e4411e9e34dd33e046306360df7591af8b8249",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/recordings-20261001.json",
+      "bytes": 7971,
+      "sha256": "67cb2a9d2c54d989eae19ad2da157ac12d39dadc7e754e341b84dc4dd1452507",
+      "lines": 296,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/subsystems-20261002.json",
+      "bytes": 2115,
+      "sha256": "7796c582fd264f703118a69ce180ceed18b5a1e7d9dcda00795354976ffb7ba2",
+      "lines": 43,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/synthetic-coverage-20261003.json",
+      "bytes": 66720,
+      "sha256": "12eccd4cc5963f0ba6072972e75ddafaa39102bb21c43d373ec918b92b0c3508",
+      "lines": 1550,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/synthetic-ray-20261003.png",
+      "bytes": 130282,
+      "sha256": "7736b439d708a6d58928399cd48f299c2493e59f2a251b62ff312a9e9ae7f760",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/synthetic-sandbox-20261003.png",
+      "bytes": 121686,
+      "sha256": "04c3f74699e34238608f64544518c8aa311cfef4e40ef2a817eab242b2023420",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003.json",
+      "bytes": 35098,
+      "sha256": "624389b54777b99ac565b8a8b4f63e097c2136a5368abf2b7eb85ac9c9084eb6",
+      "lines": 918,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/home-after.png",
+      "bytes": 118091,
+      "sha256": "3545e3de827c455af2142b0988feb0e3ed58ddca0e579c87a17f7a0a14a6774c",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/home-before.png",
+      "bytes": 57974,
+      "sha256": "5d5422b41f0ad49de26b4549ad1e03010756b38ba4d7cb1759cbc348552022c7",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/narrow-after.png",
+      "bytes": 90423,
+      "sha256": "09bd14c2137c764d93ae69a73902b35f17001c562f7dc3ef6fccc0d86f48f2f5",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/narrow-before.png",
+      "bytes": 86737,
+      "sha256": "baad47938d8ca8ee5f17e9820097810d9ae92bbb663a1a219c63ebc424e169d7",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/steps-after.png",
+      "bytes": 117084,
+      "sha256": "c5d0890f1280cc2d0da3f0aebc9704e5aa40a8f31be238211327d918adccf97a",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/steps-before.png",
+      "bytes": 127318,
+      "sha256": "8faa43ea0d4a80e10b7abe1bd3388bb731f6c7fec394924c0eb0378f3af07393",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/workspace-after.png",
+      "bytes": 123291,
+      "sha256": "91e7f5f65285b16d7d0ab16f9019652e4cdf733c5c42472c6e2869be80311444",
+      "lines": null,
+      "review": "decoded, representative frames viewed, capture provenance reviewed; not a new Grafana run"
+    },
+    {
+      "path": "docs/validation/dashboards/ux-20261002.json",
+      "bytes": 3370,
+      "sha256": "7daaef86970784593c85a7ead1a014ce7567de85ecf71bc5c5ecb7b61b3aa562",
+      "lines": 66,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/dashboards/views-20261002.json",
+      "bytes": 1621,
+      "sha256": "2da2e8285b207fb543d489d85ff9e71193fcd1ae9067659ecd9ad36cfbae20f3",
+      "lines": 39,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/diagram-layout-20261004.json",
+      "bytes": 4115,
+      "sha256": "58ee6ef7d7bcafc6c33444e86401a384f4febb820587dbc2d8be5cba7498f2e1",
+      "lines": 149,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/e2e-user-experience.md",
+      "bytes": 9031,
+      "sha256": "5c9665cb78e079896b78227604105959551168371bf754961f954b9fb7bd443a",
+      "lines": 129,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/validation/examples-20261001.json",
+      "bytes": 1352,
+      "sha256": "b21f6653c168bbaacded42b4d0c231d5f1f291370b8902ac464609274a33d0d4",
+      "lines": 39,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/followup-20261001.json",
+      "bytes": 5041,
+      "sha256": "fe64fb64fc16fe0cb1d061a206e72d87ad957d59acb5d69586e00cccadd6ba96",
+      "lines": 112,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/greenfield-review-20261003.json",
+      "bytes": 4302,
+      "sha256": "8907dcd410b975fd1fefdcc7da204b414a725c21f6c1f940c83c8eb0a0dcf2c8",
+      "lines": 105,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/investigation/validation-20260930.json",
+      "bytes": 3072,
+      "sha256": "df199708a0fa61531082cb75cd8dad86b844f71291b232b85426f4922e0c29d5",
+      "lines": 86,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/local-llm/input-optimization-validation.json",
+      "bytes": 2649,
+      "sha256": "d5529de5338680729c2c83deae2f059c23cf280fb931f04fe98cf30f91a5f166",
+      "lines": 69,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/local-llm/review-validation.json",
+      "bytes": 29863,
+      "sha256": "fee09e5ae0d05528f77e3e262ab5a88689bd69b5cbbefe4885db22c55339c8b9",
+      "lines": 511,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/local-llm/validation-summary.json",
+      "bytes": 14628,
+      "sha256": "50c8deb2cebc55a68cf552e2328662d7870e103e35ec823e0035821883371109",
+      "lines": 304,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/metric-audit-verification-20261003.json",
+      "bytes": 2396,
+      "sha256": "05506cd04f9bc45f812a593e62159578d28f12366f42143b91925c1c769a2bc4",
+      "lines": 79,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/metric-coverage-audit-20261003.md",
+      "bytes": 56690,
+      "sha256": "bd50255701393124ec88f43fa5c598feebe6dc1249ce48314dc0b4de34f50151",
+      "lines": 395,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "docs/validation/metric-dashboard-coverage-20261003.json",
+      "bytes": 59690,
+      "sha256": "b9d1ca8b200dc12616fabccc51f18e23264f51ca5eff3625462894dd6582eb79",
+      "lines": 1426,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/metric-node-exporter-smoke-20261003.json",
+      "bytes": 3407,
+      "sha256": "3ba242837fc6f6321cef51f7c7ded2f7bd486786fcfd2a256a42abb7ba5106ff",
+      "lines": 80,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/mooncake-telemetry-20261003.json",
+      "bytes": 10103,
+      "sha256": "899960f4a5bf1deedeec23d904af341a941797d697964daf08db1f712a3a3fde",
+      "lines": 224,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/multinode/validation.json",
+      "bytes": 1468,
+      "sha256": "029d506e28f1fb411c1a6b1a12ac0cb5de24c3e721bc3265c5635e20c19888a3",
+      "lines": 47,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/multinode/vm-validation-20261001.json",
+      "bytes": 6010,
+      "sha256": "1bc4c22c008a19ad88541f98fb11d1233a96535bad434211be6d878ed236be8d",
+      "lines": 194,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/multinode/xltel-vm-validation-20261002.json",
+      "bytes": 7288,
+      "sha256": "f5df550128eedab3fa3714a1d9e9f1db834b70321a9924230223c123f9d5a5ed",
+      "lines": 228,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/product-user-journey-20261003.json",
+      "bytes": 3847,
+      "sha256": "4ec164f7c5faea0d762f56ecfe45baeb3d8512bb21b9100f7d32a2282cb020e1",
+      "lines": 79,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/review-20261001.json",
+      "bytes": 9739,
+      "sha256": "50785832818dd43192121c12ede43adbbddbfa69ecba14c4058bf40204a8be28",
+      "lines": 282,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/review-20261002.json",
+      "bytes": 11410,
+      "sha256": "0efa93e819446dec1365f94818672455a2b769be376b68d4f55ba2ec065fa20f",
+      "lines": 290,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/runtime-reliability-20261001.json",
+      "bytes": 5440,
+      "sha256": "27721bcb564bbb5b2fe483161fa0fad65e70311c2d88ad3b8c0776e37f1cdd5b",
+      "lines": 145,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/sandbox/validation-20260930.json",
+      "bytes": 10481,
+      "sha256": "51d8eead981fdd3262059298ac24302c8994457d6bf648d49a48c03b412845db",
+      "lines": 365,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/subsystem-telemetry-20261003.json",
+      "bytes": 12892,
+      "sha256": "4283598eb3fe5c0f210467cba44bcd9b98afebe34e04511f3116bbc64f3a8c54",
+      "lines": 366,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/tdd-regression-20261003.json",
+      "bytes": 4459,
+      "sha256": "26541bd4212ace02409480c39abab2d1e7f4b881712c769a15fc2eef426615f0",
+      "lines": 91,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/validation/userspace-time-alignment-20261004.json",
+      "bytes": 2957,
+      "sha256": "8d7344664495f2bdcaf11bbd25cd924523a34fae2f8f22ce3747965aa2170591",
+      "lines": 89,
+      "review": "parsed; historical scope, version, limitations and references reviewed; no historical test rerun claimed"
+    },
+    {
+      "path": "docs/verl-quickstart.md",
+      "bytes": 10922,
+      "sha256": "df2db21ded3acb31ab0b70372f4142ac00416704702f8550546217f03048bf2f",
+      "lines": 171,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "examples/README.md",
+      "bytes": 7599,
+      "sha256": "b24a62815f7796c94c557969fe2114772e4a0e01dcc9ee18d14054a1ef53a9d0",
+      "lines": 61,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "examples/dashboards/README.md",
+      "bytes": 4561,
+      "sha256": "73fca59c000a8e1dc6f45d910735ffe655f93d67dfa17d845691fd599741acc3",
+      "lines": 82,
+      "review": "full prose, examples and links reviewed against implementation"
+    },
+    {
+      "path": "requirements-docs.txt",
+      "bytes": 75,
+      "sha256": "cbec7b9cf538ce67396de94eb8fd1bfc582dee075b05eb8a8a95c4508f9c5782",
+      "lines": 4,
+      "review": "source, settings, build/UI role and references reviewed"
+    },
+    {
+      "path": "scripts/README.md",
+      "bytes": 7644,
+      "sha256": "05f1fecde4f3831f7a70339926ffb6ecdcc6c76e89b852e27586adc53a23a203",
+      "lines": 112,
+      "review": "full prose, examples and links reviewed against implementation"
+    }
+  ],
+  "findings": [
+    {
+      "id": "D01",
+      "priority": "P2",
+      "title": "그림의 중복 조작",
+      "reason": "같은 SVG의 그림 링크·확대 링크와 D2 편집 링크가 매 그림마다 반복됩니다. 실제 Chrome으로 확인한 25개 그림에서 부가 링크 50개를 제거하고 그림 자체의 keyboard·accessible link를 유지했습니다. 편집 위치는 scripts README 한 곳에서 안내합니다.",
+      "evidence": [
+        "docs/_static/diagrams.js",
+        "scripts/docs-browser/browser.test.mjs"
+      ],
+      "changes": [
+        {
+          "id": "D01",
+          "file": "docs/index.md",
+          "baseline_line": 24,
+          "original": "문서 그림은 D2 원본에서 생성한 SVG로 표시하며, 작은 화면에서는 **확대 보기**로 자세히 읽을 수 있습니다.\n그림 아래의 짧은 설명과 **D2 원본** 링크로 의미와 편집 위치를 확인할 수 있습니다.",
+          "replacement": "그림을 누르면 원본 SVG를 새 탭에서 확대할 수 있습니다.\n그림 편집 방법은 [문서 관리 안내](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md#documentation-diagrams)에 있습니다."
+        },
+        {
+          "id": "D01",
+          "file": "scripts/README.md",
+          "baseline_line": 84,
+          "original": "모바일에서는 전체 그림을 화면 폭에 맞추고 **확대 보기**로 원본 SVG를 엽니다.\n그림 아래에는 alt text를 짧은 caption으로 표시하고 **D2 원본** 링크를 제공합니다.",
+          "replacement": "모바일에서는 전체 그림을 화면 폭에 맞추며 그림 자체를 눌러 원본 SVG를 엽니다.\nKeyboard로 링크를 선택해 Enter로 열 수도 있습니다.\nAlt text는 caption과 accessible link 이름에 사용하며, D2 편집 위치는 이 절에서만 안내합니다."
+        },
+        {
+          "id": "D01",
+          "file": "scripts/README.md",
+          "baseline_line": 101,
+          "original": "문서 사이트의 모바일 표시·caption·원본 링크·SVG geometry는 Playwright로 검사합니다.",
+          "replacement": "문서 사이트의 모바일 표시·caption·keyboard 확대·SVG geometry는 Playwright로 검사합니다."
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "priority": "P2",
+      "title": "사용 안내와 기록의 목차",
+      "reason": "이전 UX 제안이 현재 사용 가이드와 같은 Reference에 놓여 있습니다. 검증·변경 기록을 Archive / Maintainers로 분리하고 기본 읽기 흐름은 사용 가이드로 유지합니다.",
+      "evidence": [
+        "docs/conf.py",
+        "docs/index.md"
+      ],
+      "changes": [
+        {
+          "id": "D02",
+          "file": "docs/index.md",
+          "baseline_line": 79,
+          "original": "검증 기록 <validation/README>\nGrafana UX Review <grafana-ui-ux-review>",
+          "replacement": "```\n\n```{toctree}\n:hidden:\n:caption: Archive / Maintainers\n\n검증 기록 <validation/README>"
+        },
+        {
+          "id": "D02",
+          "file": "docs/validation/README.md",
+          "baseline_line": 50,
+          "original": "dashboards/live-ui-20261003\n```",
+          "replacement": "dashboards/live-ui-20261003\n../grafana-ui-ux-review\nlocal-llm/history-20260930\ndocumentation-review-20261005\n```"
+        },
+        {
+          "id": "D02",
+          "file": "docs/dashboards.md",
+          "baseline_line": 542,
+          "original": "UI 구조 검토와 적용 범위는 [Grafana Investigation UX Review](grafana-ui-ux-review.md)에 정리했습니다.",
+          "replacement": "UI 변경 당시의 비교 화면은 [검증 기록](validation/README.md)에 보존했습니다."
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "priority": "P2",
+      "title": "LLM 안내의 검증 이력",
+      "reason": "사용법에 약 100줄의 prompt 개발 과정·이전 테스트 수·GPU 결과가 섞여 있습니다. 과거 모델 응답과 오판은 증거 가치가 있어 archive로 이동하고 현재 사용법·실패 처리·한계는 본문에 유지합니다.",
+      "evidence": [
+        "xlayer_telemetry/analysis/llm_diagnosis.py",
+        "docs/validation/local-llm/review-validation.json"
+      ],
+      "changes": [
+        {
+          "id": "D03",
+          "file": "docs/local-llm.md",
+          "baseline_line": 270,
+          "original": "## Recorded Validation\n\n아래 기록은 당시 prompt·설정과 실행 범위의 관찰 결과입니다.\n현재 버전의 일반적인 진단 정확도나 새 학습 run의 검증 결과를 뜻하지 않습니다.\n기본 사용에는 [입력 수집](#diagnose-collected-metrics-directly)과 [실패 처리](#limits-and-failure-handling)를 먼저 읽습니다.\n\n<details>\n<summary>과거 local model 검증 결과 보기</summary>\n\n### Validation Snapshot (2026-09-29)\n\nOllama 0.34.4와 `qwen3.5:27b` Q4_K_M을 24GB RTX PRO 4000 Blackwell 한 개에서 실행했습니다.\n먼저 16K context / 6,144 output token으로 평가했으며 모델 전체가 GPU에 적재되고 선택한 GPU의 사용 메모리는 약 17.4GiB였습니다.\n[검증 기록](validation/local-llm/validation-summary.json)에 model digest, seed, prompt version, 각 사례의 결과와 실패를 보관합니다.\n이 결과는 한 번씩 실행한 소규모 fixture 평가이며 일반적인 진단 정확도 benchmark가 아닙니다.\n\n| 검증 | 관찰 결과 |\n| --- | --- |\n| Synthetic 13개 | 모델 응답 12개 완료, 1개 출력 한도 초과. 최종 validator가 11개를 채택하고 timestamp가 없는 후보 1개를 추가 거부했습니다. |\n| 정상·병목 | 정상은 후보 없이 판정했고, storage·network·rollout·KV·host memory·communication·sandbox·straggler 사례에서 관련 후보를 찾았습니다. |\n| Evidence 참조 | 확인한 병목 8개 중 6개가 primary evidence coverage를 충족했습니다. Communication의 RDMA와 straggler의 peer ID는 evidence 배열에서 빠졌습니다. |\n| 부족한 증거 | Step duration과 GPU utilization만 있는 사례에서 외부 dependency를 추측했습니다. 보수적인 증거 부족 판정으로 볼 수 없습니다. |\n| Engine 분리 | A/B를 구분해 서술했지만 node 수준 후보 하나로 묶었습니다. Shared-resource 관계까지 확인된 것은 아닙니다. |\n| Timestamp 부재 | 모델이 시간적 상관을 주장해 기대 판정에 실패했습니다. 실제 응답에 interval-presence 검사를 적용해 후보가 거부되는 것을 확인했습니다. |\n| 작업량 증가 | 출력 6,144 token 한도에 도달했습니다. 작업량 증가와 병목을 올바르게 구분했다고 주장하지 않습니다. |\n\n완료된 synthetic 응답은 약 96–182초가 걸렸습니다.\n일부 응답은 원인 관계를 과하게 표현하거나 관측하지 않은 실행 방식을 가정하므로, 구조 검증 통과를 설명의 정확성으로 해석하면 안 됩니다.\n개발 중 정상 판정의 모순과 불필요한 추가 가설도 발견해 schema 설명과 일반적인 evidence 지침을 보완했으며, 위 표는 최종 prompt로 실행한 사례만 집계합니다.\n\n기본 설정은 이 평가 이후 **32K context / 16,384 output token**으로 늘렸습니다.\n24GB GPU에서 100% GPU 적재를 유지했고 peak 메모리는 18,710MiB(약 18.3GiB)였습니다.\n초기 출력 한도에 도달했던 저장된 VERL 입력과 작업량 증가 사례를 재검증해 각각 약 180초, 218초에 `no_issue_observed` 응답을 얻었습니다.\n작업량 증가 응답은 token 수와 duration의 비례 증가를 설명했습니다.\n13개 전체를 새 예산으로 다시 실행한 결과는 아니며, 앞 표의 초기 평가와 구분해 기록합니다.\n\n실측 입력은 이전 VERL run의 저장된 step 3 메트릭과 이번에 Node Exporter/Prometheus로 수집한 host CPU·memory·disk 메트릭입니다.\n두 입력 모두 `no_issue_observed`였으나, VERL 입력은 hardware metric과 raw series가 부족하며 host 입력은 학습 중 수집한 데이터가 아닙니다.\n새 VERL 학습이나 실제 병목 주입 검증으로 해석하면 안 됩니다.\nOllama를 종료한 상태에서 기본 CPU 테스트 **166개**가 통과했고, 실제 종료 시 진단 GPU 메모리가 16MiB로 돌아오는 것도 확인했습니다.\n\n### Input and Evidence Validation (2026-09-30)\n\n같은 저장된 synthetic packet 다섯 개를 compact 입력과 prompt version 6으로 다시 실행했습니다.\n[검증 기록](validation/local-llm/input-optimization-validation.json)에 원본·전송 payload 크기, 이전 version 4와 새 prompt token 수, 결과와 남은 한계를 보관합니다.\n한 사례당 한 번 실행한 결과이며 새 VERL 학습이나 일반적인 진단 정확도 측정은 아닙니다.\n\n| 사례 | 원본 packet -> Ollama payload | 실제 결과 |\n| --- | --- | --- |\n| 증거 부족 | 1,151 -> 1,005 bytes | `insufficient_evidence`, 후보 없음. 요약에는 외부 wait 가능성의 추정 표현이 남음. |\n| Storage device | 4,323 -> 2,408 bytes | Storage latency·device busy를 인용. 제목의 data-loading 인과 표현은 측정 이상으로 강함. |\n| 서로 다른 engine | 4,960 -> 2,688 bytes | Engine A/B의 별개 signal을 한 후보로 합쳐 validator가 거부. |\n| Straggler | 4,906 -> 2,640 bytes | Peer rank ID를 counter evidence에 포함. Rank와 node의 소속 관계는 입력에 없어 서술이 과도함. |\n| Communication | 4,322 -> 2,407 bytes | Weight-sync duration과 RDMA activity ID를 함께 인용. |\n\n여러 series가 있는 사례의 전체 prompt token 수는 이전 version 4 대비 약 24–27% 줄었습니다.\n이 수치에는 표 인코딩뿐 아니라 변경된 system prompt도 함께 반영됩니다.\n반대로 증거 부족 사례는 입력 payload가 작아 추가 지침 때문에 prompt token이 997개에서 1,059개로 늘었습니다.\n생성 token 수 역시 감소하지 않아 inference가 빨라졌다고 말할 수 없습니다.\n별도의 64-worker-series fixture는 11,867-byte 원본 packet을 3,750-byte payload로 전달하며 모든 series를 보존하는지 실제 호출 경로의 mocked test로 확인했습니다.\n\n### Review Validation (2026-09-30)\n\n입력 타입·evidence 가용성·entity namespace·Ollama 완료 응답·실패 파일 처리와 평가 종료 코드를 보완했습니다.\n이 초기 검증 단계에서 전체 CPU 테스트 226개가 통과했으며 이 중 LLM 진단 테스트는 68개였습니다.\n이 테스트는 모델 없이 누락값, 불량 입력, entity 혼합, 미완료 응답과 재실행 실패를 검증합니다.\n\n같은 `qwen3.5:27b`와 Ollama 0.34.4로 storage device와 증거 부족 synthetic 입력을 prompt version 6·7에서 각각 한 번 실행했습니다.\n두 version 모두 storage는 `bottleneck_suspected`와 필수 evidence 참조를 충족했고, 증거 부족은 후보 없이 `insufficient_evidence`를 반환했습니다.\nVersion 7의 지침은 제목을 가설로, 요약을 관측 사실로 표현하고 낮은 GPU utilization만으로 기다리는 원인을 단정하지 않도록 보완했습니다.\n그러나 실제 storage 제목에는 인과관계를 과하게 표현하는 부분이, 요약에는 utilization에서 compute stall을 추정하는 부분이 남았습니다.\n증거 부족 요약에서는 이전의 external-resource wait 추정이 사라졌지만 직접 측정하지 않은 GPU idle 가능성은 언급했습니다.\n\n[검증 기록](validation/local-llm/review-validation.json)에 두 version의 응답·input hash·token·latency와 수동 검토 결과를 보관합니다.\n최종 version 7의 두 호출은 약 161초와 146초가 걸렸으며, 이 소규모 평가를 일반적인 정확도 개선이나 inference 속도 개선으로 해석하지 않습니다.\n실제 CLI의 backend 연결 실패가 이전 성공 파일을 실패 기록으로 바꾸고 종료 코드 `1`을 반환하는 것도 확인했습니다.\nPrometheus는 검증 당시 실행되어 있지 않아 query 오류를 `missing_sources`로 남기는 경로만 확인했으며 새 host 측정값이나 VERL 학습을 검증한 것은 아닙니다.\n\n#### Evidence Review Validation (2026-09-30)\n\n영어 출력으로 근거 검토를 검증한 단계에서 전체 CPU 테스트 242개가 통과했으며 LLM 경로 테스트 84개를 포함했습니다.\n검토의 수정·거부, 검토 실패 시 초안 미채택, 잘못된 최종 evidence, 원인 단정 표현과 시간 budget을 검증합니다.\n\nPrompt version 8과 review version 1을 실제 Ollama 모델로 실행한 storage 사례에서 검토가 `revise`를 반환했습니다.\n초안의 제목은 storage saturation이 I/O latency와 GPU idle time을 늘린다고 표현했고 설명은 I/O contention을 주된 지연 원인으로 기술했습니다.\n검토는 GPU idle time이 미측정이고 원인 단정이 부적절하다고 지적해 제목을 `Possible storage device saturation`으로 수정하고 설명에는 실제 수치의 동시 변화만 남겼습니다.\nStorage latency와 device busy의 필수 evidence 참조는 유지됐고, 수정 결과는 최종 표현 검사도 통과했습니다.\n생성과 검토의 합산 시간은 약 407초였으며 이 중 검토는 약 286초였습니다.\n이 결과는 한 synthetic 입력의 실제 모델 호출이며 새로운 학습 run이나 실제 I/O 부하 검증은 아닙니다.\n같은 단계의 증거 부족 사례에서는 검토가 초안의 idle/wait time 증가 주장을 제거하고 `Stall or wait time was not measured`로 수정했습니다.\n최종 assessment는 후보 없는 `insufficient_evidence`였고 두 호출의 합산 시간은 약 344초였습니다.\n\n한국어 기본 출력과 용어 지침까지 반영한 최종 코드는 전체 CPU 테스트 255개와 이 중 LLM 경로 테스트 97개를 통과했습니다.\nPrompt version 10·review version 3의 실제 storage 응답은 한국어 설명과 English metric 이름·technical term을 사용하고 `attribution`도 영어로 유지했습니다.\n검토는 원인 관계를 표현한 제목과 미측정 GPU 대기 주장을 수정하고, stable throughput이 storage queueing과 공존할 수 있다는 점을 들어 부적절한 counter evidence도 제거했습니다.\n최종 제목은 `Possible storage I/O contention`이었으며 필수 evidence 참조와 한국어·용어·인과 표현 검사를 통과했습니다.\n생성과 검토는 약 315초가 걸렸습니다.\n[검증 기록](validation/local-llm/review-validation.json)에 영어 기준 검증, 초기 한국어 번역 문제와 최종 한국어 결과를 함께 보관합니다.\n검토 사유의 일부 표현은 여전히 사람의 교정보다 어색할 수 있으며, 세 차례의 개별 사례 검증으로 한국어 문장 품질 전체를 보장하지 않습니다.\n\n</details>\n",
+          "replacement": "## Recorded Validation\n\n[과거 모델 검증](validation/local-llm/history-20260930.md)에 당시 prompt·latency·오판 사례와 원본 JSON을 보존했습니다.\n현재 정확도나 새 workload의 검증 결과로 해석하지 않습니다.\n"
+        }
+      ]
+    },
+    {
+      "id": "D04",
+      "priority": "P2",
+      "title": "LLM lifecycle의 공식 CLI",
+      "reason": "공식 진입점은 xltel입니다. 별도 Ollama service를 기본 monitoring lifecycle이 시작하지 않는다는 설명을 유지하면서 command 이름을 통일합니다.",
+      "evidence": [
+        "xlayer_telemetry/cli.py",
+        "scripts/local_llm.sh"
+      ],
+      "changes": [
+        {
+          "id": "D04",
+          "file": "docs/local-llm.md",
+          "baseline_line": 64,
+          "original": "일반 `verl_local.sh up`은 이 서비스를 시작하지 않습니다.",
+          "replacement": "`xltel up`은 이 서비스를 시작하지 않습니다."
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "priority": "P1",
+      "title": "Subsystem log의 TOML 설정",
+      "reason": "init은 config.toml을 생성합니다. Bash 값과 $HOME을 그대로 넣으면 유효하지 않거나 잘못된 경로가 됩니다. TOML 문법, 실제 log 경로, node restart와 server Loki 조건을 명시합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "scripts/run_telemetry.sh"
+      ],
+      "changes": [
+        {
+          "id": "D05",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 86,
+          "original": "```bash\nENABLE_LOGS=1\nTELEMETRY_LOG_ROOTS=\"verl=$HOME/telemetry-runs,ray=$HOME/ray-log-archives\"\n```",
+          "replacement": "기본 `xltel` config의 기존 `[telemetry]`에 다음 값을 추가하고 `xltel restart --role node`를 실행합니다.\nServer의 Loki도 활성화되어 있어야 합니다.\n\n```toml\nENABLE_LOGS = true\nTELEMETRY_LOG_ROOTS = \"verl=/absolute/path/to/verl-runs,ray=/absolute/path/to/ray-log-archives\"\n```"
+        }
+      ]
+    },
+    {
+      "id": "D06",
+      "priority": "P1",
+      "title": "Native endpoint 설정",
+      "reason": "Native endpoint는 monitoring server의 Prometheus가 직접 scrape합니다. Bash config 중심 안내를 TOML로 바꾸고, host metric용 node collector와 endpoint scrape의 요구사항을 구분합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "scripts/run_telemetry.sh"
+      ],
+      "changes": [
+        {
+          "id": "D06",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 130,
+          "original": "Source 파일 경로는 `$HOME/telemetry/config/native-sources.json`을 사용합니다.\nNode collector도 실행되어 있어야 합니다.\n`verl-local.conf`에 `TELEMETRY_SOURCES_FILE=\"$HOME/telemetry/config/native-sources.json\"`을 지정한 뒤 `down` → `up`으로 재시작합니다.",
+          "replacement": "기존 `xltel` config의 `[telemetry]`에 source 파일 경로를 추가하고 `xltel restart --role server`를 실행합니다.\nEndpoint 상태는 `xltel sources`로 확인하며, XLayer host metric도 보려면 해당 node의 collector를 실행합니다.\n\n```toml\nTELEMETRY_SOURCES_FILE = \"~/telemetry/config/native-sources.json\"\n```\n\n기존 Bash config에서는 `TELEMETRY_SOURCES_FILE=\"$HOME/telemetry/config/native-sources.json\"`을 사용합니다."
+        }
+      ]
+    },
+    {
+      "id": "D07",
+      "priority": "P1",
+      "title": "Diagnosis 설정 경로",
+      "reason": "기본 TOML에 diagnostics 경로를 추가하고 새 run에 적용하는 방법이 빠져 있습니다. Grafana 후보 조회에 필요한 Loki와 로컬 JSON 조회를 구분해 안내합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "scripts/run_verl_with_telemetry.sh"
+      ],
+      "changes": [
+        {
+          "id": "D07",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 279,
+          "original": "`verl-local.conf`에 `DIAGNOSTICS_CONFIG=\"$HOME/telemetry/config/diagnostics.json\"`을 지정하고 새 `RUN_ID`로 실행합니다.\n`ENABLE_LOGS=1`과 Alloy·Loki를 연결하면 Bottleneck Summary와 Timeline에서도 결과를 확인할 수 있습니다.",
+          "replacement": "기존 `xltel` config의 `[telemetry]`에 아래 값을 추가하고 새 run을 시작합니다.\nGrafana의 candidate·evidence 조회에는 [Loki 연결](monitoring.md#add-run-logs-with-loki)도 필요합니다.\n\n```toml\nDIAGNOSTICS_CONFIG = \"~/telemetry/config/diagnostics.json\"\n```\n\n기존 Bash config에서는 `DIAGNOSTICS_CONFIG=\"$HOME/telemetry/config/diagnostics.json\"`을 사용합니다."
+        }
+      ]
+    },
+    {
+      "id": "D08",
+      "priority": "P2",
+      "title": "폐지된 화면·명령 이름",
+      "reason": "독립 Step Explorer/Detail은 제거됐습니다. Run Overview의 완료 step 선택과 Timeline 상세로 이름을 통일하며 기존 문서 anchor는 유지합니다. 3FS 명령도 xltel sources threefs로 표시합니다.",
+      "evidence": [
+        "scripts/provision_dashboards.py",
+        "xlayer_telemetry/cli.py"
+      ],
+      "changes": [
+        {
+          "id": "D08",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 27,
+          "original": "단독 `threefs` 조회",
+          "replacement": "`xltel sources threefs` 조회"
+        },
+        {
+          "id": "D08",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 51,
+          "original": "`threefs` 명령의 시간 구간별",
+          "replacement": "`xltel sources threefs`의 시간 구간별"
+        },
+        {
+          "id": "D08",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 28,
+          "original": "Resource·SSD dashboard",
+          "replacement": "Data & Storage"
+        },
+        {
+          "id": "D08",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 29,
+          "original": "선택적인 Logs dashboard",
+          "replacement": "Run Logs"
+        },
+        {
+          "id": "D08",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 19,
+          "original": "Run Overview의 Step Explorer 목록",
+          "replacement": "Run Overview의 완료 step 목록"
+        },
+        {
+          "id": "D08",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 164,
+          "original": "| Step Explorer만 비어 있음 |",
+          "replacement": "| Run Overview의 완료 step 목록만 비어 있음 |"
+        },
+        {
+          "id": "D08",
+          "file": "docs/architecture.md",
+          "baseline_line": 256,
+          "original": "Run Logs, Grafana Step Explorer",
+          "replacement": "Run Logs, Run Overview의 완료 step 목록"
+        },
+        {
+          "id": "D08",
+          "file": "docs/architecture.md",
+          "baseline_line": 279,
+          "original": "Step Explorer는 bridge가 관측한 완료 시각에서",
+          "replacement": "Bridge는 관측한 완료 시각에서"
+        },
+        {
+          "id": "D08",
+          "file": "docs/architecture.md",
+          "baseline_line": 283,
+          "original": "구간 해석은 [Step Explorer](dashboards.md#read-a-step)에 자세히 설명합니다.",
+          "replacement": "구간 해석은 [완료 step 읽기](dashboards.md#read-a-step)를 참고합니다."
+        },
+        {
+          "id": "D08",
+          "file": "docs/dashboards.md",
+          "baseline_line": 118,
+          "original": "Step Explorer는 Grafana의 Run Overview와 Cross-Layer Timeline에서 사용하며 별도 UI/server를 실행하지 않습니다.",
+          "replacement": "완료 step 선택은 Run Overview, 상세 구간 조사는 Cross-Layer Timeline에서 수행합니다."
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "priority": "P1",
+      "title": "GPU process metric 조건",
+      "reason": "GPU process memory는 GPU_PROCESS_METRICS=1일 때만 수집하고 기본은 0입니다. 장치 memory와 선택적 process 관측의 조건을 명시합니다.",
+      "evidence": [
+        "xlayer_telemetry/collectors/gpu_sampler.py",
+        "xlayer_telemetry/operations/config.py"
+      ],
+      "changes": [
+        {
+          "id": "D09",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 55,
+          "original": "GPU를 선택하면 UUID가 해당 장치와 일치하는 process memory도 함께 볼 수 있으며,",
+          "replacement": "`GPU_PROCESS_METRICS=1`을 켠 collector에서 GPU를 선택하면 UUID가 해당 장치와 일치하는 process memory도 볼 수 있으며,"
+        },
+        {
+          "id": "D09",
+          "file": "docs/dashboards.md",
+          "baseline_line": 218,
+          "original": "Compute-process GPU memory는 PID별 관측값이고",
+          "replacement": "`GPU_PROCESS_METRICS=1`로 수집한 compute-process GPU memory는 PID별 관측값이고"
+        }
+      ]
+    },
+    {
+      "id": "D10",
+      "priority": "P1",
+      "title": "Async launcher mode",
+      "reason": "공식 run option은 --mode auto/sync/async입니다. 숨겨진 launcher의 async 경계를 CLI 또는 TOML 설정으로 명확히 지정합니다.",
+      "evidence": [
+        "xlayer_telemetry/cli.py",
+        "scripts/run_verl_with_telemetry.sh"
+      ],
+      "changes": [
+        {
+          "id": "D10",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 50,
+          "original": "Trainer mode를 숨긴 launcher는 `EXECUTION_MODE=async`로 지정합니다.",
+          "replacement": "Trainer mode를 숨긴 launcher는 `xltel run --mode async -- <기존 명령>`을 사용하거나 TOML의 `[telemetry]`에 `EXECUTION_MODE = \"async\"`를 설정합니다."
+        }
+      ]
+    },
+    {
+      "id": "D11",
+      "priority": "P2",
+      "title": "첫 dashboard 진입",
+      "reason": "처음에는 Start Here에서 수집 상태·sample age를 확인하고 run 출력의 Run Overview 링크를 여는 흐름이 적절합니다. 상세 stage·engine은 이후 Stage Correlation에서 확인합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/health.py",
+        "xlayer_telemetry/cli.py"
+      ],
+      "changes": [
+        {
+          "id": "D11",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 95,
+          "original": "Run Overview의 target을 확인한 뒤 Stage Correlation에서 config의 Cluster·Node·Run을 고릅니다(기본 Cluster·Node: `training-cluster`·`gpu-local`; Run ID는 실행 출력에 표시됩니다).",
+          "replacement": "Start Here에서 collector·sample age를 확인하고, 실행 출력의 Run Overview 링크를 엽니다.\nStage·engine 상세는 Stage Correlation에서 확인하며 기본 Cluster·Node는 `training-cluster`·`gpu-local`입니다."
+        }
+      ]
+    },
+    {
+      "id": "D12",
+      "priority": "P1",
+      "title": "TOML·Bash 값 구분",
+      "reason": "기본 TOML에 Bash boolean·unquoted path·shell 변수 문법이 섞여 있습니다. TOML 값 형식과 shell의 $HOME이 확장되지 않는다는 사실을 안내하고 CLI Configuration을 기준으로 삼습니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "tests/test_cli_extensions.py"
+      ],
+      "changes": [
+        {
+          "id": "D12",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 139,
+          "original": "설정 파일에는 자주 쓰는 선택 값이 주석으로 들어 있습니다.\n기본 연결이 동작한 뒤 필요한 값만 켜고 영향을 받는 process를 다시 시작합니다.",
+          "replacement": "기본 연결이 동작한 뒤 필요한 값만 기존 TOML의 `[telemetry]`에 추가합니다.\nBoolean은 `true`/`false`, 경로는 따옴표로 감싼 문자열이며 `$HOME` 대신 `~` 또는 절대 경로를 사용합니다.\n설정 형식과 우선순위는 [CLI Configuration](cli.md#configuration)이 기준입니다."
+        },
+        {
+          "id": "D12",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 144,
+          "original": "`ENABLE_LOGS=1`; server·node 재시작",
+          "replacement": "`ENABLE_LOGS = true`; server·node 재시작"
+        },
+        {
+          "id": "D12",
+          "file": "docs/monitoring.md",
+          "baseline_line": 452,
+          "original": "단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `xltel config path`가 가리키는 config의 `ENABLE_LOGS=1`을 설정하고 `xltel restart`을 실행합니다.",
+          "replacement": "단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 기존 TOML의 `[telemetry]`에 `ENABLE_LOGS = true`를 설정하고 `xltel restart`를 실행합니다.\n기존 Bash config에서는 `ENABLE_LOGS=1`을 사용합니다."
+        },
+        {
+          "id": "D12",
+          "file": "docs/dashboards.md",
+          "baseline_line": 567,
+          "original": "```bash\nGF_USERS_DEFAULT_THEME='sapphiredusk'\nGF_FEATURE_TOGGLES_ENABLE='extraThemes'\n```",
+          "replacement": "기존 TOML의 `[telemetry]`에서 설정합니다.\n\n```toml\nGF_USERS_DEFAULT_THEME = \"sapphiredusk\"\nGF_FEATURE_TOGGLES_ENABLE = \"extraThemes\"\n```"
+        }
+      ]
+    },
+    {
+      "id": "D13",
+      "priority": "P1",
+      "title": "Run 저장 위치",
+      "reason": "자동 run의 저장 상위 경로는 TELEMETRY_RUNS_ROOT입니다. 고정 RUN_ROOT를 우선 권장하면 run별 directory와 collision 보호를 오해할 수 있어 저장 상위 경로를 안내합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "xlayer_telemetry/cli.py"
+      ],
+      "changes": [
+        {
+          "id": "D13",
+          "file": "docs/verl-quickstart.md",
+          "baseline_line": 147,
+          "original": "절대 경로 `RUN_ROOT`·`TELEMETRY_HOME`, `NODE_NAME`",
+          "replacement": "`TELEMETRY_RUNS_ROOT`·`TELEMETRY_HOME`·`NODE_NAME`; 기존 run 위치는 유지"
+        }
+      ]
+    },
+    {
+      "id": "D14",
+      "priority": "P1",
+      "title": "Clock server listen 주소",
+      "reason": "server를 loopback에 bind한 뒤 remote client에는 private IP를 주는 예제는 연결되지 않습니다. server/client가 같은 실제 private/VPN IP를 사용하도록 맞추고 동일 host 검증은 양쪽 loopback으로 설명합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/clock.py",
+        "tests/test_time_alignment.py"
+      ],
+      "changes": [
+        {
+          "id": "D14",
+          "file": "docs/time-alignment.md",
+          "baseline_line": 14,
+          "original": "xltel clock serve --bind 127.0.0.1 --port 19120 --reference-id monitor-1",
+          "replacement": "xltel clock serve --bind MONITOR_PRIVATE_IP --port 19120 --reference-id monitor-1"
+        },
+        {
+          "id": "D14",
+          "file": "docs/time-alignment.md",
+          "baseline_line": 11,
+          "original": "`--bind`에는 worker가 접근할 수 있는 private/VPN 주소를 지정합니다.",
+          "replacement": "`MONITOR_PRIVATE_IP`는 monitoring host에 실제 할당된 private/VPN IP로 바꾸며, client의 `--url`에도 같은 주소를 사용합니다.\n   같은 host에서만 시험할 때에는 양쪽 주소를 `127.0.0.1`로 지정합니다."
+        }
+      ]
+    },
+    {
+      "id": "D15",
+      "priority": "P2",
+      "title": "Architecture의 개발 이력",
+      "reason": "개발 과정의 KEEP/REFACTOR/REDESIGN 표와 다음 migration 제안은 현재 구조와 중복됩니다. Runtime boundary와 invariant를 유지하고 이 표·이번 refactor 설명·중복 CLI 그림은 본문에서 삭제합니다. 과거 원본 검토 JSON은 보존합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/run_artifacts.py",
+        "docs/validation/greenfield-review-20261003.json"
+      ],
+      "changes": [
+        {
+          "id": "D15",
+          "file": "docs/architecture.md",
+          "baseline_line": 44,
+          "original": "## Greenfield Design and Migration\n\n지금 새로 설계해도 사용자 진입점은 `xltel`, 조사 화면은 Grafana, 저장·query는 기존 backend를 선택합니다.\nXLayer가 소유할 핵심은 실행 문맥과 evidence 해석이며, process 관리와 source 수집은 작은 경계로 분리합니다.\nCLI의 `up/status/down`은 현재 수집 상태, `run/inspect`는 workload 실행과 저장된 결과를 다룹니다.\n\n![Monitoring과 workload lifecycle을 별도 launcher로 관리하는 CLI 구조](figures/diagrams/cli-runtime.svg)\n\n![Monitoring lifecycle과 workload 실행·저장된 run 분석의 역할 분리](figures/diagrams/runtime-architecture.svg)\n\n",
+          "replacement": "## Runtime Architecture\n\nMonitoring lifecycle과 workload 실행을 분리합니다.\n`xltel up/down`은 관리하는 monitoring process만 제어하고, `xltel run`은 기존 VERL 명령에 bridge·manifest·선택적 diagnostics를 붙입니다.\n`inspect`는 저장된 run artifact를 읽습니다.\n해당 시간의 backend 데이터가 남아 있으면 [진단 도구](diagnosis.md#investigation-workflow)로 baseline·resource evidence를 비교할 수 있습니다.\n\n![Monitoring lifecycle과 workload 실행·저장된 run 분석의 역할 분리](figures/diagrams/runtime-architecture.svg)\n\n"
+        },
+        {
+          "id": "D15",
+          "file": "docs/architecture.md",
+          "baseline_line": 69,
+          "original": "### Keep, Refactor, Redesign\n\n| 영역 | 판단 | 현재 적용과 후속 방향 |\n| --- | --- | --- |\n| Collect → Correlate → Diagnose | KEEP | Source 수집, interval/entity 연결, pure rule evaluation 경계를 유지합니다. |\n| Prometheus / Loki / ClickHouse | KEEP | Metric query, log·event projection, 3FS service window의 역할을 유지합니다. Run artifact는 backend 없이도 읽습니다. |\n| Wrapper / SDK / adapter / collector | KEEP | Workload launch, 계측 API, framework 명칭 변환, node 수집을 각각 담당합니다. |\n| `xltel` command와 ownership | KEEP | Lifecycle shell 구현은 하나로 유지하고 CLI에서 재사용합니다. Remote node 배치는 외부 orchestration 책임입니다. |\n| Run → Step → Candidate → Evidence → Detail | KEEP | 실제 Grafana navigation으로 검증합니다. Overview/Focus는 canonical panel을 재사용합니다. |\n| Health와 saved-run 요약 | REFACTOR | 현재 endpoint 상태와 저장된 workload outcome·snapshot을 분리합니다. Snapshot 선택은 내용의 identity와 producer timestamp를 사용합니다. |\n| Native source health | REFACTOR | 한 target snapshot을 collector/native 판단에 공유하고 source identity index로 조회합니다. Optional config 오류는 전체 health 결과를 없애지 않습니다. |\n| Event evidence와 query provenance | REFACTOR | 파일명 대신 event semantics로 tool span을 선택하고 실제 실행한 query를 canonical signal에 연결합니다. |\n| Config와 launcher 계약 | REDESIGN, 단계적 | TOML을 public 설정으로 유지하되 Python/Bash의 기본값·tool version 중복을 공통 계약으로 옮깁니다. Lifecycle parity test 이후 항목별로 이동합니다. |\n| Optional analysis source 선택 | REDESIGN, 단계적 | 기본 query 전체를 시도하는 구조에서 configured capability에 따른 query 선택으로 전환합니다. 사용자 query override와 bounded retry를 먼저 보존해야 합니다. |\n| 장시간 이력 조회 | 측정 후 결정 | Bounded cache와 deadline을 유지하고 실제 run 크기에서 비용을 측정한 뒤 persistent index를 도입합니다. |\n\n이번 refactor는 metric label, dashboard UID, 파일 schema version과 lifecycle 소유권을 바꾸지 않습니다.\n`operations/run_artifacts.py`는 CLI가 공유하는 저장된 run의 읽기 모델이며 backend 조회나 workload 생존 판정을 하지 않습니다.\n`subsystems.summarize_sources`는 이미 조회한 target을 해석하고 native source inspection은 diagnosis engine을 import하지 않습니다.\n\n",
+          "replacement": ""
+        },
+        {
+          "id": "D15",
+          "file": "docs/architecture.md",
+          "baseline_line": 104,
+          "original": "후속 migration은 **source capability 명시 → config/launcher 계약 통합 → 실규모 이력 조회 측정** 순서가 적절합니다.\n각 단계에서 기존 CLI happy path, signal/exit 처리, optional source 부재, mixed-node negative case와 Grafana context 유지 검증을 통과해야 합니다.\n\n",
+          "replacement": ""
+        }
+      ]
+    },
+    {
+      "id": "D16",
+      "priority": "P2",
+      "title": "Ray 조회 화면",
+      "reason": "Stage Correlation에 Ray orchestration row가 구현되어 있습니다. Explore에서만 볼 수 있는 듯한 이전 설명을 고칩니다.",
+      "evidence": [
+        "examples/dashboards/agent-rl-stages.json"
+      ],
+      "changes": [
+        {
+          "id": "D16",
+          "file": "docs/architecture.md",
+          "baseline_line": 255,
+          "original": "| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | vLLM: Agent RL, Ray: Prometheus query 화면 또는 Grafana Explore·진단 |",
+          "replacement": "| vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | Stage Correlation의 vLLM·Ray row, Grafana Explore·진단 |"
+        }
+      ]
+    },
+    {
+      "id": "D17",
+      "priority": "P2",
+      "title": "GIF·screenshot의 버전",
+      "reason": "Capture manifest는 2026-10-01, dashboard baseline b6aec6e입니다. 현재/최신이라고 부르면 main과 항상 같은 UI처럼 보이므로 날짜가 있는 기록으로 표시합니다. GIF checksum도 원본과 일치했습니다.",
+      "evidence": [
+        "docs/validation/dashboards/recordings-20261001.json"
+      ],
+      "changes": [
+        {
+          "id": "D17",
+          "file": "docs/dashboards.md",
+          "baseline_line": 351,
+          "original": "[최신 GIF](real-verl-demo.md#watch-the-recording)",
+          "replacement": "[기록된 GIF](real-verl-demo.md#watch-the-recording)"
+        },
+        {
+          "id": "D17",
+          "file": "docs/real-verl-demo.md",
+          "baseline_line": 3,
+          "original": "실제 VERL Agent RL의 저장 데이터를 **기본 조사용 Grafana dashboard 8개**로 재생한 GIF입니다.",
+          "replacement": "실제 VERL Agent RL의 저장 데이터를 당시 Grafana 조사 화면 8개로 재생한 GIF입니다."
+        },
+        {
+          "id": "D17",
+          "file": "docs/real-verl-demo.md",
+          "baseline_line": 7,
+          "original": "![현재 Grafana의 실제 VERL Agent RL investigation:",
+          "replacement": "![2026-10-01에 캡처한 실제 VERL Agent RL investigation:"
+        },
+        {
+          "id": "D17",
+          "file": "docs/monitoring.md",
+          "baseline_line": 570,
+          "original": "![현재 Grafana의 synthetic investigation:",
+          "replacement": "![2026-10-01에 캡처한 synthetic investigation:"
+        },
+        {
+          "id": "D17",
+          "file": "docs/monitoring.md",
+          "baseline_line": 578,
+          "original": "![현재 Grafana의 실제 VERL Agent RL 기록:",
+          "replacement": "![2026-10-01에 캡처한 실제 VERL Agent RL 기록:"
+        },
+        {
+          "id": "D17",
+          "file": "docs/dashboards.md",
+          "baseline_line": 353,
+          "original": "![현재 Grafana Timeline에서 확인한 실제 SWE-Bench colocate_async trainer update 3]",
+          "replacement": "![2026-10-01에 캡처한 SWE-Bench colocate_async trainer update 3의 Timeline]"
+        },
+        {
+          "id": "D17",
+          "file": "docs/dashboards.md",
+          "baseline_line": 350,
+          "original": "아래 이미지는 실제 SWE-Bench `colocate_async` 기록의 trainer update 3을 현재 Timeline에서 연 화면입니다.",
+          "replacement": "아래 이미지는 2026-10-01에 실제 SWE-Bench `colocate_async` 기록의 trainer update 3을 Timeline에서 연 화면입니다."
+        }
+      ]
+    },
+    {
+      "id": "D18",
+      "priority": "P2",
+      "title": "Panel 추가 이력",
+      "reason": "추가한 panel 수·이번 fallback 수정 설명은 개발 이력입니다. 이용자가 필요한 collapsed row의 조회 시점과 시간·series 수에 따른 query 비용으로 바꿉니다.",
+      "evidence": [
+        "examples/dashboards/compute-communication.json",
+        "examples/dashboards/agent-rl-stages.json"
+      ],
+      "changes": [
+        {
+          "id": "D18",
+          "file": "docs/dashboards.md",
+          "baseline_line": 597,
+          "original": "Diagnostic use cases와 기본 비용:",
+          "replacement": "필요한 상세 row:"
+        },
+        {
+          "id": "D18",
+          "file": "docs/dashboards.md",
+          "baseline_line": 607,
+          "original": "추가한 35개 panel 모두 collapsed row 내부에 있고 기본 overview에는 추가 query를 실행하지 않습니다.\n기존 live vLLM offload panel의 current/legacy fallback만 기본 화면에서 개선합니다.\n",
+          "replacement": "접힌 row는 펼칠 때 조회합니다.\n실제 비용은 선택한 시간·series 수와 source의 수집 주기에 따라 달라집니다.\n"
+        }
+      ]
+    },
+    {
+      "id": "D19",
+      "priority": "P2",
+      "title": "UX 제안의 현재성",
+      "reason": "UX review는 2026-10-02의 설계·비교 기록입니다. 현행 Dashboard Guide가 기준임을 명시하고 archive로 안내합니다.",
+      "evidence": [
+        "docs/grafana-ui-ux-review.md",
+        "docs/dashboards.md"
+      ],
+      "changes": [
+        {
+          "id": "D19",
+          "file": "docs/grafana-ui-ux-review.md",
+          "baseline_line": 1,
+          "original": "# Grafana Investigation UX Review\n",
+          "replacement": "# Grafana Investigation UX Review\n\n2026-10-02의 설계·변경 기록입니다.\n현재 dashboard 구성과 사용 순서는 [Dashboard Guide](dashboards.md)가 기준이며, 아래 제안·panel 수·남은 범위는 당시 상태를 나타냅니다.\n"
+        }
+      ]
+    },
+    {
+      "id": "D20",
+      "priority": "P2",
+      "title": "Onboarding 전제",
+      "reason": "처음 연결하기 전에 architecture 전체를 읽을 필요는 없습니다. 설치 후 xltel --help 실행을 첫 완료 조건으로 삼습니다.",
+      "evidence": [
+        "xlayer_telemetry/cli.py"
+      ],
+      "changes": [
+        {
+          "id": "D20",
+          "file": "README.md",
+          "baseline_line": 65,
+          "original": "| 1 | 아래의 [checkout 준비](#prepare-a-checkout) 후 [구현 구조와 설계 원칙](docs/architecture.md)을 읽습니다. | `RUN_ROOT`, collector `OUTPUT_DIR`, monitoring server의 역할을 구분할 수 있습니다. |",
+          "replacement": "| 1 | 아래의 [checkout 준비](#prepare-a-checkout)를 수행합니다. | `xltel --help`가 실행됩니다. |"
+        }
+      ]
+    },
+    {
+      "id": "D21",
+      "priority": "P2",
+      "title": "용어 중복",
+      "reason": "README의 glossary·backend 설명이 Diagnosis/Architecture와 중복됩니다. 짧은 run/step 소개 후 기준 glossary로 연결합니다.",
+      "evidence": [
+        "docs/diagnosis.md",
+        "docs/architecture.md"
+      ],
+      "changes": [
+        {
+          "id": "D21",
+          "file": "README.md",
+          "baseline_line": 91,
+          "original": "## Terms Used in This Project\n\n| 용어 | 의미 |\n| --- | --- |\n| Node / host | 관측 대상 machine |\n| Monitoring host | Prometheus·Grafana를 실행하는 machine; 관측 node와 같은 machine이어도 됨 |\n| Exporter | metric을 HTTP endpoint로 노출하는 process |\n| Collector | JSON이나 장치 상태를 읽어 관측 가능한 metric으로 만드는 process |\n| Target / scrape | Prometheus가 정해진 주기로 조회하는 exporter 주소 / 그 조회 동작 |\n| Snapshot | 한 worker의 최신 metric을 담은 JSON; 전체 step 이력과 다름 |\n| Run / `run_id` | 한 번의 workload 실행과 그 식별자 |\n| Worker / rank | workload를 수행하는 process와 분산 실행에서의 번호 |\n| Manifest | 실행 조건, role 배치, endpoint와 산출물 위치를 기록한 JSON |\n| Span | 계측한 작업 하나의 시작·종료, 소요 시간과 상태 |\n| Trace | 같은 `trace_id`를 가진 span과 parent 관계로 연결한 호출 흐름 |\n\nPrometheus는 수치 시계열을 저장하고 Grafana는 이를 시각화합니다.\nLoki는 선택적인 log 저장소이며 Alloy가 log file을 전송합니다.\n각 역할은 기존 도구를 조합하고, 이 프로젝트는 계층 사이의 공통 문맥과 연결 절차를 제공합니다.\n\n",
+          "replacement": "## Terms Used in This Project\n\nRun은 workload 실행, step은 완료된 실행 단위이며 phase·span은 그 안의 작업 구간입니다.\nMetric·event·span·trace·profile과 scope의 차이는 [용어 안내](docs/diagnosis.md#what-the-signals-mean), exporter·collector의 역할은 [Architecture](docs/architecture.md#the-basic-path)를 참고합니다.\n\n"
+        }
+      ]
+    },
+    {
+      "id": "D22",
+      "priority": "P1",
+      "title": "테스트 dependency",
+      "reason": "Editable package 설치에는 pytest가 없습니다. 개발 검증 명령 전에 requirements.txt 설치를 안내합니다.",
+      "evidence": [
+        "pyproject.toml",
+        "requirements.txt"
+      ],
+      "changes": [
+        {
+          "id": "D22",
+          "file": "README.md",
+          "baseline_line": 184,
+          "original": "## Local Validation\n\n```bash\npython -m pytest -q",
+          "replacement": "## Local Validation\n\n개발·검증용 dependency를 설치한 뒤 실행합니다.\nSDK의 기본 설치에는 pytest가 포함되지 않습니다.\n\n```bash\npython -m pip install -r requirements.txt\npython -m pytest -q"
+        }
+      ]
+    },
+    {
+      "id": "D23",
+      "priority": "P2",
+      "title": "Examples의 config 우선순위",
+      "reason": "CLI 기본 config는 TOML인데 examples index는 Bash config를 우선 안내합니다. init의 TOML을 먼저 안내하고 trusted Bash 예제는 유지합니다.",
+      "evidence": [
+        "xlayer_telemetry/operations/config.py",
+        "docs/cli.md"
+      ],
+      "changes": [
+        {
+          "id": "D23",
+          "file": "examples/README.md",
+          "baseline_line": 14,
+          "original": "| 기존 VERL 명령을 한 host에서 연결 | [verl-local.conf](verl-local.conf) | 실행 가능한 VERL 명령을 입력하고 [quickstart](../docs/verl-quickstart.md)를 따릅니다. |",
+          "replacement": "| 기존 VERL 명령을 한 host에서 연결 | `xltel init`의 TOML config | [Quickstart](../docs/verl-quickstart.md)를 따릅니다. 기존 Bash 예제는 [verl-local.conf](verl-local.conf)로 유지합니다. |"
+        },
+        {
+          "id": "D23",
+          "file": "examples/README.md",
+          "baseline_line": 54,
+          "original": "`.conf`는 trusted local Bash 설정이고 JSON/YAML은 해당 adapter나 service의 입력입니다.",
+          "replacement": "기본 CLI config는 TOML이며 `.conf`는 trusted local Bash 설정입니다.\nJSON/YAML은 해당 adapter나 service의 입력입니다."
+        }
+      ]
+    },
+    {
+      "id": "D24",
+      "priority": "P2",
+      "title": "Compose dashboard 수",
+      "reason": "Compose는 metrics 화면 5개 외에 Overview/Focus workspace 2개도 provision합니다. Examples index를 실제 Compose README·provisioner와 일치시킵니다.",
+      "evidence": [
+        "examples/dashboards/README.md",
+        "scripts/provision_dashboards.py"
+      ],
+      "changes": [
+        {
+          "id": "D24",
+          "file": "examples/README.md",
+          "baseline_line": 20,
+          "original": "현재 공통 metrics dashboard 5개를 사용합니다.",
+          "replacement": "공통 metrics dashboard 5개와 Overview·Focus workspace 2개를 사용합니다."
+        }
+      ]
+    },
+    {
+      "id": "D25",
+      "priority": "P1",
+      "title": "Private lab prerequisite",
+      "reason": "verl-lab의 HTTP 404는 인증된 gh repo view에서 PRIVATE로 확인했습니다. 공개 VERL 도입과 private lab smoke를 구분하고 접근 권한 prerequisite를 명시합니다.",
+      "evidence": [
+        "examples/sandbox/run_verl_lab_smoke.sh",
+        "examples/sandbox/verl_lab_swebench_tools.py"
+      ],
+      "changes": [
+        {
+          "id": "D25",
+          "file": "docs/real-verl-demo.md",
+          "baseline_line": 63,
+          "original": "실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab)·dataset·Docker image에서 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.",
+          "replacement": "이 smoke recipe는 private [verl-lab](https://github.com/daegyu94/verl-lab) 접근 권한과 준비된 dataset·Docker image가 필요합니다.\n공개 VERL 도입에는 lab checkout이 필요하지 않으며 [기존 VERL 명령 연결](verl-quickstart.md)을 사용합니다.\nLab 환경에서는 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다."
+        },
+        {
+          "id": "D25",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 428,
+          "original": "veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter]",
+          "replacement": "아래 adapter·smoke recipe는 private `verl-lab` 접근 권한과 해당 lab의 dataset·grader가 필요합니다.\n공개 VERL 사용에는 lab 없이 [기존 명령 연결](verl-quickstart.md)을 적용합니다.\nveRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter]"
+        },
+        {
+          "id": "D25",
+          "file": "examples/README.md",
+          "baseline_line": 21,
+          "original": "verl-lab·모델·dataset·grader image와 Docker가 필요합니다.",
+          "replacement": "SWE-Bench adapter는 private verl-lab 접근 권한·모델·dataset·grader image와 Docker가 필요합니다. Calculator 예제는 해당 tool runtime을 사용합니다."
+        }
+      ]
+    },
+    {
+      "id": "D26",
+      "priority": "P2",
+      "title": "D2의 화면명·data path",
+      "reason": "4개 D2에 폐지된 화면명 또는 inspect가 backend를 query하는 듯한 이름이 남았습니다. Run Overview/Timeline·diagnosis query 역할로 바꾸고 SVG를 재생성합니다.",
+      "evidence": [
+        "xlayer_telemetry/show_run.py",
+        "xlayer_telemetry/analysis/diagnostics.py"
+      ],
+      "changes": [
+        {
+          "id": "D26",
+          "file": "docs/diagrams/verl-bridge.d2",
+          "baseline_line": 17,
+          "original": "Step Explorer / Step Detail",
+          "replacement": "Run Overview / Timeline"
+        },
+        {
+          "id": "D26",
+          "file": "docs/diagrams/node-metrics-and-events.d2",
+          "baseline_line": 14,
+          "original": ": Step Explorer {",
+          "replacement": ": completed steps {"
+        },
+        {
+          "id": "D26",
+          "file": "docs/diagrams/pipeline-events.d2",
+          "baseline_line": 12,
+          "original": "Run Logs / Step Explorer / Timeline",
+          "replacement": "Run Logs / Run Overview / Timeline"
+        },
+        {
+          "id": "D26",
+          "file": "docs/diagrams/pipeline-metrics.d2",
+          "baseline_line": 14,
+          "original": "XLayer run diagnosis / inspect",
+          "replacement": "XLayer diagnosis queries"
+        }
+      ]
+    },
+    {
+      "id": "D27",
+      "priority": "P1",
+      "title": "Tool span 검색 조건",
+      "reason": "실제 tool_span_window는 *.jsonl의 event 의미로 찾습니다. agent prefix가 필수라는 설명을 삭제하고 같은 run의 정상 종료 tool.call·tool attribute·분석 구간 조건을 설명합니다.",
+      "evidence": [
+        "xlayer_telemetry/analysis/diagnostics.py",
+        "tests/test_diagnostics.py"
+      ],
+      "changes": [
+        {
+          "id": "D27",
+          "file": "docs/diagnosis.md",
+          "baseline_line": 294,
+          "original": "진단 process가 이 directory를 읽을 수 있어야 하며 파일명이 `agent`로 시작하고 `attributes.tool`이 있는 정상 종료 span만 대상입니다.",
+          "replacement": "진단 process가 이 directory를 읽을 수 있어야 합니다.\n파일명과 producer에 관계없이 같은 run의 정상 종료 `tool.call` 중 `attributes.tool`이 있고 분석 구간 안에서 시작·종료한 span을 사용합니다."
+        }
+      ]
+    },
+    {
+      "id": "D28",
+      "priority": "P1",
+      "title": "Rule catalog 누락·상한",
+      "reason": "이미 구현된 host/stage PSI·Ray mmap·queue latency 8개 rule ID가 표에서 빠져 있습니다. 또 supporting-only 후보에 strong_signal 조건이라는 공통 제목이 부적절합니다. 실제 rule과 상태 상한을 보완합니다.",
+      "evidence": [
+        "xlayer_telemetry/analysis/diagnosis_analysis.py",
+        "tests/test_metric_query_profiles.py"
+      ],
+      "changes": [
+        {
+          "id": "D28",
+          "file": "docs/diagnosis.md",
+          "baseline_line": 260,
+          "original": "| Rule | `strong_signal`에 필요한 evidence | 주의 |",
+          "replacement": "| Rule | 주요 evidence | 판정 범위·주의 |"
+        },
+        {
+          "id": "D28",
+          "file": "docs/diagnosis.md",
+          "baseline_line": 271,
+          "original": "| `host_memory_pressure` | available memory 부족과 swap/paging activity | Memory 부족만으로 강한 결론을 내리지 않습니다. |",
+          "replacement": "| `host_memory_pressure` | available memory 부족과 swap/paging activity | Memory 부족만으로 강한 결론을 내리지 않습니다. |\n| `host_cpu_stalls`, `host_memory_stalls`, `host_io_stalls` | Step slowdown과 해당 resource의 host PSI 증가 | Node 전체 대기와의 동시 관측이며 최대 `supporting_signal`입니다. |\n| `actor_update_cpu_stalls`, `critic_update_cpu_stalls`, `checkpoint_io_stalls` | 해당 stage slowdown과 CPU 또는 I/O PSI 증가 | Resource window는 전체 step이며 최대 `supporting_signal`입니다. |\n| `ray_object_store_disk_pressure` | Step slowdown과 Ray disk-backed mmap bytes | 현재 gauge이며 spill throughput이 아닙니다. 최대 `supporting_signal`입니다. |\n| `rollout_queue_latency` | Rollout slowdown과 동일 entity의 queue p95 증가 | Histogram 추정치와의 상관이며 최대 `supporting_signal`입니다. |"
+        }
+      ]
+    },
+    {
+      "id": "D29",
+      "priority": "P2",
+      "title": "남은 alias",
+      "reason": "refresh-sources와 Step Explorer가 별도 command/menu처럼 남아 있습니다. 공식 command와 완료 step 선택으로 통일하고 기존 section anchor는 유지합니다.",
+      "evidence": [
+        "xlayer_telemetry/cli.py",
+        "docs/dashboards.md"
+      ],
+      "changes": [
+        {
+          "id": "D29",
+          "file": "docs/agent-rl.md",
+          "baseline_line": 146,
+          "original": "`refresh-sources`는",
+          "replacement": "`xltel sources refresh`는"
+        },
+        {
+          "id": "D29",
+          "file": "docs/monitoring.md",
+          "baseline_line": 487,
+          "original": "Step Explorer는 event의 ID·시간을 읽고 Prometheus의 자원 그래프와 연결하므로 두 저장소의 보존 기간을 확인합니다.",
+          "replacement": "Run Overview·Timeline은 event의 ID·시간을 Prometheus 자원 그래프와 연결하므로 두 저장소의 보존 기간을 확인합니다."
+        },
+        {
+          "id": "D29",
+          "file": "docs/dashboards.md",
+          "baseline_line": 120,
+          "original": "[Step Explorer](dashboards.md#open-in-grafana)",
+          "replacement": "[완료 step 선택](#open-in-grafana)"
+        },
+        {
+          "id": "D29",
+          "file": "docs/dashboards.md",
+          "baseline_line": 121,
+          "original": "[Step Explorer](#step-explorer)",
+          "replacement": "[완료 step 목록](#step-explorer)"
+        }
+      ]
+    },
+    {
+      "id": "D30",
+      "priority": "P2",
+      "title": "Exporter source 중복",
+      "reason": "같은 upstream version/commit을 두 문서에서 관리합니다. Diagnosis의 Source contracts를 기준으로 통합하며 Dashboard의 단위·scope 해석은 유지합니다.",
+      "evidence": [
+        "docs/diagnosis.md",
+        "docs/dashboards.md"
+      ],
+      "changes": [
+        {
+          "id": "D30",
+          "file": "docs/dashboards.md",
+          "baseline_line": 635,
+          "original": "Exporter contract sources:\n[Node Exporter PSI](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/pressure_linux.go),\n[diskstats](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/diskstats_common.go),\n[InfiniBand/RoCE](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/infiniband_linux.go),\n[DCGM field definitions](https://github.com/NVIDIA/dcgm-exporter/blob/fafd151148052628061a80450b4ee037a5fa0c3c/etc/default-counters.csv),\n[vLLM engine metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/v1/metrics/loggers.py),\n[vLLM offloading metrics](https://github.com/vllm-project/vllm/blob/5f30fc7031cae49bf51073fc953d419b08f8887c/vllm/distributed/kv_transfer/kv_connector/v1/offloading/metrics.py),\n[Ray metrics semantics](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html).\n2026-10-03 확인 기준 vLLM commit은 `5f30fc7031cae49bf51073fc953d419b08f8887c`,\nDCGM Exporter commit은 `fafd151148052628061a80450b4ee037a5fa0c3c`입니다.\n새 optional metric은 이전 release에서 N/A일 수 있습니다. Bundled Node Exporter 1.9.1에는\nmlx5 ECN·ACK timeout·QP retransmit hardware counter가 없으므로 이 panel에 추정값을 추가하지 않습니다.\n",
+          "replacement": "Exporter의 version별 이름·지원 범위는 [Source contracts](diagnosis.md#source-contracts-and-remaining-gaps)를 확인합니다.\n설치한 endpoint의 실제 `/metrics`가 기준이며 optional metric이 없으면 N/A로 남깁니다.\n"
+        }
+      ]
+    },
+    {
+      "id": "D32",
+      "priority": "P2",
+      "title": "Archive index 정보량",
+      "reason": "Archive index의 개별 변경·테스트 수 32행은 사용 가이드 선택에 불필요합니다. 검증 목적별로 묶고 전체 원본 보관 위치로 연결합니다.",
+      "evidence": [
+        "docs/validation/README.md"
+      ],
+      "changes": [
+        {
+          "id": "D32",
+          "file": "docs/validation/README.md",
+          "baseline_line": 8,
+          "original": "| --- | --- |\n| [Diagram layout review](diagram-layout-20261004.json) | D2 25개 그림의 설명 구조 재검토·6개 재설계, source를 관통하던 화살표 3곳 제거, caption·확대·원본 링크와 12개 페이지의 320–1440px browser regression |\n| [D2 documentation diagrams](d2-diagrams-20261004.json) | ASCII 그림 24개 교체, D2/SVG 25개·label 238개 실제 Chrome 확인, 11개 문서의 1440/900/390px·확대 링크·넘침 검사와 826개 test |\n| [Userspace time alignment](userspace-time-alignment-20261004.json) | OS clock 변경 없이 reference 시간축 보정; 독립 process clock +12/-7초, 실제 Prometheus/Loki/Alloy 조회·Timeline, TDD 신규 36개 포함 820개 test와 cleanup |\n| [Live dashboard UX](dashboards/live-ui-20261003.md) | 실제 Chrome navigation·baseline·optional row·stale/결측 화면, Timeline identity·policy lag 단위·숨겨진 filter 개선과 784개 test |\n| [Mooncake telemetry](mooncake-telemetry-20261003.json) | 실제 client DFS read/write·master/client endpoint·Prometheus query·진단 입력, optional source 결측과 단위·engine 분리 검증 |\n| [Metric collection coverage audit](metric-coverage-audit-20261003.md) | 133개 baseline 계약 전체 분류, 수집 경로·미수집 영역·cardinality/overhead 감사, native evidence·budget 개선과 검증 한계 |\n| [Restricted Node Exporter smoke](metric-node-exporter-smoke-20261003.json) | 공식 1.9.1의 제한된 cloud Linux 관측; meminfo/vmstat/netstat/loopback/filesystem 확인, PSI/sysfs 및 physical hardware 미검증 |\n| [Subsystem telemetry](subsystem-telemetry-20261003.json) | 실제 3FS O_DIRECT I/O·ClickHouse·diagnosis·Loki/Grafana, GPU 2개·cgroup, source coverage와 누락 상태 |\n| [TDD failure regressions](tdd-regression-20261003.json) | 부분 저장·log 재작성·SDK 초기화·sidecar/child 종료·stale PGID 장애 재현, 신규 35개 포함 656개 test와 cleanup |\n| [Greenfield architecture review](greenfield-review-20261003.json) | Fresh CLI·Grafana 실행, health/artifact 경계·event/query provenance 개선, 621개 test·source 조회 benchmark·cleanup |\n| [Product user journey](product-user-journey-20261003.json) | Fresh clone·4회 loop, CLI run 문맥 보존·오류 안내, 실제 Grafana 9화면의 900/1440px 탐색·138 query·602개 test와 cleanup |\n| [Synthetic coverage](dashboards/synthetic-coverage-20261003.json) | 10개 dashboard·138개 query의 실제 Prometheus/Loki 결과, 접힌 row 포함 117개 panel rendering, native/sandbox fixture·wheel 실행·599개 test |\n| [Fresh User Experience](e2e-user-experience.md) | Fresh clone·CLI·Grafana 실제 클릭, 4회 개선 loop·591개 test·900/1440px 전체 panel 점검과 cleanup |\n| [multinode/xltel-vm-validation-20261002.json](multinode/xltel-vm-validation-20261002.json) | Host server·KVM guest 두 개의 CLI lifecycle, 실제 metric·Loki event·Grafana datasource 조회, clock skew·VM 중단·collector 재시작·종료; 회귀 테스트 582개 |\n| [review-20261002.json](review-20261002.json) | Log rotation·retry 시각·SDK 오류 격리, bounded snapshot cache, 회귀 테스트 490개·실제 Prometheus와 CPU 비용 측정 |\n| [runtime-reliability-20261001.json](runtime-reliability-20261001.json) | Worker deadline·incremental cache·선택적 SDK background I/O, failure tests와 실제 VERL async·backend 실패 검증 |\n| [async-followup-20261001.json](async-followup-20261001.json) | 실제 colocate/separate async 각 3 update, sandbox outcome·final export와 cgroup 관측 범위 검증 |\n| [followup-20261001.json](followup-20261001.json) | Collector health·sandbox outcome, 실제 VERL sync 2 step·Docker cgroup·3FS query와 회귀 테스트 442개 |\n| [review-20261001.json](review-20261001.json) | 전체 구조·실행 경로 리뷰, failure regression 10개, 실제 Prometheus·logical multi-node와 이력 scan 비용; 실학습 검증과 구분 |\n| [core-refactor-20261001.json](core-refactor-20261001.json) | 공통 Prometheus parser·snapshot 선택·VERL bridge의 회귀 검증 |\n| [examples-20261001.json](examples-20261001.json) | CPU SDK 예제·공통 Compose dashboard·target 설정·문서 링크와 기존 테스트 검증 |\n| [sandbox/validation-20260930.json](sandbox/validation-20260930.json) | 실제 VERL Agent RL의 workload·trainer mode matrix와 Docker tool·native metrics·span 연결 |\n| [multinode/vm-validation-20261001.json](multinode/vm-validation-20261001.json) | KVM guest 두 개의 실제 collector·clock 변경/복구·VM 중단·trace 연결; backend budget과 회귀 테스트 435개 |\n| [multinode/validation.json](multinode/validation.json) | 한 host의 GPU·logical node·clock screening; 물리 multi-node 학습과 구분 |\n| [investigation/validation-20260930.json](investigation/validation-20260930.json) | Collector run discovery·freshness·별도 실제 VERL 및 explicit LLM investigation의 검증 범위 |\n| [dashboards/ux-20261002.json](dashboards/ux-20261002.json) | Baseline pivot·비교 표, 실제 Grafana 12.1.0의 Loki on/off·106 query·1600/1024px browser 검증 |\n| [dashboards/investigation-20260930.json](dashboards/investigation-20260930.json) | Grafana·Prometheus·Loki fixture의 investigation navigation |\n| [dashboards/consolidation-20260930.json](dashboards/consolidation-20260930.json) | Dashboard 통합, metrics-only provisioning, observer/resource context 유지 |\n| [dashboards/recordings-20261001.json](dashboards/recordings-20261001.json) | 최신 GIF의 context·재생 시간·checksum; 실제 수집 데이터의 재생과 synthetic fixture 구분 |\n| [local-llm/validation-summary.json](local-llm/validation-summary.json) | Optional Ollama diagnosis 시나리오와 evidence contract 검사 |\n| [local-llm/input-optimization-validation.json](local-llm/input-optimization-validation.json) | Model 입력 축약과 evidence 보존 검증 |\n| [local-llm/review-validation.json](local-llm/review-validation.json) | Semantic review, 한국어 응답, evidence 검증과 남은 한계 |\n",
+          "replacement": "| --- | --- |\n| [Training·sandbox](sandbox/validation-20260930.json), [async follow-up](async-followup-20261001.json) | 실제 단일 host VERL·vLLM·Docker 실행 범위와 tool/cgroup 연결. 물리 multi-node 학습과 구분합니다. |\n| [3FS·subsystem](subsystem-telemetry-20261003.json), [Mooncake](mooncake-telemetry-20261003.json) | 실제 3FS I/O·ClickHouse·native endpoint 경로와 수집하지 못한 signal. |\n| [VM 검증](multinode/xltel-vm-validation-20261002.json), [시간 보정](userspace-time-alignment-20261004.json) | 독립 guest clock·collector와 userspace reference 보정. VM과 process 기반 검증은 다른 실행입니다. |\n| [Metric coverage audit](metric-coverage-audit-20261003.md) | Contract별 producer·미수집 영역·cardinality·overhead 대조. |\n| [Live dashboard UX](dashboards/live-ui-20261003.md), [Fresh User Experience](e2e-user-experience.md) | 당시 browser navigation·filter·가독성의 before/after. |\n| [GIF capture manifest](dashboards/recordings-20261001.json) | 2026-10-01 GIF의 context·재생 범위·checksum. 실측 데이터 replay와 synthetic fixture를 구분합니다. |\n| [Failure regressions](tdd-regression-20261003.json), [runtime reliability](runtime-reliability-20261001.json) | 장애 주입·lifecycle·bounded query와 기록 비용 검증. |\n| [D2 layout](diagram-layout-20261004.json) | D2 원본·SVG geometry·responsive browser 검증 당시 결과. |\n| [Local LLM 검증](local-llm/history-20260930.md) | 실제 모델 응답·prompt version·latency·오판 및 원본 JSON. |\n\n전체 JSON·screenshot은 [archive 디렉터리](https://github.com/daegyu94/xlayer-telemetry/tree/main/docs/validation)에 보존합니다.\n개별 변경의 테스트 수·개발 단계는 이 기록에서만 확인하고 기본 사용 안내에는 반복하지 않습니다.\n"
+        },
+        {
+          "id": "D32",
+          "file": "docs/validation/README.md",
+          "baseline_line": 52,
+          "original": "\n- [Metric audit final verification](metric-audit-verification-20261003.json): 775 passed, zero failed/skipped; hardware validation boundaries are explicit.\n",
+          "replacement": "\nMetric audit의 당시 최종 범위는 [검증 원본](metric-audit-verification-20261003.json)에 있습니다.\n"
+        }
+      ]
+    },
+    {
+      "id": "D31",
+      "priority": "P2",
+      "title": "문서 regression과 CI 범위",
+      "reason": "README 일부를 놓치는 trigger와 Sphinx 바깥의 local/main 경로·heading 검사 누락을 보완",
+      "evidence": [
+        ".github/workflows/docs.yml",
+        "tests/test_documentation_links.py"
+      ],
+      "changes": [
+        {
+          "file": ".github/workflows/docs.yml",
+          "baseline_line": 6,
+          "original": "README.md와 examples/README.md만 README trigger에 포함; Sphinx 중심 검사",
+          "replacement": "모든 README 및 문서 test trigger; file/heading 링크 regression을 docs CI에서 실행"
+        }
+      ]
+    }
+  ],
+  "rendered_assets": [
+    {
+      "path": "docs/figures/bottleneck-summary-synthetic.png",
+      "size": [
+        1700,
+        1100
+      ],
+      "frames": 1,
+      "sha256": "cdcb377c8b5222a83faa0e5ce946fe438446afaecd6e38e5dcaee4e65683f362"
+    },
+    {
+      "path": "docs/figures/grafana-comparison-after.png",
+      "size": [
+        1700,
+        1563
+      ],
+      "frames": 1,
+      "sha256": "687c9876a39e7f0bb040b5b4624d325f8997a3076d75c2fa22636fae433bf6f8"
+    },
+    {
+      "path": "docs/figures/grafana-comparison-before.png",
+      "size": [
+        1700,
+        1449
+      ],
+      "frames": 1,
+      "sha256": "9cdea55483b0e23148a77b818cc33e302f64116ea688a086a4f2447363bd7102"
+    },
+    {
+      "path": "docs/figures/grafana-run-overview-synthetic.png",
+      "size": [
+        1700,
+        1100
+      ],
+      "frames": 1,
+      "sha256": "ccf77f14c88755266b828ca887635f03b8c2231455dc438a4aa0c47b26269bc2"
+    },
+    {
+      "path": "docs/figures/grafana-start-here.png",
+      "size": [
+        1700,
+        1100
+      ],
+      "frames": 1,
+      "sha256": "4f40bd1007e5a09a2d569d96b31b6af84daa0d0487d0f6e90ecf9c257d4b1c62"
+    },
+    {
+      "path": "docs/figures/grafana-timeline-real.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "4001b95e1c64d9dc0499f6b49695d5bc2a75ab67aad3a91941ca2cd727bbc978"
+    },
+    {
+      "path": "docs/figures/grafana-timeline-synthetic.png",
+      "size": [
+        1700,
+        1100
+      ],
+      "frames": 1,
+      "sha256": "7541291cc1a80d7e23adfcbe6a81ecb16badcc1aa5af1736bcbda10e33bec04c"
+    },
+    {
+      "path": "docs/figures/verl-agent-rl-investigation.gif",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 17,
+      "sha256": "6b8560d16dbbf4e93fcc435a95993c3cd8b90dd95a8ef7e79e90a61e4a1c376b"
+    },
+    {
+      "path": "docs/figures/xlayer-investigation-synthetic.gif",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 17,
+      "sha256": "fb328c9149fa3bfffba46b55202bd3389b78a28b769b2733e66a05d7967208ab"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/baseline-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "6a768045319e676c02befaa2bb7cc7a92eed3329b327106f7e58c5e8177df399"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/hidden-filters-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "642777cfedc2f54db8d7898f4c6f6e643717a0e69876aca7b03bdc7d0e9c2d7a"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/hidden-filters-before.png",
+      "size": [
+        1600,
+        1107
+      ],
+      "frames": 1,
+      "sha256": "0bf862bb3fd2346e990082c7eb0161e4e855013e6f18fde3f51262d79916263f"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/mooncake-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "6477f1ef3f2d5e1f5a6be1e37d4eb8cb4b01c1642cbb8bf93455907a8d43a822"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/narrow-overview-after.png",
+      "size": [
+        1100,
+        850
+      ],
+      "frames": 1,
+      "sha256": "045a79cb12d045fb0f128f993bf8b60192c0bc0b16293db3a06f6deec7a464b0"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/no-data-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "12981f5f35aee4a8243b50ed2708ac971368574abb903f0fa356870fd0ae9916"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/policy-lag-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "46ea24a3ba585b949a9ac219df298f407121fd006915db52752fdec719b0960b"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/reset-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "fcd70541067b8bd5d579b954849c7462c82862a3ecaedb779da234a9d1a9ae58"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/sandbox-identity-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "ef278d7ecef5225bd65bced371380d68726cbf65bbd5ad43d6a3a9ae7ccb9c13"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/spans-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "f00a4fa3497ee36b1cbb02bc0bc8999b1c7ac3caeb81687259786a3926d4ac29"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/stage-before.png",
+      "size": [
+        1600,
+        2363
+      ],
+      "frames": 1,
+      "sha256": "d5ab79ddcc5a0ac8ea569dd0424bb4c33a0803018d13712f5370e7f7069feb62"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/stale-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "8c364138f6a53df3c61df6f147a3fc146d45c5018ae574430e6b4766e9347e59"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/timeline-identity-after.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "8d48ee343af18c1c36a534a9881739cc0fc07348fa20109b139b048a61601284"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/timeline-identity-before.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "4b5cfff69ccc67da06c4dc87dc659da0df874e76b1f66c582ea9eaff40102d06"
+    },
+    {
+      "path": "docs/validation/dashboards/live-ui-20261003/unavailable-before.png",
+      "size": [
+        1600,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "93bdbae6fdeb589c13daa23ab4e4411e9e34dd33e046306360df7591af8b8249"
+    },
+    {
+      "path": "docs/validation/dashboards/synthetic-ray-20261003.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "7736b439d708a6d58928399cd48f299c2493e59f2a251b62ff312a9e9ae7f760"
+    },
+    {
+      "path": "docs/validation/dashboards/synthetic-sandbox-20261003.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "04c3f74699e34238608f64544518c8aa311cfef4e40ef2a817eab242b2023420"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/home-after.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "3545e3de827c455af2142b0988feb0e3ed58ddca0e579c87a17f7a0a14a6774c"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/home-before.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "5d5422b41f0ad49de26b4549ad1e03010756b38ba4d7cb1759cbc348552022c7"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/narrow-after.png",
+      "size": [
+        900,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "09bd14c2137c764d93ae69a73902b35f17001c562f7dc3ef6fccc0d86f48f2f5"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/narrow-before.png",
+      "size": [
+        900,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "baad47938d8ca8ee5f17e9820097810d9ae92bbb663a1a219c63ebc424e169d7"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/steps-after.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "c5d0890f1280cc2d0da3f0aebc9704e5aa40a8f31be238211327d918adccf97a"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/steps-before.png",
+      "size": [
+        1440,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "8faa43ea0d4a80e10b7abe1bd3388bb731f6c7fec394924c0eb0378f3af07393"
+    },
+    {
+      "path": "docs/validation/dashboards/user-experience-20261003/workspace-after.png",
+      "size": [
+        900,
+        1000
+      ],
+      "frames": 1,
+      "sha256": "91e7f5f65285b16d7d0ab16f9019652e4cdf733c5c42472c6e2869be80311444"
+    }
+  ],
+  "limitations": [
+    "No new VERL/GPU/Ray/3FS/Docker/Ollama or multi-node execution.",
+    "Historical results were reviewed for provenance; they are not current validation.",
+    "External HTTP checks exclude localhost examples; private repository requires authentication."
+  ],
+  "validation": {
+    "full_cpu_suite": {
+      "passed": 816,
+      "skipped": 12,
+      "seconds": 67.08,
+      "skip_reason": "optional promtool not initially configured"
+    },
+    "promtool_related_suite": {
+      "passed": 74,
+      "skipped": 0,
+      "seconds": 1.53,
+      "note": "Includes the 12 initially skipped PromQL cases; reused promtool 3.5.0 read-only"
+    },
+    "documentation_python_tests": {
+      "passed": 8
+    },
+    "documentation_browser_tests": {
+      "passed": 8,
+      "skipped": 0,
+      "built_pages": 12,
+      "widths": [
+        320,
+        390,
+        430,
+        900,
+        1440
+      ],
+      "combinations": 60,
+      "svg_files": 25,
+      "clipped_figures": 0,
+      "page_overflows": 0,
+      "action": "keyboard Enter opens SVG in new tab"
+    },
+    "examples": {
+      "commands": 12,
+      "toml_blocks": 7,
+      "scope": "Isolated init/config/doctor/status, CPU SDK/show_run, VERL mapping, metric schema, LLM generate-only, loopback clock calibration"
+    },
+    "external_links": {
+      "targets": 89,
+      "http_200": 87,
+      "private_repository_http_404": 1,
+      "localhost_example_not_validated": 1,
+      "note": "Private verl-lab confirmed using authenticated GitHub repository metadata"
+    },
+    "strict_sphinx": "passed; 20 pages; no warnings",
+    "d2_regeneration": {
+      "checked": 25,
+      "changed_after_regeneration": 0
+    },
+    "gifs_recorded_sha256": "verified",
+    "before_after_browser": {
+      "pages": 13,
+      "widths": [
+        390,
+        1440
+      ],
+      "combinations": 26,
+      "page_overflows": 0,
+      "figure_overflows": 0,
+      "js_errors": 0,
+      "before_extra_actions": 50,
+      "after_extra_actions": 0
+    },
+    "regression_before_change": "Figure accessible action test failed before UI fix, passed after fix"
+  }
+}

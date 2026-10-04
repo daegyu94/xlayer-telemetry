@@ -14,7 +14,7 @@ current: Latest state {
 history: Completed step history {
   step_events: "verl-steps.jsonl\nStep identity + time provenance" {class: process}
   loki: "Optional Alloy > Loki" {class: optional}
-  view: "Step Explorer / Step Detail" {class: evidence}
+  view: "Run Overview / Timeline" {class: evidence}
   step_events -> loki -> view
 }
 record -> bridge

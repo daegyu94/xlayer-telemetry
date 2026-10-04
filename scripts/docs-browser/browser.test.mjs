@@ -100,7 +100,9 @@ test("built documentation has full D2 figures and captions at every breakpoint",
         assert.equal(await figure.locator("figcaption").textContent(), await image.getAttribute("alt"));
         const src = await image.evaluate((i) => i.src);
         assert.ok(new URL(src).pathname.includes("/_images/"));
-        assert.equal(await figure.locator(".xlayer-diagram-zoom").getAttribute("href"), src);
+        assert.equal(await figure.locator(".xlayer-diagram-link").getAttribute("href"), src);
+        assert.match(await figure.locator(".xlayer-diagram-link").getAttribute("aria-label"), /새 탭/);
+        assert.equal(await figure.locator(".xlayer-diagram-actions").count(), 0);
       }
       const clipped = await page.locator(".xlayer-diagram-image").evaluateAll((images) => images.filter((i) => {
         const image = i.getBoundingClientRect(), article = i.closest("article").getBoundingClientRect();
@@ -154,7 +156,7 @@ test("all 25 D2 figures fit mobile/desktop and open their SVG", async () => {
   await page.close();
 });
 
-test("D2 figures have readable captions and canonical source links", async () => {
+test("D2 figures have captions and one accessible enlargement action", async () => {
   const page = await browser.newPage({ viewport: { width: 320, height: 900 } });
   await page.goto(address);
   await loaded(page);
@@ -163,12 +165,20 @@ test("D2 figures have readable captions and canonical source links", async () =>
   for (const figure of figures) {
     const name = await figure.locator("img").getAttribute("alt");
     assert.equal(await figure.locator("figcaption").textContent(), name);
-    assert.equal(await figure.locator(".xlayer-diagram-source").getAttribute("href"),
-      `https://github.com/daegyu94/xlayer-telemetry/blob/main/docs/diagrams/${name.replace(/\.svg$/, ".d2")}`);
+    const link = figure.locator(".xlayer-diagram-link");
+    assert.equal(await link.getAttribute("aria-label"), `${name} — 원본 SVG 확대 (새 탭)`);
+    assert.equal(await figure.locator("a").count(), 1);
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
-  await page.locator(".xlayer-diagram-source").first().focus();
-  assert.equal(await page.locator(".xlayer-diagram-source").first().evaluate((a) => a === document.activeElement), true);
+  const link = page.locator(".xlayer-diagram-link").first();
+  await link.focus();
+  assert.equal(await link.evaluate((a) => a === document.activeElement), true);
+  const popup = page.waitForEvent("popup");
+  await page.keyboard.press("Enter");
+  const svg = await popup;
+  await svg.waitForLoadState();
+  assert.equal(await svg.locator("svg[role='img']").count(), 1);
+  await svg.close();
   await page.close();
 });
 
@@ -178,7 +188,7 @@ test("reader actions do not depend on local storage", async () => {
   await page.goto(address);
   await loaded(page);
   assert.equal(await page.locator("figure.xlayer-diagram").count(), 25);
-  assert.equal(await page.locator(".xlayer-diagram-zoom").count(), 25);
+  assert.equal(await page.locator(".xlayer-diagram-link").count(), 25);
   await page.close();
 });
 

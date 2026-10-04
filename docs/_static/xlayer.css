@@ -19,4 +19,4 @@ article td p, article th p { line-height: 1.6; }
 .xlayer-diagram-link { display: block; width: fit-content; max-width: 100%; }
 .xlayer-diagram-image { display: block; min-width: 0; max-width: 100%; height: auto; background: #fff; }
 .xlayer-diagram-caption { display: block; margin-top: 0.6rem; font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
-.xlayer-diagram-actions { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; margin-top: 0.4rem; font-size: 0.9375rem; }
+.xlayer-diagram-link:focus-visible { outline: 2px solid var(--color-brand-primary, #38669a); outline-offset: 4px; }

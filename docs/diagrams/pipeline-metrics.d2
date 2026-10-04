@@ -11,7 +11,7 @@ node: "GPU sampler > gpu.prom\nHost / NIC / filesystem collectors\nIncluding con
 exporter: "Node Exporter :19100" {class: process}
 native: "vLLM / Ray native endpoints" {class: source}
 prom: "Prometheus" {class: process}
-views: "Grafana metric dashboards\nXLayer run diagnosis / inspect" {class: evidence}
+views: "Grafana metric dashboards\nXLayer diagnosis queries" {class: evidence}
 trainer -> logger -> bridge -> snapshot -> exporter
 node -> exporter
 exporter -> prom: scrape {style.font-size: 20}

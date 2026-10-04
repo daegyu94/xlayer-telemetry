@@ -16,7 +16,7 @@ Node collector는 trainer snapshot을 Node Exporter가 노출할 metric으로 �
 Prometheus는 vLLM·Ray endpoint도 직접 수집합니다.
 3FS FUSE mount의 filesystem 지표는 node 자원 경로로 보고, 3FS 서비스 latency는 ClickHouse 단독 조회 또는 실행 진단에서 확인합니다.
 Tool span은 JSONL event로 남고 workload log는 Alloy·Loki를 거쳐 Grafana Run Logs에 표시됩니다.
-VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 목록에서 Timeline의 상세 구간을 엽니다.
+VERL step event는 별도로 Loki에 수집하면 Run Overview의 완료 step 목록에서 Timeline의 상세 구간을 엽니다.
 
 ## Choose the Next Source
 
@@ -24,9 +24,9 @@ VERL step event는 별도로 Loki에 수집하면 Run Overview의 Step Explorer 
 | --- | --- | --- |
 | Rollout queue·KV cache·KV offload 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout·KV offload panel |
 | Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Stage Correlation의 Ray row, Explore |
-| 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | 단독 `threefs` 조회, 진단 JSON과 `show_run` |
-| Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Resource·SSD dashboard |
-| Workload log | Alloy와 Loki | 선택적인 Logs dashboard |
+| 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | `xltel sources threefs` 조회, 진단 JSON과 `show_run` |
+| Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Data & Storage |
+| Workload log | Alloy와 Loki | Run Logs |
 | Custom tool 호출의 대기 시간 | `EventRecorder`로 기록한 span | JSONL event와 `show_run` |
 
 VERL·vLLM·Ray·3FS 설치와 endpoint discovery는 외부 배포가 담당합니다.
@@ -48,11 +48,11 @@ Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine�
 | Mooncake | Stage Correlation의 Mooncake row: connector RPC·master cache·client DFS 지표 | [Mooncake 연결](#observe-mooncake-kv-storage)과 지원 버전 |
 | 기타 native exporter | `sources`의 endpoint별 Explore 링크 | Native endpoint 등록 |
 | GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector, SSD는 선택적 SMART exporter |
-| 3FS service metrics | `threefs` 명령의 시간 구간별 distributions·raw counters·freshness | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
+| 3FS service metrics | `xltel sources threefs`의 시간 구간별 distributions·raw counters·freshness | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
 | Subsystem log | Run Logs의 Workload·Node·Log directory | `ENABLE_LOGS=1`과 실제 log 파일 등록 |
 
 GPU sampler의 device memory used/total은 지원될 때만 bytes로 노출됩니다.
-GPU를 선택하면 UUID가 해당 장치와 일치하는 process memory도 함께 볼 수 있으며, `N/A`인 device field나 장치를 매핑하지 못한 process를 0이나 다른 GPU의 값으로 대체하지 않습니다.
+`GPU_PROCESS_METRICS=1`을 켠 collector에서 GPU를 선택하면 UUID가 해당 장치와 일치하는 process memory도 볼 수 있으며, `N/A`인 device field나 장치를 매핑하지 못한 process를 0이나 다른 GPU의 값으로 대체하지 않습니다.
 실제 metric 이름과 측정 범위는 [Metrics Contract](metrics.md#what-is-actually-collected)에서 확인합니다.
 
 ```bash
@@ -83,9 +83,12 @@ Subsystem별 log가 필요하면 같은 config에서 기존 Alloy log root를 �
 아래 root들은 `<root>/<session>/logs/**/*.log` 구조이며 XLayer가 Ray·vLLM의 내부 log 경로를 자동 변경하거나 Docker log를 가져오지는 않습니다.
 각 runtime의 log 출력 또는 배포 측 archive를 이 구조에 맞춘 뒤 node collector를 재시작합니다.
 
-```bash
-ENABLE_LOGS=1
-TELEMETRY_LOG_ROOTS="verl=$HOME/telemetry-runs,ray=$HOME/ray-log-archives"
+기본 `xltel` config의 기존 `[telemetry]`에 다음 값을 추가하고 `xltel restart --role node`를 실행합니다.
+Server의 Loki도 활성화되어 있어야 합니다.
+
+```toml
+ENABLE_LOGS = true
+TELEMETRY_LOG_ROOTS = "verl=/absolute/path/to/verl-runs,ray=/absolute/path/to/ray-log-archives"
 ```
 
 Run Logs에서 `Workload=ray`를 선택하고 `Log directory`는 해당 session 또는 `.*`로 지정합니다.
@@ -127,9 +130,14 @@ XID는 마지막 error code gauge이며 발생 횟수 counter가 아닙니다.
 DCGM 설치·field 활성화와 exporter 접근 권한은 기존 배포에서 준비해야 합니다.
 예제의 3FS endpoint도 기존 exporter를 등록하는 자리이며 XLayer가 3FS exporter를 만들거나 시작하지 않습니다.
 
-Source 파일 경로는 `$HOME/telemetry/config/native-sources.json`을 사용합니다.
-Node collector도 실행되어 있어야 합니다.
-`verl-local.conf`에 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 지정한 뒤 `down` → `up`으로 재시작합니다.
+기존 `xltel` config의 `[telemetry]`에 source 파일 경로를 추가하고 `xltel restart --role server`를 실행합니다.
+Endpoint 상태는 `xltel sources`로 확인하며, XLayer host metric도 보려면 해당 node의 collector를 실행합니다.
+
+```toml
+TELEMETRY_SOURCES_FILE = "~/telemetry/config/native-sources.json"
+```
+
+기존 Bash config에서는 `TELEMETRY_SOURCES_FILE="$HOME/telemetry/config/native-sources.json"`을 사용합니다.
 
 Monitoring Guide의 수동 경로를 사용했다면 `server.conf`에 같은 값을 넣고 `bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"`로 다시 시작합니다.
 시작 시 설정 형식을 검증하고 Prometheus의 `native` job에 사용할 target 파일을 만듭니다.
@@ -143,7 +151,7 @@ xltel sources refresh
 ```
 
 Prometheus의 file discovery가 기본 30초 안에 새 target을 읽습니다.
-`refresh-sources`는 config의 `SERVER_OUTPUT_DIR`를 사용하고, 이어서 `sources`로 실제 scrape 상태를 확인합니다.
+`xltel sources refresh`는 config의 `SERVER_OUTPUT_DIR`를 사용하고, 이어서 `sources`로 실제 scrape 상태를 확인합니다.
 수동 server 배포는 기존 `python -m xlayer_telemetry.source_discovery --input FILE --output SERVER_OUTPUT_DIR/native-targets.json`을 사용할 수 있습니다.
 학습 종료 후 endpoint가 사라지면 Prometheus Targets의 현재 상태는 down으로 바뀌어도 과거 표본은 남습니다.
 
@@ -276,8 +284,14 @@ Remote worker의 snapshot을 Grafana에 표시하려면 그 worker node에도 co
 
 진단은 wrapper의 선택적 sidecar로 step·Prometheus·3FS ClickHouse를 비교합니다.
 [diagnostics.json](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/verl/diagnostics.json)을 복사해 endpoint를 바꾸고 사용하지 않는 `threefs`는 제거합니다.
-`verl-local.conf`에 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 지정하고 새 `RUN_ID`로 실행합니다.
-`ENABLE_LOGS=1`과 Alloy·Loki를 연결하면 Bottleneck Summary와 Timeline에서도 결과를 확인할 수 있습니다.
+기존 `xltel` config의 `[telemetry]`에 아래 값을 추가하고 새 run을 시작합니다.
+Grafana의 candidate·evidence 조회에는 [Loki 연결](monitoring.md#add-run-logs-with-loki)도 필요합니다.
+
+```toml
+DIAGNOSTICS_CONFIG = "~/telemetry/config/diagnostics.json"
+```
+
+기존 Bash config에서는 `DIAGNOSTICS_CONFIG="$HOME/telemetry/config/diagnostics.json"`을 사용합니다.
 
 3FS를 연결하려면 ClickHouse에 `distributions` 데이터가 있어야 합니다.
 Database와 `mount_name` 등 filter를 실제 배포에 맞추고, 인증이 필요하면 `THREEFS_CLICKHOUSE_USER`와 `THREEFS_CLICKHOUSE_PASSWORD` 환경 변수로 전달합니다.
@@ -425,6 +439,8 @@ RPC 전파·worker 환경 설정은 외부 runtime이 담당합니다.
 Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node입니다.
 각 node의 JSONL을 Alloy가 읽는 run root에 두어야 Timeline에서 함께 볼 수 있습니다.
 
+아래 adapter·smoke recipe는 private `verl-lab` 접근 권한과 해당 lab의 dataset·grader가 필요합니다.
+공개 VERL 사용에는 lab 없이 [기존 명령 연결](verl-quickstart.md)을 적용합니다.
 veRL `function_tool_path`로 연결하는 실제 예시는 [verl-lab SWE-Bench adapter](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/verl_lab_swebench_tools.py)입니다.
 XLayer 저장소 루트에서 아래 경로를 설정하고 기존 `verl-lab` 명령을 XLayer wrapper로 실행하면, 원본 tool·reward 코드를 바꾸지 않고 `read_source`·`test_patch`·`edit_and_test`의 `tool.call`과 실제 Docker grader 호출의 `sandbox.exec`를 기록합니다.
 

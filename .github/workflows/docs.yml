@@ -3,9 +3,9 @@ name: Documentation
 on:
   push:
     branches: [main]
-    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
+    paths: ["README.md", "**/README.md", "docs/**", "requirements-docs.txt", "requirements.txt", "tests/test_documentation*.py", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
   pull_request:
-    paths: ["README.md", "examples/README.md", "docs/**", "requirements-docs.txt", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
+    paths: ["README.md", "**/README.md", "docs/**", "requirements-docs.txt", "requirements.txt", "tests/test_documentation*.py", "scripts/docs.sh", "scripts/render_diagrams.py", "scripts/docs-browser/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -24,8 +24,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-docs.txt
-      - run: python -m pip install -r requirements-docs.txt
+          cache-dependency-path: |
+            requirements-docs.txt
+            requirements.txt
+      - run: python -m pip install -r requirements-docs.txt -r requirements.txt
+      - name: Check README links and documentation regressions
+        run: python -m pytest -q tests/test_documentation_links.py tests/test_documentation_diagrams.py
       - name: Verify D2 sources and committed SVGs
         run: python scripts/render_diagrams.py --install --check
       - uses: actions/setup-node@v6

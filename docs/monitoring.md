@@ -449,7 +449,8 @@ Shared storage를 사용하면 같은 file이 중복 전송되지 않도록 수�
 
 Monitoring Guide의 수동 단일 host 예제에서는 monitoring server를 종료하고 `server.conf`의 `ENABLE_LOGS=1`만 바꿔 다시 시작합니다.
 기본 `LOKI_LISTEN_ADDR='127.0.0.1'`은 같은 host에서 실행하는 collector가 접근할 수 있습니다.
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `xltel config path`가 가리키는 config의 `ENABLE_LOGS=1`을 설정하고 `xltel restart`을 실행합니다.
+단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 기존 TOML의 `[telemetry]`에 `ENABLE_LOGS = true`를 설정하고 `xltel restart`를 실행합니다.
+기존 Bash config에서는 `ENABLE_LOGS=1`을 사용합니다.
 이 경로는 log root와 metric snapshot 경로를 같은 `RUN_ID`에서 자동으로 계산하므로 아래의 수동 환경 변수 예제를 입력할 필요가 없습니다.
 
 ```bash
@@ -484,7 +485,7 @@ Alloy의 읽기 offset은 `OUTPUT_DIR/alloy-data`에 저장되며 기본적으�
 Run Logs에서 cluster·node·workload·run을 선택합니다.
 `cluster`·`node`·`workload`는 index label이고 `run_id`·file 경로는 record에 저장합니다.
 Log의 `run_id`는 directory 이름이므로 wrapper의 ID와 다를 수 있습니다.
-Step Explorer는 event의 ID·시간을 읽고 Prometheus의 자원 그래프와 연결하므로 두 저장소의 보존 기간을 확인합니다.
+Run Overview·Timeline은 event의 ID·시간을 Prometheus 자원 그래프와 연결하므로 두 저장소의 보존 기간을 확인합니다.
 Alloy는 `<run>/telemetry-events/`와 `<run>/telemetry/telemetry-events/`의 step·backfill 파일을 수집합니다.
 `03 · Bottleneck Summary`는 diagnosis projection, `04 · Cross-Layer Timeline`은 span·step·sample을 사용합니다.
 연결하지 않은 source의 panel은 비어 있으며 [진단 설정](diagnosis.md)에서 추가합니다.
@@ -567,14 +568,14 @@ Fixture는 `examples/live-demo/`에 있으며 `DEMO_TOPOLOGY_DIR`·`DEMO_ADDR`·
 Synthetic GIF는 step 127의 18.4 s와 baseline 11.2 s에서 candidate → evidence → Timeline → detail로 이동합니다.
 Trainer·GPU·sandbox 세 node 문맥과 GPU 두 개를 표현하는 UI fixture이며 실제 성능 측정값이 아닙니다.
 
-![현재 Grafana의 synthetic investigation: step 선택, storage candidate, evidence, Timeline, subsystem detail](figures/xlayer-investigation-synthetic.gif)
+![2026-10-01에 캡처한 synthetic investigation: step 선택, storage candidate, evidence, Timeline, subsystem detail](figures/xlayer-investigation-synthetic.gif)
 
-아래 실제 GIF는 2026-09-30에 완료한 VERL·vLLM·Docker sandbox 실행의 저장 데이터를 최신 UI로 재생합니다.
+아래 실제 GIF는 2026-09-30에 완료한 VERL·vLLM·Docker sandbox 실행의 저장 데이터를 2026-10-01 UI에서 재생합니다.
 3 trainer update와 baseline, tool/sandbox span, local disk와 workload log를 보여 줍니다.
 이 실행의 verdict는 `no_anomaly_observed`로, synthetic 예제와 달리 storage bottleneck을 만든 실행이 아닙니다.
 두 GIF 모두 약 95초이며 화면마다 5–7초 유지합니다.
 [Real VERL Agent RL Demo](real-verl-demo.md)에 수집 시각·실행 조건·scope와 이전 3FS POSIX 실험 기록을 정리했습니다.
 
-![현재 Grafana의 실제 VERL Agent RL 기록: 완료 step, baseline, tool/sandbox, GPU, local storage, Loki logs](figures/verl-agent-rl-investigation.gif)
+![2026-10-01에 캡처한 실제 VERL Agent RL 기록: 완료 step, baseline, tool/sandbox, GPU, local storage, Loki logs](figures/verl-agent-rl-investigation.gif)
 
 첫 연결이 끝나면 [VERL 연결 가이드](verl-quickstart.md)에서 기존 workload를 연결합니다.
