@@ -610,11 +610,15 @@ def test_failed_evidence_review_never_returns_the_unreviewed_draft(monkeypatch, 
 
 
 def test_evidence_review_shares_generation_deadline(monkeypatch):
-    clock = iter([0, 601])
+    clock = [0.]
     calls = []
-    monkeypatch.setattr(llm.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(llm.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(llm, "_get", lambda *args: {})
-    monkeypatch.setattr(llm, "_post", lambda *args: calls.append(args) or response())
+    def post(*args):
+        calls.append(args)
+        clock[0] = 601
+        return response()
+    monkeypatch.setattr(llm, "_post", post)
     with pytest.raises(TimeoutError, match="deadline exceeded"):
         llm.diagnose(packet(), timeout=600)
     assert len(calls) == 1

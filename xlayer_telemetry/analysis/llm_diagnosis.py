@@ -14,13 +14,13 @@ import sys
 import tempfile
 import time
 from typing import Any
-from urllib.request import Request, urlopen
 
 from ..prometheus import PrometheusClient
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
 from .evidence_quality import quality, check_source, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result
+from ._llm_transport import request_json
 
 
 PROMPT_VERSION = 11
@@ -510,15 +510,11 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
 
 
 def _post(url: str, payload: dict, timeout: float) -> dict:
-    request = Request(url, data=json.dumps(payload, allow_nan=False).encode(),
-                      headers={"Content-Type": "application/json"}, method="POST")
-    with urlopen(request, timeout=timeout) as response:
-        return json.load(response)
+    return request_json(url, payload, timeout)
 
 
 def _get(url: str, timeout: float) -> dict:
-    with urlopen(url, timeout=timeout) as response:
-        return json.load(response)
+    return request_json(url, None, timeout)
 
 
 class RejectedDiagnosis(ValueError):
@@ -591,13 +587,16 @@ def validate_korean_prose(answer: dict) -> None:
 def review_diagnosis(draft: dict, packet: dict, *, endpoint: str, model: str,
                      timeout: float, seed: int) -> tuple[dict, dict]:
     """Use a fresh model context to audit facts and repair ungrounded wording."""
+    if not _finite(timeout) or timeout <= 0:
+        raise TimeoutError("LLM diagnosis deadline exceeded before evidence review")
+    start = time.monotonic()
     content = json.dumps({"observations": model_view(packet), "draft": draft},
                          sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     if len(content.encode()) > 16384:
         raise ValueError("review input exceeds 16KiB; no unreviewed diagnosis accepted")
-    if not _finite(timeout) or timeout <= 0:
+    remaining = timeout - (time.monotonic() - start)
+    if remaining <= 0:
         raise TimeoutError("LLM diagnosis deadline exceeded before evidence review")
-    start = time.monotonic()
     response = _post(endpoint + "/api/chat", {
         "model": model, "stream": False, "think": True, "keep_alive": "5m",
         "messages": [
@@ -605,7 +604,7 @@ def review_diagnosis(draft: dict, packet: dict, *, endpoint: str, model: str,
             {"role": "user", "content": content},
         ],
         "format": review_schema(), "options": {**INFERENCE_OPTIONS, "seed": seed},
-    }, timeout)
+    }, remaining)
     try:
         review = _model_answer(response, model)
         if not isinstance(review, dict) or set(review) != {"decision", "issues", "diagnosis"}:
@@ -633,6 +632,8 @@ def review_diagnosis(draft: dict, packet: dict, *, endpoint: str, model: str,
         rejection = RejectedDiagnosis(str(error), response)
         rejection.response["stage"] = "evidence_review"
         raise rejection from error
+    if time.monotonic() - start >= timeout:
+        raise TimeoutError("LLM diagnosis deadline exceeded during evidence review")
     return answer, {
         "decision": decision, "issues": issues, "prompt_version": REVIEW_PROMPT_VERSION,
         "model": response["model"], "seed": seed,
@@ -657,7 +658,15 @@ def diagnose(packet: dict[str, Any], *, endpoint: str = "http://127.0.0.1:11434"
     if len(model_input.encode()) > 8192:
         raise ValueError("model input exceeds 8KiB; narrow the query scope")
     endpoint = endpoint.rstrip("/")
-    tags = _get(endpoint + "/api/tags", min(timeout, 10))
+    start = time.monotonic()
+
+    def remaining(cap=None):
+        value = timeout - (time.monotonic() - start)
+        if value <= 0:
+            raise TimeoutError("LLM diagnosis deadline exceeded")
+        return min(value, cap) if cap is not None else value
+
+    tags = _get(endpoint + "/api/tags", remaining(10))
     if not isinstance(tags, dict) or not isinstance(tags.get("models", []), list) or any(
         not isinstance(item, dict) or not isinstance(item.get("name"), str)
         for item in tags.get("models", [])
@@ -665,10 +674,9 @@ def diagnose(packet: dict[str, Any], *, endpoint: str = "http://127.0.0.1:11434"
         raise RuntimeError("invalid Ollama model metadata")
     identity = next((item for item in tags.get("models", [])
                      if _model_name(item.get("name", "")) == _model_name(model)), {})
-    runtime = _get(endpoint + "/api/version", min(timeout, 10))
+    runtime = _get(endpoint + "/api/version", remaining(10))
     if not isinstance(runtime, dict):
         raise RuntimeError("invalid Ollama runtime metadata")
-    start = time.monotonic()
     response = _post(endpoint + "/api/chat", {
         "model": model, "stream": False, "think": True, "keep_alive": "5m",
         "messages": [
@@ -678,7 +686,7 @@ def diagnose(packet: dict[str, Any], *, endpoint: str = "http://127.0.0.1:11434"
         ],
         "format": response_schema(),
         "options": {**INFERENCE_OPTIONS, "seed": seed},
-    }, timeout)
+    }, remaining())
     try:
         draft = _model_answer(response, model)
         validate_diagnosis(draft, packet)
@@ -687,7 +695,8 @@ def diagnose(packet: dict[str, Any], *, endpoint: str = "http://127.0.0.1:11434"
     except (ValueError, KeyError, TypeError, AttributeError) as error:
         raise RejectedDiagnosis(str(error), response) from error
     answer, review = review_diagnosis(draft, packet, endpoint=endpoint, model=model,
-                                     timeout=timeout-(time.monotonic()-start), seed=seed+1)
+                                     timeout=remaining(), seed=seed+1)
+    remaining()  # A late review cannot publish a successful diagnosis.
     return {
         "schema_version": 1, "record_type": "llm_diagnosis", "diagnosis_method": "llm",
         "requested_language": "ko",
