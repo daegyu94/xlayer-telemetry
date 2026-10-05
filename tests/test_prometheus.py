@@ -73,3 +73,60 @@ def test_excessive_query_entities_fail_instead_of_returning_partial_success(monk
     monkeypatch.setattr(prometheus, 'MAX_RESULT_POINTS', 2)
     with pytest.raises(RuntimeError, match='200000 points'):
         range_series(matrix([{'values': [[1, '1'], [2, '2']]}, {'values': [[1, '0']]}]))
+
+
+@pytest.mark.parametrize('result_type', ['vector', 'scalar', 'string', None])
+def test_range_query_rejects_non_matrix_result_type(result_type):
+    payload = matrix([{'metric': {'engine': 'a'}, 'values': [[1, '1']]}])
+    payload['data']['resultType'] = result_type
+    with pytest.raises(RuntimeError, match='matrix'):
+        range_series(payload)
+
+
+@pytest.mark.parametrize('labels', [{'engine': ['a']}, {'engine': None}, {'engine': 1}, {1: 'a'}])
+def test_range_query_rejects_invalid_entity_labels(labels):
+    with pytest.raises(RuntimeError, match='labels'):
+        range_series(matrix([{'metric': labels, 'values': [[1, '1']]}]))
+
+
+def test_range_query_rejects_duplicate_entity_identity():
+    # Key order cannot distinguish the same entity. Consumers otherwise either
+    # double count its samples or silently overwrite one row in an identity map.
+    payload = matrix([
+        {'metric': {'node': 'n', 'engine': 'a'}, 'values': [[1, '10']]},
+        {'metric': {'engine': 'a', 'node': 'n'}, 'values': [[1, '50']]},
+    ])
+    with pytest.raises(RuntimeError, match='duplicate.*series'):
+        range_series(payload)
+
+
+@pytest.mark.parametrize('points', [
+    [[2, '100'], [1, '90']],
+    [[1, '100'], [1, '90']],
+    [[1, '90'], [1, '90']],
+])
+def test_counter_samples_require_strictly_increasing_timestamps(points):
+    # An unordered pair can look like a reset (+90 rather than +10), while
+    # equal timestamps cannot establish any elapsed counter observation.
+    with pytest.raises(RuntimeError, match='timestamp'):
+        range_series(matrix([{'metric': {'engine': 'a'}, 'values': points}]))
+
+
+def test_malformed_counter_matrix_is_missing_without_discarding_other_sources(monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+    from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
+
+    def response(request, timeout):
+        query = parse_qs(urlsplit(request.full_url).query)['query'][0]
+        if 'num_preemptions_total' in query:
+            return matrix([{'metric': {'engine': 'a'}, 'values': [[2, '100'], [1, '90']]}])
+        if 'node_disk_read_bytes_total' in query:
+            return matrix([{'metric': {'instance': 'n'}, 'values': [[1, '10'], [2, '20']]}])
+        return matrix([])
+
+    monkeypatch.setattr(prometheus, '_read_json', response)
+    report = DiagnosticEngine({'prometheus': {'url': 'http://unused'}}, clock=lambda: 3).analyze(None, [])
+    assert 'vllm_preemptions_total' not in report['evidence']
+    assert 'prometheus:vllm_preemptions_total:RuntimeError' in report['missing_sources']
+    assert report['evidence']['disk_read_bytes_per_second']['mean'] == 15
+    assert not report['query_execution']['sources']['prometheus']['unavailable']

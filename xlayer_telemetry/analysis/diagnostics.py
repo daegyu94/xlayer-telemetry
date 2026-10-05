@@ -6,6 +6,7 @@ import argparse
 import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from http.client import HTTPException
 import heapq
 import json
 import math
@@ -115,8 +116,11 @@ class ThreeFSClient:
             token = base64.b64encode(f"{user}:{password}".encode()).decode()
             request.add_header("Authorization", "Basic " + token)
         response_limit = 8 * 1024 * 1024
-        with urlopen(request, timeout=self.timeout) as response:
-            body = response.read(response_limit + 1)
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                body = response.read(response_limit + 1)
+        except HTTPException:
+            raise ConnectionError("ClickHouse response transport failed") from None
         if len(body) > response_limit:
             raise ValueError("ClickHouse response exceeds 8 MiB limit; narrow source filters")
         rows = [json.loads(line) for line in body.splitlines() if line.strip()]

@@ -6,6 +6,7 @@ or attribute shared resource metrics to application runs.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.client import HTTPException
 import json
 import math
 import statistics
@@ -41,10 +42,13 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
     data = payload.get("data")
     if not isinstance(data, dict) or not isinstance(data.get("result"), list):
         raise RuntimeError("Prometheus response is missing a range-query matrix")
+    if data.get("resultType", "matrix") != "matrix":
+        raise RuntimeError("Prometheus range-query response must be a matrix")
     if len(data["result"]) > MAX_RESULT_SERIES:
         raise RuntimeError("Prometheus result exceeds 1000 series; narrow source selectors")
     result = []
     point_count = 0
+    identities = set()
     for item in data['result']:
         if (not isinstance(item, dict) or not isinstance(item.get('metric', {}), dict)
                 or not isinstance(item.get('values', []), list)):
@@ -52,15 +56,26 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
         point_count += len(item.get('values', []))
         if point_count > MAX_RESULT_POINTS:
             raise RuntimeError("Prometheus result exceeds 200000 points; narrow time window or increase query step")
+        labels = item.get('metric', {})
+        if any(not isinstance(key, str) or not isinstance(value, str) for key, value in labels.items()):
+            raise RuntimeError("Prometheus series labels must be strings")
+        identity = tuple(sorted(labels.items()))
+        if identity in identities:
+            raise RuntimeError("Prometheus response contains duplicate series identities")
+        identities.add(identity)
         points = []
         for point in item.get('values', []):
             if not isinstance(point, (list, tuple)) or len(point) != 2:
                 continue
             timestamp, value = map(_number, point)
             if timestamp is not None and value is not None:
+                # Counter reset detection assumes chronological samples. Never
+                # invent growth from an unordered or duplicate evaluation.
+                if points and timestamp <= points[-1][0]:
+                    raise RuntimeError("Prometheus sample timestamps must be strictly increasing")
                 points.append([timestamp, value])
         if points:
-            result.append({'labels': item.get('metric', {}), 'points': points})
+            result.append({'labels': labels, 'points': points})
     return result
 
 
@@ -82,8 +97,13 @@ def series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None]
 
 
 def _read_json(request: Request, timeout: float) -> Any:
-    with urlopen(request, timeout=timeout) as response:
-        body = response.read(MAX_RESPONSE_BYTES + 1)
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            body = response.read(MAX_RESPONSE_BYTES + 1)
+    except HTTPException:
+        # Bad framing is a source-local transport failure, not a failed entire
+        # analysis. Keep partial bodies and backend connection details private.
+        raise ConnectionError("Prometheus response transport failed") from None
     if len(body) > MAX_RESPONSE_BYTES:
         raise RuntimeError("Prometheus response exceeds the 8 MiB limit; narrow query scope")
     return json.loads(body)
