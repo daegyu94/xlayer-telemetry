@@ -7,8 +7,8 @@ import math
 from pathlib import Path
 import time
 from urllib.parse import urlencode
-from urllib.request import urlopen
 
+from ._http_transport import _ResponseTooLarge, request_bytes
 from .prometheus import escape_label
 from .source_discovery import load_file_discovery
 
@@ -42,14 +42,12 @@ def inspect_sources(groups: list[dict], prometheus: str, grafana: str, cluster: 
     """Fetch once; the same pure summary is used by aggregate CLI health."""
     targets, error = [], None
     try:
-        with urlopen(prometheus.rstrip('/') + '/api/v1/targets?state=active', timeout=timeout) as response:
-            body = response.read(4 * 1024 * 1024 + 1)
-        if len(body) > 4 * 1024 * 1024:
-            raise ValueError("target response exceeds limit")
+        body = request_bytes(prometheus.rstrip('/') + '/api/v1/targets?state=active', None, timeout,
+                             max_response_bytes=4 * 1024 * 1024)
         targets = parse_target_response(json.loads(body))
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         # Backend error strings may contain URLs or credentials.
-        error = type(exc).__name__
+        error = "ValueError" if isinstance(exc, _ResponseTooLarge) else type(exc).__name__
     return summarize_sources(groups, targets, grafana, cluster, backend_error=error)
 
 

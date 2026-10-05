@@ -153,7 +153,7 @@ def test_cli_timeout_replaces_old_success_with_failure_record(tmp_path, ollama):
 
 
 def test_invalid_json_preserves_value_error_and_reaps_worker(monkeypatch):
-    from xlayer_telemetry.analysis import _llm_transport as transport
+    from xlayer_telemetry import _http_transport as transport
 
     class Process:
         returncode = 0
@@ -171,7 +171,7 @@ def test_invalid_json_preserves_value_error_and_reaps_worker(monkeypatch):
 
 
 def test_unreaped_worker_blocks_replacement(monkeypatch):
-    from xlayer_telemetry.analysis import _llm_transport as transport
+    from xlayer_telemetry import _http_transport as transport
 
     class Process:
         def poll(self):
@@ -229,7 +229,7 @@ def test_late_review_cannot_publish_success(monkeypatch):
 
 
 def test_transport_after_fork_does_not_use_parent_lock_or_workers(monkeypatch, ollama):
-    from xlayer_telemetry.analysis import _llm_transport as transport
+    from xlayer_telemetry import _http_transport as transport
 
     class ParentLock:
         def __enter__(self):
@@ -245,7 +245,7 @@ def test_transport_after_fork_does_not_use_parent_lock_or_workers(monkeypatch, o
 
 def test_worker_deadline_starts_before_stdin_eof():
     deadline = time.monotonic() + .3
-    worker = subprocess.Popen([sys.executable, "-m", "xlayer_telemetry.analysis._llm_transport",
+    worker = subprocess.Popen([sys.executable, "-m", "xlayer_telemetry._http_transport",
                                 str(deadline), str(os.getpid())],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
@@ -268,7 +268,7 @@ def test_killed_owner_with_fork_inherited_stdin_does_not_leave_worker_alive(tmp_
 
     owner_script = tmp_path / "owner.py"
     owner_script.write_text('''import json, os, subprocess, sys, time
-worker = subprocess.Popen([sys.executable, "-m", "xlayer_telemetry.analysis._llm_transport",
+worker = subprocess.Popen([sys.executable, "-m", "xlayer_telemetry._http_transport",
                            str(time.monotonic() + 30), str(os.getpid())],
                           stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 keeper = os.fork()
@@ -301,7 +301,7 @@ time.sleep(30)
 
 
 def test_private_worker_argv_contains_only_deadline_and_owner_controls(monkeypatch):
-    from xlayer_telemetry.analysis import _llm_transport as transport
+    from xlayer_telemetry import _http_transport as transport
 
     captured = {}
     class Process:

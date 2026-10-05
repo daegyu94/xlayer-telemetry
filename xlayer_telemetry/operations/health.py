@@ -12,8 +12,8 @@ import shutil
 import subprocess
 import time
 from urllib.parse import urlencode
-from urllib.request import urlopen
 
+from .._http_transport import request_bytes
 from .config import assets_root
 from .run_artifacts import read_run_state
 from ..source_discovery import load_file_discovery
@@ -45,15 +45,12 @@ def process_identity(path: Path) -> dict:
 
 def probe(url: str, *, json_body: bool = False) -> dict:
     try:
-        with urlopen(url, timeout=2) as response:
-            body = response.read(4 * 1024 * 1024 + 1)
-        if len(body) > 4 * 1024 * 1024:
-            raise ValueError
+        body = request_bytes(url, None, 2, max_response_bytes=4 * 1024 * 1024)
         data = json.loads(body) if json_body else None
         if json_body and not isinstance(data, dict):
             raise ValueError
         return {"health": "healthy", "data": data}
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):
         return {"health": "unreachable", "data": None}
 
 

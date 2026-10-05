@@ -20,7 +20,7 @@ from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
 from .evidence_quality import quality, check_source, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result
-from ._llm_transport import request_json
+from .._http_transport import request_json
 
 
 PROMPT_VERSION = 11
