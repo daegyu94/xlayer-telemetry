@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 import time
+from typing import Mapping
 from urllib.parse import urlencode
 
 from ._http_transport import _ResponseTooLarge, request_bytes
@@ -77,21 +78,25 @@ def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
     return {'backend_error': backend_error, 'sources': rows}
 
 
-def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = None) -> dict:
+def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = None,
+                    environment: Mapping[str, str] | None = None) -> dict:
     if not math.isfinite(seconds) or not 0 < seconds <= 86400:
         raise ValueError('window must be between 0 and 86400 seconds')
     from .analysis.diagnostics import _DeadlineThreeFSClient as ThreeFSClient
     settings = config.get('threefs')
+    if settings is not None and not isinstance(settings, dict):
+        raise ValueError('threefs must be an object')
     if not settings:
         return {'status': 'not_configured'}
     queried_at = time.time() if now is None else now
     settle = settings.get('settle_seconds', 30)
     end = queried_at - settle
-    client = ThreeFSClient(settings['url'], database=settings.get('database', '3fs'),
+    client = ThreeFSClient(settings.get('url'), database=settings.get('database', '3fs'),
                           filters=settings.get('filters'),
                           timeout=float(settings.get('timeout_seconds', 5)),
                           user_env=settings.get('user_env', 'THREEFS_CLICKHOUSE_USER'),
-                          password_env=settings.get('password_env', 'THREEFS_CLICKHOUSE_PASSWORD'))
+                          password_env=settings.get('password_env', 'THREEFS_CLICKHOUSE_PASSWORD'),
+                          _environment=environment)
     rows = client.query_window(end - seconds, end)
     counters, missing = [], []
     try:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.client import HTTPException
 import heapq
@@ -75,6 +75,7 @@ DEFAULT_THRESHOLDS = {
 }
 _ALLOWED_3FS_FILTERS = {"host", "mount_name", "instance", "io", "uid", "pod", "method"}
 _DATABASE = re.compile(r"^[A-Za-z0-9_]+$")
+_ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _LATENCY_NAME = re.compile(r"latency|duration|elapsed|cost|time", re.IGNORECASE)
 
 
@@ -86,15 +87,29 @@ class ThreeFSClient:
     timeout: float = 5.0
     user_env: str = "THREEFS_CLICKHOUSE_USER"
     password_env: str = "THREEFS_CLICKHOUSE_PASSWORD"
+    # Standalone CLI inspection uses resolved config exports without changing
+    # process-global state. Existing callers still read the current environment.
+    _environment: Mapping[str, str] | None = field(default=None, repr=False, compare=False, kw_only=True)
 
     def __post_init__(self) -> None:
-        if not _DATABASE.fullmatch(self.database):
+        if not isinstance(self.url, str) or not self.url.strip():
+            raise ValueError("3FS ClickHouse url must be a nonempty string")
+        if not isinstance(self.database, str) or not _DATABASE.fullmatch(self.database):
             raise ValueError("3FS ClickHouse database must be an identifier")
+        if self.filters is not None and not isinstance(self.filters, Mapping):
+            raise ValueError("3FS filters must be an object")
+        if any(not isinstance(name, str) for name in self.filters or {}):
+            raise ValueError("3FS filter names must be strings")
         invalid = set(self.filters or {}) - _ALLOWED_3FS_FILTERS
         if invalid:
             raise ValueError(f"unsupported 3FS filters: {sorted(invalid)}")
         if any(not isinstance(value, str) for value in (self.filters or {}).values()):
             raise ValueError("3FS filter values must be strings")
+        if finite(self.timeout) is None or self.timeout <= 0:
+            raise ValueError("3FS timeout must be finite and positive")
+        for name in (self.user_env, self.password_env):
+            if not isinstance(name, str) or not _ENVIRONMENT_NAME.fullmatch(name):
+                raise ValueError("3FS user_env and password_env must be environment variable names")
 
     @staticmethod
     def _literal(value: str) -> str:
@@ -115,8 +130,9 @@ class ThreeFSClient:
     def _query_rows(self, query: str) -> list[dict[str, Any]]:
         params = urlencode({"database": self.database})
         request = Request(self.url.rstrip("/") + "/?" + params, data=query.encode(), method="POST")
-        user = os.environ.get(self.user_env)
-        password = os.environ.get(self.password_env, "")
+        environment = os.environ if self._environment is None else self._environment
+        user = environment.get(self.user_env)
+        password = environment.get(self.password_env, "")
         if user:
             token = base64.b64encode(f"{user}:{password}".encode()).decode()
             request.add_header("Authorization", "Basic " + token)
@@ -265,6 +281,13 @@ def load_config(path: Path) -> dict[str, Any]:
         settle = threefs.get("settle_seconds", 30)
         if type(settle) not in (int, float) or not math.isfinite(settle) or settle < 0:
             raise ValueError("threefs.settle_seconds must be finite and nonnegative")
+        if threefs:
+            # Validate the same fields used by inspection/analysis before any
+            # network request, while preserving an empty optional source.
+            ThreeFSClient(threefs.get("url"), database=threefs.get("database", "3fs"),
+                          filters=threefs.get("filters"), timeout=threefs.get("timeout_seconds", 5),
+                          user_env=threefs.get("user_env", "THREEFS_CLICKHOUSE_USER"),
+                          password_env=threefs.get("password_env", "THREEFS_CLICKHOUSE_PASSWORD"))
     sandbox = config.get("sandbox")
     if sandbox is not None:
         if not isinstance(sandbox, dict) or type(sandbox.get("enabled")) is not bool:

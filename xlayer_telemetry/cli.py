@@ -257,7 +257,8 @@ def execute(args) -> int:
                 raise ConfigError("Set DIAGNOSTICS_CONFIG to query 3FS.")
             from .analysis.diagnostics import load_config as load_diagnosis
             from .subsystems import inspect_threefs
-            result = inspect_threefs(load_diagnosis(Path(config["DIAGNOSTICS_CONFIG"])), seconds=args.window_seconds)
+            result = inspect_threefs(load_diagnosis(Path(config["DIAGNOSTICS_CONFIG"])),
+                                     seconds=args.window_seconds, environment=os.environ | config)
         else:
             result = sources(config)
         if args.json or args.source_action == "threefs":

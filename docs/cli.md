@@ -73,6 +73,9 @@ Config 선택은 `--config` > `XLAYER_CONFIG` > 기본 경로 순서입니다.
 Bash config 안에서 계산한 경로는 그 계산 결과를 명시한 설정으로 취급합니다.
 `config show`는 resolved setting을 JSON으로 보여 주며 workload argument는 공개하지 않습니다.
 Config가 export한 CUDA 설정·backend credential은 child environment로 전달하며 config 출력과 저장된 lifecycle snapshot에는 포함하지 않습니다.
+`sources threefs`도 TOML `[environment]` 또는 trusted Bash `export`의 credential을 사용하며 같은 이름의 terminal 환경 변수가 우선합니다.
+`config validate`는 설정한 3FS의 비어 있지 않은 URL 문자열·database identifier·filter object·credential 환경 변수 이름을 조회 전에 검사합니다.
+Diagnostics JSON에서 `threefs`를 생략하거나 `null`, 빈 object로 두면 optional 미설정 상태를 유지합니다.
 
 ### TOML Configuration
 
