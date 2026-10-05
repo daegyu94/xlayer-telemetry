@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import multiprocessing
+import os
 from pathlib import Path
 import signal
 import threading
@@ -13,6 +14,17 @@ from ..time_alignment import observation_time
 
 
 def _worker(connection, config):
+    owner = multiprocessing.parent_process()
+    if owner is not None:
+        def guard_owner():
+            # Daemon workers are joined only on orderly multiprocessing exit.
+            # A controller killed while this worker is blocked in I/O cannot
+            # perform cleanup. The sentinel also works outside POSIX; PPID
+            # covers a concurrent fork retaining the sentinel write handle.
+            while owner.is_alive() and (os.name != "posix" or os.getppid() == owner.pid):
+                time.sleep(.05)
+            os._exit(125)
+        threading.Thread(target=guard_owner, daemon=True, name="xlayer-analysis-owner").start()
     # The controller handles interruption and owns all report persistence.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     from .diagnostics import DiagnosticEngine, load_history, _prepare_batch
