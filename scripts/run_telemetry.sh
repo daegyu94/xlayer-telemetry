@@ -32,10 +32,48 @@ output_dir="${OUTPUT_DIR:-$HOME/telemetry/state/$role-$(hostname)}"
 mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
 pids=()
+child_is_owned() {
+  local child
+  # Completed jobs can retain a numeric PID after it has been reused. Only
+  # live/stopped children in this shell's job table authorize a signal.
+  for child in $(jobs -pr; jobs -ps); do
+    [[ "$child" != "$1" ]] || return 0
+  done
+  return 1
+}
 cleanup() {
-  trap - EXIT INT TERM
-  for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done
-  for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+  local pid attempt active
+  trap - EXIT
+  trap '' INT TERM
+  for pid in "${pids[@]}"; do
+    if child_is_owned "$pid"; then kill -TERM "$pid" 2>/dev/null || true; fi
+  done
+  # One shared grace period bounds shutdown independently of collector count.
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    active=0
+    for pid in "${pids[@]}"; do child_is_owned "$pid" && active=1; done
+    [[ "$active" != 0 ]] || break
+    sleep .1
+  done
+  for pid in "${pids[@]}"; do
+    if child_is_owned "$pid"; then
+      echo "[telemetry] managed child $pid did not stop; sending KILL" >&2
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+  done
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    active=0
+    for pid in "${pids[@]}"; do child_is_owned "$pid" && active=1; done
+    [[ "$active" != 0 ]] || break
+    sleep .1
+  done
+  for pid in "${pids[@]}"; do
+    if child_is_owned "$pid"; then
+      echo "[telemetry] managed child $pid remains pending after KILL; cleanup incomplete" >&2
+    else
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
   if [[ "$role" == node ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom"; fi
 }
 trap cleanup EXIT

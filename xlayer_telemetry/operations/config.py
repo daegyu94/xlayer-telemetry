@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from importlib import metadata
 import json
 from decimal import Decimal
 import os
@@ -12,7 +13,6 @@ import shlex
 import signal
 import subprocess
 import sys
-import sysconfig
 import tempfile
 from urllib.parse import urlsplit
 
@@ -50,10 +50,27 @@ def assets_root() -> Path:
     checkout = Path(__file__).resolve().parents[2]
     if (checkout / "scripts/verl_local.sh").is_file():
         return checkout
-    installed = Path(sysconfig.get_path("data")) / "share/xlayer-telemetry"
-    if not (installed / "scripts/verl_local.sh").is_file():
-        raise ConfigError("Runtime assets are missing; reinstall xlayer-telemetry.")
-    return installed
+    # Wheel data files use the installation scheme, which can differ from
+    # this interpreter's default prefix (notably pip install --user/--target).
+    # RECORD resolves them relative to the distribution that supplied us.
+    try:
+        distribution = metadata.distribution("xlayer-telemetry")
+    except metadata.PackageNotFoundError:
+        distribution = None
+    if distribution is not None and Path(distribution.locate_file(
+            "xlayer_telemetry/operations/config.py")).resolve() == Path(__file__).resolve():
+        for resource in distribution.files or ():
+            if resource.parts[-4:] == ("share", "xlayer-telemetry", "scripts", "verl_local.sh"):
+                launcher = Path(distribution.locate_file(resource)).resolve()
+                if launcher.is_file():
+                    return launcher.parents[1]
+        # pip --target moves data beside the package but leaves the wheel's
+        # prefix-relative RECORD entries unchanged. Some Python versions omit
+        # these now-missing paths from distribution.files entirely.
+        installed = Path(distribution.locate_file("share/xlayer-telemetry")).resolve()
+        if (installed / "scripts/verl_local.sh").is_file():
+            return installed
+    raise ConfigError("Runtime assets are missing; reinstall xlayer-telemetry.")
 
 
 def config_path(explicit: str | None = None) -> Path:

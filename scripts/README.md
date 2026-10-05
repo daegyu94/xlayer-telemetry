@@ -46,6 +46,7 @@ SDK 설치는 해당 checkout의 telemetry `.venv`에만 적용되며 VERL Pytho
 
 Monitoring 설치에는 `curl`, `tar`, `unzip`, `sha256sum`이 필요합니다.
 중단된 다운로드는 `.part`에 남고 완료된 archive만 교체됩니다.
+Archive와 `.part`의 `.source-url` 기록이 요청한 release URL과 일치할 때만 cache 재사용·중단 지점부터 받기를 수행합니다.
 `downloaded-archives.sha256`은 받은 파일의 digest 기록이며 upstream release checksum과 대조한 결과는 아닙니다.
 Ollama 설치 helper는 별도로 공식 release checksum을 대조합니다.
 

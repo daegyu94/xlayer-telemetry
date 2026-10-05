@@ -26,9 +26,12 @@ mkdir -p "$tools_dir"
 cd "$tools_dir"
 download() {
   local url="$1" destination="$2" saved_hash saved_name expected='' actual
+  # Bind both completed and partial archives to the requested release URL.
+  # Generic filenames alone cannot distinguish architectures or upgrades.
   # Reuse only an archive matching our previous successful download manifest.
   # This validates cache integrity; it is not a publisher signature check.
-  if [[ -f "$destination" && -f downloaded-archives.sha256 ]]; then
+  if [[ -f "$destination" && -f "$destination.source-url" &&
+        "$(< "$destination.source-url")" == "$url" && -f downloaded-archives.sha256 ]]; then
     while read -r saved_hash saved_name; do
       if [[ "${saved_name#./}" == "$destination" && "$saved_hash" =~ ^[a-f0-9]{64}$ ]]; then
         expected="$saved_hash"
@@ -44,8 +47,14 @@ download() {
     fi
   fi
   # Keep a usable archive intact if a new download is interrupted.
+  if [[ -f "$destination.part" ]] &&
+     { [[ ! -f "$destination.part.source-url" ]] || [[ "$(< "$destination.part.source-url")" != "$url" ]]; }; then
+    rm -f "$destination.part"
+  fi
+  printf '%s\n' "$url" > "$destination.part.source-url"
   curl -fL --retry 3 --retry-all-errors --continue-at - --output "$destination.part" "$url"
   mv -f "$destination.part" "$destination"
+  mv -f "$destination.part.source-url" "$destination.source-url"
 }
 download "https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-$release_arch.tar.gz" node_exporter.tar.gz
 tar xzf node_exporter.tar.gz

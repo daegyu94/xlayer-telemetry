@@ -23,7 +23,7 @@ xltel down
 
 `doctor`는 설치 전 누락된 binary와 해결 명령을 표시합니다.
 `install-tools`는 최초 한 번 필요하며 NVIDIA driver·VERL·3FS는 설치하지 않습니다.
-재실행은 기존 manifest의 SHA256과 일치하는 archive를 재사용하며 손상되거나 검증 기록이 없는 archive는 다운로드합니다.
+재실행은 요청한 release URL과 기존 manifest의 SHA256이 모두 일치하는 archive를 재사용하며 architecture·version이 다르거나 손상되거나 검증 기록이 없는 archive는 다운로드합니다.
 이는 local cache의 integrity 검사이며 publisher signature 검증은 아닙니다.
 `xltel`만 실행하면 command 목록과 시작 순서를 보여 줍니다.
 
