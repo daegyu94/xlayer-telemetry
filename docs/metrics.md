@@ -31,7 +31,20 @@ GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 �
 `telemetry_gpu_process_memory_bytes`는 `GPU_PROCESS_METRICS=1`일 때만 수집하는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
 기본값은 `0`이며 PID churn을 상시 Prometheus 시계열에 넣지 않습니다. 짧은 진단에서만 켜고 `GPU_MAX_PROCESSES`(기본 256, 최대 4096)로 snapshot별 행을 제한합니다.
 `telemetry_gpu_process_collection_enabled`와 `telemetry_gpu_process_samples_truncated`로 설정·잘린 행 수를 구분합니다. 이 한도는 보존 기간 전체의 PID churn이나 nvidia-smi 응답 크기 자체의 한도가 아닙니다.
+`telemetry_gpu_process_sample_timestamp_seconds`는 opt-in process memory 관측값이 하나 이상 있을 때만 노출하며, 실제 측정값 `0`과 일부 행 오류가 있어도 남은 유효한 관측은 보존합니다.
+Process 수집 비활성화·전체 실패·관측값 없음에서는 이 시각을 생략하며 device 수집 성공 시각과 독립적으로 freshness를 판단합니다.
+Compute & Communication의 process-memory panel은 이 시각을 우선하고, 이 metric이 없는 이전 collector·저장된 data에서만 device 시각으로 대체합니다.
+Process 시각이 존재하지만 stale이면 fresh device 시각으로 우회하지 않으며, 두 경로 모두 기존 node·instance·GPU selector와 30초 freshness 조건을 유지합니다.
 Device memory와 process memory를 합산하거나 run 소유량으로 해석하지 않습니다.
+
+`telemetry_gpu_collection_success`는 가장 최근 device 수집의 성공 여부이며 GPU 수집 설정과 별개입니다.
+`nvidia-smi` 실행·timeout·응답 decoding 실패는 JSONL의 `collection_success=false`와 `collection_error`에 기록하고 기존 interval 뒤에 재시도합니다.
+명령이 정상 종료해도 유효한 identity를 가진 device 관측값이 없으면 `no_device_observations`로 기록하고 성공 시각을 노출하지 않으며, 별도 process query에서 얻은 유효한 opt-in 관측은 보존합니다.
+실패 기록의 `timestamp`는 시도 시각이며, `gpu.prom`은 health 값으로 atomic 교체하여 이전 GPU·PID 값과 `telemetry_gpu_sample_timestamp_seconds`를 제거합니다.
+수집이 복구되면 성공 시각과 관측값을 다시 노출하며, 일시적인 GPU 장애로 Node Exporter를 종료하지 않습니다.
+JSONL에 함께 저장하는 선택적 `/proc/meminfo`는 읽을 수 있는 field만 보존하고 누락·잘못된 값은 생략합니다.
+`host_memory_collection_success`, `host_memory_unavailable_fields`, `host_memory_error`와 `telemetry_gpu_host_memory_collection_success`로 이 상태를 구분하며, host-memory 실패는 유효한 GPU 관측을 버리지 않습니다.
+이 health 값은 Node Exporter의 native host-memory metric을 대체하지 않으며, 설정·출력 파일 오류는 계속 실패로 처리합니다.
 
 Sandbox pool의 `sandbox_active`, `sandbox_queued`, create/reset latency는 runtime이 제공해야 하는 optional contract입니다.
 Docker를 실행했다는 이유만으로 이 값이 자동 생성되지는 않습니다.

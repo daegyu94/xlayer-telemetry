@@ -554,6 +554,9 @@ def test_dashboards_keep_matrix_and_freshness_scopes_separate() -> None:
                     assert "and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank)" in expr
                 if "telemetry_gpu_" in expr and "sample age" not in panel["title"].lower():
                     assert "telemetry_gpu_sample_timestamp_seconds" in expr
+                    if "telemetry_gpu_process_memory_bytes" in expr:
+                        assert "telemetry_gpu_process_sample_timestamp_seconds" in expr
+                        assert "unless on(cluster, instance) telemetry_gpu_process_sample_timestamp_seconds" in expr
                     assert "< 30" in expr
             if panel["title"] == "GPU allocation matrix":
                 expr = panel["targets"][0]["expr"]

@@ -269,7 +269,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) or on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) unless on(cluster, instance) telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}))",
           "legendFormat": "{{instance}} GPU {{gpu}} PID {{pid}}"
         },
         {

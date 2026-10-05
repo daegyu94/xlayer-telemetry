@@ -14,6 +14,9 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, write_gauges
 from xlayer_telemetry.time_alignment import CalibrationCache, sample_time
 
 
+COLLECTION_ERRORS = (OSError, subprocess.SubprocessError, UnicodeError, csv.Error)
+
+
 def optional_number(value: str) -> float | None:
     try:
         result = float(value.strip())
@@ -28,6 +31,37 @@ def query(kind: str, fields: list[str]) -> list[list[str]]:
         check=True, text=True, capture_output=True, timeout=10,
     )
     return list(csv.reader(result.stdout.splitlines(), skipinitialspace=True))
+
+
+def host_memory() -> dict:
+    """Keep valid optional meminfo fields independent of GPU collection."""
+    fields = ("MemTotal", "MemAvailable", "MemFree", "Buffers", "Cached", "SwapTotal", "SwapFree")
+    memory = {}
+    error = None
+    try:
+        lines = Path("/proc/meminfo").read_text().splitlines()
+    except (OSError, UnicodeError) as exc:
+        lines = []
+        error = type(exc).__name__
+    for line in lines:
+        key, separator, raw = line.partition(":")
+        if not separator or key not in fields:
+            continue
+        parts = raw.split()
+        try:
+            if len(parts) != 2 or parts[1] != "kB":
+                continue
+            value = int(parts[0])
+            if value >= 0:
+                memory[key + "_bytes"] = value * 1024
+        except ValueError:
+            continue
+    unavailable = [key + "_bytes" for key in fields if key + "_bytes" not in memory]
+    if unavailable and error is None:
+        error = "invalid_or_missing_fields"
+    return {"host_memory": memory, "host_memory_collection_success": not unavailable,
+            "host_memory_unavailable_fields": unavailable,
+            **({"host_memory_error": error} if error else {})}
 
 
 def snapshot(*, include_processes: bool = False, max_processes: int = 256) -> dict:
@@ -65,14 +99,14 @@ def snapshot(*, include_processes: bool = False, max_processes: int = 256) -> di
                                       "used_gpu_memory_mib": optional_number(row[3])})
                 except (IndexError, ValueError):
                     process_error = "invalid_compute_process_row"
-        except (OSError, subprocess.SubprocessError) as exc:
+        except COLLECTION_ERRORS as exc:
             process_error = type(exc).__name__
-    memory = {}
-    for line in Path("/proc/meminfo").read_text().splitlines():
-        key, value = line.split(":", 1)
-        if key in {"MemTotal", "MemAvailable", "MemFree", "Buffers", "Cached", "SwapTotal", "SwapFree"}:
-            memory[key + "_bytes"] = int(value.split()[0]) * 1024
-    return {"timestamp": time.time(), "hostname": socket.gethostname(), "host_memory": memory,
+    # An exit-zero command with no identified device measurements is not fresh
+    # device evidence. Independently observed process memory can still be kept.
+    success = any(gpu[field] is not None for gpu in gpus for field in fields[1:])
+    return {"timestamp": time.time(), "hostname": socket.gethostname(), **host_memory(),
+            "collection_success": success,
+            **({"collection_error": "no_device_observations"} if not success else {}),
             "gpus": gpus, "compute_processes": processes,
             "compute_processes_enabled": include_processes,
             "compute_processes_truncated": process_truncated,
@@ -106,18 +140,39 @@ def main():
     calibration = CalibrationCache.from_env(os.environ.get("TELEMETRY_NODE") or os.environ.get("NODE_NAME") or socket.gethostname())
     with args.output.open("x") as output:
         while deadline is None or time.monotonic() < deadline:
-            value = snapshot(include_processes=args.process_metrics, max_processes=args.max_processes)
+            try:
+                value = snapshot(include_processes=args.process_metrics, max_processes=args.max_processes)
+            except COLLECTION_ERRORS as exc:
+                # A transient source failure must not stop healthy sibling collectors.
+                # Keep configuration and output errors fatal; do not log raw command output.
+                value = {"timestamp": time.time(), "hostname": socket.gethostname(),
+                         "collection_success": False, "collection_error": type(exc).__name__,
+                         "gpus": [], "compute_processes": [],
+                         "compute_processes_enabled": args.process_metrics}
             if calibration is not None:
                 value["time_alignment"] = calibration.project(value["timestamp"], value["timestamp"])["time_alignment"]
             output.write(json.dumps(value) + "\n")
             output.flush()
             if args.textfile_dir:
-                timestamp = sample_time(value, key="timestamp")
+                success = value.get("collection_success", True)
+                observed_at = sample_time(value, key="timestamp")
+                timestamp = observed_at if success else None
                 samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", timestamp)] if timestamp is not None else []
+                if (args.process_metrics and observed_at is not None
+                        and any(process["used_gpu_memory_mib"] is not None for process in value["compute_processes"])):
+                    samples.append(GaugeSample("telemetry_gpu_process_sample_timestamp_seconds",
+                                               "Last observed opt-in GPU process memory sample.", observed_at))
+                samples.append(GaugeSample("telemetry_gpu_collection_success",
+                                           "Whether the latest GPU device collection succeeded.", int(success)))
+                if "host_memory_collection_success" in value:
+                    samples.append(GaugeSample("telemetry_gpu_host_memory_collection_success",
+                                               "Whether all optional host-memory fields were collected.",
+                                               int(value["host_memory_collection_success"])))
                 samples.append(GaugeSample("telemetry_gpu_process_collection_enabled",
                                            "Whether per-PID GPU memory diagnostics are enabled.",
                                            int(args.process_metrics)))
-                if args.process_metrics and not value.get("compute_processes_error"):
+                if (args.process_metrics and "compute_processes_truncated" in value
+                        and not value.get("compute_processes_error")):
                     samples.append(GaugeSample("telemetry_gpu_process_samples_truncated",
                                                "Process rows omitted by the per-sample diagnostic cap.",
                                                value.get("compute_processes_truncated", 0)))
@@ -147,6 +202,8 @@ def main():
                             process["used_gpu_memory_mib"] * 1024**2,
                             labels,
                         ))
+                # Replace on failure too, removing stale device/PID samples and the
+                # successful-sample timestamp rather than making old evidence fresh.
                 write_gauges(args.textfile_dir, "gpu.prom", samples)
             sleep_seconds = args.interval
             if deadline is not None:

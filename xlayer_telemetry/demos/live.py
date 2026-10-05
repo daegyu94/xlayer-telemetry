@@ -108,6 +108,9 @@ class Demo:
             GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Synthetic GPU sample timestamp.", time.time()),
             GaugeSample("live_demo_phase_info", "Current synthetic demo phase.", 1, {"phase": phase}),
         ]
+        if self.gpu["gpus_per_node"] > 0:
+            samples.append(GaugeSample("telemetry_gpu_process_sample_timestamp_seconds",
+                                       "Synthetic GPU process memory sample timestamp.", time.time()))
         samples.extend(self._host(node, now, value))
         samples.extend(self._disk_pressure(node, "nvme0n1", now, value))
         samples.extend(self._filesystem_health())
