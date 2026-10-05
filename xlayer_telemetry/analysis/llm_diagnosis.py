@@ -15,7 +15,7 @@ import tempfile
 import time
 from typing import Any
 
-from ..prometheus import PrometheusClient
+from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
 from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, validate_quality

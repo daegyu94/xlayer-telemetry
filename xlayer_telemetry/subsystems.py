@@ -80,7 +80,7 @@ def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
 def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = None) -> dict:
     if not math.isfinite(seconds) or not 0 < seconds <= 86400:
         raise ValueError('window must be between 0 and 86400 seconds')
-    from .analysis.diagnostics import ThreeFSClient
+    from .analysis.diagnostics import _DeadlineThreeFSClient as ThreeFSClient
     settings = config.get('threefs')
     if not settings:
         return {'status': 'not_configured'}

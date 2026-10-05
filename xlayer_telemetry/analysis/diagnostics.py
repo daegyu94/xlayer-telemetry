@@ -17,7 +17,9 @@ import statistics
 import time
 from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener
+
+from .._http_redirects import _CredentialSafeRedirectHandler
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline, validate_baseline_policy, workload_matches
 from .clock_quality import assess_interval
@@ -30,6 +32,9 @@ from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
+
+# Keep the existing local opener hook while bounding credential redirects.
+urlopen = build_opener(_CredentialSafeRedirectHandler()).open
 
 DEFAULT_QUERIES = {
     "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
@@ -115,6 +120,14 @@ class ThreeFSClient:
         if user:
             token = base64.b64encode(f"{user}:{password}".encode()).decode()
             request.add_header("Authorization", "Basic " + token)
+        body = self._read_body(request)
+        rows = [json.loads(line) for line in body.splitlines() if line.strip()]
+        if any(not isinstance(row, dict) or not isinstance(row.get("metricName"), str) for row in rows):
+            raise ValueError("invalid ClickHouse metric row")
+        return rows
+
+    def _read_body(self, request: Request) -> bytes:
+        # Rule analysis already has an outer process/deadline boundary.
         response_limit = 8 * 1024 * 1024
         try:
             with urlopen(request, timeout=self.timeout) as response:
@@ -123,10 +136,7 @@ class ThreeFSClient:
             raise ConnectionError("ClickHouse response transport failed") from None
         if len(body) > response_limit:
             raise ValueError("ClickHouse response exceeds 8 MiB limit; narrow source filters")
-        rows = [json.loads(line) for line in body.splitlines() if line.strip()]
-        if any(not isinstance(row, dict) or not isinstance(row.get("metricName"), str) for row in rows):
-            raise ValueError("invalid ClickHouse metric row")
-        return rows
+        return body
 
     @staticmethod
     def _number(value, key, *, integer=False, nonnegative=False):
@@ -199,6 +209,19 @@ class ThreeFSClient:
                    for key in ("sample_count", "min", "max", "last", "first_observed_at", "last_observed_at")},
             })
         return result
+
+
+class _DeadlineThreeFSClient(ThreeFSClient):
+    """Bound standalone inspection without nesting workers in rule analysis."""
+
+    def _read_body(self, request: Request) -> bytes:
+        from .._http_transport import _ResponseTooLarge, request_bytes
+
+        try:
+            return request_bytes(request.full_url, None, self.timeout,
+                                 data=request.data, headers=dict(request.header_items()))
+        except _ResponseTooLarge:
+            raise ValueError("ClickHouse response exceeds 8 MiB limit; narrow source filters") from None
 
 
 def load_config(path: Path) -> dict[str, Any]:

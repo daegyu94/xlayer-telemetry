@@ -149,6 +149,9 @@ Docker·systemd로 따로 시작한 server가 응답하더라도 `xltel down`은
 Collector와 native source는 한 번의 target 조회를 공유합니다.
 Optional source 파일이 잘못되면 `invalid_config`와 수정 명령을 표시하면서 core 상태 조회 결과를 유지하고, `config validate`는 해당 설정을 거부합니다.
 3FS는 `sources threefs`로 직접 조회하며 `status`는 ClickHouse query를 자동 실행하지 않습니다.
+`threefs.timeout_seconds`는 distribution·counter 각각의 요청에서 DNS·HTTP header·전체 body 수신을 제한하며, worker 정리에는 별도로 최대 0.4초를 사용합니다.
+인증 정보를 보낸 ClickHouse 요청은 scheme·host·port가 바뀌는 redirect를 거부하므로, 설정에는 최종 endpoint를 사용합니다.
+Counter 조회가 실패해도 이미 받은 distribution 결과는 보존하고 `missing_sources`에 누락을 남깁니다.
 
 ```bash
 xltel status --json

@@ -1,4 +1,4 @@
-"""Private, bounded one-request transport for HTTP health and Ollama clients.
+"""Private, bounded one-request transport for direct HTTP clients.
 
 A subprocess keeps DNS, HTTP headers and trickling response bodies cancellable
 without requiring multiprocessing's safe-main convention from library callers.
@@ -7,16 +7,20 @@ contains only the deadline and owner PID needed to guard a blocked stdin read.
 """
 from __future__ import annotations
 
+import base64
 from http.client import HTTPException
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request, build_opener
+
+from ._http_redirects import _CredentialSafeRedirectHandler
 
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -25,6 +29,7 @@ _MAX_STATUS_BYTES = 8192
 _UNREAPED: list[subprocess.Popen] = []
 _UNREAPED_LOCK = threading.Lock()
 _STATE_PID = os.getpid()
+_HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 
 
 class _ResponseTooLarge(RuntimeError):
@@ -38,7 +43,7 @@ def _check_complete(response) -> None:
         raise ConnectionError("Incomplete HTTP response")
 
 
-class _BoundedRedirectHandler(HTTPRedirectHandler):
+class _BoundedRedirectHandler(_CredentialSafeRedirectHandler):
     def __init__(self, max_response_bytes: int):
         self.max_response_bytes = max_response_bytes
         super().__init__()
@@ -92,8 +97,23 @@ def request_json(url: str, payload: dict | None, timeout: float):
     return result
 
 
+def _validate_headers(headers: dict[str, str] | None) -> dict[str, str]:
+    if headers is None:
+        return {}
+    if not isinstance(headers, dict) or any(
+        not isinstance(name, str) or not _HEADER_NAME.fullmatch(name)
+        or not isinstance(value, str)
+        or any((ord(char) < 32 and char != "\t") or 127 <= ord(char) < 160
+               or ord(char) > 255 for char in value)
+        for name, value in headers.items()
+    ):
+        raise ValueError("Invalid HTTP request headers")
+    return headers
+
+
 def request_bytes(url: str, payload: dict | None, timeout: float, *,
-                  max_response_bytes: int = MAX_RESPONSE_BYTES) -> bytes:
+                  max_response_bytes: int = MAX_RESPONSE_BYTES,
+                  data: bytes | None = None, headers: dict[str, str] | None = None) -> bytes:
     """Bound DNS, headers, redirects and the complete body by one deadline."""
     global _STATE_PID, _UNREAPED, _UNREAPED_LOCK
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
@@ -109,7 +129,16 @@ def request_bytes(url: str, payload: dict | None, timeout: float, *,
         _UNREAPED[:] = [process for process in _UNREAPED if process.poll() is None]
         if _UNREAPED:
             raise RuntimeError("Previous HTTP transport worker has not exited; no replacement started")
+    if data is not None and (not isinstance(data, bytes) or payload is not None):
+        raise ValueError("HTTP request needs either a JSON payload or raw bytes")
+    if data is not None and len(data) > _MAX_REQUEST_BYTES:
+        raise ValueError("HTTP transport request exceeds 256 KiB limit")
+    checked_headers = _validate_headers(headers)
     request = {"url": url, "payload": payload}
+    if data is not None:
+        request["data"] = base64.b64encode(data).decode("ascii")
+    if checked_headers:
+        request["headers"] = checked_headers
     if max_response_bytes != MAX_RESPONSE_BYTES:
         request["max_response_bytes"] = max_response_bytes
     command = json.dumps(request, allow_nan=False).encode()
@@ -190,10 +219,16 @@ def _main() -> None:
         if type(max_response_bytes) is not int or not 0 < max_response_bytes <= MAX_RESPONSE_BYTES:
             raise ValueError("Invalid HTTP response byte limit")
         payload = request["payload"]
-        http_request = Request(request["url"],
-                               data=json.dumps(payload, allow_nan=False).encode() if payload is not None else None,
-                               headers={"Content-Type": "application/json"} if payload is not None else {},
-                               method="POST" if payload is not None else "GET")
+        data = request.get("data")
+        if data is not None and (not isinstance(data, str) or payload is not None):
+            raise ValueError("Invalid HTTP request body")
+        data = base64.b64decode(data, validate=True) if data is not None else None
+        headers = _validate_headers(request.get("headers"))
+        if payload is not None:
+            data = json.dumps(payload, allow_nan=False).encode()
+            headers = {"Content-Type": "application/json", **headers}
+        http_request = Request(request["url"], data=data, headers=headers,
+                               method="POST" if data is not None else "GET")
         with build_opener(_BoundedRedirectHandler(max_response_bytes)).open(http_request, timeout=remaining) as response:
             body = response.read(max_response_bytes + 1)
             if len(body) > max_response_bytes:

@@ -131,16 +131,32 @@ class PrometheusClient:
     url: str
     timeout: float = 5.0
 
+    def _load_payload(self, request: Request) -> Any:
+        # Rule analysis already has an outer process/deadline boundary.
+        return _read_json(request, self.timeout)
+
     def query_range(self, query: str, start: float, end: float, step: float) -> dict[str, float | None] | None:
         return self.query_range_detail(query, start, end, step)['aggregate']
 
     def query_range_detail(self, query: str, start: float, end: float, step: float) -> dict[str, Any]:
         params = urlencode({'query': query, 'start': start, 'end': end, 'step': step})
         request = Request(self.url.rstrip('/') + '/api/v1/query_range?' + params)
-        series, result_quality = _range_result(_read_json(request, self.timeout))
+        series, result_quality = _range_result(self._load_payload(request))
         return {'aggregate': series_stats(series), 'result_quality': result_quality, 'series': [
             {'labels': item['labels'], 'stats': series_stats([item]),
              **({'source_timestamps': [value for _, value in item['points']]}
                 if query.startswith('timestamp(') else {})}
             for item in series
         ]}
+
+
+class _DeadlinePrometheusClient(PrometheusClient):
+    """Use the cancellable transport only for unisolated direct collection."""
+
+    def _load_payload(self, request: Request) -> Any:
+        from ._http_transport import _ResponseTooLarge, request_json
+
+        try:
+            return request_json(request.full_url, None, self.timeout)
+        except _ResponseTooLarge:
+            raise RuntimeError("Prometheus response exceeds the 8 MiB limit; narrow query scope") from None

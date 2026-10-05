@@ -89,6 +89,10 @@ Collector는 series의 전체 label을 보존하고 label이 같은 경우에만
 `kind: "counter"`는 reset을 고려한 표본 간 증가량을 추가하며 Prometheus의 extrapolation을 적용하지 않습니다.
 Source 누락, baseline 부재, query 실패는 명시적으로 남기고 rule evaluator는 호출하지 않습니다.
 
+Source config의 `timeout_seconds`는 각 Prometheus 요청의 DNS·HTTP header·전체 body 수신을 제한하며, 시간 초과는 `missing_sources`에 남깁니다.
+중단된 요청의 worker 정리에는 별도로 최대 0.4초를 사용합니다.
+이는 packet 전체의 deadline은 아니며 query·baseline·clock·freshness 요청마다 적용됩니다.
+
 모델이 읽을 입력을 먼저 확인하고 보존하려면 `--collect-only`를 사용합니다.
 
 ```bash
