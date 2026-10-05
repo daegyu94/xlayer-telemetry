@@ -285,7 +285,9 @@ def load_history(path: Path, *, cache: JSONLCache | None = None) -> list[dict[st
 
 def tool_span_window(directory: Path, run_id: str, start: float, end: float,
                      *, tool_name: str | None = None, cache: JSONLCache | None = None,
-                     reference_id: str | None = None) -> dict[str, Any] | None:
+                     reference_id: str | None = None,
+                     reference_session: str | None = None,
+                     entity_labels: Mapping[str, str] | None = None) -> dict[str, Any] | None:
     """Use completed tool spans fully inside an analysis interval.
 
     A VERL step interval can be approximate. Time overlap supplies correlation,
@@ -294,6 +296,12 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
     longest: dict[str, Any] | None = None
     max_duration: float | None = None
     count = 0
+    identity_fields = ("run_id", "node", "worker_id", "role", "producer", "rank", "local_rank", "gpu")
+
+    def labels(item):
+        return {**{key: str(item[key]) for key in identity_fields if item.get(key) is not None},
+                "tool": item["attributes"]["tool"]}
+
     try:
         # Producer names identify ownership, not event semantics. External
         # adapters may use any SDK producer name for the same tool.call span.
@@ -316,7 +324,9 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
                     continue
                 if tool_name is not None and attributes["tool"] != tool_name:
                     continue
-                began, finished = event_window(item, reference_id=reference_id)
+                if entity_labels is not None and labels(item) != entity_labels:
+                    continue
+                began, finished = event_window(item, reference_id=reference_id, reference_session=reference_session)
                 duration = finite(item.get("duration_seconds"))
                 if (began is not None and finished is not None and duration is not None
                         and duration >= 0 and start <= began
@@ -329,9 +339,14 @@ def tool_span_window(directory: Path, run_id: str, start: float, end: float,
             continue
     if longest is None:
         return None
+    began, finished = event_window(longest, reference_id=reference_id, reference_session=reference_session)
     return {"max": max_duration,
             "sample_count": count,
             "tool": longest["attributes"]["tool"],
+            "labels": labels(longest),
+            "window": {"start": began, "end": finished,
+                       "accuracy": longest.get("boundary_accuracy", "unknown"), "source": "event_span",
+                       **({"time_alignment": longest["time_alignment"]} if "time_alignment" in longest else {})},
             "boundary_accuracy": longest.get("boundary_accuracy", "unknown"),
             "related_span": f"{longest['trace_id']}:{longest['span_id']}"}
 
@@ -593,18 +608,23 @@ class DiagnosticEngine:
             sandbox_device_mapping = device_window(Path(sandbox_config["events_dir"]), run_id, sandbox_node,
                                                   float(start), end, sandbox_config.get("device_major_minor"),
                                                   reference_id=clock_config.get("calibration_reference"),
+                                                  reference_session=alignment_metadata(window).get("reference_session"),
                                                   reader=self.jsonl_cache.read if self.jsonl_cache is not None else None)
         tool_event_span = None
+        tool_event = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir") and current:
             directory = Path(sandbox_config["events_dir"])
             tool_event = tool_span_window(directory, run_id, float(start), end, cache=self.jsonl_cache,
-                                         reference_id=clock_config.get("calibration_reference"))
+                                         reference_id=clock_config.get("calibration_reference"),
+                                         reference_session=alignment_metadata(window).get("reference_session"))
             if tool_event is not None:
                 evidence["tool_duration_seconds"] = tool_event
                 tool_event_span = tool_event["related_span"]
                 executed_queries.pop("tool_duration_seconds", None)
                 # A completed event span is not a Prometheus query evaluation.
                 sampling_quality.pop("tool_duration_seconds", None)
+                current_series.pop("tool_duration_seconds", None)
+                baseline_series.pop("tool_duration_seconds", None)
                 missing = [item for item in missing
                            if not item.startswith("prometheus:tool_duration_seconds")]
                 baseline_metrics.pop("tool_duration_seconds", None)
@@ -614,26 +634,30 @@ class DiagnosticEngine:
                         directory, run_id, float(baseline_window["start"]),
                         float(baseline_window["end"]), tool_name=tool_event["tool"], cache=self.jsonl_cache,
                         reference_id=clock_config.get("calibration_reference"),
+                        reference_session=alignment_metadata(baseline_window).get("reference_session"),
+                        entity_labels=tool_event["labels"],
                     )
                     if previous_tool is not None:
                         baseline_metrics["tool_duration_seconds"] = previous_tool
 
         threefs_rows: list[dict[str, Any]] = []
         threefs_baseline: list[dict[str, Any]] = []
+        current_3fs_samples = False
         if threefs is not None:
             try:
                 duration = end - float(start)
                 threefs_rows = threefs.query_window(float(start), end)
                 if threefs_rows:
                     evidence["threefs_distributions"] = threefs_rows
-                else:
+                current_3fs_samples = any((finite(row.get("count")) or 0) > 0 for row in threefs_rows)
+                if not current_3fs_samples:
                     missing.append("threefs:no_data")
                 baseline_start = float(baseline_window["start"]) if baseline_window_valid else float(start) - duration
                 baseline_end = float(baseline_window["end"]) if baseline_window_valid else float(start)
                 threefs_baseline = threefs.query_window(baseline_start, baseline_end)
                 if threefs_baseline:
                     evidence["threefs_baseline_distributions"] = threefs_baseline
-                elif baseline_window_valid:
+                if baseline_window_valid and not any((finite(row.get("count")) or 0) > 0 for row in threefs_baseline):
                     missing.append("threefs:baseline_no_data")
             except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
                 missing.append(f"threefs:{type(exc).__name__}")
@@ -644,6 +668,8 @@ class DiagnosticEngine:
             ("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name): dict(items[0].get("labels", {}))
             for name, items in current_series.items() if len(items) == 1
         }
+        if tool_event is not None:
+            signal_labels["tool_duration_seconds"] = tool_event["labels"]
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
         vllm_names = ("vllm_requests_waiting", "vllm_kv_cache_usage", "vllm_preemptions_total")
         identity_keys = ("cluster", "node", "instance", "component", "engine", "engine_id", "model_name", "model")
@@ -885,6 +911,8 @@ class DiagnosticEngine:
                      "queries": signal_queries,
                      "signal_labels": signal_labels,
                      "signal_scopes": signal_scopes,
+                     "signal_windows": {"tool_duration_seconds": tool_event["window"]} if tool_event is not None else {},
+                     "signal_boundary_accuracy": {"tool_duration_seconds": tool_event["boundary_accuracy"]} if tool_event is not None else {},
                      "participant_durations_seconds": (current or {}).get("participant_durations_seconds", {})},
         ) if current else []
         unsafe_timing = (clock_quality["status"] not in {"aligned", "unchecked"}
@@ -926,9 +954,15 @@ class DiagnosticEngine:
         for candidate in candidates:
             if candidate["id"] == "gpu_memory_pressure" and "gpu:memory_entity_match" in missing:
                 candidate["missing_evidence"].append("gpu_memory_entity_match")
-            for item in candidate.get("evidence", []):
+            if candidate["id"] == "sandbox_local_storage_pressure" and tool_event is not None:
+                candidate["missing_evidence"].append("tool_sandbox_resource_attribution")
+            for item in candidate.get("evidence", []) + candidate.get("counter_evidence", []):
                 name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
                 item["sampling_quality"] = sampling_quality.get(name)
+                if item["signal"] in PROFILE_SIGNALS:
+                    spec = PROFILE_SIGNALS[item["signal"]]
+                    item.update(unit=spec.unit, window_statistic=spec.statistic,
+                                query=signal_queries.get(item["signal"]))
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
@@ -936,7 +970,9 @@ class DiagnosticEngine:
                 row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
                 row["query"] = signal_queries.get(row["signal"])
                 row["window_statistic"] = PROFILE_SIGNALS[row["signal"]].statistic
-        external_count = len(evidence) - 1
+        # Raw empty distributions and an observed baseline cannot establish
+        # that the current resource interval was measured.
+        external_count = len(set(evidence) - {"slow_stages", "threefs_distributions", "threefs_baseline_distributions"}) + int(current_3fs_samples)
         verdict = "bottleneck_suspected" if findings or candidates else "no_anomaly_observed"
         if unsafe_timing:
             verdict = "insufficient_data"
@@ -1103,9 +1139,15 @@ class DiagnosticEngine:
         elevated = []
         for row in latency_rows:
             baseline = baseline_by_name.get(str(row.get("metricName")), {})
-            current_p99 = float(row.get("max_observed_p99", 0) or 0)
-            baseline_p99 = float(baseline.get("max_observed_p99", 0) or 0)
-            ratio = current_p99 / baseline_p99 if baseline_p99 > 0 else 0.0
+            counts = [finite(item.get("count")) for item in (row, baseline)]
+            current_p99 = finite(row.get("max_observed_p99"))
+            baseline_p99 = finite(baseline.get("max_observed_p99"))
+            # Distribution cells without sampled operations are not latency
+            # observations, even when the backend returns a retained p99 value.
+            if (any(count is None or count <= 0 for count in counts)
+                    or current_p99 is None or baseline_p99 is None or baseline_p99 <= 0):
+                continue
+            ratio = current_p99 / baseline_p99
             if ratio >= self.thresholds["threefs_latency_slowdown_ratio"]:
                 elevated.append({**row, "baseline_max_observed_p99": baseline_p99, "ratio": ratio})
         if elevated:
@@ -1239,6 +1281,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                              "current": item.get("value"), "baseline": item.get("baseline"),
                              "observation_scope": item.get("observation_scope"),
                              "source": item.get("source"),
+                             "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
+                             "query": item.get("query"),
                              "entity": ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items()),
                              "sampling_quality": json.dumps(item.get("sampling_quality"), separators=(",", ":")),
                              **quality_fields(item.get("sampling_quality"))})
@@ -1256,6 +1300,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "entity": ",".join(f"{key}={value}" for key, value in signal.get("labels", {}).items()),
                      "current": signal["current"],
                      "baseline": signal["baseline"], "delta_percent": signal["delta_percent"],
+                     "unit": signal.get("unit"), "window_statistic": signal.get("window_statistic"),
+                     "query": signal.get("query"),
                      "sampling_quality": json.dumps(signal.get("sampling_quality"), separators=(",", ":")),
                      **quality_fields(signal.get("sampling_quality"))})
     return rows

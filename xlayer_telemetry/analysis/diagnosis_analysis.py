@@ -202,8 +202,8 @@ def evaluate_rules(
             "labels": labels_for(name),
             "source": context.get("sources", {}).get(name, "workload"),
             "query": context.get("queries", {}).get(name),
-            "window": context.get("window"),
-            "boundary_accuracy": context.get("boundary_accuracy", "unknown"),
+            "window": context.get("signal_windows", {}).get(name, context.get("window")),
+            "boundary_accuracy": context.get("signal_boundary_accuracy", {}).get(name, context.get("boundary_accuracy", "unknown")),
         } for name in observed]
         gpu_signal = "gpu_memory_usage_ratio" if identifier == "gpu_memory_pressure" else "gpu_utilization_percent"
         gpu_label = labels_for(gpu_signal).get("gpu") or labels_for(gpu_signal).get("gpu_uuid")
@@ -222,7 +222,7 @@ def evaluate_rules(
             "counter_evidence": [{"signal": name, "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
             "missing_evidence": missing,
             "observation_scope": scope,
-            "related_nodes": list((related or {}).get("nodes", [])) or observed_nodes or ([fallback_node] if fallback_node else []),
+            "related_nodes": sorted(set((related or {}).get("nodes", [])) | set(observed_nodes)) or ([fallback_node] if fallback_node else []),
             "related_devices": related_devices,
             "related_spans": list((related or {}).get("spans", [])) or list(context.get("related_spans", [])),
         })

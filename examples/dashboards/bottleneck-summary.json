@@ -1128,19 +1128,21 @@
               "current": 1,
               "baseline": 2,
               "delta_percent": 3,
-              "observation_scope": 4,
-              "workload_comparability": 5,
-              "entity": 6,
-              "cluster": 7,
-              "step": 8,
-              "baseline_record_id": 9,
-              "diagnosis_method": 10,
-              "generated_at": 11,
-              "query_step_seconds": 12,
-              "range_window_seconds": 13,
-              "evaluation_count": 14,
-              "source_age_seconds": 15,
-              "quality_warnings": 16
+              "unit": 4,
+              "window_statistic": 5,
+              "observation_scope": 6,
+              "workload_comparability": 7,
+              "entity": 8,
+              "cluster": 9,
+              "step": 10,
+              "baseline_record_id": 11,
+              "diagnosis_method": 12,
+              "generated_at": 13,
+              "query_step_seconds": 14,
+              "range_window_seconds": 15,
+              "evaluation_count": 16,
+              "source_age_seconds": 17,
+              "quality_warnings": 18
             },
             "renameByName": {}
           }
@@ -1745,6 +1747,58 @@
               {
                 "id": "custom.width",
                 "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Unit"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Statistic"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
               }
             ]
           }
@@ -2676,23 +2730,25 @@
           "options": {
             "excludeByName": {},
             "indexByName": {
+              "cluster": 0,
               "candidate_id": 1,
               "evidence_type": 2,
               "signal": 3,
               "current": 4,
               "baseline": 5,
-              "observation_scope": 6,
-              "entity": 7,
-              "source": 8,
-              "diagnosis_method": 9,
-              "generated_at": 10,
-              "workload_comparability": 11,
-              "query_step_seconds": 12,
-              "range_window_seconds": 13,
-              "evaluation_count": 14,
-              "source_age_seconds": 15,
-              "quality_warnings": 16,
-              "cluster": 0
+              "unit": 6,
+              "window_statistic": 7,
+              "observation_scope": 8,
+              "entity": 9,
+              "source": 10,
+              "diagnosis_method": 11,
+              "generated_at": 12,
+              "workload_comparability": 13,
+              "query_step_seconds": 14,
+              "range_window_seconds": 15,
+              "evaluation_count": 16,
+              "source_age_seconds": 17,
+              "quality_warnings": 18
             },
             "renameByName": {}
           }
@@ -3456,6 +3512,58 @@
               {
                 "id": "custom.width",
                 "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Unit"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              },
+              {
+                "id": "displayName",
+                "value": "Statistic"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "query"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
               }
             ]
           }

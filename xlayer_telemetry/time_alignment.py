@@ -182,7 +182,8 @@ def validate_alignment(window: dict, reference_id: str | None, *, max_uncertaint
         return {'status': 'unknown', 'method': 'four_timestamp', 'issue': 'invalid_or_unavailable_time_mapping'}
 
 
-def event_window(record: dict, *, reference_id: str | None = None) -> tuple[float | None, float | None]:
+def event_window(record: dict, *, reference_id: str | None = None,
+                 reference_session: str | None = None) -> tuple[float | None, float | None]:
     """Shared event query window; mismatched/unknown mapping is never local time."""
     start = finite_number(record.get('start_time_unix_nano', record.get('timestamp_unix_nano')))
     end = finite_number(record.get('end_time_unix_nano', start))
@@ -191,6 +192,8 @@ def event_window(record: dict, *, reference_id: str | None = None) -> tuple[floa
     if 'time_alignment' in record:
         alignment = record['time_alignment']
         if not isinstance(alignment, dict) or alignment.get('node') != record.get('node'):
+            return None, None
+        if reference_session is not None and alignment.get('reference_session') != reference_session:
             return None, None
         raw = alignment.get('raw_window', {})
         if not isinstance(raw, dict) or raw.get('start') != start/1e9 or raw.get('end') != end/1e9:
@@ -204,7 +207,7 @@ def event_window(record: dict, *, reference_id: str | None = None) -> tuple[floa
             return None, None
         return window['start'], window['end']
     # In a calibrated investigation, an uncalibrated remote event cannot be joined.
-    return (None, None) if reference_id else (start/1e9, end/1e9)
+    return (None, None) if reference_id or reference_session is not None else (start/1e9, end/1e9)
 
 
 def sample_time(record: dict, *, key: str = 'observed_at') -> float | None:

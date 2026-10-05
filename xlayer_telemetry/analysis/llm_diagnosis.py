@@ -498,6 +498,10 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                 if label in row.get("labels", {}):
                     labels = row["labels"]
                     namespace = (labels.get("cluster"), labels.get("node", labels.get("nodename")))
+                    if label in ("engine", "engine_id"):
+                        # Engine indices are endpoint-local; colocated vLLM
+                        # services can both expose engine 0 for distinct models.
+                        namespace += tuple(labels.get(key) for key in ("instance", "component", "model_name", "model"))
                     if label in ("worker", "worker_id", "rank"):
                         namespace += (labels.get("role"), labels.get("producer"))
                     scoped.append(((*namespace, labels[label]), row["signal"]))

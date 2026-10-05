@@ -46,6 +46,16 @@ def capture(context, output):
                 page.mouse.wheel(0, amount)
                 page.wait_for_timeout(1100)
 
+            def show_panel(title):
+                # Grafana lazily mounts lower panels; reveal the current table
+                # without treating its heading as a collapsed-row toggle.
+                heading = page.get_by_text(title, exact=True).first
+                for _ in range(10):
+                    if heading.count():
+                        break
+                    scroll(500)
+                heading.scroll_into_view_if_needed(timeout=5000)
+
             def expand(title):
                 scroll(5000)
                 heading = page.get_by_text(title, exact=True)
@@ -77,7 +87,7 @@ def capture(context, output):
             frame("Selected symptom / diagnosis result", 7)
             scroll(450)
             frame("Supporting / counter / missing evidence", 7)
-            expand("Baseline comparison / sample quality")
+            show_panel("Measured changes versus same-run baseline")
             frame("Same-run baseline / sample quality", 7)
             visit("xlayer-cross-layer-timeline", selected)
             frame("Selected step / exact and approximate lanes", 7)

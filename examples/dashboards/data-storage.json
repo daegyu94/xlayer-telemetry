@@ -1253,8 +1253,8 @@
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
-        "query": "label_values(training_step{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
+        "definition": "label_values(training_sample_timestamp_seconds{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
+        "query": "label_values(training_sample_timestamp_seconds{job=\"telemetry\", cluster=~\"$cluster\", nodename=~\"$source_node\"}, run_id)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
