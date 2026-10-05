@@ -23,11 +23,11 @@ from .clock_quality import assess_interval
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from .evidence_quality import quality, check_source, validate_sampling
 from ..sandbox import device_window
-from ..fileio import atomic_write_text, json_objects
+from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
 from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
-from .metric_queries import PROFILE_SIGNALS, profile_queries, validate_metric_profiles
+from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 
 DEFAULT_QUERIES = {
@@ -772,13 +772,18 @@ class DiagnosticEngine:
         # subtract different disks/interfaces/engines just because both supplied
         # a window maximum. Aggregate-only clients retain unknown-scope values
         # but cannot supply an entity-matched baseline for these signals.
-        for name, spec in PROFILE_SIGNALS.items():
+        comparable_profiles = PROFILE_SIGNALS | {
+            "rdma_bytes_per_second": MetricQuery("", "network-interface", "bytes/s", "mean"),
+        }
+        for name, spec in comparable_profiles.items():
             items = [item for item in current_series.get(name, [])
                      if finite(item.get("stats", {}).get(spec.statistic)) is not None]
             if not items:
                 if name in current_signals:
                     signal_scopes[name] = "unknown"
                     baseline_signals.pop(name, None)
+                    if name in baseline_metrics:
+                        missing.append(f"prometheus:{name}:baseline_entity_match")
                 continue
             choose = min if spec.statistic == "min" else max
             selected_item = choose(items, key=lambda item: item["stats"][spec.statistic])
@@ -791,6 +796,11 @@ class DiagnosticEngine:
             baseline_signals.pop(name, None)
             matching = [item for item in baseline_series.get(name, [])
                         if selected_identity and profile_identity(item) == selected_identity]
+            if name == "rdma_bytes_per_second" and not (
+                    selected_identity.get("device") and any(
+                        selected_identity.get(key) for key in ("instance", "node", "nodename"))):
+                matching = []
+                signal_scopes[name] = "unknown"
             if len(matching) == 1:
                 previous_value = finite(matching[0].get("stats", {}).get(spec.statistic))
                 if previous_value is not None:
@@ -1139,8 +1149,7 @@ def _write_investigation(directory: Path, report: Mapping[str, Any], *, missing_
 def write_report(directory: Path, report: Mapping[str, Any]) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     encoded = json.dumps(report, separators=(",", ":"), sort_keys=True) + "\n"
-    with (directory / "diagnostics.jsonl").open("a", encoding="utf-8") as stream:
-        stream.write(encoded)
+    append_jsonl(directory / "diagnostics.jsonl", encoded)
     atomic_write_text(directory / "latest.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
     _write_investigation(directory, report)
 

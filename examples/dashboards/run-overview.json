@@ -659,7 +659,7 @@
                 "value": [
                   {
                     "title": "Cross-Layer Timeline 열기",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${log_run_id:queryparam}&${diagnosis_method:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${log_run_id:queryparam}&${diagnosis_method:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*",
                     "targetBlank": false
                   }
                 ]
@@ -713,7 +713,7 @@
                 "value": [
                   {
                     "title": "Bottleneck Summary 열기",
-                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*",
                     "targetBlank": false
                   }
                 ]
@@ -742,7 +742,7 @@
                 "value": [
                   {
                     "title": "Cross-Layer Timeline 열기",
-                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${trace_id:queryparam}",
+                    "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*",
                     "targetBlank": false
                   }
                 ]

@@ -220,6 +220,9 @@ loki.process "step_events" {
     source = "observed_at"
     format = "Unix"
   }
+  stage.label_drop {
+    values = ["filename"]
+  }
 }
 
 loki.source.file "diagnosis" {

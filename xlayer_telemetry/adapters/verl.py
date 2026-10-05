@@ -125,11 +125,11 @@ class VerlMetricsAdapter:
             samples.append(Metric("training_step_time_seconds", float(fallback), labels={"phase": "rl_step"}))
         return samples
 
-    def emit(self, data: Mapping[str, Any], *, step: int) -> Path | None:
+    def emit(self, data: Mapping[str, Any], *, step: int, live: bool = True) -> Path | None:
         samples = self.translate(data)
         if not samples:
             return None
-        return self.emitter.emit(step=step, samples=samples)
+        return self.emitter.emit(step=step, samples=samples, live=live)
 
 
 def iter_file_records(
@@ -205,7 +205,7 @@ def bridge_records(
             continue
         if history is not None:
             history.append(record, live=getattr(record, "live", True))
-        if adapter.emit(data, step=step) is not None:
+        if adapter.emit(data, step=step, live=getattr(record, "live", True)) is not None:
             emitted += 1
     return emitted
 
@@ -269,6 +269,10 @@ def main() -> None:
         VerlMetricsAdapter(emitter),
         history,
     )
+    # The SDK isolates write errors from a workload; the bridge process must
+    # still tell its controller that the final export did not succeed.
+    if emitter.disabled:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

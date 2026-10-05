@@ -891,7 +891,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "telemetry_gpu_utilization_percent{cluster=~\"$cluster\",nodename=~\"$node\",gpu=~\"$gpu\"}",
+          "expr": "telemetry_gpu_utilization_percent{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",gpu=~\"$gpu\"} and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{cluster}} / {{nodename}} / {{gpu}}"
         }
       ],

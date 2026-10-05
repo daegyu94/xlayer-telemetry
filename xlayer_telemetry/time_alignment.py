@@ -83,6 +83,7 @@ class CalibrationCache:
         self._values = []
         self._issue = 'calibration_unavailable'
         self._lock = threading.Lock()
+        self._pid = os.getpid()
 
     @classmethod
     def from_env(cls, node: str) -> CalibrationCache | None:
@@ -92,6 +93,14 @@ class CalibrationCache:
     def project(self, start: float, end: float) -> dict:
         result = {'start': start, 'end': end}
         try:
+            # A fork copies a possibly held lock, not the thread that owns it.
+            # Reset before acquiring that lock and revalidate the child's file.
+            if self._pid != os.getpid():
+                self._lock = threading.Lock()
+                self._next_read = float('-inf')
+                self._values = []
+                self._issue = 'calibration_unavailable'
+                self._pid = os.getpid()
             with self._lock:
                 now_mono = self.monotonic()
                 if now_mono >= self._next_read:

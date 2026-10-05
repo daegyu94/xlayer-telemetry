@@ -127,6 +127,8 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
         paths = list(directory.glob("*.json"))
         active_paths.update(paths)
         for snapshot in _iter_snapshots(directory, counters=counters, cache=cache, paths=paths):
+            if snapshot.get("timestamp_provenance") == "unknown_replay":
+                continue  # Retained offline scalar, not a current observation.
             observed = finite_number(snapshot.get("observed_at"))
             if node is not None and snapshot["node"] != node:
                 continue
@@ -144,6 +146,8 @@ def build_metrics(snapshots: list[dict], *, counters: dict | None = None) -> lis
         if counters is not None:
             counters["sample_rejections"] = counters.get("sample_rejections", 0) + 1
     for snapshot in snapshots:
+        if isinstance(snapshot, dict) and snapshot.get("timestamp_provenance") == "unknown_replay":
+            continue
         if not isinstance(snapshot, dict) or not isinstance(snapshot.get("samples"), list):
             rejected()
             continue

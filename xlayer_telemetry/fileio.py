@@ -33,6 +33,34 @@ def atomic_write_text(path: Path, text: str) -> None:
         stream.write(text)
 
 
+def append_jsonl(path: Path, line: str, *, mode: int = 0o666) -> None:
+    """Keep a restarted append separate from a crash-truncated final record.
+
+    Preserve the old bytes: a complete JSON object without a newline remains
+    readable, while a partial object is skipped by readers. POSIX writers lock
+    the repair and append together so concurrent producers cannot join rows.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, mode)
+    with os.fdopen(descriptor, "a+b") as stream:
+        if os.name == "posix":
+            import fcntl
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        try:
+            end = stream.seek(0, os.SEEK_END)
+            separator = b""
+            if end:
+                stream.seek(-1, os.SEEK_END)
+                if stream.read(1) != b"\n":
+                    separator = b"\n"
+            encoded = line.encode("utf-8")
+            stream.write(separator + encoded + (b"" if encoded.endswith(b"\n") else b"\n"))
+            stream.flush()
+        finally:
+            if os.name == "posix":
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
 def json_objects(path: Path) -> Iterator[dict[str, Any]]:
     """Stream JSONL objects, skipping malformed lines and other JSON values."""
     with path.open("rb") as stream:

@@ -5,12 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
 import time
 from typing import Any, Callable, Mapping
 
-from .fileio import json_objects
+from .fileio import append_jsonl, json_objects
 from .measurements import finite_number
 from .time_alignment import CalibrationCache
 
@@ -117,7 +116,7 @@ class StepHistoryWriter:
             "observed_at": observed_at,
             "ingested_at": observed_at,
             "source_event_time": None,
-            "correlation_observed_at": end if mapping and accuracy != "unknown" else observed_at if not mapping else None,
+            "correlation_observed_at": end if accuracy != "unknown" else None,
             **({"time_reference": mapping["time_alignment"].get("reference_id"),
                 "time_uncertainty_seconds": mapping["time_alignment"].get("uncertainty_seconds")} if mapping else {}),
             "step_duration_seconds": duration,
@@ -139,12 +138,7 @@ class StepHistoryWriter:
                 **({"time_alignment": mapping["time_alignment"]} if mapping else {}),
             },
         }
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(history_record, separators=(",", ":"), sort_keys=True)
-        descriptor = os.open(self.path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
-        try:
-            os.write(descriptor, (line + "\n").encode())
-        finally:
-            os.close(descriptor)
+        append_jsonl(self.path, line, mode=0o644)
         self._seen.add(record_id)
         return history_record

@@ -88,6 +88,7 @@ Loki의 XLayer Step/Event stream은 보정된 조사 시각을 사용하지만, 
 Grafana Timeline은 `exact`와 `calibrated`를 구분하고 calibrated lane에 `± uncertainty`를 표시합니다.
 VERL file logger에서 추정한 step은 보정 후에도 `calibrated_approximate`이며 정밀한 phase trace가 되지 않습니다.
 Timestamp 없는 replay/backlog도 여전히 `unknown`입니다.
+SDK calibration cache는 fork 이후 child에서 lock과 조회 상태를 초기화하므로 parent의 읽기 작업을 기다리지 않습니다.
 
 ## Quality and Failure Boundaries
 

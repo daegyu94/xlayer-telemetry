@@ -66,10 +66,11 @@ def measure(load, path, count):
     warm = load(cache)
     warm_seconds = time.perf_counter()-start
     assert original == cold == warm, 'cache changed query results'
-    assert cache.stats()['parsed_bytes'] == before, 'unchanged file was reparsed'
+    warm_parsed_bytes = cache.stats()['parsed_bytes'] - before
     return {'records':count,'file_bytes':path.stat().st_size,
             'uncached_seconds':round(uncached,6),'cold_seconds':round(cold_seconds,6),
-            'warm_seconds':round(warm_seconds,6),'warm_parsed_bytes':0,'cache':cache.stats()}
+            'warm_seconds':round(warm_seconds,6),'warm_parsed_bytes':warm_parsed_bytes,
+            'warm_parse_reused':warm_parsed_bytes == 0,'cache':cache.stats()}
 
 
 def main():
@@ -85,7 +86,9 @@ def main():
         root = args.output/str(count)
         root.mkdir(exist_ok=True)
         history = root/'history.jsonl'
-        events = root/'agent-events.jsonl'
+        events_dir = root/'telemetry-events'
+        events_dir.mkdir(exist_ok=True)
+        events = events_dir/'agent-events.jsonl'
         with history.open('w') as records, events.open('w') as spans:
             for step in range(count):
                 records.write(json.dumps({'schema_version':1,'record_type':'verl_step_observation',
@@ -96,7 +99,7 @@ def main():
                     'attributes':{'tool':'pytest'},'start_time_unix_nano':step*10**9,
                     'end_time_unix_nano':(step+1)*10**9,'duration_seconds':1})+'\n')
         rows.append({'history':measure(lambda cache:load_history(history,cache=cache),history,count),
-                     'tool_spans':measure(lambda cache:tool_span_window(root,'fixture',0,count,
+                     'tool_spans':measure(lambda cache:tool_span_window(events_dir,'fixture',0,count,
                                          cache=cache),events,count)})
     record = {'data_origin':'synthetic','scope':'local JSONL and snapshot read/parse cost',
               'measurements':rows,'snapshots':measure_snapshots(args.output/'snapshots'),

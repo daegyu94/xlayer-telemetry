@@ -114,6 +114,7 @@ Snapshot은 최신 step, logger·event JSONL은 이력을 보존합니다.
 ### Check Telemetry Completeness
 
 Wrapper는 workload의 exit code와 별도로 `telemetry-health.json`을 기록합니다.
+최종 bridge export가 실패하면 artifact가 남아 있어도 실패 상태를 유지합니다.
 Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결과와 진단의 missing source를 `show_run`에서 함께 확인합니다.
 `complete`는 연결한 telemetry 처리의 완료 상태이며 모든 subsystem의 관측이나 workload correctness를 보증하지 않습니다.
 
@@ -121,6 +122,11 @@ Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결
 긴 step도 간격이 늘 수 있어 workload stall로 단정하지 않습니다.
 기본 age 기준 300초는 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 바꿉니다.
 `partial`은 sidecar 종료·최종 export 실패/누락·evidence 부족이며 workload exit code는 유지합니다.
+
+Wrapper는 workload의 임의 인자를 로그에 출력하지 않습니다.
+Workload 자체의 로그나 외부 launcher가 출력하는 credential은 별도로 관리합니다.
+정상 종료와 signal 종료 모두 새 workload session의 소유권을 확인해 남은 자식에 TERM을 보내고, 제한시간 이후 KILL로 정리합니다.
+별도 session으로 분리된 작업이나 기존 Ray cluster는 종료 대상으로 포함하지 않습니다.
 
 ## Inspect or Refresh a Subsystem
 

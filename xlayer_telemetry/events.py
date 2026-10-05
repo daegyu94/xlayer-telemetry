@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterator, Mapping
 import uuid
 
 from .identity import producer_filename_stem
+from .fileio import append_jsonl
 from .io_writer import BoundedWriter, settings_from_env
 from .time_alignment import CalibrationCache
 
@@ -288,9 +289,7 @@ class EventRecorder:
             self._disable(exc)
 
     def _persist(self, line: str) -> None:
-        self.directory.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(line)
+        append_jsonl(self.path, line)
 
     def _disable(self, error) -> None:
         self.disabled = True

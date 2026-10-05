@@ -412,13 +412,14 @@ from pathlib import Path
 from xlayer_telemetry.events import EventRecorder
 from xlayer_telemetry.sandbox import SandboxRecorder
 
+# Dedicated worker 환경의 TELEMETRY_NODE를 실제 sandbox node로 설정합니다.
 events = EventRecorder.from_env(producer="sandbox", role="sandbox", worker_id="worker-0")
 if events is None:
     run_command_in_existing_sandbox()
 else:
     sandbox = SandboxRecorder(
         events, runtime="containerd", filesystem="overlayfs",
-        deployment="dedicated", sandbox_node="sandbox-0",
+        deployment="dedicated", sandbox_node=events.context.node,
     )
     with sandbox.span(
         "exec", step=1, trajectory_id="trajectory-17", sandbox_id="sandbox-17",
@@ -572,7 +573,10 @@ python -m xlayer_telemetry.collectors.sandbox_sampler \
   --deployment dedicated
 ```
 
-Colocated라면 `--node`를 GPU/rollout node 이름으로, `--deployment`를 `colocated`로 바꾸고 그 node collector의 `textfile` directory를 지정합니다.
+위 경로는 기본 config의 node output입니다.
+경로를 변경했다면 `xltel config show`의 `NODE_OUTPUT_DIR` 아래 `textfile` directory를 지정합니다.
+`--node`는 해당 collector의 `NODE_NAME`과 맞춥니다.
+Colocated라면 `--node`를 GPU/rollout node 이름으로, `--deployment`를 `colocated`로 바꿉니다.
 `io.stat`의 bytes·operations, `io.pressure`·`cpu.pressure`의 `some.total`, `memory.pressure`의 `some.total`·`full.total`, `cpu.stat`, `memory.current`·`memory.peak`·`memory.events`를 읽습니다.
 파일 형식과 누적 counter의 의미는 [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html), PSI는 [Linux PSI](https://docs.kernel.org/accounting/psi.html)를 따릅니다.
 PSI ratio는 직전 표본 이후 stall 시간 비율이므로 첫 표본·counter reset에서는 비어 있으며, 읽을 수 없거나 음수인 값도 0으로 대체하지 않고 생략합니다.

@@ -390,7 +390,9 @@ def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -
     assert 'signal = "xlayer_event"' in config
     assert '__path_exclude__' in config
     assert 'format = "UnixNs"' in config
-    assert config.count('stage.label_drop') == 2
+    assert config.count('stage.label_drop') == 3
+    steps = config.split('loki.process "step_events" {', 1)[1].split('loki.source.file "diagnosis"', 1)[0]
+    assert 'values = ["filename"]' in steps
 
 
 def test_investigation_dashboards_keep_boundary_accuracy_and_navigation():
@@ -896,7 +898,8 @@ def test_baseline_pivot_clears_current_trace_without_losing_resource_context():
     signal = next(item for item in comparison["fieldConfig"]["overrides"]
                   if item["matcher"]["options"] == "signal")
     current, baseline = next(p["value"] for p in signal["properties"] if p["id"] == "links")
-    assert "${trace_id:queryparam}" in current["url"]
+    assert "${trace_id:queryparam}" not in current["url"]
+    assert "var-trace_id=.*" in current["url"]
     assert "${trace_id:queryparam}" not in baseline["url"]
     assert "var-trace_id=.*" in baseline["url"]
     assert "baseline_record_id" in baseline["url"]

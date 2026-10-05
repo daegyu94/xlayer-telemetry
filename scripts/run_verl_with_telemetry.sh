@@ -214,6 +214,7 @@ bridge_pid=""
 diagnostics_pid=""
 health_pid=""
 sidecar_owner="xlayer-wrapper-$$"
+workload_owner="xlayer-workload-$$-$RANDOM-$RANDOM"
 sidecar_is_owned() {
   local pid="$1" child
   # `jobs -p` also reports completed jobs until their status is consumed.
@@ -230,14 +231,14 @@ sidecar_is_active() {
   sidecar_is_owned "$1" || kill -0 -- "-$1" 2>/dev/null
 }
 sidecar_group_is_owned() {
-  # Only the failure path scans /proc. A numeric PGID can be reused after an
-  # early sidecar exit; require the private marker inherited by its children.
-  "$telemetry_python" - "$1" "$sidecar_owner" <<'PY'
+  # A numeric PGID can be reused after its leader exits; require the private
+  # marker inherited by every live member before signalling the session.
+  "$telemetry_python" - "$1" "${2:-XLAYER_SIDECAR_OWNER}" "${3:-$sidecar_owner}" <<'PY'
 from pathlib import Path
 import sys
 
 group = int(sys.argv[1])
-marker = ("XLAYER_SIDECAR_OWNER=" + sys.argv[2]).encode()
+marker = (sys.argv[2] + "=" + sys.argv[3]).encode()
 found = False
 for process in Path("/proc").iterdir():
     if not process.name.isdecimal():
@@ -319,27 +320,46 @@ stop_sidecars() {
   stop_diagnostics
 }
 workload_pid=""
+stop_workload() {
+  local signal="${1:-TERM}" attempt
+  [[ -n "$workload_pid" ]] || return 0
+  if sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
+    kill -s "$signal" -- "-$workload_pid" 2>/dev/null || true
+  elif sidecar_is_owned "$workload_pid"; then
+    # A signal can arrive before setsid establishes the new session.
+    kill -s "$signal" "$workload_pid" 2>/dev/null || true
+  fi
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner" || break
+    sleep 0.1
+  done
+  if sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
+    echo '[telemetry] workload descendants did not stop; sending KILL to the owned session' >&2
+    kill -KILL -- "-$workload_pid" 2>/dev/null || true
+  fi
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    if ! sidecar_is_owned "$workload_pid" && ! sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
+      break
+    fi
+    sleep 0.1
+  done
+  if sidecar_is_owned "$workload_pid"; then
+    echo '[telemetry] workload remains pending; cleanup could not complete within its deadline' >&2
+  else
+    wait "$workload_pid" 2>/dev/null || true
+  fi
+  workload_pid=""
+}
 interrupt_workload() {
   local signal="$1" status="$2"
   trap '' INT TERM
-  if [[ -n "$workload_pid" ]]; then
-    # The wrapper owns only this newly created session, never an existing Ray cluster.
-    kill -s "$signal" -- "-$workload_pid" 2>/dev/null || true
-    for ((attempt = 0; attempt < 50; attempt++)); do
-      kill -0 -- "-$workload_pid" 2>/dev/null || break
-      sleep 0.1
-    done
-    if kill -0 -- "-$workload_pid" 2>/dev/null; then
-      kill -s KILL -- "-$workload_pid" 2>/dev/null || true
-    fi
-    wait "$workload_pid" 2>/dev/null || true
-  fi
+  stop_workload "$signal"
   diagnosis_outcome=disabled
   [[ -z "$diagnostics_config" ]] || diagnosis_outcome=interrupted
   finish_health "$status" interrupted "$diagnosis_outcome"
   exit "$status"
 }
-trap stop_sidecars EXIT
+trap 'stop_workload; stop_sidecars' EXIT
 # Background commands may inherit SIGINT ignored; SIGTERM requests cleanup.
 trap 'interrupt_workload TERM 130' INT
 trap 'interrupt_workload TERM 143' TERM
@@ -373,23 +393,21 @@ fi
 printf '[telemetry] run_id=%s output=%s\n' "$run_id" "$output_dir"
 printf '[telemetry] bridge=VERL completed steps; execution_mode=%s\n' "$execution_mode"
 echo '[telemetry] GPU/host: node collector required; vLLM/Ray: monitoring server source registration required'
-printf '[telemetry] executing:'
-printf ' %q' "${command[@]}"
-printf '\n'
+echo '[telemetry] starting workload (arguments omitted)'
 
 set +e
 health_args=(--run-root "$output_dir" --bridge-pid "$bridge_pid" --max-age-seconds "$health_max_age_seconds")
 [[ -z "$diagnostics_pid" ]] || health_args+=(--diagnostics-pid "$diagnostics_pid")
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
   "${health_args[@]}" --once > "$output_dir/logs/telemetry-health.log" 2>&1
-setsid -- "${command[@]}" &
+XLAYER_WORKLOAD_OWNER="$workload_owner" setsid -- "${command[@]}" &
 workload_pid=$!
 XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" setsid -- "$telemetry_python" -m xlayer_telemetry.telemetry_health \
   "${health_args[@]}" > "$output_dir/logs/telemetry-health.log" 2>&1 &
 health_pid=$!
 wait "$workload_pid"
 workload_status=$?
-workload_pid=""
+stop_workload
 set -e
 
 stop_sidecars
@@ -408,7 +426,7 @@ if [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
       --node "$node_name" \
       --history "$step_history_path" \
       --execution-mode "$execution_mode" || { bridge_export=failed; echo "[telemetry] final metric export failed" >&2; }
-  if ! compgen -G "$TELEMETRY_METRICS_DIR/verl-trainer-driver*.json" >/dev/null; then
+  if [[ "$bridge_export" != failed ]] && ! compgen -G "$TELEMETRY_METRICS_DIR/verl-trainer-driver*.json" >/dev/null; then
     bridge_export=missing
     echo '[telemetry] no translated VERL snapshots; check logger keys with python -m xlayer_telemetry.adapters.verl --describe-metrics and logs/telemetry-bridge.log' >&2
   fi
@@ -428,7 +446,9 @@ if [[ -n "$diagnostics_config" ]]; then
       --output "$output_dir/diagnostics" --run-id "$run_id" \
       --node "$node_name" --execution-mode "$execution_mode" --once --pending-only --finalize-pending \
       >> "$output_dir/logs/telemetry-diagnostics.log" 2>&1 || { diagnosis_export=failed; echo "[telemetry] final diagnosis failed" >&2; }
-  [[ -f "$output_dir/diagnostics/latest.json" ]] || diagnosis_export=missing
+  if [[ "$diagnosis_export" != failed && ! -f "$output_dir/diagnostics/latest.json" ]]; then
+    diagnosis_export=missing
+  fi
 fi
 
 finish_health "$workload_status" "$bridge_export" "$diagnosis_export"

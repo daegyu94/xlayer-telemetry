@@ -93,6 +93,8 @@ Application snapshot은 해당 node의 collector가 읽는 directory에 기록�
 파일명의 `@NODE@RUN`은 node별 worker 번호 충돌을 막고 collector의 `--node`는 자기 node만 고릅니다.
 
 기존 snapshot도 읽으며 identity가 중복되면 최신 `observed_at`을 선택합니다.
+과거 값을 직접 재생할 때는 `emit(..., live=False)`로 기록합니다.
+이 snapshot은 원래 시각을 모르는 `unknown_replay`이며 offline 조회용으로 보존되고 collector의 현재 metric에서는 제외됩니다.
 외부 script는 고정 basename 대신 반환 경로나 JSON identity를 사용합니다.
 
 ### Use a Trainer Callback

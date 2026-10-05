@@ -38,6 +38,8 @@ def test_emitter_replaces_worker_snapshot_atomically(tmp_path: Path) -> None:
         "cuda_visible_devices": "2,5",
         "step": 7,
         "observed_at": 100.0,
+        "ingested_at": 100.0,
+        "timestamp_provenance": "live_observation",
         "samples": [
             {"name": "training_loss", "kind": "gauge", "value": 1.25, "labels": {}},
             {

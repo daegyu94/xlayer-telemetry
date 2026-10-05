@@ -138,15 +138,18 @@ class MetricEmitter:
             cls._warn(f"[metrics] export disabled: {exc}")
             return None
 
-    def emit(self, *, step: int | None, samples: Iterable[Metric]) -> Path | None:
+    def emit(self, *, step: int | None, samples: Iterable[Metric], live: bool = True) -> Path | None:
         if self.disabled:
             return None
         try:
+            if type(live) is not bool:
+                raise ValueError("live must be boolean")
             if step is not None and (type(step) is not int or step < 0):
                 raise ValueError("step must be a nonnegative integer or None")
             encoded = [self._encode(sample) for sample in samples]
             if not encoded:
                 raise ValueError("at least one metric is required")
+            ingested_at = self.clock()
             snapshot = {
                 "schema_version": 2,
                 "run_id": self.run_id,
@@ -159,10 +162,12 @@ class MetricEmitter:
                 "gpu": self.gpu,
                 "cuda_visible_devices": self.cuda_visible_devices,
                 "step": step,
-                "observed_at": self.clock(),
+                "observed_at": ingested_at if live else None,
+                "ingested_at": ingested_at,
+                "timestamp_provenance": "live_observation" if live else "unknown_replay",
                 "samples": encoded,
             }
-            if self.time_calibration is not None:
+            if self.time_calibration is not None and live:
                 mapping = self.time_calibration.project(snapshot["observed_at"], snapshot["observed_at"])
                 snapshot["time_alignment"] = mapping["time_alignment"]
                 snapshot["correlation_observed_at"] = mapping["end"] if mapping["time_alignment"]["status"] == "aligned" else None

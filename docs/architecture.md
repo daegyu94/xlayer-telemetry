@@ -153,12 +153,14 @@ Wrapper는 VERL과 bridge를 함께 시작하고, node collector는 같은 node�
 Bridge는 VERL의 `logs/verl-metrics.jsonl`에서 완료된 step record를 읽고 알려진 scalar를 공통 metric 이름으로 변환합니다.
 예를 들어 `timing_s/gen`은 `rl_stage_duration_seconds{phase="rollout"}`으로, `perf/time_per_step`은 `training_step_time_seconds`로 옮깁니다.
 Bridge는 새 snapshot으로 이전 snapshot을 교체하고, 별도로 `telemetry-events/verl-steps.jsonl`에 완료 step event를 누적합니다.
+원래 관측 시각이 없는 replay는 `timestamp_provenance=unknown_replay`와 `ingested_at`을 남기고 `observed_at`은 비워 현재 Prometheus metric으로 내보내지 않습니다.
 Node collector의 변환 process는 기본 2초마다 snapshot을 읽어 `application.prom`을 갱신합니다.
 GPU sampler가 만드는 `gpu.prom`과 host 지표도 Node Exporter의 `:19100/metrics`에서 함께 노출되며, Prometheus는 기본 2초마다 이를 조회합니다.
 Grafana는 Prometheus에 저장된 시계열을 query하므로 JSON 파일을 직접 읽지 않습니다.
 
 Application snapshot과 topology collector는 손상된 파일·sample을 건너뛰고 정상 producer의 지표를 계속 내보냅니다.
-JSONL 조회도 malformed JSON, UTF-8 오류와 object가 아닌 행을 건너뜁니다.
+Event·step history·diagnosis JSONL은 재시작 시 불완전한 마지막 행과 새 record를 분리합니다.
+POSIX writer는 append를 잠그며, 조회는 손상된 행을 건너뛰고 이후의 정상 record를 읽습니다.
 누락된 값을 0으로 채우지는 않으므로 source와 freshness를 함께 확인합니다.
 Snapshot 교체에는 쓰기마다 별도의 임시 파일을 사용해 같은 process의 동시 export도 파일을 충돌 없이 교체합니다.
 

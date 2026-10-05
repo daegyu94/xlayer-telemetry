@@ -80,7 +80,8 @@ Panel 제목·축·legend·표 본문의 font는 Grafana 기본 UI를 따릅니�
 이 글자도 작게 느껴진다면 브라우저 확대를 110–125%로 설정하고, 좁아진 화면에서는 sidebar를 접거나 panel 메뉴의 View로 확대합니다.
 
 Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
-기본 monitoring server의 Prometheus datasource query 간격은 실제 scrape 간격인 2초로 설정합니다.
+기본 Prometheus datasource의 query 간격은 host collector의 scrape 간격인 2초로 설정합니다.
+Native source는 기본 5초, SMART는 60초마다 수집하므로 해당 panel의 2초 query 간격이 2초 해상도의 원본 관측을 뜻하지는 않습니다.
 외부 Prometheus를 연결했다면 datasource의 Scrape interval을 실제 수집 주기에 맞춥니다.
 Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback이 정밀한 step trace로 바뀌지는 않습니다.
 
@@ -136,6 +137,7 @@ Start Here/Run Overview에서 Cluster·Node·Run·시간을 고릅니다.
 공통 navigation은 record·trace·method와 resource/observer·GPU·engine·sandbox context를 유지합니다.
 
 행 링크는 Loki stream의 Cluster·observer로 좁힙니다.
+다른 step의 시간 구간으로 이동할 때는 이전 trace 필터를 초기화하며, 특정 span의 링크는 해당 trace를 선택합니다.
 `Observer node`는 step/diagnosis의 수집 출처, `Resource node`는 조사할 GPU·host·service의 위치입니다.
 두 node는 같을 필요가 없습니다.
 Application step·stage·age는 observer로, GPU·NIC·disk·native vLLM은 resource로 조회하므로 다른 node의 detail을 봐도 step 문맥이 유지됩니다.
@@ -150,7 +152,8 @@ Device·Mount·SSD 등 추가 filter는 별도로 확인하며 `All`은 여러 �
 | Loki log | cluster, node, workload, log directory | `Run`은 log 경로의 run directory 이름으로 추출되며 telemetry의 `run_id`와 다를 수 있습니다. |
 
 `N/A`는 source가 연결되지 않았거나 선택한 범위에 표본이 없다는 뜻이며 측정값 0과 다릅니다.
-Compute & Communication의 GPU 표는 30초보다 오래된 표본을 숨기며, 같은 화면의 GPU sample age로 stale과 source 누락을 구분할 수 있습니다.
+Compute & Communication의 GPU 표와 Cross-Layer Timeline은 30초보다 오래된 GPU 표본을 숨깁니다.
+Timeline은 query 시각보다 미래인 표본도 제외하며, sample age와 clock 상태로 stale·source 누락·시계 차이를 확인합니다.
 Run Overview의 접힌 application SDK panel은 `Training sample max age (s)`로 신선도 기준을 조정합니다.
 긴 step에서는 sample age와 원본 log를 함께 확인합니다.
 `Run` 선택은 application metric처럼 `run_id`가 있는 시계열에 적용됩니다.
