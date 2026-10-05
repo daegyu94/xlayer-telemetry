@@ -98,10 +98,13 @@ Client send/receive를 `t1/t4`, reference receive/send를 `t2/t3`라고 하면 �
 offset = ((t2 - t1) + (t3 - t4)) / 2
 reference_time = node_time + offset
 network_RTT = monotonic_elapsed - (t3 - t2)
-uncertainty = network_RTT / 2 + assumed_drift
+uncertainty = network_RTT / 2 + measurement_error + assumed_drift
 ```
 
 왕복 sample 중 RTT가 가장 작은 것을 선택합니다.
+Client의 HTTP worker가 request 시작과 전체 응답 수신 시각을 기록하므로 worker 시작·IPC 대기 시간은 network RTT에 포함하지 않습니다.
+주입된 client clock은 두 sampling bracket 사이에서 request 경계를 보간하므로 허용된 drift가 있어도 시작·수신 순서와 receive anchor를 보존합니다.
+sampling bracket·시작·반환 구간의 drift·보간 조정 오차는 `measurement_error`에 더하며, 반환 지연은 실제 수신 이후 TTL에 포함합니다.
 `RTT/2`는 nonnegative network delay와 안정적인 clock을 가정한 path asymmetry 범위이며, UTC 정확도를 보장하는 confidence score가 아닙니다.
 `--drift-ppm` 기본값은 100이고, TTL 동안 허용할 clock drift의 운영상 가정입니다.
 이 가정을 보장할 수 없으면 TTL을 줄이거나 시스템 동기화를 사용합니다.
@@ -130,7 +133,10 @@ Calibrated 조사에서 보정되지 않은 remote tool/sandbox event는 time jo
 
 Listener는 TLS/authentication을 제공하지 않습니다.
 Loopback·private network·Tailscale 등 신뢰하는 연결에서 사용하고 public internet에 직접 노출하지 않습니다.
-Client request에는 timeout·sample 수·응답 크기 제한이 있으며, SDK가 reference outage를 기다리는 구조는 아닙니다.
+Client의 `--timeout`은 sample마다 DNS·headers·전체 body·worker 시작·IPC를 포함하는 총 deadline이며, byte가 조금씩 도착해도 연장되지 않습니다.
+매우 짧은 deadline은 정상 endpoint에서도 worker 시작 중 만료될 수 있으며, timeout 이후 worker 정리에는 별도의 짧은 상한이 적용됩니다.
+응답은 4096 bytes로 제한하고 redirect는 따라가지 않으며, SDK가 reference outage를 기다리는 구조는 아닙니다.
+Listener는 연결을 받은 뒤 2초의 absolute deadline을 적용하고, request line·header가 느리게 들어와도 해당 연결만 닫아 다음 client를 처리합니다.
 
 이 보정은 resource attribution을 추가하지 않습니다.
 같은 시간대의 GPU·NIC·NVMe·shared-service 변화는 여전히 supporting correlation입니다.

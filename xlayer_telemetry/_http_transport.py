@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, build_opener
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from ._http_redirects import _CredentialSafeRedirectHandler
 
@@ -70,6 +70,14 @@ class _BoundedRedirectHandler(_CredentialSafeRedirectHandler):
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 
 
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def http_error_302(self, req, fp, code, msg, headers):
+        fp.close()
+        raise ValueError("Clock endpoint redirects are not supported")
+
+    http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+
 def _stop(process: subprocess.Popen) -> bool:
     """Bound cleanup separately from the request deadline."""
     for action in (process.terminate, process.kill):
@@ -115,12 +123,26 @@ def request_bytes(url: str, payload: dict | None, timeout: float, *,
                   max_response_bytes: int = MAX_RESPONSE_BYTES,
                   data: bytes | None = None, headers: dict[str, str] | None = None) -> bytes:
     """Bound DNS, headers, redirects and the complete body by one deadline."""
+    return _request_exchange(url, payload, timeout, max_response_bytes=max_response_bytes,
+                             data=data, headers=headers)[0]
+
+
+def request_clock_bytes(url: str, timeout: float) -> tuple[bytes, dict]:
+    """Return real request-boundary clocks; reject all redirects before following."""
+    body, status = _request_exchange(url, None, timeout, max_response_bytes=4096, measure_clock=True)
+    return body, status["timing"]
+
+
+def _request_exchange(url: str, payload: dict | None, timeout: float, *,
+                      max_response_bytes: int = MAX_RESPONSE_BYTES, data: bytes | None = None,
+                      headers: dict[str, str] | None = None, measure_clock: bool = False) -> tuple[bytes, dict]:
     global _STATE_PID, _UNREAPED, _UNREAPED_LOCK
     if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
         raise TimeoutError("HTTP transport deadline exceeded")
     if type(max_response_bytes) is not int or not 0 < max_response_bytes <= MAX_RESPONSE_BYTES:
         raise ValueError("Invalid HTTP response byte limit")
-    deadline = time.monotonic() + timeout
+    started = time.monotonic()
+    deadline = started + timeout
     if _STATE_PID != os.getpid():
         # An embedding application may fork while another thread holds the
         # lock. The child owns neither that lock nor the parent's workers.
@@ -135,6 +157,8 @@ def request_bytes(url: str, payload: dict | None, timeout: float, *,
         raise ValueError("HTTP transport request exceeds 256 KiB limit")
     checked_headers = _validate_headers(headers)
     request = {"url": url, "payload": payload}
+    if measure_clock:
+        request["measure_clock"] = True
     if data is not None:
         request["data"] = base64.b64encode(data).decode("ascii")
     if checked_headers:
@@ -156,7 +180,8 @@ def request_bytes(url: str, payload: dict | None, timeout: float, *,
             output, _ = process.communicate(command, timeout=remaining)
         except subprocess.TimeoutExpired as error:
             raise TimeoutError("HTTP transport deadline exceeded") from error
-        if time.monotonic() >= deadline or process.returncode == 124:
+        completed = time.monotonic()
+        if completed >= deadline or process.returncode == 124:
             raise TimeoutError("HTTP transport deadline exceeded")
         if process.returncode != 0:
             raise RuntimeError("HTTP transport worker exited before returning a response")
@@ -177,7 +202,15 @@ def request_bytes(url: str, payload: dict | None, timeout: float, *,
                           "ResponseTooLarge": _ResponseTooLarge,
                           "ValueError": ValueError, "RuntimeError": RuntimeError}.get(category, RuntimeError)
             raise error_type(status.get("message", "HTTP transport failed"))
-        return body
+        if measure_clock:
+            timing = status.get("timing")
+            if (not isinstance(timing, dict) or set(timing) != {"t1", "m1", "t4", "m4"}
+                    or any(type(v) not in (int, float) or not math.isfinite(v) for v in timing.values())
+                    or not started <= timing["m1"] <= timing["m4"] <= completed
+                    or not 0 <= timing["t4"] - timing["t1"] <= timeout + .05
+                    or abs(timing["t4"] - timing["t1"] - (timing["m4"] - timing["m1"])) > .05):
+                raise ValueError("Invalid HTTP clock timing")
+        return body, status
     finally:
         if not _stop(process):
             with _UNREAPED_LOCK:
@@ -229,12 +262,22 @@ def _main() -> None:
             headers = {"Content-Type": "application/json", **headers}
         http_request = Request(request["url"], data=data, headers=headers,
                                method="POST" if data is not None else "GET")
-        with build_opener(_BoundedRedirectHandler(max_response_bytes)).open(http_request, timeout=remaining) as response:
+        measure_clock = request.get("measure_clock", False)
+        if type(measure_clock) is not bool:
+            raise ValueError("Invalid HTTP clock measurement mode")
+        opener = build_opener(_NoRedirectHandler() if measure_clock else _BoundedRedirectHandler(max_response_bytes))
+        timing = {}
+        if measure_clock:
+            timing["t1"], timing["m1"] = time.time(), time.monotonic()
+        with opener.open(http_request, timeout=remaining) as response:
             body = response.read(max_response_bytes + 1)
+            if measure_clock:
+                timing["t4"], timing["m4"] = time.time(), time.monotonic()
             if len(body) > max_response_bytes:
                 raise _ResponseTooLarge("HTTP response exceeds byte limit")
             _check_complete(response)
-        sys.stdout.buffer.write(b'{"ok":true}\n' + body)
+        status = {"ok": True, "timing": timing} if measure_clock else {"ok": True}
+        sys.stdout.buffer.write(json.dumps(status, separators=(",", ":")).encode() + b"\n" + body)
         sys.stdout.buffer.flush()
     except (OSError, HTTPException, RuntimeError, ValueError, KeyError, TypeError) as error:
         category = ("ResponseTooLarge" if isinstance(error, _ResponseTooLarge) else

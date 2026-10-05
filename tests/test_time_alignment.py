@@ -185,7 +185,7 @@ def test_real_http_exchange_and_second_refresh_cover_longer_interval(tmp_path):
         mapping = CalibrationCache(path, node='gpu-a', wall_clock=clock)
         window = mapping.project(began, clock())
         assert window['time_alignment']['status'] == 'aligned'
-        assert window['start'] == pytest.approx(time.time(), abs=.1)
+        assert window['start'] == pytest.approx(began-12, abs=.05)
         with pytest.raises(ValueError):
             calibrate(url, node='gpu-a', reference_id='other', samples=1)
     finally:
@@ -296,7 +296,7 @@ def test_timeout_attempts_and_bad_configuration_are_bounded(tmp_path, monkeypatc
     def unavailable(*args, **kwargs):
         calls.append(kwargs['timeout'])
         raise TimeoutError('down')
-    monkeypatch.setattr(clock, 'urlopen', unavailable)
+    monkeypatch.setattr(clock, 'request_clock_bytes', unavailable)
     with pytest.raises(ValueError):
         clock.calibrate('http://127.0.0.1:1', node='gpu-a', reference_id='monitor', samples=3, timeout=.1)
     assert calls == [.1]*3
@@ -307,22 +307,17 @@ def test_timeout_attempts_and_bad_configuration_are_bounded(tmp_path, monkeypatc
 
 def test_reference_restart_invalidates_mixed_exchange_and_history(tmp_path, monkeypatch):
     from xlayer_telemetry.operations import clock
-    from contextlib import contextmanager
     from urllib.parse import parse_qs, urlsplit
+    import time
     calls = []
-    @contextmanager
     def reply(url, **kwargs):
-        class Response:
-            def geturl(self): return url
-            def read(self, limit):
-                import time
-                now = time.time()
-                calls.append(1)
-                nonce = parse_qs(urlsplit(url).query)['nonce'][0]
-                return json.dumps(dict(schema_version=1, reference_id='monitor', reference_session=str(len(calls)),
-                                       clock_stable=True, nonce=nonce, t2=now, t3=now)).encode()
-        yield Response()
-    monkeypatch.setattr(clock, 'urlopen', reply)
+        t1, m1 = time.time(), time.monotonic()
+        calls.append(1)
+        nonce = parse_qs(urlsplit(url).query)['nonce'][0]
+        raw = json.dumps(dict(schema_version=1, reference_id='monitor', reference_session=str(len(calls)),
+                              clock_stable=True, nonce=nonce, t2=t1, t3=t1)).encode()
+        return raw, dict(t1=t1, m1=m1, t4=time.time(), m4=time.monotonic())
+    monkeypatch.setattr(clock, 'request_clock_bytes', reply)
     with pytest.raises(ValueError):
         clock.calibrate('http://reference', node='gpu-a', reference_id='monitor', samples=3)
     assert len(calls) == 2
@@ -381,21 +376,18 @@ def test_malformed_alignment_with_baseline_returns_insufficient_not_crash():
 
 
 def test_expired_exchange_is_not_saved_as_success(monkeypatch):
-    from contextlib import contextmanager
     from urllib.parse import parse_qs, urlsplit
     from xlayer_telemetry.operations import clock
-    @contextmanager
     def response(url, **kwargs):
-        class Response:
-            def geturl(self): return url
-            def read(self, limit):
-                return json.dumps(dict(schema_version=1, reference_id='monitor', reference_session='session',
-                                       nonce=parse_qs(urlsplit(url).query)['nonce'][0], clock_stable=True,
-                                       t2=100.02, t3=100.02)).encode()
-        yield Response()
-    monkeypatch.setattr(clock, 'urlopen', response)
+        raw = json.dumps(dict(schema_version=1, reference_id='monitor', reference_session='session',
+                              nonce=parse_qs(urlsplit(url).query)['nonce'][0], clock_stable=True,
+                              t2=100.02, t3=100.02)).encode()
+        return raw, dict(t1=100., m1=0., t4=100.04, m4=.04)
+    monkeypatch.setattr(clock, 'request_clock_bytes', response)
+    real = iter([0., 0., .04, .04, 20.04])
+    monkeypatch.setattr(clock.time, 'monotonic', lambda: next(real))
     wall = iter([112., 112.04, 132.04])
     mono = iter([50., 50.04, 70.04])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='Exchange expired'):
         clock.calibrate('http://reference', node='gpu-a', reference_id='monitor', samples=1, ttl=1,
                         wall_clock=lambda: next(wall), monotonic=lambda: next(mono))

@@ -10,9 +10,9 @@ import threading
 from pathlib import Path
 import time
 from urllib.parse import parse_qs, urlsplit
-from urllib.request import urlopen
 import uuid
 
+from .._http_transport import request_clock_bytes
 from ..fileio import atomic_write_text
 from ..time_alignment import CalibrationCache, boot_id, estimate, read_calibration_file, validate_alignment, validate_snapshot
 from .config import ConfigError
@@ -147,6 +147,48 @@ def validate_request(url: str, node: str, reference_id: str, samples: int, timeo
         raise ValueError('timeout <= 10s, TTL <= 3600s and drift_ppm <= 10000 are required')
 
 
+def _clock_sample(wall_clock, monotonic):
+    # Bracket caller-supplied axes against the worker's machine monotonic axis.
+    # This preserves clock injection without serializing arbitrary callables or
+    # letting custom clocks bypass the real transport deadline.
+    low = time.monotonic()
+    wall, mono = wall_clock(), monotonic()
+    high = time.monotonic()
+    if any(type(v) not in (int, float) or not math.isfinite(v) for v in (wall, mono)):
+        raise ValueError('Invalid client clock')
+    return wall, mono, (low + high) / 2, (high - low) / 2
+
+
+def _project_exchange(before, after, timing, drift_ppm):
+    start_delta, end_delta = timing['m1'] - before[2], timing['m4'] - after[2]
+    elapsed = timing['m4'] - timing['m1']
+    if start_delta < -before[3] or end_delta > after[3]:
+        raise ValueError('Invalid clock timing boundary')
+    # Startup/IPC are not network RTT. Retain their worst-case drift, at the
+    # same bounded rate assumed by the saved calibration, and both brackets
+    # before aligning the sampled axes to the actual request boundaries.
+    error = before[3] + after[3] + (abs(start_delta) + abs(end_delta)) * drift_ppm / 1e6
+    if abs(after[1] - before[1] - (after[2] - before[2])) > .05 + error:
+        raise ValueError('Client monotonic clock changed')
+    raw_t1, raw_t4 = before[0] + start_delta, after[0] + end_delta
+    discrepancy = raw_t4 - raw_t1 - elapsed
+    if abs(discrepancy) > .05:
+        raise ValueError('Client wall clock changed')
+    duration = after[2] - before[2]
+    if (duration <= 0 or not 0 <= start_delta <= timing['m4'] - before[2] <= duration
+            or after[0] < before[0] or after[1] < before[1]):
+        raise ValueError('Invalid clock timing boundary')
+    # Interpolate one clock axis across both samples. Projecting each endpoint
+    # independently at unit rate can reverse a short exchange under legal drift,
+    # or move its receive anchor into the future after asymmetric IPC delays.
+    t1 = before[0] + (after[0] - before[0]) * start_delta / duration
+    receive_fraction = (timing['m4'] - before[2]) / duration
+    t4 = before[0] + (after[0] - before[0]) * receive_fraction
+    m4 = before[1] + (after[1] - before[1]) * receive_fraction
+    error += max(abs(t1 - raw_t1), abs(t4 - raw_t4), abs(discrepancy) / 2)
+    return t1, t4, m4, elapsed, error
+
+
 def calibrate(url: str, *, node: str, reference_id: str, samples: int = 5,
               timeout: float = 2, ttl: float = 60, drift_ppm: float = 100,
               wall_clock=time.time, monotonic=time.monotonic) -> dict:
@@ -154,13 +196,11 @@ def calibrate(url: str, *, node: str, reference_id: str, samples: int = 5,
     observations, session, changed = [], None, False
     for _ in range(samples):
         nonce = uuid.uuid4().hex
-        t1, m1 = wall_clock(), monotonic()
         try:
-            with urlopen(url.rstrip('/')+'/time?nonce='+nonce, timeout=timeout) as response:
-                if response.geturl() != url.rstrip('/')+'/time?nonce='+nonce:
-                    raise ValueError('Clock endpoint redirects are not supported')
-                raw = response.read(4097)
-            t4, m4 = wall_clock(), monotonic()
+            before = _clock_sample(wall_clock, monotonic)
+            raw, timing = request_clock_bytes(url.rstrip('/')+'/time?nonce='+nonce, timeout=timeout)
+            after = _clock_sample(wall_clock, monotonic)
+            t1, t4, m4, elapsed, projection_error = _project_exchange(before, after, timing, drift_ppm)
             reply = json.loads(raw) if len(raw) <= 4096 else None
             if (not isinstance(reply, dict) or reply.get('schema_version') != 1
                     or reply.get('nonce') != nonce or reply.get('reference_id') != reference_id
@@ -171,25 +211,28 @@ def calibrate(url: str, *, node: str, reference_id: str, samples: int = 5,
                 changed = True
                 break
             session = reply['reference_session']
-            measured = estimate(t1, reply.get('t2'), reply.get('t3'), t4, elapsed=m4-m1)
-            observations.append(measured | {'local_anchor': t4, 'monotonic_anchor': m4,
-                                           'valid_from': t1, 'valid_until': t4+ttl})
-        except (OSError, ValueError, TypeError):
+            measured = estimate(t1, reply.get('t2'), reply.get('t3'), t4, elapsed=elapsed)
+            measured['uncertainty_seconds'] += projection_error
+            observations.append((measured | {'local_anchor': t4, 'monotonic_anchor': m4,
+                                            'valid_from': t1, 'valid_until': t4+ttl}, timing['m4']))
+        except (OSError, RuntimeError, ValueError, TypeError):
             # Bounded attempts; do not leak endpoint/auth details into SDK logs.
             continue
     if changed or not observations:
         raise ValueError('No valid clock exchange; check reference ID, URL and connectivity')
-    now, now_mono = wall_clock(), monotonic()
-    observations = [v for v in observations if v['valid_until'] >= now
+    now, now_mono, real_now = wall_clock(), monotonic(), time.monotonic()
+    observations = [v for v, received in observations if 0 <= real_now-received <= ttl
+                    and v['local_anchor'] <= now <= v['valid_until']
                     and now_mono >= v['monotonic_anchor']
                     and abs(now-v['local_anchor']-(now_mono-v['monotonic_anchor'])) <=
                     .05+(now_mono-v['monotonic_anchor'])*drift_ppm/1e6]
     if not observations:
         raise ValueError('Exchange expired or client clock changed; reduce samples/timeout or increase TTL')
     best = min(observations, key=lambda item: item['round_trip_seconds'])
-    return best | {'schema_version': 1, 'method': 'four_timestamp', 'node': node,
-                   'boot_id': boot_id(), 'reference_id': reference_id,
-                   'reference_session': session, 'drift_ppm': drift_ppm}
+    result = best | {'schema_version': 1, 'method': 'four_timestamp', 'node': node,
+                     'boot_id': boot_id(), 'reference_id': reference_id,
+                     'reference_session': session, 'drift_ppm': drift_ppm}
+    return validate_snapshot(result, node=node, boot=result['boot_id'])
 
 
 def save_calibration(path, measured: dict):
