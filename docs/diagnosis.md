@@ -335,6 +335,12 @@ Evidence와 comparison은 `sampling_quality.current`·`baseline`에 interval 길
 예를 들어 6초 step의 `[1m]` rate에는 `range_window_exceeds_interval`이 표시됩니다.
 이 값은 step 전후 활동을 포함할 수 있으므로 해당 step의 정밀한 resource 사용량으로 해석하지 않습니다.
 
+`query_result`는 해당 query 전체의 backend warning·info 수와 버린 sample·series 수를 보존하며 개별 engine의 품질로 해석하지 않습니다.
+Warning·info 수는 각각 1,000에서 제한하고 backend 원문은 저장하거나 LLM에 전달하지 않습니다.
+Info만으로 entity 누락을 단정하지 않으며, 버린 series 수는 응답에 있었지만 유효한 finite sample이 없어 제외한 series만 셉니다.
+이 품질 제한은 `missing_sources`·candidate의 `missing_evidence`에도 구간별 안전한 code와 수로 남고, 관련 candidate는 최대 `supporting_signal`로 표시합니다.
+유효한 값과 labels는 유지하며 NaN·Inf·잘못된 sample을 0으로 바꾸지 않습니다.
+
 Source freshness를 확인하려면 diagnostics 또는 LLM source config에 다음 설정을 추가합니다.
 
 ```json

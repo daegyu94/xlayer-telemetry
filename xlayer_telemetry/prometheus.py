@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_RESULT_SERIES = 1000
 MAX_RESULT_POINTS = 200000
+MAX_ANNOTATION_COUNT = 1000
 
 
 def escape_label(value: str) -> str:
@@ -35,6 +36,11 @@ def _number(value: Any) -> float | None:
 
 def range_series(payload: Any) -> list[dict[str, Any]]:
     """Validate the response envelope and skip malformed/nonfinite sample pairs."""
+    return _range_result(payload)[0]
+
+
+def _range_result(payload: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Keep bounded query-wide quality counts, never backend annotation text."""
     if not isinstance(payload, dict):
         raise RuntimeError("Prometheus response must be an object")
     if payload.get("status") != "success":
@@ -46,6 +52,12 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
         raise RuntimeError("Prometheus range-query response must be a matrix")
     if len(data["result"]) > MAX_RESULT_SERIES:
         raise RuntimeError("Prometheus result exceeds 1000 series; narrow source selectors")
+    result_quality = {"scope": "query", "discarded_sample_count": 0, "discarded_series_count": 0}
+    for key, field in (("warnings", "warning_count"), ("infos", "info_count")):
+        annotations = payload.get(key, [])
+        if not isinstance(annotations, list) or any(not isinstance(item, str) for item in annotations):
+            raise RuntimeError("Prometheus annotations must be lists of strings")
+        result_quality[field] = min(len(annotations), MAX_ANNOTATION_COUNT)
     result = []
     point_count = 0
     identities = set()
@@ -66,6 +78,7 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
         points = []
         for point in item.get('values', []):
             if not isinstance(point, (list, tuple)) or len(point) != 2:
+                result_quality["discarded_sample_count"] += 1
                 continue
             timestamp, value = map(_number, point)
             if timestamp is not None and value is not None:
@@ -74,9 +87,13 @@ def range_series(payload: Any) -> list[dict[str, Any]]:
                 if points and timestamp <= points[-1][0]:
                     raise RuntimeError("Prometheus sample timestamps must be strictly increasing")
                 points.append([timestamp, value])
+            else:
+                result_quality["discarded_sample_count"] += 1
         if points:
             result.append({'labels': labels, 'points': points})
-    return result
+        else:
+            result_quality["discarded_series_count"] += 1
+    return result, result_quality
 
 
 def series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None] | None:
@@ -120,8 +137,8 @@ class PrometheusClient:
     def query_range_detail(self, query: str, start: float, end: float, step: float) -> dict[str, Any]:
         params = urlencode({'query': query, 'start': start, 'end': end, 'step': step})
         request = Request(self.url.rstrip('/') + '/api/v1/query_range?' + params)
-        series = range_series(_read_json(request, self.timeout))
-        return {'aggregate': series_stats(series), 'series': [
+        series, result_quality = _range_result(_read_json(request, self.timeout))
+        return {'aggregate': series_stats(series), 'result_quality': result_quality, 'series': [
             {'labels': item['labels'], 'stats': series_stats([item]),
              **({'source_timestamps': [value for _, value in item['points']]}
                 if query.startswith('timestamp(') else {})}

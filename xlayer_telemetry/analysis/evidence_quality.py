@@ -6,6 +6,7 @@ import re
 from typing import Any, Mapping
 
 from ..measurements import finite_number
+from ..prometheus import MAX_ANNOTATION_COUNT, MAX_RESULT_POINTS, MAX_RESULT_SERIES
 
 _DURATION = re.compile(r"\[([^]:]+)(?::[^\]]*)?\]")
 _DURATION_PART = re.compile(r"(\d+(?:\.\d+)?)(ms|s|m|h|d|w|y)")
@@ -14,6 +15,30 @@ _SELECTOR = re.compile(r'[A-Za-z_:][A-Za-z0-9_:]*\{(?:[^{}"\\]|"(?:\\.|[^"\\])*"
 _SOURCE_WRAPPERS = re.compile(
     r'\b(?:sum|avg|min|max|count|stddev|stdvar|rate|irate|increase|delta|idelta|'
     r'clamp_min|clamp_max|abs|ceil|floor|round|sqrt|ln|log2|log10)\s*(?=\()')
+_RESULT_FIELDS = {
+    "warning_count": ("backend_warnings", MAX_ANNOTATION_COUNT),
+    "info_count": ("backend_infos", MAX_ANNOTATION_COUNT),
+    "discarded_sample_count": ("discarded_samples", MAX_RESULT_POINTS),
+    "discarded_series_count": ("discarded_series", MAX_RESULT_SERIES),
+}
+
+
+def _validate_result_quality(value: Any) -> None:
+    if value is None:
+        return
+    if (not isinstance(value, Mapping) or set(value) != {"scope", *_RESULT_FIELDS}
+            or value.get("scope") != "query"
+            or any(type(value.get(key)) is not int or not 0 <= value[key] <= limit
+                   for key, (_, limit) in _RESULT_FIELDS.items())):
+        raise ValueError("invalid query result quality")
+
+
+def result_quality_issues(value: Mapping[str, Any]) -> list[str]:
+    """Safe count-bearing limitations also survive windows with no observations."""
+    result = value.get("query_result")
+    _validate_result_quality(result)
+    return [f"{code}:{result[key]}" for key, (code, _) in _RESULT_FIELDS.items()
+            if result and result[key]]
 
 
 def timestamp_query(query: str) -> str | None:
@@ -37,7 +62,9 @@ def timestamp_query(query: str) -> str | None:
 
 
 def quality(query: str, start: float, end: float, query_step: float,
-            stats: Mapping[str, Any] | None, *, source: Mapping[str, Any] | None = None) -> dict:
+            stats: Mapping[str, Any] | None, *, source: Mapping[str, Any] | None = None,
+            result: Mapping[str, Any] | None = None) -> dict:
+    _validate_result_quality(result)
     duration = end-start
     windows = []
     range_unknown = False
@@ -66,6 +93,7 @@ def quality(query: str, start: float, end: float, query_step: float,
         warnings.append("source_freshness_unknown")
     if future:
         warnings.append("source_timestamp_in_future")
+    warnings.extend(code for key, (code, _) in _RESULT_FIELDS.items() if result and result[key])
     return {"interval_seconds": duration, "query_step_seconds": query_step,
             "range_window_seconds": lookback, "evaluation_count": evaluations,
             "evaluation_count_kind": "query_evaluations_not_scrapes",
@@ -74,6 +102,7 @@ def quality(query: str, start: float, end: float, query_step: float,
             "last_source_timestamp": last, "source_age_seconds": age,
             "freshness": "observed" if last is not None and not future else "unknown",
             "source_coverage": "returned_series_only" if last is not None else "unknown",
+            "query_result": dict(result) if result is not None else None,
             "warnings": warnings}
 
 
@@ -108,6 +137,7 @@ def validate_quality(value: Any) -> None:
     for item in value.values():
         if not isinstance(item, Mapping) or set(item)-fields:
             raise ValueError("unsupported sampling quality fields")
+        _validate_result_quality(item.get("query_result"))
         for key in ("interval_seconds", "query_step_seconds", "range_window_seconds", "evaluation_count",
                     "observed_source_samples", "last_source_timestamp", "source_age_seconds"):
             number = item.get(key)
@@ -115,7 +145,7 @@ def validate_quality(value: Any) -> None:
                 raise ValueError("sampling quality measurements must be finite nonnegative numbers")
         allowed_warnings = {"range_window_exceeds_interval", "query_step_exceeds_interval",
                             "fewer_than_two_query_evaluations", "source_freshness_unknown", "range_window_unknown",
-                            "source_timestamp_in_future"}
+                            "source_timestamp_in_future"} | {code for code, _ in _RESULT_FIELDS.values()}
         warnings = item.get("warnings", [])
         if not isinstance(warnings, list) or any(not isinstance(warning, str) or warning not in allowed_warnings for warning in warnings):
             raise ValueError("invalid sampling quality warnings")

@@ -22,7 +22,7 @@ from urllib.request import Request, urlopen
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline, validate_baseline_policy, workload_matches
 from .clock_quality import assess_interval
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
-from .evidence_quality import quality, check_source, validate_sampling
+from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling
 from ..sandbox import device_window
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
@@ -571,11 +571,11 @@ class DiagnosticEngine:
                     clock_quality["baseline"]["status"] = "unknown"
                     missing.append("clock:baseline:reference_session_changed")
 
-        def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]]]:
+        def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]], dict | None]:
             if hasattr(prometheus, "query_range_detail"):
                 detail = prometheus.query_range_detail(query, window_start, window_end, step)
-                return detail["aggregate"], detail["series"]
-            return prometheus.query_range(query, window_start, window_end, step), []
+                return detail["aggregate"], detail["series"], detail.get("result_quality")
+            return prometheus.query_range(query, window_start, window_end, step), [], None
 
         for name, template in queries.items():
             try:
@@ -583,22 +583,26 @@ class DiagnosticEngine:
                 for key, value in query_context.items():
                     query = query.replace("{" + key + "}", escape_label(value))
                 executed_queries[name] = query
-                stats, series = query_with_detail(query, float(start), end)
+                stats, series, result_quality = query_with_detail(query, float(start), end)
                 source_sample = check_source(prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
-                sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample)}
+                sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample, result=result_quality)}
+                missing.extend(f"prometheus:{name}:current:{issue}"
+                               for issue in result_quality_issues(sampling_quality[name]["current"]))
                 if stats is None:
                     missing.append("prometheus:" + name)
                 else:
                     evidence[name] = stats
                     current_series[name] = series
                 if baseline_window_valid:
-                    prior, prior_series = query_with_detail(
+                    prior, prior_series, prior_quality = query_with_detail(
                         query, float(baseline_window["start"]),
                         float(baseline_window["end"]),
                     )
                     baseline_start, baseline_end = float(baseline_window["start"]), float(baseline_window["end"])
                     prior_source = check_source(prometheus, query, baseline_start, baseline_end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
-                    sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source)
+                    sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source, result=prior_quality)
+                    missing.extend(f"prometheus:{name}:baseline:{issue}"
+                                   for issue in result_quality_issues(sampling_quality[name]["baseline"]))
                     if prior is not None:
                         baseline_metrics[name] = prior
                         baseline_series[name] = prior_series
@@ -963,6 +967,11 @@ class DiagnosticEngine:
             for item in candidate.get("evidence", []) + candidate.get("counter_evidence", []):
                 name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
                 item["sampling_quality"] = sampling_quality.get(name)
+                for window_name, window_quality in (item["sampling_quality"] or {}).items():
+                    issues = result_quality_issues(window_quality)
+                    candidate["missing_evidence"].extend(f"{window_name}:{item['signal']}:{issue}" for issue in issues)
+                    if issues and candidate["state"] == "strong_signal":
+                        candidate["state"] = "supporting_signal"
                 if item["signal"] in PROFILE_SIGNALS:
                     spec = PROFILE_SIGNALS[item["signal"]]
                     item.update(unit=spec.unit, window_statistic=spec.statistic,

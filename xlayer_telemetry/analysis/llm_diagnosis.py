@@ -18,7 +18,7 @@ from typing import Any
 from ..prometheus import PrometheusClient
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
-from .evidence_quality import quality, check_source, validate_sampling, validate_quality
+from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
@@ -316,7 +316,8 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 detail = client.query_range_detail(query["query"], window["start"], window["end"], step)
                 series = {json.dumps(item["labels"], sort_keys=True): item for item in detail["series"]}
                 source_sample = check_source(client, query["query"], window["start"], window["end"], step) if config.get("sampling", {}).get("check_source_freshness") else {}
-                qualities[name] = quality(query["query"], window["start"], window["end"], step, detail.get("aggregate"), source=source_sample)
+                qualities[name] = quality(query["query"], window["start"], window["end"], step, detail.get("aggregate"), source=source_sample, result=detail.get("result_quality"))
+                missing.extend(f"{name}:{query['signal']}:{issue}" for issue in result_quality_issues(qualities[name]))
                 if not series:
                     missing.append(f"{name}:{query['signal']}:no_data")
             except (OSError, RuntimeError, ValueError) as error:
