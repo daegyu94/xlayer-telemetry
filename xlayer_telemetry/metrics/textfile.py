@@ -15,10 +15,13 @@ from xlayer_telemetry.time_alignment import sample_time
 
 
 _COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_cache_hits", "snapshot_rejections", "sample_rejections")
-_COLLECTOR_METRICS = {f"telemetry_application_{key}_total" for key in _COLLECTOR_COUNTER_KEYS}
+_COLLECTOR_METRICS = {f"telemetry_application_{key}_total" for key in _COLLECTOR_COUNTER_KEYS} | {
+    "training_gpu_allocation", "training_sample_timestamp_seconds", "training_step",
+}
 
 
 _IDENTITY_FIELDS = ("run_id", "producer", "role", "worker_id", "node")
+_CONTEXT_LABELS = set(_IDENTITY_FIELDS) | {"rank", "local_rank", "gpu"}
 
 
 class SnapshotCache:
@@ -190,6 +193,8 @@ def build_metrics(snapshots: list[dict], *, counters: dict | None = None) -> lis
         if type(step) is int:
             metrics.append(GaugeSample("training_step", "Latest reported training step.", step, labels))
         for sample in snapshot["samples"]:
+            # Context is derived only from the snapshot. A sample must not
+            # invent missing context or override another worker's definition.
             if isinstance(sample, dict) and str(sample.get("name", "")) in _COLLECTOR_METRICS:
                 rejected()
                 continue
@@ -197,7 +202,7 @@ def build_metrics(snapshots: list[dict], *, counters: dict | None = None) -> lis
                     or finite_number(sample.get("value")) is None):
                 rejected()
                 continue
-            if set(sample.get("labels", {})) & labels.keys():
+            if set(sample.get("labels", {})) & _CONTEXT_LABELS:
                 rejected()
                 continue
             metrics.append(GaugeSample(

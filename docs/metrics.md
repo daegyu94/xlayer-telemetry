@@ -223,6 +223,8 @@ Node/freshness 필터로 정상 제외한 snapshot은 오류로 집계하지 않
 선택적 [time calibration](time-alignment.md)을 사용하면 application·GPU·sandbox freshness gauge는 reference time을 사용합니다.
 Snapshot의 원본 local timestamp는 유지하며 보정이 불가능하면 timestamp gauge를 생략하여 정상 값 `0`으로 오해하지 않게 합니다.
 이 이름들은 collector 전용이며 application snapshot이 같은 이름을 보내면 거부합니다.
+`training_step`·`training_gpu_allocation`·`training_sample_timestamp_seconds`도 snapshot context에서만 생성하며, 같은 이름의 application sample은 거부합니다.
+Sample label로 run·producer·role·worker·node·rank·local rank·GPU context를 추가하거나 덮어쓸 수 없으며, snapshot에 없는 context는 결측으로 남습니다.
 
 CLI collector는 최대 1,024개 파일·원본 크기 합계 16 MiB의 decoded snapshot을 process-local cache에 보관합니다.
 이 한도는 Python 객체의 실제 메모리 사용량 한도가 아니며, 초과 파일도 cache 없이 정상 수집합니다.

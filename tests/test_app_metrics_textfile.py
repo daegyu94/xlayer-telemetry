@@ -116,3 +116,49 @@ def test_snapshot_selection_matches_within_and_across_directories(tmp_path):
     assert _iter_snapshots(second)[0]['step'] == 3
     assert textfile.collect_snapshots([first, second], [])[0]['step'] == 3
     assert textfile.collect_snapshots([second, first], [], now=205, max_age_seconds=10)[0]['step'] == 3
+
+
+@pytest.mark.parametrize("name,missing_context", [
+    ("training_sample_timestamp_seconds", {"time_alignment": {"status": "unknown"}}),
+    ("training_step", {"step": None}),
+    ("training_gpu_allocation", {"cuda_visible_devices": None}),
+])
+@pytest.mark.parametrize("cached", [False, True])
+def test_application_samples_cannot_invent_context_or_hide_other_workers(
+    tmp_path, name, missing_context, cached
+):
+    invalid = SNAPSHOT | missing_context | {
+        "worker_id": "bad",
+        "samples": [{"name": name, "value": 999}, {"name": "training_loss", "value": .5}],
+    }
+    (tmp_path / "a-invalid.json").write_text(json.dumps(invalid))
+    (tmp_path / "b-valid.json").write_text(json.dumps(SNAPSHOT))
+    cache = textfile.SnapshotCache() if cached else None
+    for _ in range(2):
+        counts = {}
+        snapshots = textfile.collect_snapshots([tmp_path], [], cache=cache)
+        metrics = build_metrics(snapshots, counters=counts)
+        # Unavailable context stays unknown; it cannot be supplied as a sample.
+        context_metrics = [metric for metric in metrics if metric.name == name]
+        assert len(context_metrics) == 1
+        assert context_metrics[0].labels["worker_id"] == "0"
+        assert counts["sample_rejections"] == 1
+        assert {metric.labels["worker_id"] for metric in metrics
+                if metric.name == "training_loss"} == {"0", "bad"}
+
+
+@pytest.mark.parametrize("label", ["rank", "local_rank", "gpu"])
+def test_samples_cannot_supply_missing_context_labels(label):
+    snapshot = SNAPSHOT | {
+        "rank": None, "local_rank": None, "cuda_visible_devices": None,
+        "samples": [
+            {"name": "training_loss", "value": 99, "labels": {label: "invented"}},
+            {"name": "training_loss", "value": .5},
+        ],
+    }
+    counts = {}
+    metrics = build_metrics([snapshot], counters=counts)
+    losses = [metric for metric in metrics if metric.name == "training_loss"]
+    assert len(losses) == 1
+    assert losses[0].value == .5 and label not in losses[0].labels
+    assert counts["sample_rejections"] == 1
