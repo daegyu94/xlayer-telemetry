@@ -1,4 +1,4 @@
-"""Resolve reader-facing Markdown links without requiring a backend or network."""
+"""Resolve guide and contributor Markdown links without a backend or network."""
 from pathlib import Path
 import re
 from urllib.parse import unquote, urlsplit
@@ -44,7 +44,7 @@ def broken_links(document):
 
 
 def test_documentation_file_and_heading_links_resolve():
-    documents = [ROOT / "README.md", ROOT / "scripts/README.md", ROOT / "config/README.md"]
+    documents = [*ROOT.glob("*.md"), ROOT / "scripts/README.md", ROOT / "config/README.md"]
     documents.extend(ROOT.glob("examples/**/README.md"))
     documents.extend(path for path in (ROOT / "docs").rglob("*.md") if "_build" not in path.parts)
     failures = [failure for document in sorted(set(documents)) for failure in broken_links(document)]
