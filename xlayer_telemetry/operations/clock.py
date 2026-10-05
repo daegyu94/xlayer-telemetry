@@ -5,6 +5,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import math
 import re
+import socket
+import threading
 from pathlib import Path
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -17,22 +19,89 @@ from .config import ConfigError
 
 
 class ClockServer(HTTPServer):
-    """Serial, bounded HTTP handler; no threads or persistence per request."""
+    """Serial handler with one server-wide guard, never a thread per client."""
+    _REQUEST_TIMEOUT = 2.0
     def __init__(self, address, *, reference_id: str, wall_clock=time.time, monotonic=time.monotonic):
         if not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}', reference_id):
             raise ValueError('reference_id must be a stable identifier')
         self.reference_id, self.reference_session = reference_id, uuid.uuid4().hex
         self.wall_clock, self.monotonic = wall_clock, monotonic
         self.last_wall, self.last_monotonic = wall_clock(), monotonic()
+        self._connection_lock = threading.Condition()
+        self._active_connection = None
+        self._closing = False
+        self._guard = None
         super().__init__(address, ClockHandler)
+        # Binding can fail and call server_close. Start only after it succeeds.
+        try:
+            self._guard = threading.Thread(target=self._guard_connection, daemon=True,
+                                           name="xlayer-clock-connection-guard")
+            self._guard.start()
+        except (OSError, RuntimeError):
+            self._guard = None  # An unstarted thread cannot be joined.
+            self.server_close()
+            raise
 
     def get_request(self):
         connection, address = super().get_request()
-        connection.settimeout(2)
+        connection.settimeout(self._REQUEST_TIMEOUT)
+        with self._connection_lock:
+            if self._closing:
+                connection.close()
+                raise OSError('Clock server is closed')
+            self._active_connection = (connection, time.monotonic() + self._REQUEST_TIMEOUT)
+            self._connection_lock.notify_all()
         return connection, address
+
+    def _close_connection(self):
+        # Always called under the lock; retain the socket object, never an fd
+        # which the next connection or an unrelated caller might reuse.
+        if self._active_connection is not None:
+            connection, _ = self._active_connection
+            self._active_connection = None
+            try:
+                connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            connection.close()
+
+    def _guard_connection(self):
+        with self._connection_lock:
+            while not self._closing:
+                if self._active_connection is None:
+                    self._connection_lock.wait()
+                    continue
+                remaining = self._active_connection[1] - time.monotonic()
+                if remaining <= 0:
+                    self._close_connection()
+                else:
+                    self._connection_lock.wait(remaining)
+
+    def shutdown_request(self, request):
+        with self._connection_lock:
+            if self._active_connection is not None and self._active_connection[0] is request:
+                self._active_connection = None
+                self._connection_lock.notify_all()
+            super().shutdown_request(request)
+
+    def server_close(self):
+        with self._connection_lock:
+            self._closing = True
+            self._close_connection()
+            self._connection_lock.notify_all()
+        super().server_close()
+        if self._guard is not None:
+            self._guard.join(timeout=1)
 
 
 class ClockHandler(BaseHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except OSError:
+            # The absolute connection guard can interrupt reads or writes.
+            pass
+
     def do_GET(self):
         began, monotonic = self.server.wall_clock(), self.server.monotonic()
         age = monotonic-self.server.last_monotonic
