@@ -381,7 +381,16 @@ def test_oversized_redirect_body_is_rejected_before_following(redirects, code):
 
 @pytest.mark.parametrize("code", [301, 302, 303, 307, 308])
 def test_bounded_multi_hop_redirects_keep_existing_behavior(redirects, code):
+    from urllib.request import HTTPRedirectHandler
+
     state, endpoint = redirects
+    if code == 308 and not hasattr(HTTPRedirectHandler, "http_error_308"):
+        # Python 3.10 rejects 308; preserve and assert that behavior rather
+        # than silently adding support or skipping the regression.
+        with pytest.raises(OSError, match="HTTP Error 308"):
+            llm._get(f"{endpoint}/{code}/2", 5)
+        assert state["requests"] == [f"/{code}/2"]
+        return
     assert llm._get(f"{endpoint}/{code}/2", 5) == {}
     assert state["requests"] == [f"/{code}/2", f"/{code}/1", "/ok"]
 
