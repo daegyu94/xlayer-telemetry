@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
 import sys
@@ -11,8 +12,8 @@ import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
+from xlayer_telemetry._http_transport import request_bytes
 from xlayer_telemetry.run_summary import make_run_summary
 
 
@@ -81,9 +82,8 @@ def grafana_database_is_healthy(payload: dict[str, Any]) -> bool:
 
 
 def _request(url: str, timeout: float = 5.0) -> bytes:
-    request = Request(url, headers={"User-Agent": "xlayer-telemetry-validation/1"})
-    with urlopen(request, timeout=timeout) as response:
-        return response.read()
+    return request_bytes(url, None, timeout,
+                         headers={"User-Agent": "xlayer-telemetry-validation/1"})
 
 
 def _read_json(url: str) -> dict[str, Any]:
@@ -94,13 +94,17 @@ def _read_json(url: str) -> dict[str, Any]:
 
 
 def _wait_until_ready(url: str, timeout: float) -> None:
+    if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("readiness timeout must be finite and positive")
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            _request(url)
+            _request(url, timeout=deadline - time.monotonic())
+            if time.monotonic() >= deadline:
+                raise TimeoutError("HTTP transport deadline exceeded")
             return
-        except OSError as error:
+        except (OSError, RuntimeError, ValueError) as error:
             last_error = error
             time.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
     raise RuntimeError(f"endpoint did not become ready: {url}: {last_error}")
@@ -168,7 +172,7 @@ def validate_stack(args: argparse.Namespace) -> int:
             prometheus_query_ok = query_result.get("status") == "success"
             if not prometheus_query_ok:
                 errors.append("Prometheus test query did not report success")
-        except (ValueError, OSError) as error:
+        except (RuntimeError, ValueError, OSError) as error:
             errors.append(str(error))
 
     targets_acceptable = not args.require_targets_up or (

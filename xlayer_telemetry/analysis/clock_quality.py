@@ -105,7 +105,7 @@ def main() -> None:
     import argparse
     import json
     import time
-    from ..prometheus import PrometheusClient
+    from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 
     parser = argparse.ArgumentParser(description="Check node clocks against Prometheus scrape time")
     parser.add_argument("--prometheus-url", required=True)
