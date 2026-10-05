@@ -64,6 +64,8 @@ def project_result(root: Path, result: dict) -> Path:
                 rows.append({**common, "row_kind": "evidence", "candidate_id": identifier,
                              "observation_id": key, "evidence_type": kind, "signal": item["signal"],
                              "current": item.get("current"), "baseline": item.get("baseline"),
+                             "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
+                             "query": item.get("query"),
                              "observation_scope": item["observation_scope"], "source": item.get("source"),
                              "entity": ",".join(f"{k}={v}" for k, v in item.get("labels", {}).items()),
                              "sampling_quality": json.dumps(item.get("sampling_quality"))})

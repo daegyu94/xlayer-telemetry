@@ -117,6 +117,7 @@ Candidate는 제목·설명·evidence·counter/missing evidence·scope·다음 �
 원본 packet은 보존하고 모델에는 반복 필드를 줄인 표로 전달합니다.
 `observation_columns`와 `observation_rows`는 같은 열 순서이며 공통 source·unit·scope는 한 번 기록합니다.
 값·baseline·label·sample 통계·query를 보존하고 안정된 signal이나 counter evidence도 제거하지 않습니다.
+Optional `window_statistic`은 scalar 요약값에 적용한 `max`·`mean` 등의 통계를 빈 문자열이 아닌 text로 전달하며, 없는 값은 추정하지 않습니다.
 `current`·`baseline`은 유한한 숫자·`null` 또는 numeric statistics입니다(`min`, `mean`, `max`, `last`, `sample_count`, `sampled_increase`, `max_series_delta`).
 빈 통계·값이 없는 통계·`sample_count=0`은 누락이며 측정값 `0`과 다릅니다.
 숫자 문자열·boolean·NaN/무한대·허용하지 않은 field는 거부합니다.
@@ -142,6 +143,7 @@ Candidate는 제목·설명·evidence·counter/missing evidence·scope·다음 �
 ## Reuse an Existing Run
 
 `diagnostics/latest.json`의 `comparison.signals`·문맥도 입력으로 쓸 수 있으며 `verdict`·`findings`·rule `candidates`·threshold는 제외합니다.
+저장된 comparison의 unit·`window_statistic`은 보존하지만 긴 PromQL은 입력 크기를 늘리지 않도록 이 경로에서 제외합니다.
 Comparison에 이미 집계·entity 선택이 적용됐을 수 있어 모든 engine/device가 필요하면 직접 수집합니다.
 시간 구간이 없거나 `unknown`이면 candidate를 거부하고 관측 요약·증거 부족 결과만 허용합니다.
 
@@ -164,6 +166,7 @@ python -m xlayer_telemetry.analysis.llm_diagnosis \
 선택한 step의 최신 final revision에서 관측값·baseline·sampling quality를 가져오고, rule candidate·threshold는 모델에 전달하지 않습니다.
 기본 output은 run의 `diagnostics/llm-*.json`이며 `--output`으로 변경할 수 있습니다.
 성공한 검토 결과만 기존 Alloy 경로인 `diagnostics/investigation/llm-*.jsonl`에 projection합니다.
+Supporting/counter evidence에는 observation packet에 있는 unit·`window_statistic`·query를 보존하며, 없는 metadata는 `null`로 남깁니다.
 Draft, rejected response와 실패는 Grafana candidate로 내보내지 않습니다.
 
 Bottleneck Summary에서 `Method=llm`을 선택하면 model·생성 시각·hypothesis·evidence ID를 확인할 수 있습니다.

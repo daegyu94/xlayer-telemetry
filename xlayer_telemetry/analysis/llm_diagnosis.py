@@ -32,7 +32,7 @@ INFERENCE_OPTIONS = {
 }
 OBSERVATION_FIELDS = {
     "id", "signal", "unit", "observation_scope", "labels", "baseline", "current",
-    "delta", "delta_percent", "source", "query", "kind",
+    "delta", "delta_percent", "source", "query", "kind", "window_statistic",
 } | {"sampling_quality"}
 STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase", "max_series_delta"}
 
@@ -219,6 +219,10 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
             "source": "saved comparison; raw series may have been aggregated",
             "sampling_quality": row.get("sampling_quality"),
         })
+        # Preserve the scalar reducer without adding full PromQL to this compact
+        # saved-report path. Older reports need not specify one; never infer it.
+        if row.get("window_statistic") is not None:
+            observations[-1]["window_statistic"] = row["window_statistic"]
     return {
         "schema_version": 1, "record_type": "llm_observation_packet",
         "data_origin": report.get("data_origin", "unknown"),
@@ -375,7 +379,7 @@ def validate_packet(packet: dict[str, Any]) -> None:
             raise ValueError("each observation needs id, signal and observation_scope")
         if set(item) - OBSERVATION_FIELDS:
             raise ValueError("unsupported observation fields; put measurements in the observation contract")
-        for key in ("unit", "source", "query"):
+        for key in ("unit", "source", "query", "window_statistic"):
             if key in item and (not isinstance(item[key], str) or not item[key].strip()):
                 raise ValueError(f"observation {key} must be nonempty text")
         if "kind" in item and item["kind"] not in ("gauge", "counter", "delta"):
@@ -407,10 +411,10 @@ def validate_packet(packet: dict[str, Any]) -> None:
 def model_view(packet: dict[str, Any]) -> dict[str, Any]:
     """Send every observation as a compact table; retain the full packet in output."""
     observations = packet["observations"]
-    preferred = ("id", "signal", "unit", "observation_scope", "labels", "baseline", "current")
+    preferred = ("id", "signal", "unit", "window_statistic", "observation_scope", "labels", "baseline", "current")
     present = set().union(*(item.keys() for item in observations)) if observations else set()
     common = {}
-    for key in ("source", "query", "kind", "unit", "observation_scope", "labels", "sampling_quality"):
+    for key in ("source", "query", "kind", "unit", "window_statistic", "observation_scope", "labels", "sampling_quality"):
         if observations and all(key in item and item[key] == observations[0][key]
                                 for item in observations):
             common[key] = observations[0][key]
