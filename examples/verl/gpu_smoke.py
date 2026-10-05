@@ -27,16 +27,16 @@ def main() -> None:
 
     import torch
 
-    if args.device == "cuda" and not torch.cuda.is_available():
-        parser.error("CUDA is not available")
     device = torch.device(args.device)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        parser.error("CUDA is not available")
     run_id = f"agent-rl-smoke-{int(time.time())}"
     metrics_dir = args.output / "telemetry-metrics"
     events_dir = args.output / "telemetry-events"
     visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     gpu = None
     if device.type == "cuda":
-        logical_gpu = torch.cuda.current_device()
+        logical_gpu = device.index if device.index is not None else torch.cuda.current_device()
         visible = [item.strip() for item in (visible_devices or "").split(",")]
         if logical_gpu < len(visible) and visible[logical_gpu]:
             gpu = visible[logical_gpu]

@@ -183,6 +183,9 @@ PYTHONPATH=. python examples/local-llm/evaluate.py \
   --output "$HOME/telemetry/llm-evaluation"
 ```
 
+결과를 보존하려면 새 output directory를 사용합니다.
+기존 summary와 선택한 case의 결과를 의도적으로 교체할 때만 `--overwrite`를 추가합니다.
+
 `--generate-only`는 모델 없이 입력만 만들고, `--case sandbox_io`는 해당 사례만 선택하며, `--repeats 3`은 seed를 바꿔 반복합니다.
 `summary.json`은 응답 형식, 예상 assessment와의 일치, primary candidate의 evidence 참조를 검사합니다.
 예상 assessment 불일치, 필수 evidence 누락, 모델 호출·응답 검증 실패 중 하나라도 있으면 평가 명령은 종료 코드 `1`을 반환합니다.

@@ -124,12 +124,16 @@ def main():
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--generate-only", action="store_true")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="replace summary and selected case results in an existing output directory")
     args = parser.parse_args()
     cases = scenarios()
     if args.repeats < 1:
         parser.error("repeats must be at least 1")
     if args.case and set(args.case) - {name for name, _, _ in cases}:
         parser.error("unknown case; choose from: " + ", ".join(name for name, _, _ in cases))
+    if args.output.exists() and (not args.output.is_dir() or any(args.output.iterdir())) and not args.overwrite:
+        parser.error("output must be a new or empty directory; use --overwrite to replace existing evaluation results")
     args.output.mkdir(parents=True, exist_ok=True)
     summary = []
     write_result(args.output / "summary.json", summary)

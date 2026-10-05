@@ -462,7 +462,7 @@ def test_evaluator_fails_on_quality_checks_and_removes_stale_success(monkeypatch
                      if failure == "assessment" else candidate_answer(["m1"]))
         return {"diagnosis": diagnosis, "latency_seconds": 1, "input_sha256": "test", "seed": 42}
     monkeypatch.setattr(evaluate, "diagnose", diagnose)
-    monkeypatch.setattr(sys, "argv", ["evaluate", "--output", str(tmp_path), "--case", case])
+    monkeypatch.setattr(sys, "argv", ["evaluate", "--output", str(tmp_path), "--case", case, "--overwrite"])
     with pytest.raises(SystemExit) as exit_status:
         evaluate.main()
     assert exit_status.value.code == 1
@@ -489,7 +489,7 @@ def test_generate_only_cannot_leave_a_previous_diagnosis(monkeypatch, tmp_path):
     (tmp_path / "summary.json").write_text('[{"stale":true}]')
     evaluate = evaluator()
     monkeypatch.setattr(evaluate, "diagnose", lambda *args, **kwargs: pytest.fail("must not call model"))
-    monkeypatch.setattr(sys, "argv", ["evaluate", "--output", str(tmp_path), "--case", "normal", "--generate-only"])
+    monkeypatch.setattr(sys, "argv", ["evaluate", "--output", str(tmp_path), "--case", "normal", "--generate-only", "--overwrite"])
     evaluate.main()
     assert not (directory / "diagnosis.json").exists()
     assert not (directory / "rejected-response.json").exists()
