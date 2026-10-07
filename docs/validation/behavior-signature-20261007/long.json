@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "experiment": "synthetic_agent_rl_behavior_signature",
+  "seed": 20261007,
+  "python": "3.12.3",
+  "platform": "Linux",
+  "machine": "x86_64",
+  "classification": {
+    "cpu_contention": {
+      "cases": 32,
+      "correct_unique_candidate": 32,
+      "slow_detected": 32
+    },
+    "gpu_pressure": {
+      "cases": 32,
+      "correct_unique_candidate": 32,
+      "slow_detected": 32
+    },
+    "network_pressure": {
+      "cases": 32,
+      "correct_unique_candidate": 32,
+      "slow_detected": 32
+    },
+    "storage_pressure": {
+      "cases": 32,
+      "correct_unique_candidate": 32,
+      "slow_detected": 32
+    },
+    "normal": {
+      "cases": 32,
+      "correct_unique_candidate": 32,
+      "slow_detected": 0
+    }
+  },
+  "missing_source_preserved": {
+    "correct": 32,
+    "total": 32
+  },
+  "mixed_candidates_preserved": {
+    "correct": 32,
+    "total": 32
+  },
+  "changed_workload_rejected": {
+    "correct": 32,
+    "total": 32
+  },
+  "slow_rollout_normal_async_update": {
+    "correct": 32,
+    "total": 32
+  },
+  "peer_comparison": {
+    "reference_count": 1,
+    "slow": true,
+    "duration_ratio": 2.0031209095091898
+  },
+  "relation_delta": {
+    "higher_child_cost": {
+      "parent_phase": "rollout",
+      "parent_name": "rollout",
+      "child_phase": "cpu",
+      "child_name": "agent.cpu",
+      "parent_entity": {},
+      "child_entity": {},
+      "children_per_parent": 64.0,
+      "baseline_children_per_parent": 64.0,
+      "count_delta": 0.0,
+      "child_seconds_per_parent": 0.6416218560000001,
+      "baseline_child_seconds_per_parent": 0.12832437100000002,
+      "duration_delta": 0.513297485
+    },
+    "higher_fanout": {
+      "parent_phase": "rollout",
+      "parent_name": "rollout",
+      "child_phase": "cpu",
+      "child_name": "agent.cpu",
+      "parent_entity": {},
+      "child_entity": {},
+      "children_per_parent": 128.0,
+      "baseline_children_per_parent": 64.0,
+      "count_delta": 64.0,
+      "child_seconds_per_parent": 0.2566487420000001,
+      "baseline_child_seconds_per_parent": 0.12832437100000002,
+      "duration_delta": 0.12832437100000008
+    }
+  },
+  "volume": {
+    "boundaries": 160,
+    "raw_sdk_event_bytes": 31111737,
+    "signature_bytes": 705292,
+    "raw_synthetic_log_bytes": 3448377,
+    "raw_events_plus_logs_bytes": 34560114,
+    "reduction_ratio": 44.11185296302808,
+    "reduction_percent": 97.73303560646582,
+    "events_plus_logs_reduction_ratio": 49.00114278908594
+  },
+  "cpu_overhead": {
+    "workload_only": {
+      "median_ms_per_boundary": 128.64926240000003,
+      "min_ms": 126.38576640000002,
+      "max_ms": 150.43655,
+      "overhead_percent_vs_workload_only": 0.0
+    },
+    "signature": {
+      "median_ms_per_boundary": 131.8172588,
+      "min_ms": 128.5375788,
+      "max_ms": 155.9908664,
+      "overhead_percent_vs_workload_only": 2.4625064620657833,
+      "instrumentation_only_median_ms": 1.604846,
+      "paired_cpu_work_median_ms": 129.739592,
+      "paired_added_cost_percent": 1.233394496101008
+    },
+    "signature_compare_candidates": {
+      "median_ms_per_boundary": 134.21419880000002,
+      "min_ms": 128.43249139999998,
+      "max_ms": 155.52309319999998,
+      "overhead_percent_vs_workload_only": 4.325665220448238,
+      "instrumentation_only_median_ms": 1.690344,
+      "paired_cpu_work_median_ms": 131.827071,
+      "paired_added_cost_percent": 1.2365280243428234
+    },
+    "raw_json_serialization": {
+      "median_ms_per_boundary": 134.1124322,
+      "min_ms": 127.68303759999999,
+      "max_ms": 154.9714338,
+      "overhead_percent_vs_workload_only": 4.24656130791774,
+      "instrumentation_only_median_ms": 1.15367,
+      "paired_cpu_work_median_ms": 131.148194,
+      "paired_added_cost_percent": 0.8048828837493381
+    },
+    "method": {
+      "warmup_batches": 1,
+      "repeated_batches": 7,
+      "boundaries_per_batch": 5,
+      "events_per_boundary": 257,
+      "fixture_generation_in_timed_region": false,
+      "disk_io_in_timed_region": false,
+      "sink_nonzero": true,
+      "cpu_work_iterations": 4000000
+    }
+  },
+  "optional_capture": {
+    "state": "hook_delivered",
+    "exit_code": 0,
+    "attempts": 1,
+    "capture_verified": false,
+    "real_cpu_capture": true,
+    "artifact_verified": true,
+    "capture_bytes": 502,
+    "target": "separate synthetic CPU computation; not attached running workload"
+  },
+  "limits": [
+    "Event durations, resource evidence and fault labels are simulated with fixed seed; thresholds match fixture ranges.",
+    "Accuracy measures this controlled fixture, not causal root-cause accuracy on production or real GPU/VERL.",
+    "Overhead is actual Python CPU processing over prebuilt traces; no SDK collection, backend, disk I/O or native profiler overhead.",
+    "Raw SDK events and secondary synthetic human-readable log sizes are counted separately. Signatures lose original order, IDs and per-event detail.",
+    "Summary artifact size reduction does not change existing SDK raw event collection or backend ingestion.",
+    "Optional cProfile artifact is real CPU profiling of a separate synthetic process; no GPU capture or existing workload attachment."
+  ]
+}
