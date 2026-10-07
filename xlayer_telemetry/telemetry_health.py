@@ -6,11 +6,24 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import time
 
 from .fileio import atomic_write_text, json_objects
 from .measurements import finite_number
+
+
+def _workload_observation(now: float) -> dict:
+    """Identity/time of a wrapper report, never a phase or process start time."""
+    identity = {"run_id": os.environ.get("TELEMETRY_RUN_ID"),
+                "node": os.environ.get("TELEMETRY_NODE")}
+    if not all(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", value)
+               for value in identity.values()):
+        return {}
+    return {"workload_observation": {**identity, "source": "wrapper_health",
+                                    "boundary_scope": "wrapped_command", "clock_scope": "node",
+                                    "observed_at": now}}
 
 
 def _read(root: Path) -> dict:
@@ -22,13 +35,14 @@ def _read(root: Path) -> dict:
 
 
 def observe(root: Path, pids: dict[str, int], *, now: float | None = None,
-            max_age_seconds: float = 300) -> dict:
+            max_age_seconds: float = 300, workload_started: bool = True) -> dict:
     now = time.time() if now is None else now
     previous = _read(root)
     result = {"schema_version": 1, "record_type": "telemetry_health", "observed_at": now,
               "started_at": previous.get("started_at", now),
-              "workload": {"status": "running", "exit_code": None},
-              "issues": list(previous.get("issues", [])), "sidecars": {}}
+              "workload": {"status": "running" if workload_started else "starting", "exit_code": None},
+              "issues": list(previous.get("issues", [])), "sidecars": {},
+              **_workload_observation(now)}
     for name, pid in pids.items():
         try:
             os.kill(pid, 0)
@@ -63,6 +77,7 @@ def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str
     result.update(schema_version=1, record_type="telemetry_health", observed_at=time.time(),
                   workload={"status": "finished", "exit_code": exit_code},
                   final_export={"bridge": bridge_export, "diagnostics": diagnosis_export})
+    result.update(_workload_observation(result["observed_at"]))
     issues = result.setdefault("issues", [])
     if diagnosis_export == "ok":
         try:
@@ -119,6 +134,8 @@ def main() -> None:
     parser.add_argument("--interval", type=float, default=2)
     parser.add_argument("--max-age-seconds", type=float, default=300)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--workload-starting", action="store_true",
+                        help="Write the pre-launch artifact without claiming a running workload")
     parser.add_argument("--finish", type=int, metavar="WORKLOAD_EXIT_CODE")
     parser.add_argument("--bridge-export", choices=("ok", "missing", "failed", "interrupted"), default="interrupted")
     parser.add_argument("--diagnostics-export", choices=("ok", "disabled", "missing", "failed", "interrupted"), default="disabled")
@@ -136,7 +153,8 @@ def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     try:
         while True:
-            observe(args.run_root, pids, max_age_seconds=args.max_age_seconds)
+            observe(args.run_root, pids, max_age_seconds=args.max_age_seconds,
+                    workload_started=not args.workload_starting)
             if args.once:
                 break
             time.sleep(args.interval)

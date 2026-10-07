@@ -399,7 +399,7 @@ set +e
 health_args=(--run-root "$output_dir" --bridge-pid "$bridge_pid" --max-age-seconds "$health_max_age_seconds")
 [[ -z "$diagnostics_pid" ]] || health_args+=(--diagnostics-pid "$diagnostics_pid")
 PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
-  "${health_args[@]}" --once > "$output_dir/logs/telemetry-health.log" 2>&1
+  "${health_args[@]}" --once --workload-starting > "$output_dir/logs/telemetry-health.log" 2>&1
 XLAYER_WORKLOAD_OWNER="$workload_owner" setsid -- "${command[@]}" &
 workload_pid=$!
 XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" setsid -- "$telemetry_python" -m xlayer_telemetry.telemetry_health \

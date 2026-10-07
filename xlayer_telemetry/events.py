@@ -26,7 +26,7 @@ _EVENT_NAME = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
 
 @dataclass(frozen=True)
 class CorrelationContext:
-    """Stable dimensions shared by metrics, events, logs, and artifacts."""
+    """Producer-reported correlation context for events and artifacts."""
 
     run_id: str
     producer: str
@@ -36,12 +36,13 @@ class CorrelationContext:
     rank: int | None = None
     local_rank: int | None = None
     gpu: str | None = None
+    policy_version: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("run_id", "producer", "role", "worker_id", "node"):
             if not _IDENTIFIER.fullmatch(getattr(self, name)):
                 raise ValueError(f"invalid {name}: {getattr(self, name)!r}")
-        for name in ("rank", "local_rank"):
+        for name in ("rank", "local_rank", "policy_version"):
             value = getattr(self, name)
             if value is not None and (type(value) is not int or value < 0):
                 raise ValueError(f"{name} must be nonnegative")
@@ -55,6 +56,7 @@ class CorrelationContext:
         producer: str,
         role: str,
         worker_id: str | None = None,
+        policy_version: int | None = None,
     ) -> CorrelationContext:
         run_id = os.environ["TELEMETRY_RUN_ID"]
         rank = int(os.environ["RANK"]) if "RANK" in os.environ else None
@@ -77,6 +79,7 @@ class CorrelationContext:
             rank=rank,
             local_rank=local_rank,
             gpu=gpu,
+            policy_version=policy_version,
         )
 
     def as_dict(self) -> dict[str, str | int]:
@@ -89,6 +92,7 @@ class CorrelationContext:
             "rank": self.rank,
             "local_rank": self.local_rank,
             "gpu": self.gpu,
+            "policy_version": self.policy_version,
         }
         return {name: value for name, value in values.items() if value is not None}
 
@@ -136,6 +140,7 @@ class EventRecorder:
         producer: str,
         role: str,
         worker_id: str | None = None,
+        policy_version: int | None = None,
     ) -> EventRecorder | None:
         directory = os.environ.get("TELEMETRY_EVENTS_DIR")
         run_id = os.environ.get("TELEMETRY_RUN_ID")
@@ -153,6 +158,7 @@ class EventRecorder:
                     producer=producer,
                     role=role,
                     worker_id=worker_id,
+                    policy_version=policy_version,
                 ),
                 **settings_from_env(),
             )
@@ -169,14 +175,17 @@ class EventRecorder:
         attributes: Mapping[str, Any] | None = None,
         trace_id: str | None = None,
         span_id: str | None = None,
+        policy_version: int | None = None,
     ) -> None:
         self._validate(name=name, phase=phase, step=step)
+        policy_fields = self._policy_fields(policy_version)
         timestamp_ns = self.clock_ns()
         self._write(
             {
                 "schema_version": 1,
                 "record_type": "event",
                 **self.context.as_dict(),
+                **policy_fields,
                 "name": name,
                 "phase": phase,
                 "step": step,
@@ -199,8 +208,10 @@ class EventRecorder:
         attributes: Mapping[str, Any] | None = None,
         trace_id: str | None = None,
         parent_span_id: str | None = None,
+        policy_version: int | None = None,
     ) -> Iterator[SpanIdentity]:
         self._validate(name=name, phase=phase, step=step)
+        policy_fields = self._policy_fields(policy_version)
         identity = SpanIdentity(
             trace_id=trace_id or uuid.uuid4().hex,
             span_id=uuid.uuid4().hex[:16],
@@ -225,6 +236,7 @@ class EventRecorder:
                     "schema_version": 1,
                     "record_type": "span",
                     **self.context.as_dict(),
+                    **policy_fields,
                     "name": name,
                     "phase": phase,
                     "span_boundary_label": phase + (" [clock discontinuity]" if discontinuity else " [exact, node clock]"),
@@ -246,6 +258,14 @@ class EventRecorder:
                     **self._aligned_fields(started_ns, ended_ns, discontinuity=discontinuity, phase=phase),
                 }
             )
+
+    def _policy_fields(self, value: int | None) -> dict:
+        value = self.context.policy_version if value is None else value
+        if value is None:
+            return {}
+        if type(value) is not int or value < 0:
+            raise ValueError("policy_version must be a nonnegative integer or None")
+        return {"policy_version": value, "policy_version_source": "producer_reported"}
 
     def _aligned_fields(self, start: int, end: int, *, discontinuity: bool = False, phase: str = "") -> dict:
         if self.time_calibration is None:

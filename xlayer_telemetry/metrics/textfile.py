@@ -10,18 +10,20 @@ import time
 from pathlib import Path
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, validate_sample, write_gauges
+from xlayer_telemetry.metrics.workload import WORKLOAD_METRIC_NAMES, collect_workload_metrics
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.time_alignment import sample_time
 
 
-_COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_cache_hits", "snapshot_rejections", "sample_rejections")
+_COLLECTOR_COUNTER_KEYS = ("snapshot_reads", "snapshot_cache_hits", "snapshot_rejections", "sample_rejections",
+                           "workload_reads", "workload_rejections", "workload_limit_drops")
 _COLLECTOR_METRICS = {f"telemetry_application_{key}_total" for key in _COLLECTOR_COUNTER_KEYS} | {
     "training_gpu_allocation", "training_sample_timestamp_seconds", "training_step",
-}
+} | WORKLOAD_METRIC_NAMES
 
 
 _IDENTITY_FIELDS = ("run_id", "producer", "role", "worker_id", "node")
-_CONTEXT_LABELS = set(_IDENTITY_FIELDS) | {"rank", "local_rank", "gpu"}
+_CONTEXT_LABELS = set(_IDENTITY_FIELDS) | {"rank", "local_rank", "gpu", "policy_version"}
 
 
 class SnapshotCache:
@@ -252,9 +254,12 @@ def main() -> None:
     counters = {}
     cache = SnapshotCache()
     while True:
+        now = time.time()
         snapshots = collect_snapshots(args.metrics_dir, args.runs_root, node=args.node,
-                                      max_age_seconds=max_age, counters=counters, cache=cache)
+                                      max_age_seconds=max_age, now=now, counters=counters, cache=cache)
         metrics = build_metrics(snapshots, counters=counters)
+        metrics.extend(collect_workload_metrics(args.metrics_dir, args.runs_root, node=args.node,
+                                               max_age_seconds=max_age, now=now, counters=counters))
         for key in _COLLECTOR_COUNTER_KEYS:
             metrics.append(GaugeSample(f"telemetry_application_{key}_total",
                 "Cumulative collector operations; repeated scans count again.",

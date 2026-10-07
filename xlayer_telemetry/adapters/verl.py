@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import time
 from typing import Any, Iterable, Iterator, Mapping
 
 from xlayer_telemetry.metrics import Metric, MetricEmitter
+from xlayer_telemetry.events import EventRecorder, SpanIdentity
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.step_history import StepHistoryWriter
 
@@ -53,6 +55,51 @@ DIRECT_METRICS = {
 }
 
 
+# Only public, explicitly reported logger keys are accepted. These are model
+# FLOPs estimates reported by VERL, not estimates from GPU busy/utilization.
+MFU_STAGES = {
+    "perf/mfu/actor": "update_actor",
+    "perf/mfu/critic": "update_critic",
+    "perf/mfu/actor_infer": "old_log_prob",
+}
+POLICY_VERSION_KEYS = ("fully_async/count/current_param_version", "policy_version")
+
+
+@contextmanager
+def measured_phase(
+    recorder: EventRecorder | None,
+    stage: str,
+    *,
+    step: int | None = None,
+    policy_version: int | None = None,
+    attributes: Mapping[str, Any] | None = None,
+    trace_id: str | None = None,
+    parent_span_id: str | None = None,
+) -> Iterator[SpanIdentity | None]:
+    """Measure a caller-instrumented VERL call; never reconstruct log durations.
+
+    A synchronous ``with`` also encloses an awaited call in async code. The
+    caller supplies the owning context and the actual call boundary. No VERL
+    imports, monkeypatching, CUDA synchronization, or automatic hooks are used.
+    """
+    if stage not in STAGE_PHASES:
+        raise ValueError(f"unsupported VERL stage: {stage!r}")
+    if recorder is None:
+        yield None
+        return
+    with recorder.span(
+        "verl." + stage,
+        phase=STAGE_PHASES[stage],
+        step=step,
+        policy_version=policy_version,
+        attributes={"boundary_scope": "instrumented_call", **dict(attributes or {}),
+                    "verl_stage": stage, "measurement_source": "native_sdk"},
+        trace_id=trace_id,
+        parent_span_id=parent_span_id,
+    ) as identity:
+        yield identity
+
+
 def describe_metrics() -> str:
     """Describe the actual translation tables without requiring a VERL run."""
     lines = ["VERL file logger -> application snapshot (only keys present in the log)",
@@ -60,6 +107,10 @@ def describe_metrics() -> str:
     for key, (name, labels) in DIRECT_METRICS.items():
         suffix = " " + ", ".join(f"{key}={value}" for key, value in labels.items()) if labels else ""
         lines.append(f"{key} -> {name}{suffix}")
+    for key, stage in MFU_STAGES.items():
+        lines.append(f"{key} -> training_model_flops_utilization_ratio phase={STAGE_PHASES[stage]} verl_stage={stage} reported_key={key} (finite ratio in [0, 1])")
+    for key in POLICY_VERSION_KEYS:
+        lines.append(f"{key} -> policy_version policy_scope=trainer reported_key={key} (explicit nonnegative integer; never inferred from step or lag)")
     lines.append("timing_s/step -> training_step_time_seconds phase=rl_step (fallback when perf/time_per_step is absent, non-finite, or negative)")
     lines.extend(["", "Supported stages (completed durations, not live phase boundaries):"])
     for stage, phase in STAGE_PHASES.items():
@@ -85,6 +136,19 @@ class VerlMetricsAdapter:
         for key, value in data.items():
             value = finite_number(value)
             if value is None:
+                continue
+            if key in MFU_STAGES:
+                if 0 <= value <= 1:
+                    stage = MFU_STAGES[key]
+                    samples.append(Metric("training_model_flops_utilization_ratio", value,
+                                          labels={"phase": STAGE_PHASES[stage], "verl_stage": stage,
+                                                  "reported_key": key}))
+                continue
+            if key in POLICY_VERSION_KEYS:
+                # Prometheus stores float64; preserve integer versions exactly.
+                if 0 <= value <= 2**53 and float(value).is_integer() and data[key] <= 2**53:
+                    samples.append(Metric("policy_version", value,
+                                          labels={"policy_scope": "trainer", "reported_key": key}))
                 continue
             # Time observations cannot be negative. Keep signed quantities
             # such as rewards intact and match StepHistoryWriter's validity.

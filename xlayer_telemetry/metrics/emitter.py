@@ -31,6 +31,7 @@ _CONTEXT_LABELS = {
     "rank",
     "local_rank",
     "gpu",
+    "policy_version",  # Dynamic version values belong in a gauge or event.
 }
 
 

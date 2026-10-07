@@ -125,7 +125,10 @@ class StepHistoryWriter:
                 **{key: value for key, value in data.items() if key in {
                     "perf/total_num_tokens", "prompt_length/mean", "response_length/mean",
                     "data/train_batch_size", "train_batch_size", "policy_version",
-                } and finite_number(value) is not None and value >= 0},
+                    "fully_async/count/current_param_version",
+                } and finite_number(value) is not None and value >= 0
+                   and (key not in {"policy_version", "fully_async/count/current_param_version"}
+                        or (value <= 2**53 and float(value).is_integer()))},
                 "has_evaluation": stages.get("testing", 0) > 0,
                 "has_checkpoint": stages.get("save_checkpoint", 0) > 0,
             },

@@ -18,6 +18,8 @@ Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel 
 | --- | --- | --- | --- |
 | VERL trainer | `training_step`, `training_step_time_seconds`, `rl_stage_duration_seconds`, `reward_mean` | Wrapper의 file logger bridge; 원본 key가 기록된 경우만 변환 | Run / trainer worker / 완료 step |
 | VERL rollout 요약 | `rollout_output_tokens_mean`, `agent_turns_mean`, `agent_tool_calls_mean` | VERL logger에 해당 평균값이 있을 때 bridge가 변환 | 완료 step의 평균; 개별 trajectory trace는 아님 |
+| VERL reported MFU / policy version | `training_model_flops_utilization_ratio`, `policy_version` | [명시 scalar와 지원 범위](ui-telemetry-coverage.md#framework-reported-scalars); 실제 logger key가 있을 때만 변환 | Driver가 보고한 완료 stage MFU / trainer policy version; GPU util·step 번호에서 추론하지 않음 |
+| Wrapped workload 상태 | `telemetry_wrapped_workload_state`, `telemetry_wrapped_workload_observed_timestamp_seconds`, `telemetry_wrapped_workload_exit_code` | Wrapper의 명시 health artifact와 동일 node의 application collector | [Wrapper가 실행한 command](ui-telemetry-coverage.md#wrapped-workload-status); 전체 async run 완료가 아님 |
 | GPU | `telemetry_gpu_utilization_percent`, `telemetry_gpu_memory_used_bytes`, `telemetry_gpu_memory_total_bytes` | Node collector의 GPU sampler와 `nvidia-smi`; power·temperature·clock도 지원 값만 노출 | Device; run별 사용률 자동 귀속 없음 |
 | CPU / memory / network / disk | `node_cpu_seconds_total`, `node_memory_MemAvailable_bytes`, `node_network_receive_bytes_total`, `node_disk_io_time_seconds_total` | Node Exporter; GPU 없는 node는 `ENABLE_GPU_METRICS=0` | Node / interface / device |
 | RDMA | `node_infiniband_port_data_received_bytes_total`, `node_infiniband_port_data_transmitted_bytes_total` | 지원되는 host의 InfiniBand counter를 Node Exporter가 읽음 | Interface / port; NCCL 호출별 bytes는 아님 |
@@ -78,6 +80,8 @@ python -m xlayer_telemetry.adapters.verl --describe-metrics
 `perf/throughput`은 `training_tokens_per_second_per_gpu`이므로 전체 cluster의 tokens/s로 읽지 않습니다.
 Actor·critic loss를 임의로 합쳐 `training_loss`로 변환하지 않으며 지원하지 않는 scalar는 원본 `logs/verl-metrics.jsonl`에 남습니다.
 추가 application metric은 [SDK 예제](application-metrics.md)처럼 의미와 scope를 정해 직접 기록합니다.
+
+MFU·명시 policy version·wrapper 상태의 원본 key와 실제 phase hook 연결은 [UI Telemetry Coverage](ui-telemetry-coverage.md)에 정리합니다. `measured_phase()`는 호출자가 연결한 실제 entry/exit에서 `EventRecorder.span()`을 사용하며 file logger duration에서 phase interval을 재구성하지 않습니다.
 
 Contract의 canonical name과 실제 exporter 이름은 다를 수 있습니다.
 예를 들어 GPU contract의 `gpu_utilization_percent`는 sampler에서 `telemetry_gpu_utilization_percent`로 노출되며 disk 사용률은 `node_disk_io_time_seconds_total`의 rate로 계산합니다.

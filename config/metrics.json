@@ -21,7 +21,13 @@
     "filesystem",
     "deployment",
     "status",
-    "tool"
+    "tool",
+    "reported_key",
+    "verl_stage",
+    "policy_scope",
+    "source",
+    "boundary_scope",
+    "state"
   ],
   "manifest_only_fields": [
     "git_commit",
@@ -106,9 +112,9 @@
       "name": "training_model_flops_utilization_ratio",
       "category": "training",
       "unit": "ratio",
-      "scope": "run",
-      "source": "framework adapter and model manifest",
-      "policy": "when supported"
+      "scope": "run and trainer-reported completed stage; actor, critic, and actor inference remain separate",
+      "source": "VERL file logger perf/mfu/actor, perf/mfu/critic, or perf/mfu/actor_infer",
+      "policy": "only explicitly reported finite ratios in [0, 1]; never derived from GPU utilization"
     },
     {
       "name": "training_data_wait_seconds",
@@ -1059,8 +1065,32 @@
       "category": "orchestration",
       "unit": "version",
       "scope": "trainer or rollout replica",
-      "source": "VERL checkpoint manager instrumentation",
-      "policy": "separate rollout and training"
+      "source": "VERL fully_async/count/current_param_version or explicit application policy_version scalar",
+      "policy": "nonnegative integer gauge; trainer scope in VERL bridge; never inferred from step or lag"
+    },
+    {
+      "name": "telemetry_wrapped_workload_state",
+      "category": "orchestration",
+      "unit": "boolean",
+      "scope": "wrapped command and launcher node",
+      "source": "telemetry-health.json explicit workload status and workload_observation context",
+      "policy": "one-hot running/succeeded/failed gauges while the explicit wrapper report is fresh; not whole async run completion"
+    },
+    {
+      "name": "telemetry_wrapped_workload_observed_timestamp_seconds",
+      "category": "orchestration",
+      "unit": "s",
+      "scope": "wrapped command and launcher node clock",
+      "source": "telemetry-health.json workload_observation.observed_at",
+      "policy": "wrapper report timestamp; not an exact workload or phase boundary"
+    },
+    {
+      "name": "telemetry_wrapped_workload_exit_code",
+      "category": "orchestration",
+      "unit": "exit code",
+      "scope": "wrapped command",
+      "source": "telemetry-health.json workload.exit_code after explicit finished status",
+      "policy": "only published for a fresh terminal wrapper report; telemetry export failures do not replace workload outcome"
     },
     {
       "name": "policy_version_lag",
