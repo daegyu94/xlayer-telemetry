@@ -79,7 +79,7 @@ def validate_scenario(schedule: Any) -> dict[str, Any]:
         if type(frame.get("policy_version")) is not int or not 0 <= frame["policy_version"] <= 2**53:
             raise ValueError("invalid scenario policy version")
         start, end = frame.get("start"), frame.get("end")
-        if finite_number(start) is None or finite_number(end) is None or end <= start or end - start > 120:
+        if finite_number(start) is None or finite_number(end) is None or start < 0 or end <= start or end - start > 120:
             raise ValueError("invalid scenario interval")
         if previous is not None and start != previous:
             raise ValueError("noncontiguous scenario intervals")

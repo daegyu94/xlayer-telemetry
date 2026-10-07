@@ -176,7 +176,7 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         "run_id": run_id, "node": node, "execution_mode": "sync",
         "trigger": "step_observed", "trigger_record_id": observed["record_id"],
         "step": step, "boundary_scope": "rl_step", "analysis_window": window,
-        "verdict": "bottleneck_suspected" if candidates else "no_bottleneck_detected", "findings": [], "evidence": {},
+        "verdict": "bottleneck_suspected" if candidates else "no_anomaly_observed", "findings": [], "evidence": {},
         "data_origin": "synthetic",
         "missing_sources": [], "limitations": ["Synthetic values are illustrative, not host measurements.",
             *(["Scenario summaries are explicit producer inputs, not Prometheus query statistics; shared storage p99 is illustrative, not an actual ClickHouse backend."] if scenario is not None else [])],
@@ -187,7 +187,7 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
             "baseline_record_id": prior["record_id"],
             "selection": "same_run_same_worker_nearest_prior_median",
             "signals": comparison_signals,
-            **({"workload": scenario["workload"], "workload_comparability": "verified"} if scenario is not None else {}),
+            **({"workload": scenario["workload"], "workload_comparability": "matched_configured_fields"} if scenario is not None else {}),
         },
         "candidates": candidates,
     }

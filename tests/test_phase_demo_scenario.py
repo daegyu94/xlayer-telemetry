@@ -94,7 +94,9 @@ def test_normal_pair_has_no_fabricated_storage_regression(tmp_path):
     _, schedule = scenario_file(tmp_path, current="normal")
     report = generate(tmp_path / "normal", run_id="phase-demo", node="gpu-node-0", scenario=schedule, clock=lambda: 1090)
     assert not any(c["state"] == "strong_signal" for c in report["candidates"])
-    assert report["verdict"] == "no_bottleneck_detected"
+    assert report["verdict"] == "no_anomaly_observed"
+    import jsonschema
+    jsonschema.validate(report, json.loads((ROOT / "config/diagnosis.schema.json").read_text()))
     values = {s["signal"]: s for s in report["comparison"]["signals"]}
     assert values["step_duration_seconds"]["delta_percent"] == 0
 
