@@ -16,6 +16,7 @@ from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges
 from xlayer_telemetry.adapters.verl import VerlMetricsAdapter
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.operations.config import assets_root
+from .scenario import frame_at, load_scenario, phase_values
 
 
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -66,7 +67,7 @@ def _phase(elapsed: float) -> tuple[str, dict[str, float]]:
 
 
 class Demo:
-    def __init__(self, topology_dir: Path) -> None:
+    def __init__(self, topology_dir: Path, *, scenario_state: Path | None = None) -> None:
         self.gpu, self.storage = load_topology(topology_dir)
         self.network = f"{self.gpu['network']['transport']}-{self.gpu['network']['bandwidth_gbps']:g}Gbps"
         if self.network != f"{self.storage['network']['transport']}-{self.storage['network']['bandwidth_gbps']:g}Gbps":
@@ -74,6 +75,11 @@ class Demo:
         self.started = time.monotonic()
         self.lock = threading.Lock()
         self.counters: dict[tuple[str, str], tuple[float, float]] = {}
+        self.scenario_state = scenario_state
+        self.scenario: dict | None = None
+        self.completed_frame: dict | None = None
+        self.active_frame: dict | None = None
+        self.active_phase: dict | None = None
 
     def _counter(self, node: str, name: str, rate: float, now: float) -> float:
         key = (node, name)
@@ -86,6 +92,31 @@ class Demo:
         now = time.monotonic()
         phase, values = _phase(now - self.started)
         with self.lock:
+            if self.scenario_state is not None:
+                wall = time.time()
+                try:
+                    schedule = load_scenario(self.scenario_state)
+                except FileNotFoundError:
+                    schedule = self.scenario
+                if self.scenario is not None:
+                    for frame in self.scenario["frames"]:
+                        if frame["end"] <= wall:
+                            self.completed_frame = frame
+                self.scenario = schedule
+                active = frame_at(schedule, wall) if schedule is not None else None
+                self.active_frame, self.active_phase = active if active is not None else (None, None)
+                if schedule is not None:
+                    for frame in schedule["frames"]:
+                        if frame["end"] <= wall:
+                            self.completed_frame = frame
+                    if active is not None:
+                        phase, values = self.active_phase["phase"], phase_values(*active)
+                    else:
+                        # Between pairs, retain the completed application snapshot.
+                        # Resource samples reflect an idle synthetic node, not a past phase.
+                        phase = "idle"
+                        values = {**values, "gpu": 8, "waiting": 0, "busy": .05, "tokens": 0,
+                                  "sandbox_pressure": .01, "kv_hit": .78, "kv_slow": 0}
             if endpoint in self.gpu["gpu_nodes"]:
                 return self._gpu_node(endpoint, now, phase, values)
             if endpoint in self.storage["storage_nodes"]:
@@ -159,7 +190,49 @@ class Demo:
                       "data_loader": .08 if phase != "data_wait" else .62, "checkpoint": .01 if phase != "checkpoint" else .40}
             samples.extend(GaugeSample("training_timer_seconds", "Synthetic worker timer.", timer, {**labels, "timer": name}) for name, timer in timers.items())
         if node == self.gpu["gpu_nodes"][0]:
-            samples.extend(self._agent_rl(now))
+            samples.extend(self._scenario_agent(now) if self.scenario_state is not None else self._agent_rl(now))
+        return samples
+
+    def _scenario_agent(self, now: float) -> list[GaugeSample]:
+        """Only completed application observations; resource samples remain live."""
+        if self.scenario is None:
+            return []
+        labels = {"run_id": self.scenario["run_id"], "producer": "verl-file-demo", "role": "trainer",
+                  "node": self.scenario["node"], "worker_id": "driver"}
+        frame = self.completed_frame
+        samples = []
+        if frame is not None:
+            stages = {p["phase"]: p["end"] - p["start"] for p in frame["phases"]}
+            samples.extend([
+                GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", frame["end"], labels),
+                GaugeSample("training_step", "Synthetic training step.", frame["step"], labels),
+                GaugeSample("training_step_time_seconds", "Synthetic training step duration.", frame["end"] - frame["start"], labels),
+                GaugeSample("reward_mean", "Synthetic completed-step reward mean.", .732, labels),
+                GaugeSample("training_tokens_per_second", "Synthetic worker throughput.", 64 * 512 / stages["rollout"], labels),
+            ])
+            samples.extend(GaugeSample("rl_stage_duration_seconds", "Synthetic completed VERL stage duration.", duration,
+                                       {**labels, "phase": phase}) for phase, duration in stages.items())
+            samples.extend(GaugeSample("training_timer_seconds", "Synthetic worker timer.", duration,
+                                       {**labels, "timer": phase}) for phase, duration in stages.items())
+            reported = VerlMetricsAdapter.translate({"perf/mfu/actor": .58, "fully_async/count/current_param_version": frame["policy_version"]})
+            samples.extend(GaugeSample(metric.name, "Synthetic explicitly reported framework scalar.", metric.value,
+                                       {**labels, **dict(metric.labels)}) for metric in reported)
+            for worker, seconds in enumerate((stages["rollout"] * .8, stages["rollout"] * .9,
+                                               stages["rollout"], stages["rollout"] * .85)):
+                peer = {**labels, "producer": "synthetic-rollout-peers", "role": "rollout", "worker_id": f"rollout-{worker}"}
+                samples.extend([
+                    GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", frame["end"], peer),
+                    GaugeSample("training_step", "Synthetic training step.", frame["step"], peer),
+                    GaugeSample("rl_stage_duration_seconds", "Synthetic completed VERL stage duration.", seconds, {**peer, "phase": "rollout"}),
+                ])
+        wrapper = {**labels, "producer": "xlayer", "role": "launcher", "worker_id": "wrapper",
+                   "source": "wrapper_health", "boundary_scope": "wrapped_command"}
+        samples.extend(GaugeSample("telemetry_wrapped_workload_state", "Synthetic explicit wrapped-command state.",
+                                   1 if state == "running" else 0, {**wrapper, "state": state})
+                       for state in ("running", "succeeded", "failed"))
+        samples.append(GaugeSample("telemetry_wrapped_workload_observed_timestamp_seconds",
+                                   "Synthetic node-clock wrapper report timestamp.", time.time(), wrapper))
+        samples.extend(self._sandbox(now))
         return samples
 
     def _agent_rl(self, now: float) -> list[GaugeSample]:
@@ -312,9 +385,11 @@ class Demo:
         }.items()]
 
     def _sandbox(self, now: float) -> list[GaugeSample]:
-        labels = {"run_id": "verl-agent-demo", "producer": "synthetic", "role": "sandbox",
+        labels = {"run_id": self.scenario["run_id"] if self.scenario is not None else "verl-agent-demo", "producer": "synthetic", "role": "sandbox",
                   "worker_id": "pool-0", "runtime": "containerd", "filesystem": "overlayfs", "deployment": "colocated"}
-        pressure = .02 if _phase(now - self.started)[0] == "training" else .43
+        pressure = (phase_values(self.active_frame, self.active_phase)["sandbox_pressure"] if self.active_frame is not None
+                    else .01 if self.scenario_state is not None
+                    else .02 if _phase(now - self.started)[0] == "training" else .43)
         values = {"sandbox_active": 4, "sandbox_queued": 2 if pressure > .1 else 0, "sandbox_io_pressure_ratio": pressure,
                   "sandbox_cpu_pressure_ratio": .08, "sandbox_memory_pressure_ratio": .03,
                   "sandbox_memory_full_pressure_ratio": .01, "sandbox_memory_bytes": 6 * _GIB,
@@ -332,14 +407,14 @@ class Demo:
 
     def _vllm(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
         labels = {"model_name": "synthetic-model", "engine": "0"}
-        waiting = 8 if value["busy"] > .5 else 1
+        waiting = value.get("waiting", 8 if value["busy"] > .5 else 1)
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
             "vllm:kv_cache_usage_perc": .92 if waiting > 1 else .45}.items()]
         for name, rate in {"vllm:num_preemptions_total": .2 if waiting > 1 else 0,
                            "vllm:prompt_tokens_total": 800, "vllm:generation_tokens_total": value["tokens"],
                            "vllm:prefix_cache_queries_total": 100,
-                           "vllm:prefix_cache_hits_total": 70,
+                           "vllm:prefix_cache_hits_total": 100 * value.get("kv_hit", .7),
                            "vllm:external_prefix_cache_queries_total": 50,
                            "vllm:external_prefix_cache_hits_total": 20,
                            "vllm:kv_offload_allocation_failure_total": .05 if waiting > 1 else 0}.items():
@@ -380,7 +455,8 @@ class Demo:
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
                     self._counter("vllm", operation + name, rate, now), operation_labels, kind="counter"))
             self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
-                            ("0.001", "0.01", "0.1", "1", "+Inf"), (.1, .7, .95, 1, 1),
+                            ("0.001", "0.01", "0.1", "1", "+Inf"),
+                            (.01, .2, .8, .99, 1) if value.get("kv_slow") else (.1, .7, .95, 1, 1),
                             calls, now, operation_labels)
             for name in ("operation_total", "operation_failed_keys_total"):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
@@ -435,7 +511,7 @@ class Demo:
     def _ray(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
         labels = {"SessionName": "synthetic-session"}
         samples = []
-        for state, count in (("RUNNING", 8), ("PENDING_ARGS_AVAIL", 2)):
+        for state, count in (("RUNNING", 8), ("PENDING_ARGS_AVAIL", 12 if value.get("kv_slow") else 2)):
             samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", count,
                                        {**labels, "State": state, "IsRetry": "0"}))
             samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", 1,
@@ -593,9 +669,10 @@ def main() -> None:
     parser.add_argument("--cluster", default="demo-b300")
     parser.add_argument("--listen", default="127.0.0.1:19110")
     parser.add_argument("--write-prometheus-config", type=Path)
+    parser.add_argument("--scenario-state", type=Path, help="Optional bounded synthetic schedule written atomically by the App demo")
     args = parser.parse_args()
     try:
-        demo = Demo(args.topology_dir)
+        demo = Demo(args.topology_dir, scenario_state=args.scenario_state)
         if args.write_prometheus_config:
             args.write_prometheus_config.write_text(prometheus_config(demo, args.listen, args.cluster), encoding="utf-8")
             return

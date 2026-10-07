@@ -22,6 +22,8 @@ sys.path.insert(0, str(ROOT))
 from xlayer_telemetry.demos.live import Demo, prometheus_config
 from xlayer_telemetry.demos.diagnosis import generate
 from xlayer_telemetry.analysis.diagnostics import _investigation_rows
+from xlayer_telemetry.demos.scenario import make_scenario
+from xlayer_telemetry.fileio import atomic_write_text
 
 
 def main():
@@ -29,6 +31,8 @@ def main():
     parser.add_argument('--tools', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path, help='New, disposable state directory')
     parser.add_argument('--grafana-port', type=int, default=23400)
+    parser.add_argument('--scenario', choices=('storage-regression', 'normal', 'alternating'), default='alternating',
+                        help='Explicit synthetic comparison: real scrapes precede completed SDK spans/report')
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.tools = args.tools.resolve()
@@ -66,10 +70,11 @@ def main():
         return process
     try:
         ep, pp, lp, grpc = port(), port(), port(), port()
-        demo = Demo(ROOT / 'examples/live-demo')
+        scenario_state = args.output / 'scenario-state.json'
+        demo = Demo(ROOT / 'examples/live-demo', scenario_state=scenario_state)
         pc = args.output / 'prometheus.yaml'
         pc.write_text(prometheus_config(demo, f'127.0.0.1:{ep}', 'scenes-demo'))
-        launch([sys.executable, '-m', 'xlayer_telemetry.demos.live', '--listen', f'127.0.0.1:{ep}'], 'exporter')
+        launch([sys.executable, '-m', 'xlayer_telemetry.demos.live', '--listen', f'127.0.0.1:{ep}', '--scenario-state', str(scenario_state)], 'exporter')
         prom_process = launch([str(args.tools / 'prometheus-3.5.0.linux-amd64/prometheus'), f'--config.file={pc}',
                 f'--storage.tsdb.path={args.output}/prometheus', f'--web.listen-address=127.0.0.1:{pp}'], 'prometheus')
         lc = args.output / 'loki.yaml'
@@ -140,13 +145,27 @@ datasources:
         grafana=f'http://127.0.0.1:{args.grafana_port}'
         ready(grafana+'/api/health',grafana_process);ready(grafana+'/api/dashboards/uid/telemetry-overview',grafana_process)
         (args.output/'connection.json').write_text(json.dumps({'grafana':grafana,'prometheus':prom,'loki':loki,'data_origin':'synthetic'},indent=2))
-        print(f'LIVE DEMO {grafana}/a/xlayer-telemetry-app/overview?var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=$__all&var-source_node=$__all',flush=True)
+        print(f'LIVE DEMO {grafana}/a/xlayer-telemetry-app/overview?var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=$__all&var-source_node=$__all&var-gpu=0&var-engine=synthetic-vllm-0',flush=True)
         cycle=0
         while not stopping.is_set():
             if any(process.poll() is not None for process, _ in processes):
                 raise RuntimeError('An owned demo service exited; inspect launcher logs')
+            current = ('storage-regression' if cycle % 2 == 0 else 'normal') if args.scenario == 'alternating' else args.scenario
+            schedule = make_scenario(start=time.time()+2, run_id='verl-agent-demo', node=demo.gpu['gpu_nodes'][0],
+                                     step=127+2*cycle, current=current)
+            atomic_write_text(scenario_state, json.dumps(schedule))
+            print(f"SCENARIO {current}: baseline Step {schedule['frames'][0]['step']} -> Step {schedule['frames'][1]['step']}; "
+                  f"first completed comparison in {schedule['frames'][1]['end']-time.time():.0f}s", flush=True)
+            # Let the existing Prometheus scrape process observe actual live phases.
+            # No backdated Prometheus samples or pre-completed observations are made.
+            while not stopping.is_set() and time.time() < schedule['frames'][1]['end'] + 2:
+                if any(process.poll() is not None for process, _ in processes):
+                    raise RuntimeError('An owned demo service exited during scenario execution')
+                stopping.wait(min(1, max(.01, schedule['frames'][1]['end']+2-time.time())))
+            if stopping.is_set():
+                break
             directory=args.output/f'fixture-{cycle}'
-            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],step=127+2*cycle)
+            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule)
             streams=[]
             files=[('verl_step',directory/'telemetry-events/verl-steps.jsonl')]+[('xlayer_event',p) for p in (directory/'telemetry-events').glob('*.jsonl') if p.name!='verl-steps.jsonl']
             for source, path in files:
@@ -160,8 +179,9 @@ datasources:
             streams.append({'stream':{'signal':'xlayer_diagnosis','cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(row['window_end_ms'])*1_000_000-len(rows)+i),json.dumps(row)] for i,row in enumerate(rows)]})
             streams.append({'stream':{'cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(rows[0]['window_end_ms'])*1_000_000),json.dumps({'run_id':'verl-agent-demo','log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})
             request(loki+'/loki/api/v1/push',{'streams':streams})
+            print(f"COMPLETED Step {report['step']} ({current}); Prometheus + SDK spans share scenario clocks", flush=True)
             cycle+=1
-            if stopping.wait(30):break
+            if stopping.wait(4):break
     finally:
         for process,log in reversed(processes):
             process.terminate()
