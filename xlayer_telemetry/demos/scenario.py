@@ -126,7 +126,7 @@ def phase_values(frame: dict[str, Any], phase: dict[str, Any]) -> dict[str, floa
     gpu = (61 if name == "rollout" else 10) if slow else {"rollout": 91, "reward": 32, "actor_update": 94, "weight_sync": 28, "checkpoint_save": 18}[name]
     return {"gpu": gpu, "tokens": 4700 if slow else 7600, "step": frame["end"] - frame["start"],
             "read": 6 if slow and name == "rollout" else .5, "write": 5 if name == "checkpoint_save" else .2,
-            "rx": 420 if slow else 180, "tx": 330 if name == "weight_sync" else 150,
+            "rx": 320 if slow else 180, "tx": 330 if name == "weight_sync" else 150,
             "busy": .96 if slow else .31, "waiting": 14 if slow else 1,
             "kv_hit": .54 if slow else .78, "sandbox_pressure": .43 if slow else .02,
             "kv_slow": float(slow)}

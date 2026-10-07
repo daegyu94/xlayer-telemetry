@@ -454,10 +454,23 @@ class Demo:
                                ("operation_bytes_total", byte_rate), ("operation_failed_keys_total", 0)):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
                     self._counter("vllm", operation + name, rate, now), operation_labels, kind="counter"))
-            self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
-                            ("0.001", "0.01", "0.1", "1", "+Inf"),
-                            (.01, .2, .8, .99, 1) if value.get("kv_slow") else (.1, .7, .95, 1, 1),
-                            calls, now, operation_labels)
+            if self.scenario_state is not None:
+                # Fixed bucket identities for the entire scenario replay. Only
+                # nonnegative observation increments change between phases;
+                # cumulative counters are never replaced by the current CDF.
+                bounds = ("0.001", "0.0025", "0.005", "0.01", "0.02", "0.04", "0.08", "+Inf")
+                fractions = ((.005, .02, .06, .25, .915, .985, 1, 1) if value.get("kv_slow")
+                             else (.03, .15, .8, .995, 1, 1, 1, 1))
+                previous_bound, previous_fraction, mean = 0., 0., 0.
+                for bound, fraction in zip(bounds[:-1], fractions[:-1]):
+                    mean += (float(bound) + previous_bound) / 2 * (fraction - previous_fraction)
+                    previous_bound, previous_fraction = float(bound), fraction
+                self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
+                                bounds, fractions, calls, now, operation_labels, mean=mean)
+            else:
+                self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
+                                ("0.001", "0.01", "0.1", "1", "+Inf"), (.1, .7, .95, 1, 1),
+                                calls, now, operation_labels)
             for name in ("operation_total", "operation_failed_keys_total"):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
                     self._counter("vllm", operation + name + "error", 0, now),
@@ -466,13 +479,16 @@ class Demo:
 
     def _histogram(self, samples: list[GaugeSample], endpoint: str, name: str,
                    bounds: tuple[str, ...], fractions: tuple[float, ...], calls: float,
-                   now: float, labels: dict[str, str]) -> None:
+                   now: float, labels: dict[str, str], *, mean: float | None = None) -> None:
         """Emit cumulative buckets and count with one consistent label identity."""
         identity = name + str(sorted(labels.items()))
         for bound, fraction in zip(bounds, fractions):
             samples.append(GaugeSample(name + "_bucket", "Synthetic cumulative Mooncake latency bucket counter.",
                 self._counter(endpoint, identity + bound, fraction * calls, now),
                 {**labels, "le": bound}, kind="counter"))
+        if mean is not None:
+            samples.append(GaugeSample(name + "_sum", "Synthetic Mooncake latency sum counter.",
+                self._counter(endpoint, identity + "sum", mean * calls, now), labels, kind="counter"))
         samples.append(GaugeSample(name + "_count", "Synthetic Mooncake latency observation counter.",
             self._counter(endpoint, identity + "count", calls, now),
             {} if endpoint == "mooncake-client" else labels, kind="counter"))

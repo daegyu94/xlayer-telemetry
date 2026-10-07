@@ -120,3 +120,59 @@ def test_invalid_scenario_state_is_bounded_and_rejected(tmp_path):
     path.write_text(" " * 65537)
     with pytest.raises(ValueError, match="size"):
         load_scenario(path)
+
+
+def test_scenario_rpc_histogram_is_millisecond_scaled_and_monotonic_across_phases(tmp_path, monkeypatch):
+    path, _ = scenario_file(tmp_path)
+    demo = Demo(ROOT / "examples/live-demo", scenario_state=path)
+    import xlayer_telemetry.demos.live as live
+    origin = demo.started
+    metric = "vllm:mooncake_store_operation_time_seconds"
+    previous = None
+    intervals = []
+    for wall in (1002, 1004, 1042, 1044, 1062, 1064):
+        monkeypatch.setattr(live.time, "time", lambda wall=wall: wall)
+        monkeypatch.setattr(live.time, "monotonic", lambda wall=wall: origin + wall - 1000)
+        samples = [s for s in demo.metrics("vllm") if s.name.startswith(metric) and s.labels.get("operation") == "load_get"]
+        assert format_gauges(samples)
+        current = {(s.name, tuple(sorted(s.labels.items()))): s.value for s in samples}
+        buckets = {s.labels["le"]: s.value for s in samples if s.name == metric + "_bucket"}
+        assert set(buckets) == {"0.001", "0.0025", "0.005", "0.01", "0.02", "0.04", "0.08", "+Inf"}
+        values = [buckets[key] for key in sorted(buckets, key=float)]
+        assert values == sorted(values)
+        count = next(s.value for s in samples if s.name == metric + "_count")
+        total = next(s.value for s in samples if s.name == metric + "_sum")
+        assert buckets["+Inf"] == count
+        assert 0 <= total <= count * .08
+        if previous is not None:
+            assert set(current) == set(previous)
+            assert all(value >= previous[identity] for identity, value in current.items())
+            if wall in (1004, 1044, 1064):
+                increments = {bound: value - next(previous[identity] for identity in previous
+                                                if identity[0] == metric + "_bucket" and ("le", bound) in identity[1])
+                              for bound, value in buckets.items()}
+                assert list(increments.values()) == sorted(increments.values())
+                rank = .95 * increments["+Inf"]
+                low, lower_count = 0., 0.
+                for bound in sorted((b for b in increments if b != "+Inf"), key=float):
+                    high, upper_count = float(bound), increments[bound]
+                    if upper_count >= rank:
+                        intervals.append(low + (high - low) * (rank - lower_count) / (upper_count - lower_count))
+                        break
+                    low, lower_count = high, upper_count
+        previous = current
+    assert .007 <= intervals[0] <= .011
+    assert .020 <= intervals[1] <= .040
+    assert intervals[2] == pytest.approx(intervals[0])
+
+
+def test_phase_rdma_scenario_rates_stay_below_declared_topology(tmp_path):
+    from xlayer_telemetry.demos.scenario import phase_values
+    _, schedule = scenario_file(tmp_path)
+    demo = Demo(ROOT / "examples/live-demo")
+    capacity = demo.gpu["network"]["bandwidth_gbps"]
+    for frame in schedule["frames"]:
+        for phase in frame["phases"]:
+            values = phase_values(frame, phase)
+            assert 0 <= values["rx"] <= capacity
+            assert 0 <= values["tx"] <= capacity
