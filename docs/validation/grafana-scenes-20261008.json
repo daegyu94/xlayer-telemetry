@@ -1,0 +1,105 @@
+{
+  "checks": [
+    "Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data",
+    "Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states",
+    "Storage cell opens supporting / against / missing evidence without asserting phase attribution",
+    "Existing Data & Storage keeps Run/Step/observer/resource/GPU/phase/time; Browser Back restores investigation",
+    "900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable",
+    "Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs",
+    "Analyze → baseline / candidates → evidence → measured timeline keeps Step; Compute pivot and Escape restore focus",
+    "App Timeline / Deep Dive routing preserves investigation context",
+    "Unknown Run stays selected and displays no-data rather than inferred healthy/zero values",
+    "Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation"
+  ],
+  "browser_errors": [],
+  "grafana_version": "12.1.0",
+  "scenes_version": "6.20.0",
+  "data_origin": "live synthetic metrics + SDK-generated step/span/diagnosis fixtures",
+  "native_requests_after_step_selection": 25,
+  "native_requests_matching_step_window": 25,
+  "selected_context": {
+    "from": [
+      "2026-10-07T16:31:47.435Z"
+    ],
+    "to": [
+      "2026-10-07T16:32:05.836Z"
+    ],
+    "timezone": [
+      "browser"
+    ],
+    "var-cluster": [
+      "scenes-demo"
+    ],
+    "var-run_id": [
+      "verl-agent-demo"
+    ],
+    "var-source_node": [
+      "gpu-node-0"
+    ],
+    "var-node": [
+      "gpu-node-0"
+    ],
+    "var-record_id": [
+      "827b7d732c76c2517c0a9f5f"
+    ],
+    "var-trace_id": [
+      ".*"
+    ],
+    "var-diagnosis_method": [
+      "rule"
+    ],
+    "var-log_run_id": [
+      ".*"
+    ],
+    "var-gpu": [
+      "0"
+    ],
+    "var-engine": [
+      "synthetic-vllm-0"
+    ],
+    "var-sandbox_node": [
+      ".*"
+    ],
+    "var-phase": [
+      ".*"
+    ],
+    "var-role": [
+      ".*"
+    ],
+    "var-worker": [
+      ".*"
+    ],
+    "var-device": [
+      "$__all"
+    ],
+    "var-mount": [
+      "$__all"
+    ],
+    "var-storage_system": [
+      "$__all"
+    ],
+    "var-storage_node": [
+      "$__all"
+    ],
+    "var-ssd": [
+      "$__all"
+    ],
+    "var-training_max_age": [
+      "300"
+    ]
+  },
+  "viewport_widths": [
+    1440,
+    1280,
+    900,
+    390
+  ],
+  "cpu_regressions_passed": 1305,
+  "frontend_regressions_passed": 31,
+  "documentation_browser_checks_passed": 9,
+  "scope_limits": [
+    "Synthetic workload; not real GPU/VERL/3FS hardware validation",
+    "Live metrics and saved diagnosis are independent labeled fixtures",
+    "Phase baseline and per-run shared storage attribution remain unavailable"
+  ]
+}

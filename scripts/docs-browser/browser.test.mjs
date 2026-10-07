@@ -8,10 +8,11 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-let browser, server, address;
+let browser, server, address, expectedFigureCount;
 const errors = [];
 before(async () => {
   const names = (await readdir(join(root, "docs/figures/diagrams"))).filter((n) => n.endsWith(".svg"));
+  expectedFigureCount = names.length;
   const html = `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/_static/xlayer.css">
     <style>body{margin:18px}article{max-width:52rem}img{max-width:100%;height:auto}</style>
     <style>.theme-toggle-header{display:none}@media(max-width:700px){.theme-toggle-header{display:flex}.theme-toggle-content{display:none}}</style>
@@ -90,7 +91,7 @@ test("built documentation has full D2 figures and captions at every breakpoint",
     "cli", "local-llm", "time-alignment", "maintainers", "reference", "documentation-ux-review",
     "monitoring-reference", "integration-reference", "dashboard-reference", "diagnosis-reference",
     "architecture-reference", "metrics-reference", "verl-reference", "real-verl-demo",
-    "grafana-ui-ux-review", "validation/e2e-user-experience"];
+    "grafana-ui-ux-review", "grafana-scenes-poc", "ui-telemetry-coverage", "behavior-signature-research", "validation/e2e-user-experience"];
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -137,11 +138,11 @@ async function fits(page) {
   assert.deepEqual(failures, [], "Every diagram must fit completely, not just hide page overflow");
 }
 
-test("all 25 D2 figures fit mobile/desktop and open their SVG", async () => {
+test("all D2 figures fit mobile/desktop and open their SVG", async () => {
   const page = await browser.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(address);
-  assert.equal(await page.locator("article img").count(), 25);
+  assert.equal(await page.locator("article img").count(), expectedFigureCount);
   for (const width of [320, 390, 900, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await loaded(page);
@@ -167,7 +168,7 @@ test("D2 figures have captions and one accessible enlargement action", async () 
   await page.goto(address);
   await loaded(page);
   const figures = await page.locator("article figure.xlayer-diagram").all();
-  assert.equal(figures.length, 25);
+  assert.equal(figures.length, expectedFigureCount);
   for (const figure of figures) {
     const name = await figure.locator("img").getAttribute("alt");
     assert.equal(await figure.locator("figcaption").textContent(), name);
@@ -193,8 +194,8 @@ test("reader actions do not depend on local storage", async () => {
   await page.addInitScript(() => Object.defineProperty(window, "localStorage", { get() { throw new Error("Storage disabled"); } }));
   await page.goto(address);
   await loaded(page);
-  assert.equal(await page.locator("figure.xlayer-diagram").count(), 25);
-  assert.equal(await page.locator(".xlayer-diagram-link").count(), 25);
+  assert.equal(await page.locator("figure.xlayer-diagram").count(), expectedFigureCount);
+  assert.equal(await page.locator(".xlayer-diagram-link").count(), expectedFigureCount);
   await page.close();
 });
 

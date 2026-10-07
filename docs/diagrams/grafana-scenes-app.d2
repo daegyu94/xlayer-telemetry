@@ -1,0 +1,21 @@
+# Title: XLayer Grafana App and Scenes PoC
+# Description: Scenes reuses Grafana query runtime and canonical dashboards. Existing diagnosis queries ClickHouse and projects evidence into Loki; the App does not query ClickHouse directly.
+...@_style
+direction: right
+grafana: "Existing Grafana" {
+  app: "XLayer App + Scenes\nOverview / Matrix / Evidence" {class: evidence}
+  query: "Grafana runtime\ndatasource / variables / time" {class: process}
+  dashboards: "Existing dashboards\nTimeline / Compute / Storage" {class: source}
+  app -> query: "native query" {style.stroke: "#6366f1"}
+  app -> dashboards: "context-preserving link" {style.stroke: "#6366f1"}
+}
+backends: "Existing telemetry" {
+  prometheus: "Prometheus\nsampled metrics" {class: source}
+  loki: "Loki\nsteps / spans / diagnosis" {class: source}
+}
+diagnosis: "Existing diagnosis\nshared-service evidence" {class: process}
+clickhouse: "Optional 3FS ClickHouse" {class: optional}
+grafana.query -> backends.prometheus
+grafana.query -> backends.loki
+diagnosis -> clickhouse: "existing query" {style.stroke-dash: 4}
+diagnosis -> backends.loki: "saved projection"

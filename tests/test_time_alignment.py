@@ -274,7 +274,8 @@ def test_timeline_accepts_calibrated_spans_without_calling_them_exact():
     assert 'calibrated' in lane['targets'][0]['expr']
     assert 'calibrated' in lane['title'].lower()
     assert 'span_boundary_label' in lane['targets'][0]['expr']
-    assert '{{else}}{{.phase}}' in lane['targets'][0]['expr']
+    assert 'or .span_boundary_label (printf "%s [%s]" .phase .boundary_accuracy)' in lane['targets'][0]['expr']
+    assert '[exact, node clock]' not in lane['targets'][0]['expr']
 
 
 def test_fifo_calibration_cannot_block_workload(tmp_path):

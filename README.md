@@ -79,6 +79,7 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | --- | --- |
 | GPU·host 관측, Prometheus·Grafana 실행 | [Monitoring Guide](docs/monitoring.md) |
 | Grafana 화면과 주요 패널 읽는 법 | [Dashboard Guide](docs/dashboards.md) |
+| XLayer 전용 Overview / Analyze / Investigate / Deep Dive | [Grafana App + Scenes PoC](docs/grafana-scenes-poc.md) · 선택적 plugin 설치 |
 | 완료된 VERL step의 node별 자원·log 비교 | [Run Overview → Timeline](docs/dashboard-reference.md#step-explorer) |
 | 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
 | 기존 VERL 명령에 telemetry 추가 | [VERL 연결 가이드](docs/verl-quickstart.md) |

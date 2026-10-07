@@ -149,3 +149,17 @@ def test_custom_demo_cluster_and_reserved_endpoint_validation(tmp_path):
     path.write_text(json.dumps(topology))
     with pytest.raises(ValueError, match="unique"):
         Demo(tmp_path)
+
+def test_agent_demo_peer_cohort_and_explicit_framework_contracts_have_valid_exposition():
+    from xlayer_telemetry.demos.live import Demo
+    from xlayer_telemetry.metrics.prometheus import format_gauges
+    from pathlib import Path
+    demo=Demo(Path(__file__).resolve().parents[1]/'examples/live-demo')
+    samples=demo.metrics('gpu-node-0')
+    assert format_gauges(samples)
+    peers=[s for s in samples if s.name=='rl_stage_duration_seconds' and s.labels.get('producer')=='synthetic-rollout-peers']
+    assert len(peers)==4 and len({s.labels['worker_id'] for s in peers})==4
+    assert any(s.name=='training_model_flops_utilization_ratio' and 0<=s.value<=1 for s in samples)
+    assert any(s.name=='policy_version' for s in samples)
+    states=[s for s in samples if s.name=='telemetry_wrapped_workload_state']
+    assert len(states)==3 and sum(s.value for s in states)==1

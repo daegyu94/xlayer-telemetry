@@ -1,0 +1,33 @@
+name: Optional Grafana App PoC
+
+on:
+  pull_request:
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+  push:
+    branches: [main]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: grafana/xlayer-app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: grafana/xlayer-app/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build

@@ -46,6 +46,7 @@ VERL의 느린 step을 GPU·vLLM·network·storage·sandbox 관측과 함께 조
 | 성능 문제 해결 | Investigate의 [증상별 시작점](dashboards.md#증상으로-시작하기) |
 | 결과 해석 | Diagnose와 [Concepts](concepts.md) |
 | 설정·단위·구현 조회 | Reference의 [Metrics](metrics.md)·[CLI](cli.md)·[Configuration](configuration.md)·[Architecture](architecture.md) |
+| App 화면 / N/A 확인 | [선택적 Grafana App PoC](grafana-scenes-poc.md)·[UI source coverage](ui-telemetry-coverage.md) |
 | 개발·기록 확인 | Maintainers의 [검증 기록](validation/README.md) |
 
 ```{toctree}
@@ -103,6 +104,7 @@ Metrics <metrics>
 CLI <cli>
 Configuration <configuration>
 Architecture <architecture>
+UI source coverage / MFU·Policy·Status <ui-telemetry-coverage>
 상세 Reference <reference>
 ```
 
@@ -113,6 +115,8 @@ Architecture <architecture>
 Development / Docs <maintainers>
 실환경 기록 <real-verl-demo>
 Dashboard design <grafana-ui-ux-review>
+Grafana App / Scenes PoC <grafana-scenes-poc>
+Behavior signature / Triggered profiling 연구 <behavior-signature-research>
 Documentation design <documentation-ux-review>
 검증 기록 <validation/README>
 ```

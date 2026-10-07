@@ -743,7 +743,7 @@
       "id": 2,
       "type": "state-timeline",
       "title": "Workload spans: exact / calibrated",
-      "description": "Exact는 node clock 경계, calibrated는 monitoring clock에 보정한 추정 경계입니다. Calibrated lane의 ± uncertainty를 확인합니다. Clock jump·보정 실패 구간은 제외합니다.",
+      "description": "관측한 exact/calibrated interval을 phase·operation·node·worker lane으로 나눕니다. 같은 lane의 동시 span은 배타적인 phase schedule이 아닙니다. 개별 identity·clock uncertainty는 원본 span에서 확인합니다.",
       "gridPos": {
         "x": 0,
         "y": 8,
@@ -757,7 +757,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=~\"exact|calibrated\" | line_format \"{\\\"start_time_ms\\\":{{.start_time_ms}},\\\"end_time_ms\\\":{{.end_time_ms}},\\\"phase\\\":\\\"{{if .span_boundary_label}}{{.span_boundary_label}}{{else}}{{.phase}} [exact, node clock]{{end}}\\\"}\"",
+          "expr": "{signal=\"xlayer_event\",cluster=~\"$cluster\"} | json | run_id=~\"$run_id\" | trace_id=~\"$trace_id\" | record_type=\"span\" | __error__=\"\" | boundary_accuracy=~\"exact|calibrated\" | line_format `{{ printf \"{\\\"start_time_ms\\\":%s,\\\"end_time_ms\\\":%s,\\\"phase\\\":%q,\\\"lane\\\":%q}\" .start_time_ms .end_time_ms (or .span_boundary_label (printf \"%s [%s]\" .phase .boundary_accuracy)) (printf \"%s / %s @ %s · %s\" .phase .name .node .worker_id) }}`",
           "queryType": "range",
           "maxLines": 5000
         }
@@ -816,12 +816,27 @@
             "indexByName": {
               "start_time_ms": 0,
               "end_time_ms": 1,
-              "phase": 2
+              "phase": 2,
+              "lane": 3
             },
             "renameByName": {
               "start_time_ms": "Start Time",
               "end_time_ms": "End Time",
-              "phase": "Phase"
+              "phase": "Phase",
+              "lane": "Lane"
+            }
+          }
+        },
+        {
+          "id": "partitionByValues",
+          "options": {
+            "fields": [
+              "Lane"
+            ],
+            "keepFields": false,
+            "naming": {
+              "asLabels": false,
+              "withNames": false
             }
           }
         },

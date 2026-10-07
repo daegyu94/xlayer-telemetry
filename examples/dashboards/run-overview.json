@@ -1317,6 +1317,236 @@
           "description": "Node 전체의 swap-in / swap-out pages/s입니다. Memory pressure를 조사할 때 MemAvailable과 함께 비교합니다."
         }
       ]
+    },
+    {
+      "id": 96,
+      "type": "row",
+      "title": "Explicit workload context (optional)",
+      "description": "Native MFU·policy·wrapper command 상태는 명시 producer가 있을 때만 제공됩니다. 미설정·누락·stale는 unknown이며 정상 상태로 추정하지 않습니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 90,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 40,
+          "type": "stat",
+          "title": "Framework reported MFU",
+          "gridPos": {
+            "x": 0,
+            "y": 91,
+            "w": 8,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(training_model_flops_utilization_ratio{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+              "instant": true,
+              "legendFormat": "{{phase}} · {{role}}/{{worker_id}} · {{reported_key}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "noValue": "N/A",
+              "links": []
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "none",
+            "graphMode": "none"
+          },
+          "description": "veRL가 보고한 completed stage MFU ratio입니다. Actor·critic·actor inference를 합치거나 GPU utilization에서 추정하지 않습니다. Phase boundary와 resource attribution이 아닙니다.",
+          "links": [
+            {
+              "title": "Select a slow step",
+              "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+              "targetBlank": false
+            }
+          ]
+        },
+        {
+          "id": 41,
+          "type": "stat",
+          "title": "Explicit trainer policy version",
+          "gridPos": {
+            "x": 8,
+            "y": 91,
+            "w": 8,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(policy_version{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+              "instant": true,
+              "legendFormat": "{{policy_scope}} · {{worker_id}} · {{reported_key}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "links": []
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "none",
+            "graphMode": "none"
+          },
+          "description": "Producer가 명시한 policy version만 표시합니다. Step·lag에서 추론하지 않고 rollout applied version과 구분합니다.",
+          "links": [
+            {
+              "title": "Select a slow step",
+              "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+              "targetBlank": false
+            }
+          ]
+        },
+        {
+          "id": 42,
+          "type": "stat",
+          "title": "Wrapped command state",
+          "gridPos": {
+            "x": 16,
+            "y": 91,
+            "w": 8,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(telemetry_wrapped_workload_state{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, source, boundary_scope) (time() - telemetry_wrapped_workload_observed_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+              "instant": true,
+              "legendFormat": "{{state}} · {{node}} · {{boundary_scope}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "links": []
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "none",
+            "graphMode": "none"
+          },
+          "description": "Wrapper의 마지막 명시 command 상태입니다. Report는 node-clock 기준이며 전체 async Run 완료나 collector health를 의미하지 않습니다. 오래된 보고는 생략합니다.",
+          "links": [
+            {
+              "title": "Select a slow step",
+              "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+              "targetBlank": false
+            }
+          ]
+        },
+        {
+          "id": 44,
+          "type": "stat",
+          "title": "Completed step identity / worker",
+          "gridPos": {
+            "x": 0,
+            "y": 96,
+            "w": 8,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "(training_step{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+              "legendFormat": "{{producer}} · {{role}}/{{worker_id}} · {{node}}",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "none",
+            "graphMode": "none"
+          },
+          "description": "완료된 step number를 observer·producer·role·worker별로 보존합니다. Peer duration 비교 시 같은 reported step인지 확인하는 보조 관측이며 exact phase boundary가 아닙니다.",
+          "links": [
+            {
+              "title": "Select a slow step",
+              "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+              "targetBlank": false
+            }
+          ]
+        }
+      ]
     }
   ],
   "refresh": "5s",

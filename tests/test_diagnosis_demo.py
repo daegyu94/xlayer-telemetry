@@ -67,3 +67,21 @@ def test_synthetic_lifecycle_points_are_explicit_and_do_not_invent_intervals(tmp
     assert {r['name'] for r in lifecycle} == names
     assert all(r['record_type'] == 'event' and r['attributes']['data_origin'] == 'synthetic' for r in lifecycle)
     assert all('start_time_unix_nano' not in r and 'end_time_unix_nano' not in r for r in lifecycle)
+
+
+def test_repeated_live_fixtures_have_distinct_completed_step_identity(tmp_path):
+    from xlayer_telemetry.demos.diagnosis import generate
+    first = generate(tmp_path / "first", run_id="live", step=127)
+    second = generate(tmp_path / "second", run_id="live", step=129)
+    assert first["trigger_record_id"] != second["trigger_record_id"]
+    assert first["step"] == 127 and second["step"] == 129
+    spans = [json.loads(line) for path in (tmp_path / "second/telemetry-events").glob("*.jsonl")
+             for line in path.read_text().splitlines() if json.loads(line).get("record_type") == "span"]
+    assert spans and all(span["step"] == 129 for span in spans)
+
+def test_synthetic_units_are_declared_by_producer_not_guessed_by_ui(tmp_path):
+    report=generate(tmp_path/'declared',run_id='units',clock=lambda:200)
+    signals={row['signal']:row for row in report['comparison']['signals']}
+    assert signals['threefs_p99_latency']['unit']=='ms'
+    assert signals['gpu_utilization_percent']['unit']=='percent'
+    assert all(row['window_statistic']=='synthetic_scenario_value' for row in signals.values())

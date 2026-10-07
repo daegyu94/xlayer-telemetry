@@ -5,5 +5,7 @@ __pycache__/
 .pytest_cache/
 artifacts/
 scripts/docs-browser/node_modules/
+grafana/xlayer-app/node_modules/
+grafana/xlayer-app/dist/
 build/
 *.egg-info/

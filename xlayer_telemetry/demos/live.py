@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from xlayer_telemetry.metrics.prometheus import GaugeSample, format_gauges
+from xlayer_telemetry.adapters.verl import VerlMetricsAdapter
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.operations.config import assets_root
 
@@ -202,6 +203,31 @@ class Demo:
                                   {**labels, "timer": name}) for name, duration in stages.items())
         samples.extend(GaugeSample("training_gpu_allocation", "Synthetic worker GPU allocation.", 1,
                                   {**labels, "gpu": str(gpu)}) for gpu in range(self.gpu["gpus_per_node"]))
+        # Stable rollout workers provide an explicitly synthetic same-step peer
+        # cohort. These are completed observations, not GPU attribution.
+        for worker, base_duration in enumerate((2.8, 3.0, 4.9, 3.2)):
+            peer = {"run_id": "verl-agent-demo", "producer": "synthetic-rollout-peers",
+                    "role": "rollout", "node": self.gpu["gpu_nodes"][0], "worker_id": f"rollout-{worker}"}
+            samples.extend([
+                GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", time.time()-step_age, peer),
+                GaugeSample("training_step", "Synthetic training step.", completed_step, peer),
+                GaugeSample("rl_stage_duration_seconds", "Synthetic completed VERL stage duration.", base_duration + .03*wave, {**peer, "phase": "rollout"}),
+            ])
+        # Exercise the real adapter with explicitly synthetic native logger keys.
+        reported = VerlMetricsAdapter.translate({"perf/mfu/actor": .47 + .06*wave,
+            "perf/mfu/critic": .31, "fully_async/count/current_param_version": 128 + completed_step//4})
+        samples.extend(GaugeSample(metric.name, "Synthetic explicitly reported framework scalar.", metric.value,
+                                   {**labels, **dict(metric.labels)}) for metric in reported)
+        wrapper_labels={"run_id":"verl-agent-demo", "node":self.gpu["gpu_nodes"][0],
+                        "producer":"xlayer", "role":"launcher", "worker_id":"wrapper",
+                        "source":"wrapper_health", "boundary_scope":"wrapped_command"}
+        # Simulated wrapper reports exercise the same published state contract;
+        # they do not describe an actual distributed veRL command or Ray completion.
+        samples.extend(GaugeSample("telemetry_wrapped_workload_state", "Synthetic explicit wrapped-command state.",
+                                   1 if state=="running" else 0,{**wrapper_labels,"state":state})
+                       for state in ("running","succeeded","failed"))
+        samples.append(GaugeSample("telemetry_wrapped_workload_observed_timestamp_seconds",
+                                  "Synthetic node-clock wrapper report timestamp.",time.time(),wrapper_labels))
         samples.extend(self._sandbox(now))
         samples.extend(
             GaugeSample("rl_stage_duration_seconds", "Synthetic completed VERL stage duration.", duration, {**labels, "phase": phase})

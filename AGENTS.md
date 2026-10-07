@@ -28,6 +28,7 @@ Run·step·phase 문맥에 application·vLLM·Ray·Mooncake·GPU·host·network�
 | [config/](config/README.md) | Metric 어휘와 JSON Schema; 사용자별 실행 설정과 구분 |
 | [examples/](examples/README.md), [demos/](xlayer_telemetry/demos/) | Integration recipe·검증 예제와 명확히 구분된 synthetic data |
 | [examples/dashboards/](examples/dashboards/README.md) | Dashboard JSON 원본; `scripts/provision_dashboards.py`와 `scripts/dashboard_views.py`가 활성 datasource·View에 맞춰 생성 |
+| [grafana/xlayer-app/](grafana/xlayer-app/README.md) | 선택적 Grafana App/Scenes PoC; canonical panel/query·기존 datasource를 재사용하는 summary/navigation layer |
 | [docs/](docs/index.md) | Sphinx·MyST·Furo 사용자 문서; `docs/diagrams/*.d2`와 생성된 SVG 포함 |
 | [tests/](tests/), [.github/workflows/](.github/workflows/) | CPU regression, optional 도구·실환경 검증, 문서 build·Pages 배포 |
 
@@ -125,6 +126,9 @@ PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, opti
 
 - Dashboard는 원본 JSON·provisioning helper를 수정합니다.
   `artifacts/`의 생성 JSON만 고치지 않고 UID·datasource·unit·observer/resource node·run/step/time context와 기존 유효한 링크를 보존합니다.
+- App/Scenes는 선택적 frontend layer입니다. Query·단위·scope·transform은 provisioned canonical dashboard에서 읽고 별도 Prometheus/Loki client·backend·time picker를 만들지 않습니다.
+  Phase matrix는 explicit measured span·resource identity·query window를 확인하며 Step evidence·rolling context를 phase attribution으로 표시하지 않습니다.
+  Frontend 변경은 `grafana/xlayer-app`에서 `npm test`, `npm run typecheck`, `npm run build`와 실제 Grafana/browser 검증을 수행합니다. Unsigned allowlist는 격리 개발 환경에서 해당 App ID에만 적용합니다.
 - 화면은 Run → Slow Step → Candidate → Evidence → Timeline/Subsystem 흐름을 우선합니다.
   상세 panel은 drill-down으로 제공하고 Loki 활성화·비활성화, missing/stale source를 모두 고려합니다.
   UI 변경은 가능하면 실제 Grafana에서 검증하며 JSON test만 실행했다면 rendering을 확인했다고 보고하지 않습니다.
