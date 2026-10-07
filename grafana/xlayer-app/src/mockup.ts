@@ -121,7 +121,7 @@ export function timelineLanes<T extends {name?:string;fields:any[]}>(frames:T[])
     const lane=frame.name||field.labels?.Lane;
     if(!['Phase','phase'].includes(field.name)||!lane)return field;
     const [phase,operation]=lane.split(' @ ')[0].split(' / ');
-    const label=operation?`${phase} · ${operation.split('.').pop()}`:phase;
+    const label=({actor_update:'training · actor',weight_sync:'weight sync',checkpoint_save:'checkpoint'} as Record<string,string>)[phase]|| (phase==='environment'?`tool · ${operation?.split('.').pop()||'call'}`:phase);
     return {...field,name:label,labels:{...field.labels,Lane:lane},config:{...field.config,displayName:label},state:undefined};
   })}));
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { AppPlugin, LoadingState, getValueFormat, FieldType } from "@grafana/data";
+import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
 import {Sparkline,useTheme2} from '@grafana/ui';
@@ -49,12 +49,18 @@ import {
   PHASES,
   SUBSYSTEMS,
   phaseWindow,
+  relatedPhaseWindow,
+  gaugeSummary,
+  contextSample,
+  phaseComparison,
   stepEvidenceCell,
   metricCell,
   selectPhaseSample,
   Cell,
   PhaseWindow,
 } from "./semantics";
+import { ComparisonWindow } from "./comparison-window";
+import { baselineBounds, matrixEntities, matrixEntityKey, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSYSTEM_COLORS } from "./matrix-presentation";
 import { MATRIX_SPECS } from "./matrix-contract";
 import {
   eventTime,
@@ -82,6 +88,11 @@ type ShellState = SceneObjectState & {
   evidence?: SceneQueryRunner;
   kpis: (SceneQueryRunner | undefined)[];
   matrix: (SceneQueryRunner | undefined)[];
+  baselineMatrix?: (SceneQueryRunner|undefined)[];
+  baselineSpans?: SceneQueryRunner;
+  baselineSteps?: SceneQueryRunner;
+  baselineKey?:string;
+  matrixSelectionVersion?:number;
   workerDurations?: SceneQueryRunner;
   workerSteps?: SceneQueryRunner;
   workerAge?: SceneQueryRunner;
@@ -253,7 +264,7 @@ function makeScene(page: Page, catalog: Catalog) {
     related: [],
     detailPanels:[],
     pressure: [],
-    contextControls:[new SceneTimePicker({}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
+    contextControls:[new SceneTimePicker({isOnCanvas:false}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
   });
   body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
   body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
@@ -530,6 +541,8 @@ function ShellView({ model }: { model: Shell }) {
     evidenceData = useData(state.evidence),
     spanData = useData(state.spans),
     eventData = useData(state.events),
+    baselineStepData=useData(state.baselineSteps),
+    baselineSpanData=useData(state.baselineSpans),
     rewardAgeData = useData(state.rewardAge),
     mfuData=useData(state.mfu),
     policyData=useData(state.policy),
@@ -580,9 +593,25 @@ function ShellView({ model }: { model: Shell }) {
   const reportedMfu=mfuData?.state===LoadingState.Error?[]:latestEntitySamples(samples(mfuData)).filter(s=>s.labels.run_id===ownerRun);
   const navigate = (page: Page, c = context) =>
     locationService.push(appLink(page, c));
+  const comparisonMeta=matching(summaries)[0];
+  const bounds=baselineBounds(selected,comparisonMeta);
+  const comparisonKey=bounds?`${bounds.record}/${bounds.start}/${bounds.end}/${context.timezone}`:'';
+  useEffect(()=>{
+    if(state.page!=='analyze'||state.baselineKey===comparisonKey)return;
+    if(!bounds){model.setState({baselineKey:comparisonKey,baselineMatrix:[],baselineSpans:undefined,baselineSteps:undefined});return;}
+    const comparisonQuery=(key:Destination,id:number,label:string,refs?:string[])=>{
+      const panel=findPanel(state.catalog[key],id);if(!panel)return undefined;
+      const provider=runner(panel,refs);
+      provider.setState({$timeRange:new ComparisonWindow(bounds.start,bounds.end,context.timezone),queries:provider.state.queries.map(q=>({...q,refId:`BASELINE_${label}_${q.refId}`}))});
+      return provider;
+    };
+    model.setState({baselineKey:comparisonKey,baselineSpans:comparisonQuery('timeline',9,'spans'),baselineSteps:comparisonQuery('overview',20,'steps'),baselineMatrix:SUBSYSTEMS.map(name=>{const spec=MATRIX_SPECS[name];return !spec.rolling&&name!=='ray'?comparisonQuery(spec.dashboard,spec.panel,name,spec.refs):undefined;})});
+  },[model,state.page,comparisonKey]);
+  const baselineStep=records(baselineStepData).find(row=>row.record_id===bounds?.record&&row.run_id===selected?.run_id&&row.cluster===selected?.cluster);
+  const baselineSpans=records(baselineSpanData);
   const workspaceCandidate=diagnosis.find(c=>c.candidate_id===context.variables.candidate_id?.[0]);
   return (
-    <div className="xlt-app-layout"><aside className="xlt-run-context" aria-label="Run Context"><div className="xlt-context-brand">XLayer Telemetry</div><h3>Run Context</h3>{['cluster','run_id'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways layout="vertical"/>:null;})}<label>Step<select value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=steps.find(r=>r.record_id===e.target.value);if(row)navigate(state.page,selectStep(row,context));}}><option value="">Select completed Step</option>{[...new Map([...steps,...(selected?[selected]:[])].map(r=>[String(r.record_id),r])).values()].sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms)).slice(0,40).map(r=><option key={String(r.record_id)} value={String(r.record_id)}>{scalar(r.step)} · {format(r.step_duration_seconds,'s')}</option>)}</select></label><label>Policy Version<span className="xlt-context-value">{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'N/A')}</span></label><label>Time Range</label>{state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}<details><summary>Observer / Resource</summary>{['source_node','node'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways layout="vertical"/>:null;})}</details><div className="xlt-context-status">{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Status not reported'}<small>Wrapped command · latest report</small></div><a href="https://daegyu94.github.io/xlayer-telemetry/">Documentation ↗</a></aside>
+    <div className="xlt-app-layout">
     <div className="xlt">
       <header className="xlt-header">
         <div>
@@ -661,6 +690,8 @@ function ShellView({ model }: { model: Shell }) {
           )}
         </>
       </nav>
+      <RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>
+
       <details className="xlt-filters">
         <summary>Trace, GPU, engine and evidence filters</summary>
         <div>
@@ -736,6 +767,7 @@ function ShellView({ model }: { model: Shell }) {
               Exact / calibrated application spans. Events without an interval
               are not phase durations.
             </p>
+            <div className="xlt-phase-legend">{Object.entries(PHASE_COLORS).map(([name,color])=><span key={name}><i style={{background:color}}/>{name.replace(/_/g," ")}</span>)}</div>
             <Native panel={state.timeline} />
           </div><div><h3>Recent Events</h3>
               <DataStatus provider={state.events} />
@@ -799,14 +831,16 @@ function ShellView({ model }: { model: Shell }) {
                 </button>
               </div>
               <p className="xlt-muted">
-                Unique measured spans only. Actor update is separate from critic
-                update; reported durations do not create a training boundary.
+                Observations during measured phases. Sampled means and shared rolling windows are context, not phase resource consumption.
               </p>
               <Matrix
                 model={model}
                 selected={selected}
                 spans={spans}
                 evidence={proofs}
+                baselineStep={baselineStep}
+                baselineSpans={baselineSpans}
+                comparability={scalar(comparisonMeta?.workload_comparability,"unverified")}
               />
             </section>
           )}
@@ -1304,180 +1338,41 @@ function Kpi({
   );
 }
 
-function Matrix({
-  model,
-  selected,
-  spans,
-  evidence,
-}: {
-  model: Shell;
-  selected: RecordRow;
-  spans: RecordRow[];
-  evidence: RecordRow[];
-}) {
-  return (
-    <div className="xlt-scroll">
-      <table className="xlt-matrix">
-        <thead>
-          <tr>
-            <th>System layer</th>
-            {PHASES.map((p) => (
-              <th key={p}>
-                {p.replace("_", " ")}
-                <small>
-                  {phaseWindow(spans, selected, p).status === "observed"
-                    ? `${phaseWindow(spans, selected, p).accuracy} span`
-                    : "No unique measured interval"}
-                </small>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {SUBSYSTEMS.map((s) => (
-            <MatrixRow
-              key={s}
-              subsystem={s}
-              model={model}
-              selected={selected}
-              spans={spans}
-              evidence={evidence}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,comparability}:{model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string}){
+ const phases:string[]=[...PHASES,...(phaseWindow(spans,selected,'checkpoint_save').status==='observed'?['checkpoint_save']:[])];
+ const phaseName=(name:string)=>({actor_update:'Training · actor',weight_sync:'Weight Sync',checkpoint_save:'Checkpoint',rollout:'Rollout',reward:'Reward'}[name]||name);
+ return <><div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(spans,selected,phase).status==='observed'?`${phaseWindow(spans,selected,phase).accuracy} span`:'No measured interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={spans} evidence={evidence} baselineStep={baselineStep} baselineSpans={baselineSpans} comparability={comparability}/>)}</tbody></table></div><div className="xlt-matrix-legend"><span>Sampled = query observations</span><span>Shared / Session = context, not ownership</span><span>Rolling = lookback beyond phase</span><span>— = no linked observation</span></div><p className="xlt-muted">Delta compares gauge window means only when declared workload fields, instrumented phase and entity match. Rolling/session values have no phase delta. Actor and critic updates remain separate.</p></>;
 }
-function MatrixRow({
-  subsystem: s,
-  model,
-  selected,
-  spans,
-  evidence,
-}: {
-  subsystem: string;
-  model: Shell;
-  selected: RecordRow;
-  spans: RecordRow[];
-  evidence: RecordRow[];
-}) {
-  const provider =
-      model.state.matrix[SUBSYSTEMS.indexOf(s as (typeof SUBSYSTEMS)[number])],
-    data = useData(provider),
-    values = samples(data),
-    spec = MATRIX_SPECS[s],
-    stepCell = stepEvidenceCell(evidence, s);
-  return (
-    <tr>
-      <th>
-        {
-          (
-            {
-              gpu: "GPU",
-              vllm: "vLLM",
-              kv: "KV Cache",
-              ray: "Ray",
-              network: "Network",
-              storage: "Storage",
-              sandbox: "Sandbox",
-            } as Record<string, string>
-          )[s]
-        }
-        <small>
-          {spec.label}
-          {s === "gpu" ? " · MFU is a separate reported stage signal" : ""}
-        </small>
-      </th>
-      {PHASES.map((p) => {
-        const window = phaseWindow(spans, selected, p),
-          choice = selectPhaseSample(values, window);
-        let cell = metricCell(
-          choice.sample ? { ...choice.sample, unit: spec.unit } : undefined,
-          window,
-          spec.scope,
-          spec.rolling,
-        );
-        if (choice.entities > 1)
-          cell = {
-            ...cell,
-            state: "ambiguous",
-            explanation: `${choice.entities} entities match. Select a GPU / engine; no average or maximum is assigned to this phase.`,
-          };
-        if (s === "ray")
-          cell = {
-            ...cell,
-            value: undefined,
-            state: "missing",
-            binding: "unmapped",
-            explanation:
-              "Canonical Ray task aggregation drops node identity. Session-level context cannot be phase/node mapped.",
-          };
-        cell = { ...cell, evidence: stepCell.evidence };
-        if (cell.value === undefined && stepCell.evidence?.length)
-          cell = {
-            ...cell,
-            binding: "step-window",
-            type: "saved diagnosis projection",
-            explanation:
-              cell.explanation +
-              " Saved evidence describes the full Step, not this phase.",
-          };
-        const measured = cell.value !== undefined;
-        return (
-          <td key={p}>
-            <button
-              className="xlt-cell"
-              aria-label={`${p} × ${s} evidence`}
-              onClick={() => {
-                model.setState({
-                  selectedCell: { phase: p, subsystem: s, cell, window },
-                });
-                setTimeout(
-                  () =>
-                    document
-                      .querySelector(".xlt-evidence")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                  0,
-                );
-              }}
-            >
-              <b>
-                {data?.state === LoadingState.Error
-                  ? "Query error"
-                  : measured
-                    ? format(cell.value, cell.unit)
-                    : choice.entities > 1
-                      ? "Select entity"
-                      : window.status !== "observed"
-                        ? "N/A"
-                        : s === "ray" && values.length
-                          ? "Session context"
-                          : !values.length
-                            ? "No data"
-                            : spec.rolling
-                              ? "Rolling context"
-                              : "Scope unmatched"}
-              </b>
-              <small title={cell.explanation}>
-                {measured
-                  ? `${cell.scope} · sampled`
-                  : window.status === "ambiguous"
-                    ? "Ambiguous phase"
-                    : window.status === "missing"
-                      ? ""
-                      : cell.scope}
-              </small>
-              {p === "rollout" && !!stepCell.evidence?.length && (
-                <span className="xlt-step-evidence">Step evidence →</span>
-              )}
-            </button>
-          </td>
-        );
-      })}
-    </tr>
-  );
+function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineStep,baselineSpans,comparability}:{subsystem:string;phases:string[];model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string}){
+ const index=SUBSYSTEMS.indexOf(s as (typeof SUBSYSTEMS)[number]);
+ const data=useData(model.state.matrix[index]),baseData=useData(model.state.baselineMatrix?.[index]),spec=MATRIX_SPECS[s];
+ const panel=findPanel(model.state.catalog[spec.dashboard],spec.panel),unit=panel?.fieldConfig?.defaults?.unit||spec.unit;
+ const values=samples(data).map(p=>({...p,unit})),baseValues=samples(baseData).map(p=>({...p,unit}));
+ const context=readContext(window.location.search),variable=`matrix_${s}_entity` as typeof VARIABLE_NAMES[number],selectedKey=context.variables[variable]?.[0];
+ const entities=matrixEntities(values);const activeKey=selectedKey|| (entities.length===1?entities[0].key:undefined);
+ const chosen=filterMatrixEntity(values,activeKey),baselineChosen=filterMatrixEntity(baseValues,activeKey),stepCell=stepEvidenceCell(evidence,s);
+ const title=({gpu:'GPU',vllm:'vLLM',kv:'KV Cache',ray:'Ray',network:'Network',storage:'Storage',sandbox:'Sandbox'} as Record<string,string>)[s];
+ const describe=(labels:Record<string,string>)=>s==='gpu'?`GPU ${labels.gpu||labels.gpu_uuid||'?'} · ${labels.nodename||labels.node||''}`:s==='ray'?`${labels.SessionName||'Session'} · ${labels.State||'State'}`:[labels.operation,labels.status,labels.engine_id||labels.engine,labels.device,labels.port,labels.worker_id].filter(Boolean).join(' · ')||labels.instance||'Observed entity';
+ const expr=(data?.series||[]).map(frame=>String(frame.meta?.executedQueryString||''));const lookback=spec.rolling?matrixLookback(expr):0;
+ return <tr><th><i className="xlt-subsystem-dot" style={{background:SUBSYSTEM_COLORS[s]}}/>{title}<small>{spec.label}</small>{entities.length>1&&<select className="xlt-entity-select" aria-label={`${title} entity`} value={selectedKey||''} onChange={event=>{locationService.push(appLink(model.state.page,{...context,variables:{...context.variables,[variable]:event.target.value?[event.target.value]:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Choose entity ({entities.length})</option>{selectedKey&&!entities.some(e=>e.key===selectedKey)&&<option value={selectedKey}>Selection outside range</option>}{entities.map(e=><option key={e.key} value={e.key}>{describe(e.labels)}</option>)}</select>}</th>{phases.map(phase=>{
+  const parent=phaseWindow(spans,selected,phase),window=relatedPhaseWindow(spans,selected,parent,s);
+  const choice=s==='ray'?contextSample(chosen,window):spec.rolling?selectPhaseSample(chosen,window):gaugeSummary(chosen,window);
+  let cell:Cell=s==='ray'?{binding:'rolling-context',state:choice.sample?'observed':'missing',scope:'shared-service',type:'session sampled context',sample:choice.sample,value:choice.sample?.value,unit,explanation:'Session / State count at this time. Node identity was aggregated; this is not phase usage or a phase baseline.'}:metricCell(choice.sample?{...choice.sample,unit}:undefined,window,spec.scope,lookback);
+  cell={...cell,observations:numeric('count' in choice?choice.count:undefined),evidence:stepCell.evidence,explanation:cell.explanation+(stepCell.evidence?.length?' Saved candidate evidence below describes the full Step, not phase attribution.':'')};
+  if(s==='sandbox'&&window.span!==parent.span)cell={...cell,explanation:cell.explanation+' Related instrumented sandbox.exec call is linked through observed parent IDs.'};
+  if(choice.entities>1)cell={...cell,value:undefined,state:'ambiguous',explanation:`${choice.entities} entities match. Choose an explicit entity; none are averaged together.`};
+  const baselineParent=baselineStep?phaseWindow(baselineSpans,baselineStep,phase):{status:'missing'} as PhaseWindow;
+  const baselineWindow=baselineStep?relatedPhaseWindow(baselineSpans,baselineStep,baselineParent,s):baselineParent;
+  const baselineChoice=!spec.rolling&&s!=='ray'?gaugeSummary(baselineChosen,baselineWindow):{entities:0,count:0};
+  const baselineCell={...metricCell('sample' in baselineChoice&&baselineChoice.sample?{...baselineChoice.sample,unit}:undefined,baselineWindow,spec.scope,lookback),observations:baselineChoice.count};
+  const comparison=phaseComparison(cell,baselineCell,window,baselineWindow,comparability);
+  const observed=cell.value!==undefined;
+  const label=data?.state===LoadingState.Error?'Query error':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
+  const quality=s==='ray'?'Session context':cell.binding==='rolling-context'?`Rolling${typeof lookback==='number'?` ${lookback/1000}s`:''} · ${cell.scope==='shared-service'?'Shared':'Node'}`:cell.scope==='shared-service'?'Sampled · Shared':cell.scope==='worker/cgroup'?'Sampled · Worker':'Sampled · Node';
+  return <td key={phase}><button className="xlt-cell" aria-label={`${phase} × ${s} evidence`} title={cell.explanation} onClick={()=>{model.setState({selectedCell:{phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={comparison.reason}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?'No change vs baseline':`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}% vs baseline`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
+ })}</tr>;
 }
+
 function EvidenceDetail({
   selected,
   context,
@@ -1872,3 +1767,19 @@ function DeepWorkspace({candidate,evidence,panels,context,catalog}:{candidate?:R
 }
 
 function RelatedTabs({panels}:{panels:VizPanel[]}){const[tab,setTab]=useState(0);return <><div className="xlt-chips">{['GPU','vLLM','KV Cache','Storage','Network'].slice(0,panels.length).map((label,i)=><button key={label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{label}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}</>;}
+
+function RunContext({model,selected,steps,context,policySamples,activeWorkloads,onStep}:{model:Shell;selected?:RecordRow;steps:RecordRow[];context:Context;policySamples:import('./semantics').Sample[];activeWorkloads:import('./semantics').Sample[];onStep:(row:RecordRow)=>void}){
+  const range=sceneGraph.getTimeRange(model);const rangeState=range.useState();
+  const choices=[...new Map([...steps,...(selected?[selected]:[])].map(r=>[String(r.record_id),r])).values()].sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms)).slice(0,40);
+  const control=(name:string)=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper variable={variable} showAlways layout="vertical"/>:null;};
+  return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
+    <div className="xlt-context-fields">
+      <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
+      <label className="xlt-context-step">Step<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed Step</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
+      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
+    </div>
+    <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer report</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}</div></details></div>
+  </section>;
+}
+
+function compactMatrixValue(value:number,unit:string):string{const formatted=getValueFormat(unit)(value,unit==='short'||unit==='percent'||unit==='percentunit'?0:1);return `${formatted.prefix||''}${formatted.text}${formatted.suffix||''}`;}

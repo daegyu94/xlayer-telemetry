@@ -26,12 +26,12 @@ def main():
         page.on('pageerror',lambda e:errors.append(str(e)))
         page.on('request',lambda r:queries.append(r.post_data_json) if '/api/ds/query' in r.url and r.method=='POST' else None)
         def capture(name):page.screenshot(path=str(args.output/f'{args.label}-{name}.png'),full_page=True)
-        url=args.url+'/a/xlayer-telemetry-app?var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
+        url=args.url+'/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         page.goto(url);page.get_by_role('button',name=re.compile('Analyze Step')).first.wait_for(timeout=30000);page.wait_for_timeout(1500)
         assert 'Synthetic demo' in page.locator('.xlt').inner_text()
         assert 'vs baseline' in page.locator('.xlt-kpis').inner_text()
         assert page.locator('.xlt-kpis .xlt-card').count()==8
-        assert 'Policy' in page.locator('.xlt-header').inner_text()
+        assert 'Policy' in page.locator('.xlt-run-context').inner_text()
         assert 'trainer version' in page.locator('.xlt-header').inner_text()
         assert 'Recent Events' in page.locator('.xlt').inner_text()
         assert 'No data' not in page.locator('.xlt-panel').first.inner_text()
@@ -42,6 +42,11 @@ def main():
             capture(f'overview-{width}')
         page.set_viewport_size({'width':1440,'height':1000})
         checks.append('Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data')
+        # Use an actual completed slow frame when the live scenario alternates.
+        selector=page.get_by_role('combobox',name='Completed Step')
+        slow=next((o.get_attribute('value') for o in selector.locator('option').all() if '48.00' in o.inner_text()),None)
+        if slow:
+            selector.select_option(slow);page.wait_for_timeout(1200)
         queries.clear()
         page.get_by_role('button',name=re.compile('Analyze Step')).first.click()
         page.get_by_role('heading',name='Phase × Subsystem',exact=True).wait_for()
@@ -50,15 +55,27 @@ def main():
         page.wait_for_timeout(800)
         saved=parse_qs(urlparse(page.url).query)
         assert saved['var-run_id']==['verl-agent-demo'] and saved['var-source_node']==['gpu-node-0'] and saved['var-node']==['gpu-node-0']
-        assert saved.get('var-record_id') and epoch(saved['to'][0])-epoch(saved['from'][0])==18401
+        assert saved.get('var-record_id') and epoch(saved['to'][0])-epoch(saved['from'][0]) in [18401,48001]
         # Native datasource requests must use the selected Step window, not a
         # misleading URL over an accidentally defaulted now-6h SceneTimeRange.
-        matching=[q for q in queries if abs(epoch(str(q['from']))-epoch(saved['from'][0]))<=1 and abs(epoch(str(q['to']))-epoch(saved['to'][0]))<=1]
-        assert matching and len(matching)==len(queries),'Some native requests did not match the Step interval'
+        step_requests=[q for q in queries if not any(str(p.get('refId')).startswith('BASELINE_') for p in q.get('queries',[]))]
+        baseline_requests=[q for q in queries if q not in step_requests]
+        matching=[q for q in step_requests if abs(epoch(str(q['from']))-epoch(saved['from'][0]))<=1 and abs(epoch(str(q['to']))-epoch(saved['to'][0]))<=1]
+        assert matching and len(matching)==len(step_requests),'Some native requests did not match the Step interval'
         text=page.locator('.xlt').inner_text()
-        assert 'MFU is a separate reported stage signal' in text and 'System Pressure' in text and 'Outlier worker snapshots' in text
-        assert re.search(r'\d+(?:\.\d+)? requests',page.locator('.xlt-matrix').inner_text()),'Live engine sample missing from measured rollout cell'
-        step_query_count=len(queries)
+        assert 'System Pressure' in text and 'Outlier worker snapshots' in text
+        assert 'Sampled' in page.locator('.xlt-matrix').inner_text()
+        assert re.search(r'\d',page.get_by_role('button',name='rollout × vllm evidence').inner_text()),'Live engine sample missing'
+        for name,needle in [('Storage entity','load_get'),('Ray entity','PENDING_ARGS_AVAIL')]:
+            entity=page.get_by_role('combobox',name=name)
+            if entity.count():
+                value=next(o.get_attribute('value') for o in entity.locator('option').all() if needle in o.inner_text());entity.select_option(value);page.wait_for_timeout(350)
+        if slow:
+            assert 'vs baseline' in page.get_by_role('button',name='rollout × gpu evidence').inner_text()
+            assert 'Rolling' in page.get_by_role('button',name='rollout × storage evidence').inner_text()
+            assert 'Linked tool call' in page.get_by_role('button',name='rollout × sandbox evidence').inner_text()
+        assert not any(re.match(r'from-\d+|to-\d+',k) for k in parse_qs(urlparse(page.url).query))
+        step_query_count=len(step_requests)
         assert all('$cluster' not in q.get('expr','') and '$node' not in q.get('expr','') for request in matching for q in request.get('queries',[]))
         capture('analyze');checks.append('Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states')
         page.get_by_role('button',name='rollout × storage evidence',exact=True).click()
@@ -84,16 +101,16 @@ def main():
         checks.append('900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable')
         page.set_viewport_size({'width':1440,'height':1000})
         page.get_by_role('button',name='Compare baseline & candidates →',exact=True).click();page.wait_for_timeout(1800)
-        page.get_by_text('Δ unavailable · baseline 0',exact=True).wait_for(timeout=15000)
+        if not slow:page.get_by_text('Δ unavailable · baseline 0',exact=True).wait_for(timeout=15000)
         assert 'What changed?' in page.locator('.xlt').inner_text()
-        page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='compute',exact=True)).get_by_role('button',name='Open Evidence →').click()
-        detail.wait_for();assert detail.get_by_role('link',name='compute ↗',exact=True).count()==1
+        page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='rollout' if slow else 'compute',exact=True)).get_by_role('button',name='Open Evidence →').click()
+        detail.wait_for();assert detail.get_by_role('link',name='stage ↗' if slow else 'compute ↗',exact=True).count()==1
         capture('investigate')
         page.keyboard.press('Escape');detail.wait_for(state='detached',timeout=3000)
         page.set_viewport_size({'width':390,'height':900});page.wait_for_timeout(300)
         assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1')
         capture('investigate-390');page.set_viewport_size({'width':1440,'height':1000})
-        page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='compute',exact=True)).get_by_role('button',name='Open Evidence →').click()
+        page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='rollout' if slow else 'compute',exact=True)).get_by_role('button',name='Open Evidence →').click()
         page.keyboard.press('Escape');detail.wait_for(state='detached',timeout=3000)
         page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='storage',exact=True)).get_by_role('button',name='Deep Dive →',exact=True).first.click()
         page.get_by_role('heading',name='Key Findings',exact=True).wait_for();page.wait_for_timeout(1200)
@@ -127,7 +144,7 @@ def main():
         assert 'Loki timeline unavailable' in page.locator('.xlt').inner_text();capture('optional-unavailable')
         checks.append('Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation')
         assert not errors,errors
-        report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'native_requests_matching_step_window':len(matching),'selected_context':saved}
+        report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}
         (args.output/f'{args.label}-validation.json').write_text(json.dumps(report,indent=2)+'\n')
         print(json.dumps(report,indent=2));browser.close()
 

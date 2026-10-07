@@ -116,3 +116,25 @@ test("calibrated windows retain uncertainty and ambiguous traces cannot be silen
     "ambiguous",
   );
 });
+
+test("native Loki stream labels supply cluster and observer provenance without inventing an execution node", () => {
+  const result = records({series:[{length:1,fields:[
+    {name:"Line",values:[JSON.stringify({run_id:"r",node:"execution-worker",current:0})]},
+    {name:"labels",values:[JSON.stringify({cluster:"c",node:"collector-node"})]},
+  ]}]} as any);
+  assert.equal(result[0].cluster,"c");
+  assert.equal(result[0].observer_node,"collector-node");
+  assert.equal(result[0].node,"execution-worker");
+  assert.equal(result[0].current,0);
+});
+
+test("explicit Loki provenance conflicts are preserved and flagged", () => {
+  const result=records({series:[{length:2,fields:[
+    {name:"Line",values:[JSON.stringify({cluster:"other",node:"worker"}),JSON.stringify({record:{cluster:"inner"},cluster:"outer"})]},
+    {name:"labels",values:[{cluster:"c",node:"observer"},{cluster:"outer",node:"observer"}]},
+  ]}]} as any);
+  assert.equal(result[0].cluster,"other");
+  assert.equal(result[0].identity_conflict,true);
+  assert.equal(result[1].cluster,"inner");
+  assert.equal(result[1].identity_conflict,true);
+});

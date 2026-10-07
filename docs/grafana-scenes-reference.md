@@ -8,7 +8,7 @@
 
 - `AppPlugin`이 sidebar에 XLayer 진입점 하나를 등록합니다. 화면 간 이동은 context를 유지하는 App navigation에서 제공합니다. Static sidebar 링크에 query state를 기대하지 않습니다.
 - `SceneApp` / `SceneAppPage`가 routing과 URL state를 관리합니다.
-- 왼쪽 Run Context에 `EmbeddedScene`의 native variable·time picker·refresh picker를 배치합니다. Step 선택은 저장된 완료 record와 실제 window를 선택하는 XLayer component입니다.
+- 상단 Run Context에 `EmbeddedScene`의 native variable·time picker·refresh picker를 배치합니다. Step 선택은 저장된 완료 record와 실제 window를 선택하는 XLayer component입니다.
 - `SceneQueryRunner`는 provisioned panel의 targets·datasource를 읽습니다. 별도 Prometheus/Loki client는 없습니다.
 - `VizPanel` / `SceneDataTransformer`는 기존 timeline과 관련 graph를 렌더링합니다.
 - XLayer component는 KPI·Matrix·comparison·candidate·evidence·navigation만 담당합니다.
@@ -48,10 +48,10 @@ Query contract는 dashboard에 한 번만 정의합니다. App에는 panel ID/re
 | --- | --- | --- |
 | Sampled 숫자 | 같은 Run·Step의 유일한 exact/calibrated span, 같은 resource node, window 안의 query evaluation | Phase 사용량·causal attribution |
 | Select entity | 같은 node에서 여러 GPU/engine을 관측 | 임의 average/max로 만든 phase 값 |
-| Rolling context | Rate/histogram의 lookback이 짧은 phase 밖까지 포함 | Phase-specific p95/p99·hit ratio·bandwidth |
+| Rolling 숫자 | Phase 안에서 평가한 rate/quantile와 실제 query lookback 표시 | Phase-exclusive 값·phase baseline delta |
 | N/A | Phase interval 없음 또는 불명확 | 보고된 stage duration으로 만든 가짜 boundary |
 | Step evidence | 저장 diagnosis의 full-Step window | Phase delta / phase baseline |
-| Ray context | Canonical task aggregation이 node identity를 보존하지 않음 | Session 값을 worker/phase에 귀속 |
+| Ray 숫자 | 명시 선택한 Session / State의 query 관측 | Session 값을 worker/phase에 귀속·서로 다른 state 합산 |
 | MFU 별도 관측 | Framework가 보고한 completed stage scalar | GPU utilization으로 추정하거나 sampled resource cell에 합친 MFU |
 
 ```{admonition} Precision / Scope
@@ -60,7 +60,11 @@ Query contract는 dashboard에 한 번만 정의합니다. App에는 panel ID/re
 Exact는 application span 경계의 속성입니다. Resource metric은 sampled이며 query evaluation 시각과 원본 scrape 시각이 같다고 보장하지 않습니다. Exact node-clock span의 cross-clock calibration은 미확인일 수 있습니다. Calibrated uncertainty가 없거나 phase보다 큰 경우 숫자를 연결하지 않습니다. Correlation ≠ attribution ≠ causality.
 ```
 
-Phase baseline을 새로 계산하지 않습니다. Step Current/Baseline은 저장 projection의 entity·window·scope와 함께 표시하며 workload comparability가 `unverified`이면 그대로 드러냅니다. Baseline `0`에서 relative delta가 없다는 것은 baseline 자체가 없다는 뜻이 아닙니다.
+Gauge의 phase delta는 같은 producer·worker·node·phase·entity·unit·clock reference와 명시 workload fingerprint를 확인합니다. 기존 `matched_configured_fields`와 양쪽 두 개 이상의 query 관측이 필요하며 rolling/session delta는 만들지 않습니다.
+
+Baseline query는 저장된 명시 구간에만 실행합니다. 별도 URL sync 없는 native query range를 사용하므로 선택 Step의 `from/to`와 Deep Dive context는 유지됩니다. Node/device 값은 같은 phase 시간의 관측이며 사용량 attribution이 아닙니다.
+
+Gauge 숫자는 query 평가값의 window mean입니다. Query 시각과 raw scrape 시각이 같다고 보장하지 않으며 phase 전환 근처에는 이전 sample이 유지될 수 있습니다. Baseline `0`의 relative delta는 숨기고 absolute 값은 보존합니다.
 
 ## KPI / Evidence
 
@@ -94,11 +98,45 @@ MFU·policy version·wrapper 상태의 producer와 missing 조건은 [UI Telemet
 - 실제 GPU/VERL·multi-worker span·3FS ClickHouse의 App journey는 추가 검증이 필요합니다.
 - 운영 배포에는 plugin signing과 배포 artifact가 필요합니다. Dev unsigned allowlist는 격리 개발 환경에만 사용합니다.
 - Panel ID/ref contract는 CI에서 확인합니다. Catalogue cache는 browser reload 시 갱신됩니다.
-- Phase별 token histogram/baseline과 calibrated sample coverage는 추가 계측이 필요합니다.
+- Phase-exclusive histogram과 raw sample timestamp/calibrated coverage는 추가 계측이 필요합니다.
 - Exact node-clock sample matching은 correlation preview입니다. Raw timestamp·clock certainty를 추가 확인해야 합니다.
 - 검증한 Grafana 버전 외의 호환성과 provisioning/auth 실패 경로는 추가 검증이 필요합니다.
 
 Source 연결·N/A의 의미는 [UI Telemetry Coverage](ui-telemetry-coverage.md), behavior signature·triggered profiling과 논문 비교는 [Research PoC](behavior-signature-research.md)에서 관리합니다. Research API는 이 App의 기본 diagnosis 경로에 자동 연결하지 않습니다.
+
+## Filter 위치와 색상
+
+| 선택 | 근거 |
+| --- | --- |
+| 상단 Cluster / Run / Step / time | Grafana의 native sidebar와 중복 rail을 줄이고 Matrix 폭을 확보 |
+| 접힌 observer/resource/trace filter | 자주 쓰는 context와 세부 identity 선택을 구분 |
+| Phase별 색과 subsystem dot | 정상 상태에서도 execution/category를 빠르게 구분 |
+| Delta의 amber/teal 방향 | 관측된 증가/감소를 구분. 장애·개선 판정을 뜻하지 않음 |
+| Candidate의 attention 색 | 저장된 evidence state를 표시. 원인 확정과 구분 |
+
+AGENTS.md가 dashboard 색 수를 제한하는 것은 아닙니다. 현재 배색은 category·관측 방향·evidence를 구분하기 위한 UI 선택이며 기본 card·missing 상태는 같은 light design system을 사용합니다.
+
+현재 Matrix는 checkpoint span이 있을 때만 Checkpoint column을 추가합니다. Sandbox는 같은 trace의 실제 parent chain으로 연결된 execution span과 worker/cgroup identity를 확인하며, 관계가 없으면 값을 넣지 않습니다. Storage operation과 Ray state는 명시 selector로 선택합니다.
+
+## 실제 화면
+
+다음 화면은 같은 clock의 live synthetic metric·SDK span·저장 report로 재현했습니다. 실제 GPU/VERL 성능 검증과 구분합니다.
+
+```{figure} figures/grafana-app-context-overview.png
+:alt: Native Grafana sidebar를 유지하고 상단에 Run Context를 묶은 XLayer Overview
+:width: 720px
+
+상단 filter는 Run·Step·시간을 유지하면서 card와 chart의 폭을 확보합니다. Phase별 색은 execution category이며 health 판정이 아닙니다.
+```
+
+```{figure} figures/grafana-app-phase-matrix.png
+:alt: Gauge baseline delta와 Shared Rolling context, Ray state와 Storage operation 선택을 구분하는 Phase Matrix
+:width: 720px
+
+GPU·vLLM·연결된 worker 관측은 조건을 만족할 때 baseline과 비교합니다. RPC p95·KV·network·Ray는 명시된 scope의 관측이며 phase 소유량이 아닙니다.
+```
+
+검증은 1440/1280/900/390px, 정상/지연 scenario, entity 선택, evidence·기존 dashboard 왕복을 포함합니다. 선택 Step 요청 22/22가 같은 구간을 유지하고, 5개 native baseline query만 명시 baseline 범위를 사용했습니다. Browser error는 0개였으며 CPU 1,313개·frontend 43개를 통과했습니다. {download}`검증 JSON<validation/grafana-scenes-phase-20261008.json>`에서 당시 context를 확인합니다.
 
 ## 관련 문서
 

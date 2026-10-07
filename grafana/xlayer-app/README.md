@@ -1,6 +1,6 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana dashboard·datasource 위에 **Overview / Analyze / Investigate / Deep Dive** 네 개의 독립 화면을 추가하는 선택적 static App Plugin입니다. 공통 왼쪽 Run Context가 선택한 Run·Step·시간을 유지합니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana dashboard·datasource 위에 **Overview / Analyze / Investigate / Deep Dive** 네 개의 독립 화면을 추가하는 선택적 static App Plugin입니다. 공통 상단 Run Context가 선택한 Run·Step·시간을 유지합니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
@@ -74,16 +74,16 @@ python grafana/xlayer-app/scripts/live_demo.py \
   --grafana-port 23400
 ```
 
-정상 결과: `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. 새 `--output` directory를 사용해야 합니다. 초기 scrape 후 Run은 `verl-agent-demo`, Cluster는 `scenes-demo`를 선택합니다. **Synthetic demo** badge와 Step history가 보이며 30초마다 새 synthetic completed Step가 추가됩니다.
+정상 결과: `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. 새 `--output` directory를 사용해야 합니다. 초기 scrape 후 Run은 `verl-agent-demo`, Cluster는 `scenes-demo`를 선택합니다. **Synthetic demo** badge와 Step history가 보이며 약 90초 동안 실제 scrape를 수집한 뒤 baseline/current completed Step pair가 보입니다. 기본은 storage regression과 normal pair를 번갈아 제공합니다.
 
-1. 왼쪽 Run Context에서 Run·time을 확인합니다. Overview에서 저장 baseline 변화와 live/reported KPI를 구분합니다.
+1. 상단 Run Context에서 Run·time을 확인합니다. Overview에서 저장 baseline 변화와 live/reported KPI를 구분합니다.
 2. Step dropdown 또는 **Analyze Step**으로 완료 Step을 선택합니다. 실제 record identity와 window가 URL·native query에 반영됩니다.
-3. Analyze의 **rollout × storage**를 선택합니다. Supporting / Against / Missing evidence와 compact timeline을 읽습니다. Shared storage는 Step evidence이며 phase 값으로 귀속되지 않습니다.
+3. Analyze의 **rollout × storage**를 선택합니다. Supporting / Against / Missing evidence와 compact timeline을 읽습니다. Rolling RPC p95는 Shared context이며 phase 값으로 귀속되지 않습니다. Storage selector로 operation/status를 선택하고 Step evidence의 supporting/against/missing을 따로 확인합니다.
 4. **Investigate**로 이동해 What changed와 candidate를 확인합니다. **Deep Dive →**는 candidate identity를 유지해 Key Findings와 native metric tab을 엽니다.
 5. **Full Storage** 또는 Storage 링크로 기존 dashboard를 엽니다. Browser Back으로 돌아오면 Run/Step/time·candidate context가 유지됩니다.
 6. Trace/GPU/engine filter에서 GPU를 `0`으로 제한하면 measured rollout window의 sampled GPU를 확인할 수 있습니다. 여러 device를 선택하면 `Select entity`입니다.
 
-Demo의 MFU·policy·wrapper report도 명시적으로 생성한 synthetic source입니다. 실제 veRL workload의 수집 성공으로 해석하지 않습니다. Live exporter와 저장 Current/Baseline diagnosis는 별도 fixture이며 diagnosis는 live backend를 다시 분석한 결과가 아닙니다.
+Demo의 MFU·policy·wrapper report도 명시적으로 생성한 synthetic source입니다. 실제 veRL workload의 수집 성공으로 해석하지 않습니다. Native metric·SDK span·저장 diagnosis는 같은 synthetic scenario clock을 사용합니다. Diagnosis scalar는 명시 scenario 통계이며 실제 backend query 결과가 아닙니다. Native RPC p95와 scenario 3FS p99는 다른 source/stat입니다.
 
 `Ctrl-C`는 이 launcher가 만든 process만 종료합니다. 작은 fixture/log와 state는 지정한 directory에 남깁니다. Cleanup은 process 종료를 확인한 뒤 이 directory만 삭제합니다.
 

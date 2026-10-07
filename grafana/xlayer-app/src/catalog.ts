@@ -1,3 +1,4 @@
+import { PHASE_COLORS } from "./matrix-presentation";
 import { map } from "rxjs";
 import { timelineLanes } from "./mockup";
 import { getBackendSrv } from "@grafana/runtime";
@@ -97,7 +98,7 @@ export function viz(panel: Panel): VizPanel {
     title: panel.title,
     description: panel.description,
     options: panel.type === "timeseries" ? {...panel.options,legend:{...panel.options?.legend,displayMode:"list",placement:"bottom",calcs:[]}} : panel.options || {},
-    fieldConfig: panel.fieldConfig || { defaults: {}, overrides: [] },
+    fieldConfig: panel.type==="state-timeline"?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:panel.fieldConfig || { defaults: {}, overrides: [] },
     $data: panel.transformations?.length
       ? new SceneDataTransformer({
           $data: data,
@@ -124,7 +125,7 @@ export function variables(
     for (const v of catalog[key]?.templating.list || [])
       if (!definitions.has(v.name)) definitions.set(v.name, v);
   return new SceneVariableSet({
-    variables: VARIABLE_NAMES.map((name) => {
+    variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")).map((name) => {
       const definition = definitions.get(name);
       const selected = context.variables[name];
       const visible = ["cluster", "run_id", "source_node", "node"].includes(

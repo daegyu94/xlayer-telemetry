@@ -78,14 +78,14 @@ Measured span 경계와 sampled resource 관측을 구분합니다. Shared resou
 4. **Deep Dive →:** 선택한 candidate와 같은 context에서 상세 metric을 확인합니다.
 5. **Full Storage / Timeline / Logs:** 기존 dashboard로 이동합니다. Browser Back으로 App에 돌아옵니다.
 
-Phase별 baseline을 새로 추정하지 않습니다. `Step evidence`의 delta는 선택한 전체 Step 구간의 비교입니다. [Cell 상태 해석](grafana-scenes-reference.md#phase--subsystem)을 함께 확인합니다.
+Gauge의 phase delta는 명시된 baseline span·workload fingerprint·동일 entity·query 관측 수가 맞을 때만 표시합니다. `Step evidence`의 delta는 선택한 전체 Step 구간의 비교이며 phase cell로 복사하지 않습니다. [Cell 상태 해석](grafana-scenes-reference.md#phase--subsystem)을 함께 확인합니다.
 
 ## GPU 없이 확인
 
 기존 stack과 분리한 live demo를 사용할 수 있습니다. 프로젝트를 설치한 Python 환경과 다음 binary가 필요합니다.
 
 - `--tools` directory: `grafana-v12.1.0/`·`prometheus-3.5.0.linux-amd64/`·`loki-linux-amd64`.
-- 위 절차로 빌드한 App.
+- 위 절차로 빌드한 App. 첫 baseline/current 비교는 실제 scrape를 기다려 약 90초 뒤에 보입니다.
 - 비어 있는 output 경로와 사용하지 않는 loopback port.
 
 ```bash
@@ -95,7 +95,7 @@ python grafana/xlayer-app/scripts/live_demo.py \
   --grafana-port 23400
 ```
 
-**정상 결과:** `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. `Cluster=scenes-demo`·`Run=verl-agent-demo`를 선택하면 **Synthetic demo** badge가 보이고 30초마다 새 completed Step이 추가됩니다.
+**정상 결과:** `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. `Cluster=scenes-demo`·`Run=verl-agent-demo`를 선택하면 **Synthetic demo** badge가 보이고 완료된 baseline/current pair가 차례로 추가됩니다. 실행 중인 Step을 완료된 값으로 표시하지 않습니다.
 
 ```{admonition} Synthetic data
 :class: note

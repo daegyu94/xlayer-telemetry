@@ -641,3 +641,31 @@ body.theme-dark .xlt {
 .xlt-run-context button{height:auto;min-height:28px}
 
 .xlt-panel{padding:0;box-sizing:border-box}
+
+/* One context bar: Grafana already supplies the product's left navigation. */
+.xlt-app-layout{display:block}
+.xlt-context-top{position:static;top:auto;border:1px solid var(--xl-border);background:var(--xl-soft);color:var(--xl-text);padding:10px 12px;margin:0 0 14px;border-radius:5px;font:12px/1.4 Inter,system-ui,sans-serif}
+.xlt-context-fields{display:grid;grid-template-columns:minmax(130px,1fr) minmax(165px,1.3fr) minmax(130px,.85fr) minmax(310px,2.1fr);gap:12px;align-items:end}
+.xlt-context-fields>*{min-width:0}.xlt-context-step{display:block;font-size:11px;color:var(--xl-muted)}
+.xlt-context-top select{border:1px solid var(--xl-border);background:var(--xl-bg);color:var(--xl-text)!important;width:100%;margin-top:4px;border-radius:4px;height:32px}
+.xlt-context-time>span{display:block;font-size:11px;color:var(--xl-muted);margin-bottom:4px}.xlt-context-time>div{display:flex;gap:5px;align-items:center;min-width:0}
+.xlt-context-time>div>div{min-width:0}.xlt-context-time button{font-size:11px;min-height:32px;height:32px;padding:3px 6px;max-width:100%}.xlt-context-time button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:28ch}
+.xlt-context-meta{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:10px;color:var(--xl-muted);margin-top:7px}.xlt-context-meta b{font-weight:550;color:var(--xl-text)}.xlt-context-meta details{margin:0}.xlt-context-meta details[open]{width:100%}.xlt-context-meta details>div{display:flex;gap:12px;padding:8px 0;flex-wrap:wrap}
+.xlt-header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.xlt-header-actions>a{white-space:nowrap;font-size:12px}
+.xlt-matrix{min-width:760px}.xlt-matrix th:first-child{width:170px}.xlt-matrix .xlt-cell{color:var(--xl-text);width:100%;border:0;min-height:58px;text-align:left;position:relative}.xlt-matrix .xlt-cell b{font-size:15px;font-weight:600;color:var(--xl-text)}
+.xlt-matrix .xlt-cell:hover{background:#edf2ff}.xlt-matrix .xlt-cell:focus-visible{outline:2px solid var(--xl-primary);outline-offset:2px}.xlt-matrix .xlt-cell small{font-size:10px;line-height:1.3;color:var(--xl-muted);margin-top:3px}.xlt-matrix-delta{display:block;color:#52657e;font-size:10px;margin:3px 0}.xlt-matrix-legend{display:flex;gap:12px;flex-wrap:wrap;padding:8px 2px;font-size:10px;color:var(--xl-muted)}
+.xlt-entity-select{font-size:10px;max-width:155px;width:100%;border:1px solid var(--xl-border);background:var(--xl-bg);color:var(--xl-text);padding:4px;border-radius:3px;margin-top:7px}
+.xlt-phase-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:var(--xl-muted);margin:8px 0}.xlt-phase-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+@media(max-width:1100px){.xlt-context-fields{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.9fr)}.xlt-context-time{grid-column:1/-1}.xlt-context-time>div{justify-content:flex-end}.xlt-context-time>span{position:absolute;margin-top:9px}.xlt-app-layout .xlt-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:750px){.xlt-context-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.xlt-context-step{grid-column:1/-1}.xlt-context-time>div{justify-content:flex-start;flex-wrap:wrap}.xlt-context-time>span{position:static;margin-top:0}.xlt-context-meta{gap:6px 12px}.xlt-app-layout .xlt-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.xlt-subsystem-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.xlt-delta-up{color:#966531}.xlt-delta-down{color:#237c8a}.xlt-delta-flat{color:var(--xl-muted)}
+.xlt-matrix th small{font-weight:400}
+.xlt-badge-warning{background:#fff2d9;color:#995b15;border-color:#efc889}
+.xlt-candidates article:has(.xlt-badge-warning){border-left:3px solid #dda543}
+.xlt-entity-select{appearance:auto!important;height:30px;min-height:30px;padding:3px!important;font-size:11px!important;line-height:20px!important;color:var(--xl-text)!important}
+.xlt-context-meta>span{white-space:normal}.xlt-context-top{font-size:12px}
+/* The narrow breakpoint of the former rail must not split the context bar. */
+.xlt-context-top{display:block}
+.xlt-visible-range{font-size:10px;color:var(--xl-muted);margin-top:4px;overflow-wrap:anywhere}
+@media(min-width:751px){.xlt-visible-range{display:none}}
