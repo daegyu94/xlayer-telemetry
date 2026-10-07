@@ -6,6 +6,7 @@
 | --- | --- |
 | Collector·Loki·retention·remote 배포 | [Monitoring operations](monitoring-reference.md) |
 | Native endpoint·Mooncake·sandbox·adapter | [Integration contract](integration-reference.md) |
+| App query·context·Matrix 해석 | [Grafana App reference](grafana-scenes-reference.md) |
 | Panel·filter·backfill·profiler recipe | [Dashboard reference](dashboard-reference.md) |
 | Rule catalog·query budget·revision·sample quality | [Diagnosis reference](diagnosis-reference.md) |
 | Package·file path·failure boundary | [Architecture reference](architecture-reference.md) |
@@ -18,6 +19,7 @@
 Monitoring operations <monitoring-reference>
 Integration contract <integration-reference>
 Dashboard detail <dashboard-reference>
+Grafana App contract <grafana-scenes-reference>
 Diagnosis contract <diagnosis-reference>
 Architecture detail <architecture-reference>
 Metrics contract <metrics-reference>

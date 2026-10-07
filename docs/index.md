@@ -78,6 +78,7 @@ Multi-node <multi-node>
 
 Slow Step Investigation <dashboards>
 Subsystem / Deep Dive <deep-dive>
+선택적 Grafana App <grafana-scenes-poc>
 ```
 
 ```{toctree}
@@ -104,7 +105,7 @@ Metrics <metrics>
 CLI <cli>
 Configuration <configuration>
 Architecture <architecture>
-UI source coverage / MFU·Policy·Status <ui-telemetry-coverage>
+UI Telemetry / MFU·Policy·Status <ui-telemetry-coverage>
 상세 Reference <reference>
 ```
 
@@ -115,7 +116,6 @@ UI source coverage / MFU·Policy·Status <ui-telemetry-coverage>
 Development / Docs <maintainers>
 실환경 기록 <real-verl-demo>
 Dashboard design <grafana-ui-ux-review>
-Grafana App / Scenes PoC <grafana-scenes-poc>
 Behavior signature / Triggered profiling 연구 <behavior-signature-research>
 Documentation design <documentation-ux-review>
 검증 기록 <validation/README>

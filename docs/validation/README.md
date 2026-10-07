@@ -10,6 +10,7 @@
 | [3FS·subsystem](subsystem-telemetry-20261003.json), [Mooncake](mooncake-telemetry-20261003.json) | 실제 3FS I/O·ClickHouse·native endpoint 경로와 수집하지 못한 signal. |
 | [VM 검증](multinode/xltel-vm-validation-20261002.json), [시간 보정](userspace-time-alignment-20261004.json) | 독립 guest clock·collector와 userspace reference 보정. VM과 process 기반 검증은 다른 실행입니다. |
 | [Metric coverage audit](metric-coverage-audit-20261003.md) | Contract별 producer·미수집 영역·cardinality·overhead 대조. |
+| [Grafana App · Scenes](grafana-scenes-20261008.md) | 2026-10-08의 live synthetic UI·context 검증과 당시 화면 캡처. |
 | [Live dashboard UX](dashboards/live-ui-20261003.md), [Fresh User Experience](e2e-user-experience.md) | 당시 browser navigation·filter·가독성의 before/after. |
 | [GIF capture manifest](dashboards/recordings-20261001.json) | 2026-10-01 GIF의 context·재생 범위·checksum. 실측 데이터 replay와 synthetic fixture를 구분합니다. |
 | [Failure regressions](tdd-regression-20261003.json), [runtime reliability](runtime-reliability-20261001.json) | 장애 주입·lifecycle·bounded query와 기록 비용 검증. |
@@ -28,6 +29,7 @@
 e2e-user-experience
 metric-coverage-audit-20261003
 dashboards/live-ui-20261003
+grafana-scenes-20261008
 ../grafana-ui-ux-review
 local-llm/history-20260930
 documentation-review-20261005

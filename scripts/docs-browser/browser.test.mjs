@@ -91,7 +91,7 @@ test("built documentation has full D2 figures and captions at every breakpoint",
     "cli", "local-llm", "time-alignment", "maintainers", "reference", "documentation-ux-review",
     "monitoring-reference", "integration-reference", "dashboard-reference", "diagnosis-reference",
     "architecture-reference", "metrics-reference", "verl-reference", "real-verl-demo",
-    "grafana-ui-ux-review", "grafana-scenes-poc", "ui-telemetry-coverage", "behavior-signature-research", "validation/e2e-user-experience"];
+    "grafana-ui-ux-review", "grafana-scenes-poc", "grafana-scenes-reference", "validation/grafana-scenes-20261008", "ui-telemetry-coverage", "behavior-signature-research", "validation/e2e-user-experience"];
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));

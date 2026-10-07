@@ -97,7 +97,7 @@ python grafana/xlayer-app/scripts/browser_validate.py \
 
 Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합니다. 설치된 Chromium을 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 결과는 desktop·900px·390px capture와 validation JSON입니다. Test는 실제 Grafana query request의 Step interval도 확인합니다.
 
-최신 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [Validation](../../docs/grafana-scenes-poc.md#validation)에서 확인합니다.
+최신 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 
 ## 문제 해결
 
@@ -123,4 +123,4 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 - `src/module.tsx`: XLayer Scene 페이지와 custom component.
 - `scripts/`: 선택적 live demo와 browser validation.
 
-Architecture·검증·dashboard 비교·후속 과제는 [Scenes PoC 문서](../../docs/grafana-scenes-poc.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.
+설치·조사 흐름은 [App guide](../../docs/grafana-scenes-poc.md), query·scope·운영 한계는 [App Reference](../../docs/grafana-scenes-reference.md), 당시 화면·결과는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.
