@@ -44,7 +44,6 @@ article th { background: var(--color-background-secondary); }
 .xlayer-diagram-image { display: block; min-width: 0; max-width: 100%; height: auto; background: #fff; }
 .xlayer-diagram-caption { display: block; margin-top: 0.4rem; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .xlayer-diagram-link:focus-visible { outline: 2px solid var(--color-brand-primary); outline-offset: 3px; }
-.xlayer-diagram-link::after { content: "원본 SVG 확대 ↗"; display: block; margin-top: 0.3rem; color: var(--color-brand-content); font-size: 12px; }
 @media (max-width: 700px) {
   .xlayer-card-grid { grid-template-columns: 1fr; gap: 0.5rem; }
   .xlayer-card-grid a { padding: 0.7rem 0.8rem; }

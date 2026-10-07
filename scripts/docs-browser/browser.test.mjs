@@ -173,7 +173,9 @@ test("D2 figures have captions and one accessible enlargement action", async () 
     const name = await figure.locator("img").getAttribute("alt");
     assert.equal(await figure.locator("figcaption").textContent(), name);
     const link = figure.locator(".xlayer-diagram-link");
-    assert.equal(await link.getAttribute("aria-label"), `${name} — 원본 SVG 확대 (새 탭)`);
+    assert.equal(await link.getAttribute("aria-label"), `${name} — 그림 크게 보기 (새 탭)`);
+    assert.equal(await link.evaluate((a) => getComputedStyle(a, "::after").content), "none");
+    assert.equal(await link.getAttribute("title"), "그림 크게 보기");
     assert.equal(await figure.locator("a").count(), 1);
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);

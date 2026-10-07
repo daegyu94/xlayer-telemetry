@@ -17,8 +17,8 @@
       link.href = source;
       link.target = "_blank";
       link.rel = "noopener";
-      link.title = "그림을 눌러 SVG 확대 보기";
-      link.setAttribute("aria-label", `${image.alt} — 원본 SVG 확대 (새 탭)`);
+      link.title = "그림 크게 보기";
+      link.setAttribute("aria-label", `${image.alt} — 그림 크게 보기 (새 탭)`);
       if (standalone) paragraph.replaceWith(wrapper);
       else image.parentNode.insertBefore(wrapper, image);
       wrapper.appendChild(link);

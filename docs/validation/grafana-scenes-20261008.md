@@ -24,7 +24,7 @@
 | Native datasource 시간 범위 | Step 선택 이후 요청 **25/25**가 실제 18.401s 선택 구간과 일치 |
 | 좁은 화면 | Page overflow 없음. Matrix/table은 내부 scroll, evidence/workspace는 세로 배치 |
 | Unknown Run / optional dashboard 404 | No data / unavailable 표시. 0 또는 정상 상태로 대체하지 않음 |
-| 문서 browser | D2 26개·caption·원본 확대·entry card 검사 **9개 통과** |
+| 문서 browser | D2 26개·caption·그림 열기·entry card 검사 **9개 통과** |
 
 Mockup 확장 이후에는 sparkline의 native range 계약, 좁은 Run Context의 control 폭, Related Metrics의 과도한 세로 길이, candidate workspace의 priority와 범례를 추가로 수정했습니다. Related Metrics는 subsystem tab으로 전환하고 telemetry/detail 목록은 접힌 영역으로 옮겼습니다. 마지막 확인 결과는 {download}`browser validation JSON<grafana-scenes-20261008.json>`에 남겼습니다.
 
