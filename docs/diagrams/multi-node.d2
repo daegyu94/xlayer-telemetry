@@ -5,11 +5,12 @@
 direction: down
 nodes: Configured cluster {
   grid-columns: 1
+  grid-gap: 24
   trainer: "gpu-a\nTrainer + node collector" {class: source}
   rollout: "gpu-b\nRollout / vLLM + node collector" {class: source}
   storage: "storage-a\n3FS / local SSD\nHost collector + SMART" {class: source}
 }
 monitor: "Monitoring host\nPrometheus / optional Loki" {class: process}
 view: "XLayer diagnosis\nGrafana Timeline" {class: evidence}
-nodes -> monitor: preserve cluster + node {style.font-size: 20}
+nodes -> monitor: preserve cluster + node {style.font-size: 18}
 monitor -> view

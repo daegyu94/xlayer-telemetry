@@ -5,6 +5,7 @@
 direction: down
 mapping: Primary integration: VERL to XLayer core {
   grid-columns: 1
+  grid-gap: 24
   execution: "Update / rollout / reward\nMap to run > step / iteration\nPhase > span / event" {class: source}
   identity: "Worker / rank / node / GPU\nMap to resource identity + scope" {class: process}
   evidence: "vLLM / Ray / sandbox / storage\nMap to related subsystem evidence" {class: process}

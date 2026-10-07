@@ -1,86 +1,126 @@
 # XLayer Telemetry
 
-VERL과 vLLM·Ray·sandbox·GPU·network·storage의 telemetry를 **Collect → Correlate → Diagnose**합니다.
-Run·step·phase를 기준으로 느린 구간의 bottleneck candidate와 supporting·counter·missing evidence를 조사합니다.
+:::{container} xlayer-hero
 
-Prometheus·Grafana·Loki와 기존 exporter를 활용하며, 저수준 분석은 PyTorch Profiler·Nsight로 이어집니다.
-공유 자원의 동시 변화는 correlation이며 특정 run의 사용량이나 인과관계를 뜻하지 않습니다.
-현재 지원 기능과 제약은 [README의 What Works Today](https://github.com/daegyu94/xlayer-telemetry#what-works-today), 수집 조건은 [Metrics / Scope](metrics.md#what-is-actually-collected)에서 확인합니다.
-적용 전 확인할 한계와 보완 방법은 [Operating Limits](architecture.md#failure-boundaries-and-operating-limits)에 모았습니다.
+**Agent RL을 위한 cross-layer observability**
 
-## Start Here
+VERL의 느린 step을 GPU·vLLM·network·storage·sandbox 관측과 함께 조사합니다.
 
-| 순서 | 할 일 | 확인할 결과 |
+[설치 시작](quickstart.md) · [GPU 없이 Demo 실행](demo.md) · [느린 Run 조사](dashboards.md)
+
+:::
+
+## 지금 할 일
+
+:::{container} xlayer-card-grid
+
+[**처음 사용합니다** GPU 없이 수집과 조사 흐름을 익힙니다. **Demo 실행 →**](demo.md)
+
+[**VERL을 사용 중입니다** 기존 명령과 Python 환경을 유지해 연결합니다. **Connect VERL →**](verl-quickstart.md)
+
+[**Run이 느립니다** 느린 Step을 고르고 baseline과 evidence를 비교합니다. **Slow Step Investigation →**](dashboards.md)
+
+:::
+
+## XLayer가 하는 일
+
+| 단계 | 입력과 결과 | 다음 행동 |
 | --- | --- | --- |
-| 1 | [Checkout 준비](#prepare-a-checkout) → [Synthetic demo](monitoring.md#try-the-demo) | Exporter target이 up |
-| 2 | [기존 VERL 명령 연결](verl-quickstart.md) | 첫 완료 step과 GPU·host metric |
-| 3 | [필요한 source 추가](agent-rl.md#choose-the-next-source) | vLLM·Ray·Loki·storage의 실제 evidence |
-| 4 | [느린 구간 조사](diagnosis.md#investigation-workflow) | Candidate → Evidence → Timeline → Deep Dive |
+| **Collect** | VERL·native endpoint·GPU/host·log/event | [필요한 source 연결](agent-rl.md) |
+| **Correlate** | Run·step·node·worker·시간·scope | [Context 이해](concepts.md) |
+| **Diagnose** | Baseline·candidate·supporting/counter/missing evidence | [Evidence 읽기](diagnosis.md) |
+| **Deep Dive** | 선택한 구간의 log·span·기존 profiler | [후보 검증](deep-dive.md) |
 
-이미 VERL을 실행할 수 있다면 2단계부터 시작합니다.
-용어는 [Metric·Event·Span과 Scope](diagnosis.md#what-the-signals-mean)에서 확인합니다.
-SDK 직접 계측은 [Application Metrics](application-metrics.md), 현재 실환경 검증 범위와 GIF는 [Real VERL Demo](real-verl-demo.md)에 있습니다.
+```{admonition} Scope
+:class: important
 
-그림을 누르면 원본 SVG를 새 탭에서 확대할 수 있습니다.
-그림 편집 방법은 [문서 관리 안내](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md#documentation-diagrams)에 있습니다.
-
-## Prepare a Checkout
-
-Python 3.10 이상과 `venv`가 필요합니다.
-
-```bash
-git clone https://github.com/daegyu94/xlayer-telemetry.git
-cd xlayer-telemetry
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -e .
-xltel init
+같은 시간의 shared resource 변화는 correlation입니다. 특정 Run의 사용량이나 원인으로 자동 귀속하지 않습니다.
 ```
 
-`xltel`은 공식 운영 CLI입니다.
-`doctor` → `install-tools` → `up` → `run` → `inspect` → `down` 순서로 연결합니다.
-VERL·CUDA·monitoring 도구는 별도 환경을 사용하며 [VERL 연결 가이드](verl-quickstart.md)에서 이어갑니다.
-`xltel`은 저장소 밖에서도 사용하며, advanced script 예제는 저장소 루트를 기준으로 합니다.
+## 문서를 찾는 방법
+
+| 읽으려는 것 | 경로 |
+| --- | --- |
+| 처음부터 따라 하기 | Get Started의 [Quickstart](quickstart.md)·[Demo](demo.md)·[VERL 연결](verl-quickstart.md) |
+| 특정 subsystem 연결 | Observe의 [Source 선택](agent-rl.md) |
+| 성능 문제 해결 | Investigate의 [증상별 시작점](dashboards.md#증상으로-시작하기) |
+| 결과 해석 | Diagnose와 [Concepts](concepts.md) |
+| 설정·단위·구현 조회 | Reference의 [Metrics](metrics.md)·[CLI](cli.md)·[Configuration](configuration.md)·[Architecture](architecture.md) |
+| 개발·기록 확인 | Maintainers의 [검증 기록](validation/README.md) |
 
 ```{toctree}
 :hidden:
-:caption: Start Here
+:caption: Get Started
 
-Monitoring / Demo <monitoring>
-VERL 연결 <verl-quickstart>
-CLI Reference <cli>
+설치 / Quickstart <quickstart>
+GPU 없이 Demo <demo>
+기존 VERL 연결 <verl-quickstart>
 ```
 
 ```{toctree}
 :hidden:
-:caption: Collect
+:caption: Observe
 
-Subsystem 연결 / Sandbox <agent-rl>
+GPU & Host <monitoring>
+Source 선택 <agent-rl>
+vLLM / Ray <native-sources>
+KV / Storage <kv-storage>
+Sandbox <sandbox>
+Logs & Events <logs-events>
 Application SDK <application-metrics>
+Multi-node <multi-node>
 ```
 
 ```{toctree}
 :hidden:
-:caption: Correlate & Diagnose
+:caption: Investigate
 
-Grafana / Investigation <dashboards>
-Diagnosis / Baseline <diagnosis>
-Optional Time Alignment <time-alignment>
+Slow Step Investigation <dashboards>
+Subsystem / Deep Dive <deep-dive>
+```
+
+```{toctree}
+:hidden:
+:caption: Diagnose
+
+Baseline / Candidate / Evidence <diagnosis>
 Optional Local LLM <local-llm>
+```
+
+```{toctree}
+:hidden:
+:caption: Concepts
+
+Context / Scope / Precision <concepts>
+Optional Time Alignment <time-alignment>
 ```
 
 ```{toctree}
 :hidden:
 :caption: Reference
 
-Architecture / Design <architecture>
-Metrics / Scope <metrics>
-Real VERL Demo <real-verl-demo>
+Metrics <metrics>
+CLI <cli>
+Configuration <configuration>
+Architecture <architecture>
+상세 Reference <reference>
 ```
 
 ```{toctree}
 :hidden:
-:caption: Archive / Maintainers
+:caption: Maintainers
 
+Development / Docs <maintainers>
+실환경 기록 <real-verl-demo>
+Dashboard design <grafana-ui-ux-review>
+Documentation design <documentation-ux-review>
 검증 기록 <validation/README>
 ```
+
+<a id="start-here" class="xlayer-legacy-anchor"></a>
+
+[Start Here: 현재 작업에 맞는 guide](quickstart.md)
+
+<a id="prepare-a-checkout" class="xlayer-legacy-anchor"></a>
+
+[Prepare a Checkout: 설치 절차](quickstart.md#1-checkout과-python-환경-준비)

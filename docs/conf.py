@@ -9,6 +9,7 @@ source_suffix = {".md": "markdown"}
 extensions = ["myst_parser", "sphinx.ext.githubpages", "sphinx_copybutton"]
 exclude_patterns = ["_build", "**/__pycache__"]
 myst_heading_anchors = 6
+myst_enable_extensions = ["colon_fence"]
 
 html_theme = "furo"
 html_title = "XLayer Telemetry"
@@ -20,8 +21,16 @@ html_theme_options = {
     "source_repository": "https://github.com/daegyu94/xlayer-telemetry/",
     "source_branch": "main",
     "source_directory": "docs/",
-    "light_css_variables": {"color-brand-primary": "#2355a0", "color-brand-content": "#2355a0"},
-    "dark_css_variables": {"color-brand-primary": "#91baff", "color-brand-content": "#91baff"},
+    "light_css_variables": {"color-brand-primary": "#3d4fba", "color-brand-content": "#3d4fba",
+                            "color-admonition-title--important": "#4f46e5",
+                            "color-admonition-title-background--important": "#eef2ff",
+                            "color-admonition-title--note": "#2563eb",
+                            "color-admonition-title-background--note": "#eff6ff"},
+    "dark_css_variables": {"color-brand-primary": "#91baff", "color-brand-content": "#91baff",
+                           "color-admonition-title--important": "#a5b4fc",
+                           "color-admonition-title-background--important": "#262846",
+                           "color-admonition-title--note": "#93c5fd",
+                           "color-admonition-title-background--note": "#17273f"},
 }
 copybutton_prompt_text = r"\$ |>>> |\.\.\. "
 copybutton_prompt_is_regexp = True

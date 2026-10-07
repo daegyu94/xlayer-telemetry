@@ -7,11 +7,11 @@ rollout: "VERL rollout" {class: source}
 connector: "vLLM MooncakeStoreConnector\nConnector RPC metrics" {class: source}
 client: "Mooncake client\nClient DFS metrics" {class: source}
 fs: "DFS / 3FS\nService distributions" {class: source}
-rollout -> connector -> client -> fs: workload path {style.font-size: 20}
+rollout -> connector -> client -> fs: workload path {style.font-size: 18}
 prom: "Prometheus\nDistinct connector / client series" {class: process}
 ch: "ClickHouse\nShared-service evidence" {class: process}
-connector -> prom: scrape {style.font-size: 20}
-client -> prom: scrape {style.font-size: 20}
+connector -> prom: scrape {style.font-size: 18}
+client -> prom: scrape {style.font-size: 18}
 fs -> ch
 xlayer: "XLayer\nCorrelate scoped evidence / diagnose" {class: evidence}
 prom -> xlayer

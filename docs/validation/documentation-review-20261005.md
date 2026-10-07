@@ -274,7 +274,7 @@ TELEMETRY_SOURCES_FILE = "~/telemetry/config/native-sources.json"
 
 ````text
 기존 `xltel` config의 `[telemetry]`에 아래 값을 추가하고 새 run을 시작합니다.
-Grafana의 candidate·evidence 조회에는 [Loki 연결](monitoring.md#add-run-logs-with-loki)도 필요합니다.
+Grafana의 candidate·evidence 조회에는 [Loki 연결](logs-events.md)도 필요합니다.
 
 ```toml
 DIAGNOSTICS_CONFIG = "~/telemetry/config/diagnostics.json"
@@ -407,13 +407,13 @@ Bridge는 관측한 완료 시각에서
 원문:
 
 ````text
-구간 해석은 [Step Explorer](dashboards.md#read-a-step)에 자세히 설명합니다.
+구간 해석은 [Step Explorer](dashboard-reference.md#read-a-step)에 자세히 설명합니다.
 ````
 
 수정:
 
 ````text
-구간 해석은 [완료 step 읽기](dashboards.md#read-a-step)를 참고합니다.
+구간 해석은 [완료 step 읽기](dashboard-reference.md#read-a-step)를 참고합니다.
 ````
 
 - 위치: [docs/dashboards.md:118](https://github.com/daegyu94/xlayer-telemetry/blob/537454fc5f53eb611b7f4f1ec5b140689046f661/docs/dashboards.md#L118).
@@ -551,13 +551,13 @@ Boolean은 `true`/`false`, 경로는 따옴표로 감싼 문자열이며 `$HOME`
 원문:
 
 ````text
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 `xltel config path`가 가리키는 config의 `ENABLE_LOGS=1`을 설정하고 `xltel restart`을 실행합니다.
+단일 host [VERL config 경로](verl-reference.md#1-prepare-one-config-file)를 사용한다면 `xltel config path`가 가리키는 config의 `ENABLE_LOGS=1`을 설정하고 `xltel restart`을 실행합니다.
 ````
 
 수정:
 
 ````text
-단일 host [VERL config 경로](verl-quickstart.md#1-prepare-one-config-file)를 사용한다면 기존 TOML의 `[telemetry]`에 `ENABLE_LOGS = true`를 설정하고 `xltel restart`를 실행합니다.
+단일 host [VERL config 경로](verl-reference.md#1-prepare-one-config-file)를 사용한다면 기존 TOML의 `[telemetry]`에 `ENABLE_LOGS = true`를 설정하고 `xltel restart`를 실행합니다.
 기존 Bash config에서는 `ENABLE_LOGS=1`을 사용합니다.
 ````
 
@@ -1063,7 +1063,7 @@ verl-lab의 HTTP 404는 인증된 gh repo view에서 PRIVATE로 확인했습니�
 원문:
 
 ````text
-실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab)·dataset·Docker image에서 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
+실행 가능한 [verl-lab](https://github.com/daegyu94/verl-lab)·dataset·Docker image에서 [sandbox integration](sandbox.md)을 연결합니다.
 ````
 
 수정:
@@ -1071,7 +1071,7 @@ verl-lab의 HTTP 404는 인증된 gh repo view에서 PRIVATE로 확인했습니�
 ````text
 이 smoke recipe는 private [verl-lab](https://github.com/daegyu94/verl-lab) 접근 권한과 준비된 dataset·Docker image가 필요합니다.
 공개 VERL 도입에는 lab checkout이 필요하지 않으며 [기존 VERL 명령 연결](verl-quickstart.md)을 사용합니다.
-Lab 환경에서는 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
+Lab 환경에서는 [sandbox integration](sandbox.md)을 연결합니다.
 ````
 
 - 위치: [docs/agent-rl.md:428](https://github.com/daegyu94/xlayer-telemetry/blob/537454fc5f53eb611b7f4f1ec5b140689046f661/docs/agent-rl.md#L428).
@@ -1268,7 +1268,7 @@ Run Overview·Timeline은 event의 ID·시간을 Prometheus 자원 그래프와 
 원문:
 
 ````text
-[Step Explorer](dashboards.md#open-in-grafana)
+[Step Explorer](dashboard-reference.md#open-in-grafana)
 ````
 
 수정:
@@ -1311,7 +1311,7 @@ Exporter contract sources:
 수정:
 
 ````text
-Exporter의 version별 이름·지원 범위는 [Source contracts](diagnosis.md#source-contracts-and-remaining-gaps)를 확인합니다.
+Exporter의 version별 이름·지원 범위는 [Source contracts](diagnosis-reference.md#source-contracts-and-remaining-gaps)를 확인합니다.
 설치한 endpoint의 실제 `/metrics`가 기준이며 optional metric이 없으면 N/A로 남깁니다.
 
 ````

@@ -1,0 +1,274 @@
+{
+  "date": "2026-10-07",
+  "base_commit": "9049887",
+  "remote_main_at_start": "7b89986",
+  "framework": "Sphinx 8.2.3 / MyST 4.0.1 / Furo 2025.12.19",
+  "published_site": {
+    "url": "https://daegyu94.github.io/xlayer-telemetry/",
+    "http_status": 200,
+    "baseline_read": "actual browser",
+    "modified_site": "local build; not published"
+  },
+  "references": [
+    {
+      "title": "Toss Payments getting started",
+      "url": "https://docs.tosspayments.com/guides/v2/get-started",
+      "pattern": "short actions and task entry cards"
+    },
+    {
+      "title": "Kubernetes Korean documentation",
+      "url": "https://kubernetes.io/ko/docs/home/",
+      "pattern": "tutorial/task/concept/reference"
+    },
+    {
+      "title": "NAVER Cloud guide",
+      "url": "https://guide.ncloud-docs.com/docs/server-start-vpc",
+      "pattern": "purpose hierarchy and next steps",
+      "browser_limit": "403; official documentation content inspected with web tool"
+    },
+    {
+      "title": "Microsoft Learn",
+      "url": "https://learn.microsoft.com/ko-kr/training/modules/intro-to-kubernetes/",
+      "pattern": "prerequisite/step/verify/next"
+    }
+  ],
+  "loops": [
+    {
+      "loop": 1,
+      "changes": [
+        "task/reference split",
+        "card landing",
+        "16px body",
+        "diagram tiers"
+      ],
+      "findings": [
+        "semantic callout title/color",
+        "legacy anchor DOM",
+        "group padding"
+      ]
+    },
+    {
+      "loop": 2,
+      "changes": [
+        "semantic titles and indigo",
+        "canonical/legacy navigation",
+        "compact ELK spacing"
+      ],
+      "status": "passed",
+      "pages": 39,
+      "widths": [
+        1440,
+        1280,
+        390
+      ],
+      "overflow": false,
+      "browser_errors": []
+    },
+    {
+      "loop": 3,
+      "changes": [
+        "README and AGENTS alignment",
+        "explicit source/event paths",
+        "remaining long prose to tables"
+      ],
+      "status": "passed",
+      "pages": 39,
+      "widths": [
+        1440,
+        1280,
+        390
+      ],
+      "overflow": false,
+      "browser_errors": []
+    }
+  ],
+  "density_comparison": [
+    {
+      "document": "index",
+      "before_height": 1284,
+      "after_height": 1285,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 2,
+      "after_headings": 3
+    },
+    {
+      "document": "monitoring",
+      "before_height": 17318,
+      "after_height": 2114,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 23,
+      "after_headings": 8
+    },
+    {
+      "document": "agent-rl",
+      "before_height": 25860,
+      "after_height": 1329,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 19,
+      "after_headings": 4
+    },
+    {
+      "document": "architecture",
+      "before_height": 16423,
+      "after_height": 2514,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 16,
+      "after_headings": 6
+    },
+    {
+      "document": "dashboards",
+      "before_height": 23097,
+      "after_height": 3778,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 29,
+      "after_headings": 9
+    },
+    {
+      "document": "metrics",
+      "before_height": 9712,
+      "after_height": 2584,
+      "before_body": "18px",
+      "after_body": "16px",
+      "before_headings": 10,
+      "after_headings": 8
+    }
+  ],
+  "preservation": [
+    {
+      "page": "monitoring",
+      "reference": "monitoring-reference",
+      "code_blocks": 26,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "agent-rl",
+      "reference": "integration-reference",
+      "code_blocks": 22,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "dashboards",
+      "reference": "dashboard-reference",
+      "code_blocks": 7,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "diagnosis",
+      "reference": "diagnosis-reference",
+      "code_blocks": 6,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "architecture",
+      "reference": "architecture-reference",
+      "code_blocks": 2,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "metrics",
+      "reference": "metrics-reference",
+      "code_blocks": 3,
+      "missing_code_blocks": []
+    },
+    {
+      "page": "verl-quickstart",
+      "reference": "verl-reference",
+      "code_blocks": 7,
+      "missing_code_blocks": []
+    }
+  ],
+  "journeys": {
+    "status": "passed",
+    "journeys": [
+      {
+        "journey": "A",
+        "status": "passed",
+        "path": [
+          "Homepage",
+          "Demo",
+          "actual Grafana"
+        ],
+        "data_origin": "synthetic"
+      },
+      {
+        "journey": "B",
+        "status": "passed",
+        "path": [
+          "fresh checkout",
+          "install",
+          "config",
+          "public xltel run",
+          "inspect",
+          "completed step in Grafana"
+        ],
+        "workload": "synthetic VERL-compatible logger",
+        "gpu_verl_training": "not executed"
+      },
+      {
+        "journey": "C",
+        "status": "passed",
+        "path": [
+          "01-start-here",
+          "02-run-overview",
+          "03-bottleneck-summary",
+          "04-evidence",
+          "05-timeline",
+          "06-storage",
+          "07-overview-view",
+          "08-run-return"
+        ],
+        "context_preserved": true,
+        "browser_errors": []
+      }
+    ],
+    "page_errors": []
+  },
+  "checks": {
+    "strict_sphinx_build": "passed without warnings",
+    "python_regressions": {
+      "passed": 83,
+      "scope": "documentation links/diagrams + CLI/extensions/VERL wrapper"
+    },
+    "browser_regressions": {
+      "passed": 9,
+      "skipped": 0,
+      "built_documents": 35,
+      "widths": [
+        320,
+        390,
+        430,
+        900,
+        1280,
+        1440
+      ]
+    },
+    "d2": {
+      "version": "0.9.0",
+      "diagrams": 25,
+      "reproducibility": "passed"
+    },
+    "keyboard_svg_and_dark_theme": "passed",
+    "built_internal_links": {
+      "checked": 3315,
+      "broken": 0
+    }
+  },
+  "limitations": [
+    "B is a synthetic VERL-compatible logger using the real public wrapper, not GPU/model training.",
+    "Installed monitoring binaries were reused; CLI/package/config were exercised from a new checkout and Python environment.",
+    "Demo live resource curves and precomputed diagnosis are independent synthetic examples.",
+    "Published GitHub Pages remains the earlier remote content until deployment."
+  ],
+  "cleanup": {
+    "task_owned_managed_stacks": "stopped",
+    "task_owned_preview_servers": "stopped",
+    "task_databases_checkout_environment_caches": "removed",
+    "small_reports_and_captures": "retained",
+    "existing_monitoring_verl_docker_3fs_and_installed_shared_binaries": "preserved"
+  }
+}

@@ -3,11 +3,11 @@
 ...@_style
 
 shape: sequence_diagram
-node: "Workload node\nLocal wall + monotonic clock" {style.font-size: 20}
-reference: "Monitoring host\nSame clock as Prometheus" {style.font-size: 20}
-node -> reference: "t1: send request + nonce" {style.font-size: 20}
-reference -> reference: "t2: receive / t3: send" {style.font-size: 20}
-reference -> node: "Reference ID / session / t2 / t3" {style.font-size: 20}
-node -> node: "t4: receive\nEstimate offset + RTT/2 uncertainty" {style.font-size: 20}
-node -> node: "Save bounded calibration\nPreserve raw time + duration" {style.font-size: 20}
-node -> node: "Project step / span windows\nReject expired / mismatched / uncertain joins" {style.font-size: 20}
+node: "Workload node\nLocal wall + monotonic clock" {style.font-size: 18}
+reference: "Monitoring host\nSame clock as Prometheus" {style.font-size: 18}
+node -> reference: "t1: send request + nonce" {style.font-size: 18}
+reference -> reference: "t2: receive / t3: send" {style.font-size: 18}
+reference -> node: "Reference ID / session / t2 / t3" {style.font-size: 18}
+node -> node: "t4: receive\nEstimate offset + RTT/2 uncertainty" {style.font-size: 18}
+node -> node: "Save bounded calibration\nPreserve raw time + duration" {style.font-size: 18}
+node -> node: "Project step / span windows\nReject expired / mismatched / uncertain joins" {style.font-size: 18}

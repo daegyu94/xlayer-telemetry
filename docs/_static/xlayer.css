@@ -1,22 +1,57 @@
-/* Fit the whole diagram first; its link opens the full SVG for close reading. */
+/* Compact technical documentation; native Furo light/dark controls remain. */
 :root {
   --font-stack: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-stack--monospace: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
-body { font-size: 18px; }
-.main { min-width: 0; }
-.content { width: 52rem; min-width: 0; }
-article p, article li { line-height: 1.75; word-break: keep-all; overflow-wrap: anywhere; }
-.sidebar-tree { font-size: 1rem; }
-.toc-tree { font-size: 0.95rem; }
-article h1 { font-size: 2rem; }
-article h2 { font-size: 1.45rem; margin-top: 2rem; }
-article h3 { font-size: 1.18rem; }
-.highlight pre { font-size: 0.9375rem; line-height: 1.6; }
-article table { font-size: 1rem; }
-article td p, article th p { line-height: 1.6; }
-.xlayer-diagram { display: block; max-width: 100%; margin: 1.25rem 0; }
+body { font-size: 16px; }
+.main, .content, article { min-width: 0; }
+.content { width: 54rem; max-width: 100%; }
+article p, article li { line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+article p { margin: 0.55rem 0; }
+article ul, article ol { margin: 0.55rem 0 0.85rem; padding-left: 1.5rem; }
+article li + li { margin-top: 0.18rem; }
+.sidebar-tree, .toc-tree { font-size: 14px; line-height: 1.45; }
+.sidebar-tree .caption { margin-top: 1.05rem; }
+article h1 { font-size: 29px; line-height: 1.25; margin-bottom: 0.8rem; }
+article h2 { font-size: 22px; line-height: 1.3; margin: 1.5rem 0 0.6rem; }
+article h3 { font-size: 18px; line-height: 1.35; margin: 1.1rem 0 0.45rem; }
+.highlight { margin: 0.6rem 0 0.85rem; }
+.highlight pre { font-size: 13px; line-height: 1.55; padding: 0.8rem; }
+article table { font-size: 14px; margin: 0.6rem 0; }
+article th, article td { padding: 0.4rem 0.65rem; }
+article td p, article th p { margin: 0.15rem 0; line-height: 1.5; }
+article th { background: var(--color-background-secondary); }
+.table-wrapper, .xlayer-table-scroll { max-width: 100%; overflow-x: auto; }
+.xlayer-table-scroll:focus-visible { outline: 2px solid var(--color-brand-primary); }
+.admonition { margin: 0.85rem 0; padding: 0.55rem 0.8rem; font-size: 15px; box-shadow: none; }
+.admonition p.admonition-title { font-size: 14px; margin-bottom: 0.4rem; }
+.xlayer-hero { border-bottom: 1px solid var(--color-background-border); padding: 0 0 0.8rem; }
+.xlayer-hero > p:first-child { font-size: 20px; color: var(--color-brand-content); }
+.xlayer-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; margin: 0.7rem 0 1rem; }
+.xlayer-card-grid > p { margin: 0; }
+.xlayer-card-grid a { display: block; height: 100%; box-sizing: border-box; border: 1px solid var(--color-background-border); border-radius: 6px; padding: 0.85rem; line-height: 1.5; text-decoration: none; background: var(--color-background-primary); }
+.xlayer-card-grid a:hover, .xlayer-card-grid a:focus-visible { border-color: var(--color-brand-primary); }
+.xlayer-card-grid strong { display: block; margin-bottom: 0.3rem; color: var(--color-foreground-primary); }
+.xlayer-legacy-links { margin: 1.2rem 0 0; font-size: 13px; color: var(--color-foreground-secondary); }
+.xlayer-legacy-links summary { cursor: pointer; }
+.xlayer-legacy-links p { margin: 0.25rem 0; }
+/* Preview uses intrinsic size up to its tier; the original SVG remains one click away. */
+.xlayer-diagram { display: block; width: fit-content; max-width: 100%; margin: 0.8rem auto 1rem; }
+.xlayer-diagram-small { max-width: min(100%, 600px); }
+.xlayer-diagram-medium { max-width: min(100%, 780px); }
+.xlayer-diagram-large { max-width: min(100%, 960px); }
 .xlayer-diagram-link { display: block; width: fit-content; max-width: 100%; }
 .xlayer-diagram-image { display: block; min-width: 0; max-width: 100%; height: auto; background: #fff; }
-.xlayer-diagram-caption { display: block; margin-top: 0.6rem; font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
-.xlayer-diagram-link:focus-visible { outline: 2px solid var(--color-brand-primary, #38669a); outline-offset: 4px; }
+.xlayer-diagram-caption { display: block; margin-top: 0.4rem; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.xlayer-diagram-link:focus-visible { outline: 2px solid var(--color-brand-primary); outline-offset: 3px; }
+.xlayer-diagram-link::after { content: "원본 SVG 확대 ↗"; display: block; margin-top: 0.3rem; color: var(--color-brand-content); font-size: 12px; }
+@media (max-width: 700px) {
+  .xlayer-card-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+  .xlayer-card-grid a { padding: 0.7rem 0.8rem; }
+  article h1 { font-size: 27px; }
+  article h2 { font-size: 21px; }
+  article table { font-size: 14px; }
+}
+
+.xlayer-card-grid a { color: var(--color-foreground-secondary); }
+.xlayer-card-grid strong:last-child:not(:first-child) { color: var(--color-brand-content); font-size: 14px; margin: 0.5rem 0 0; }

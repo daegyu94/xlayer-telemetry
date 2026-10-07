@@ -1,21 +1,11 @@
 # Title: XLayer Telemetry system overview
-# Description: GPU and storage telemetry join workload context; diagnosis leads to existing investigation tools.
+# Description: Configured workload and shared resources feed context and comparable evidence; the arrows describe information flow, not execution ownership or causality.
 ...@_style
 
-direction: down
-clusters: Workload and resource telemetry {
-  grid-columns: 2
-  gpu: "GPU cluster\nVERL stages / vLLM rollout\nGPU / host / NIC / 3FS client" {class: source}
-  storage: "Storage cluster\n3FS service latency\nSSD / device health" {class: source}
-  gpu -> storage: I/O {style.stroke-dash: 4; style.font-size: 20}
-}
-xlayer: XLayer Telemetry {
-  grid-columns: 1
-  collect: "1. Collect\nMetrics / logs / events\nPrometheus / Loki\nClickHouse queries" {class: process}
-  correlate: "2. Correlate\nRun / step / phase\nNode / role / worker\nDevice / topology / scope" {class: process}
-  diagnose: "3. Diagnose\nBaseline / candidate\nSupporting / counter\nMissing evidence" {class: evidence}
-  collect -> correlate -> diagnose
-}
-clusters -> xlayer: telemetry {style.font-size: 20}
-tools: "Grafana / xltel inspect\nTargeted profiler" {class: optional}
-xlayer -> tools: investigate {style.font-size: 20}
+direction: right
+sources: "Workload + resources\nVERL / native / host" {class: source}
+collect: "Collect\nquery sources" {class: process}
+context: "Correlate\nrun / scope" {class: process}
+evidence: "Diagnose\nbaseline / evidence" {class: evidence}
+inspect: "Deep Dive\nexisting tools" {class: optional}
+sources -> collect -> context -> evidence -> inspect {style.stroke: "#6366f1"; style.font-size: 18}

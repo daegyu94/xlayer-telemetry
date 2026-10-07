@@ -1,17 +1,16 @@
 # Title: Observation scope is not attribution
-# Description: Matching time and identity supports investigation; cgroup, device and shared-service evidence do not imply per-run causality.
+# Description: Compare a verified workload interval with cgroup, device and shared-service observations; candidate evidence retains its scope and attribution gaps.
 ...@_style
 
-direction: down
-workload: "Selected run / step / tool span\nWorkload interval + trace context" {class: source}
-observations: Related evidence {
+direction: right
+workload: "Run window" {class: source}
+observations: "Scopes" {
   grid-columns: 1
-  cgroup: "Sandbox bytes / PSI\nCgroup scope" {class: process}
-  device: "Local NVMe busy / queue\nNode + device scope" {class: process}
-  shared: "3FS service latency\nShared-service scope" {class: process}
+  grid-gap: 16
+  cgroup: "Cgroup" {class: process}
+  device: "Device" {class: process}
+  service: "Shared service" {class: process}
 }
-workload -> observations: join verified interval + identity {style.font-size: 20}
-candidate: "Supporting bottleneck candidate\nPreserve scope / quality / counter evidence" {class: evidence}
-observations -> candidate: correlated changes {style.font-size: 20}
-missing: "Missing evidence\nPer-client / measured path attribution" {class: optional}
-candidate -> missing: investigate before causal claim {style.font-size: 20}
+candidate: "Candidate\nnot attribution" {class: evidence}
+workload -> observations {style.stroke-dash: 4}
+observations -> candidate {style.stroke: "#6366f1"}

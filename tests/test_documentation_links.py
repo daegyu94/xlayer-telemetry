@@ -20,6 +20,8 @@ def anchors(text):
         count = counts.get(slug, 0)
         result.add(f"{slug}-{count}" if count else slug)
         counts[slug] = count + 1
+    result.update(re.findall(r'<[^>]+\bid=["\']([^"\']+)["\']', text))
+    result.update(re.findall(r'^\(([^)]+)\)=\s*$', text, re.M))
     return result
 
 
@@ -61,3 +63,20 @@ def test_link_checker_finds_missing_paths_and_fragments_but_ignores_code(tmp_pat
     assert len(failures) == 2
     assert any("missing heading" in item for item in failures)
     assert any("missing path" in item for item in failures)
+
+
+def test_link_checker_accepts_explicit_targets_and_finds_their_broken_destination(tmp_path):
+    target = tmp_path / "guide.md"
+    target.write_text('# New guide\n\n<a id="legacy-section" class="xlayer-legacy-anchor"></a>\n\n[Next](missing.md)\n')
+    source = tmp_path / "source.md"
+    source.write_text('[Legacy](guide.md#legacy-section)\n')
+    assert broken_links(source) == []
+    assert any('missing.md' in failure for failure in broken_links(target))
+
+
+def test_legacy_guide_targets_keep_valid_canonical_paths():
+    for name in ('index', 'monitoring', 'agent-rl', 'dashboards', 'diagnosis', 'architecture', 'metrics', 'verl-quickstart'):
+        document = ROOT / 'docs' / (name + '.md')
+        labels = re.findall(r'<a id="([^"]+)" class="xlayer-legacy-anchor"></a>', document.read_text())
+        assert labels and len(labels) == len(set(labels)), name
+        assert not broken_links(document)

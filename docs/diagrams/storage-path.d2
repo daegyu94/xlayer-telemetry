@@ -9,6 +9,6 @@ nic: "GPU node NIC\nNode / interface scope" {class: process}
 fs: "3FS service\nShared-service scope" {class: process}
 node: "Storage node\nHost scope" {class: process}
 ssd: "SSD\nDevice scope" {class: process}
-trainer -> rollout -> nic -> fs -> node -> ssd: declared path {style.font-size: 20; style.stroke-dash: 4}
+trainer -> rollout -> nic -> fs -> node -> ssd: declared path {style.font-size: 18; style.stroke-dash: 4}
 note: "Edge attribution needs measured edge evidence\nNode totals do not prove per-run traffic" {class: evidence}
-ssd -> note: investigate {style.font-size: 20}
+ssd -> note: investigate {style.font-size: 18}

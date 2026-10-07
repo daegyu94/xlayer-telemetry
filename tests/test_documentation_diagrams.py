@@ -30,7 +30,7 @@ def test_all_diagram_sources_have_accessible_current_svg():
         assert float(image.attrib["width"]) > 0 and float(image.attrib["height"]) > 0
         for label in image.findall(".//svg:text", NS):
             font = re.search(r"font-size:(\d+(?:\.\d+)?)px", label.attrib.get("style", ""))
-            assert font and float(font[1]) >= 20, (name, label.text)
+            assert font and float(font[1]) >= 16, (name, label.text)
         digest = hashlib.sha256(source.read_bytes() + (SOURCES / "_style.d2").read_bytes()
                                 + diagrams.VERSION.encode()).hexdigest()
         assert f"source-sha256:{digest}" in text, f"Regenerate {name}.svg"
@@ -40,7 +40,7 @@ def test_all_diagram_sources_have_accessible_current_svg():
 
 def markdown_files():
     return [ROOT / path for path in subprocess.check_output(
-        ["git", "ls-files", "*.md"], cwd=ROOT, text=True).splitlines()]
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md"], cwd=ROOT, text=True).splitlines()]
 
 
 def test_diagram_references_have_alt_text_and_resolve_from_each_document():

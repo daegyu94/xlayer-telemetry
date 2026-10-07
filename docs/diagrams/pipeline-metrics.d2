@@ -14,6 +14,6 @@ prom: "Prometheus" {class: process}
 views: "Grafana metric dashboards\nXLayer diagnosis queries" {class: evidence}
 trainer -> logger -> bridge -> snapshot -> exporter
 node -> exporter
-exporter -> prom: scrape {style.font-size: 20}
-native -> prom: scrape {style.font-size: 20}
-prom -> views: query {style.font-size: 20}
+exporter -> prom: scrape {style.font-size: 18}
+native -> prom: scrape {style.font-size: 18}
+prom -> views: query {style.font-size: 18}

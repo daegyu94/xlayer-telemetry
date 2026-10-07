@@ -95,7 +95,9 @@ def render(binary: str, *, check: bool = False, root: Path = ROOT) -> int:
             if source.name.startswith("_"):
                 continue
             target = Path(directory) / f"{source.stem}.svg"
-            subprocess.run([binary, "--layout=elk", "--theme=0", "--pad=24", "--scale=1", "--salt=" + source.stem,
+            subprocess.run([binary, "--layout=elk", "--theme=0", "--pad=12", "--elk-nodeNodeBetweenLayers=40",
+                            "--elk-padding=[top=24,left=24,bottom=24,right=24]",
+                            "--elk-edgeNodeBetweenLayers=24", "--elk-nodeSelfLoop=32", "--scale=1", "--salt=" + source.stem,
                             "--timeout=60", str(source), str(target)],
                            check=True, capture_output=True, text=True, timeout=70, env=env)
             result = annotate(target.read_text(), source, style)

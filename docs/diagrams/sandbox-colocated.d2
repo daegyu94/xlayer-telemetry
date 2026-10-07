@@ -11,9 +11,9 @@ node: GPU / rollout node {
   cgroup: "Registered sandbox cgroup v2\nI/O / PSI / CPU / memory\nCgroup scope" {class: process}
   collector: "Cgroup sampler > sandbox.prom\nNode Exporter" {class: process}
   agent -> sandbox -> filesystem -> nvme
-  sandbox -> cgroup: observe {style.stroke-dash: 4; style.font-size: 20}
+  sandbox -> cgroup: observe {style.stroke-dash: 4; style.font-size: 18}
   cgroup -> collector {style.stroke-dash: 4}
   nvme -> collector {style.stroke-dash: 4}
 }
 prom: "Prometheus\nCorrelated observations, not causal proof" {class: evidence}
-node.collector -> prom: scrape {style.stroke-dash: 4; style.font-size: 20}
+node.collector -> prom: scrape {style.stroke-dash: 4; style.font-size: 18}

@@ -7,7 +7,7 @@
 
 XLayer는 VERL 기반 Agent RL의 telemetry를 **Collect → Correlate → Diagnose**하는 분석 계층입니다.
 Run·step·phase 문맥에 application·vLLM·Ray·Mooncake·GPU·host·network·storage·sandbox 관측을 연결하고, baseline과 비교한 bottleneck candidate 및 evidence를 제공합니다.
-설계와 현재 한계의 기준은 [Architecture](docs/architecture.md), 실제 producer·단위·scope의 기준은 [Metrics Contract](docs/metrics.md)입니다.
+설계 개요는 [Architecture](docs/architecture.md), 상세 한계는 [Architecture Reference](docs/architecture-reference.md), 실제 producer·단위·scope의 기준은 [Metrics Contract](docs/metrics-reference.md)입니다.
 
 - Metrics 저장·query는 Prometheus, log 수집·조회는 Alloy/Loki, 3FS 진단 조회는 기존 ClickHouse를 사용합니다.
 - Grafana는 investigation UI이며, 저수준 profiling은 Nsight Systems·PyTorch Profiler 등 기존 도구로 이어집니다.
@@ -129,7 +129,7 @@ PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, opti
   상세 panel은 drill-down으로 제공하고 Loki 활성화·비활성화, missing/stale source를 모두 고려합니다.
   UI 변경은 가능하면 실제 Grafana에서 검증하며 JSON test만 실행했다면 rendering을 확인했다고 보고하지 않습니다.
 - 사용자 안내는 `xltel`을 기본으로 하고 shell entrypoint는 advanced/internal 사용으로 설명합니다.
-  한국어 설명과 자연스러운 English 기술 용어를 유지하며, Markdown 산문은 문장마다 한 줄을 사용하고 문단 사이에 빈 줄 하나를 둡니다.
+  한국어 설명과 자연스러운 English 기술 용어를 유지하며, Markdown 산문은 문단마다 하나의 물리적인 줄로 작성하고 문단 사이에 빈 줄 하나를 둡니다.
   코드·표·목록 구조와 변경하지 않은 부분의 서식을 유지하고 산문의 리터럴 `~`는 `\~`로 씁니다.
 - 일반 경로를 먼저 설명하고, 설정·metric 의미·제약의 상세 내용은 해당 기준 문서 한곳에서 관리하며 다른 문서는 링크합니다.
   실행하지 않은 기능을 지원·검증 완료로 표현하지 않습니다.
@@ -138,6 +138,27 @@ PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, opti
   `docs/diagrams/*.d2` 또는 `_style.d2`를 바꾸면 pinned version을 사용하는 `python scripts/render_diagrams.py --install`로 도구를 준비하고 `python scripts/render_diagrams.py`로 재생성합니다.
   원본·SVG를 함께 commit하며 alt text·title·description과 모바일 가독성을 유지합니다.
   ASCII·Mermaid·Excalidraw 그림이나 figure 스타일 전환 UI를 추가하지 않습니다.
+
+### Documentation experience
+
+- 사용자 작업 기준의 Get Started → Observe → Investigate → Diagnose 흐름과 Concepts·Reference·Maintainers를 구분합니다.
+  Tutorial은 처음부터 성공 확인까지, Task는 실제 작업, Concept는 해석 모델, Reference는 source·unit·scope·설정·구현 계약을 담당합니다.
+- Task는 목적·얻는 것 → 준비 조건 → Configure → Start → Verify → Troubleshooting → Next로 작성합니다.
+  명령 뒤에는 정상 output·exit code·artifact·UI 확인 조건을 가능한 범위에서 제시하고 실제 코드와 대조합니다.
+- 긴 산문보다 짧은 bullet·표·단계·command·expected result·symptom → action mapping을 우선합니다.
+  문단은 보통 2–3문장 이내이며 한 문장에서 여러 개념을 설명하지 않습니다. 필요한 배경과 상세 계약은 기준 문서에 링크합니다.
+- Scope·attribution·exact/calibrated/approximate/sampled·clock uncertainty·missing/no data/zero처럼 판단을 바꾸는 제약은 본문 가까이에 semantic callout으로 둡니다.
+  Callout을 모든 문단에 반복하지 않고, 계측하지 않은 기능·event·수치를 설명 편의상 만들어내지 않습니다.
+- 페이지를 분리하면 기존 URL/anchor·원본 command·중요한 limitation·검증 기록을 보존하고 canonical 다음 경로로 연결합니다.
+  Sidebar·landing card·본문의 Next와 README 링크를 함께 확인하며, 같은 상세 정보를 여러 문서에서 중복 관리하지 않습니다.
+- Sphinx·MyST·Furo를 유지하며 가벼운 CSS/card·native table/figure로 빠르게 훑는 technical wiki 밀도를 지향합니다.
+  Typography·spacing·배색의 원본은 [xlayer.css](docs/_static/xlayer.css)이며, white/light-gray·thin border·blue/indigo를 기본으로 하고 Dark·접근성도 확인합니다.
+- D2는 [공통 style](docs/diagrams/_style.d2)과 [pinned renderer](scripts/render_diagrams.py)를 사용합니다.
+  Node label은 1–3줄, 설명은 caption·본문에 둡니다. 불필요한 padding·connector 길이를 줄이고 색상 외에도 label·line style로 scope·optional을 구분합니다.
+- Diagram은 Small/Medium/Large 역할에 맞는 compact preview를 사용하고 원본보다 과도하게 확대하지 않습니다.
+  README와 docs가 같은 SVG를 사용하며 원본 확대·keyboard 접근·alt/title/description·label geometry를 유지합니다.
+- Navigation·typography·diagram을 크게 바꾸면 변경 전후 사이트를 실제 build/browser에서 비교합니다.
+  Desktop·laptop·narrow viewport와 Demo·VERL 연결·Slow Step investigation 경로를 확인하고, command smoke·synthetic·실제 GPU/VERL 검증을 구분해 보고합니다.
 
 ```bash
 python -m pytest -q tests/test_documentation_links.py tests/test_documentation_diagrams.py

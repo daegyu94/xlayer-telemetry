@@ -1,17 +1,15 @@
 # Title: Runtime and stored-run analysis
-# Description: Persisted workload intervals and existing backend queries feed comparable baselines, diagnosis and artifact or dashboard inspection.
+# Description: Monitoring lifecycle, workload artifacts and optional shared-service queries are separate inputs to stored-interval diagnosis and inspection.
 ...@_style
 
-direction: down
-inputs: Analysis inputs {
+direction: right
+inputs: "Separate responsibilities" {
   grid-columns: 1
-  artifacts: "Run artifacts from workload + bridge\nManifest / steps / spans / health" {class: source}
-  prom: "Prometheus metric queries\nNode collectors / native endpoints" {class: process}
-  ch: "3FS ClickHouse queries\nSelected shared-service window" {class: optional}
+  grid-gap: 18
+  monitor: "Monitoring: up / down\ncollectors / backends" {class: process}
+  workload: "Workload: run / bridge\nsteps / spans / artifacts" {class: source}
+  threefs: "Optional ClickHouse\nshared-service query" {class: optional}
 }
-context: "Interval + entity + scope + provenance" {class: process}
-baseline: "Current / comparable baseline" {class: evidence}
-analysis: "Rule or explicit LLM investigation" {class: evidence}
-report: "JSON report\nSupporting / counter / missing evidence" {class: evidence}
-view: "Loki projection > Grafana\nxltel inspect / targeted profiler" {class: optional}
-inputs -> context -> baseline -> analysis -> report -> view
+analysis: "Stored interval\nbaseline / evidence" {class: evidence}
+view: "Grafana / inspect\noptional profiler" {class: optional}
+inputs -> analysis -> view {style.stroke: "#6366f1"; style.font-size: 18}

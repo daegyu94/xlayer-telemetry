@@ -6,6 +6,7 @@ direction: down
 node: Workload / resource node {
   textfiles: Textfile inputs {
     grid-columns: 1
+    grid-gap: 24
     app: "Application snapshot\nBridge / SDK\napplication.prom" {class: source}
     gpu: "GPU sampler\ngpu.prom" {class: source}
   }
@@ -16,5 +17,5 @@ node: Workload / resource node {
 }
 prometheus: "Prometheus\nMonitoring host" {class: process}
 grafana: "Grafana metric dashboards" {class: evidence}
-node.exporter -> prometheus: scrape {style.font-size: 20}
-prometheus -> grafana: query {style.font-size: 20}
+node.exporter -> prometheus: scrape {style.font-size: 18}
+prometheus -> grafana: query {style.font-size: 18}

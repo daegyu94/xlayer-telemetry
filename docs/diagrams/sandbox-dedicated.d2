@@ -13,10 +13,10 @@ remote: Dedicated sandbox node {
   cgroup: "Registered sandbox cgroup v2\nI/O / PSI / CPU / memory\nCgroup scope" {class: process}
   collector: "Cgroup sampler > sandbox.prom\nNode Exporter" {class: process}
   sandbox -> filesystem -> nvme
-  sandbox -> cgroup: observe {style.stroke-dash: 4; style.font-size: 20}
+  sandbox -> cgroup: observe {style.stroke-dash: 4; style.font-size: 18}
   cgroup -> collector {style.stroke-dash: 4}
   nvme -> collector {style.stroke-dash: 4}
 }
-gpu.agent -> remote.sandbox: sandbox RPC + trace context {style.font-size: 20}
+gpu.agent -> remote.sandbox: sandbox RPC + trace context {style.font-size: 18}
 prom: "Prometheus / XLayer\nSame metric schema, separate node identity" {class: evidence}
-remote.collector -> prom: scrape {style.stroke-dash: 4; style.font-size: 20}
+remote.collector -> prom: scrape {style.stroke-dash: 4; style.font-size: 18}

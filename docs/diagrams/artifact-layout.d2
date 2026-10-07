@@ -5,6 +5,7 @@
 direction: down
 run: "Run root: runs/<RUN_ID>/" {
   grid-columns: 2
+  grid-gap: 24
   manifest: "telemetry-manifest.json\nRun / observer context" {class: source}
   logs: "logs/\nverl-metrics.jsonl\ntelemetry-bridge.log" {class: source}
   metrics: "telemetry-metrics/*.json\nLatest SDK snapshots" {class: source}
@@ -14,6 +15,7 @@ run: "Run root: runs/<RUN_ID>/" {
 }
 collector: "Collector output: state/node/ or OUTPUT_DIR" {
   grid-columns: 2
+  grid-gap: 24
   textfile: "textfile/\napplication.prom / gpu.prom" {class: process}
   gpu: "gpu-*.jsonl\nGPU samples" {class: process}
   exporter: "node-exporter.log\nCollector errors" {class: process}

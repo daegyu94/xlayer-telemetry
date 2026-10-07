@@ -193,14 +193,17 @@ PYTHONPATH=. python examples/local-llm/evaluate.py \
 결과를 보존하려면 새 output directory를 사용합니다.
 기존 summary와 선택한 case의 결과를 의도적으로 교체할 때만 `--overwrite`를 추가합니다.
 
-`--generate-only`는 모델 없이 입력만 만들고, `--case sandbox_io`는 해당 사례만 선택하며, `--repeats 3`은 seed를 바꿔 반복합니다.
-`summary.json`은 응답 형식, 예상 assessment와의 일치, primary candidate의 evidence 참조를 검사합니다.
-예상 assessment 불일치, 필수 evidence 누락, 모델 호출·응답 검증 실패 중 하나라도 있으면 평가 명령은 종료 코드 `1`을 반환합니다.
-증거 부족 사례의 기대 판정은 `insufficient_evidence`이며, 기대 판정이 없는 사례는 `assessment_match: null`로 남아 수동 검토가 필요합니다.
-재실행은 선택한 사례·반복의 기존 결과를 정리하고 새 결과를 기록하며, 현재 실행의 평가 범위는 `summary.json`으로 확인합니다.
-Evidence coverage는 counter evidence도 포함하며 그 수치를 올바르게 해석했는지까지 증명하지는 않습니다.
-설명과 다음 조사 항목을 직접 검토하고 특히 다른 engine·누락 timestamp·shared resource·workload 크기 변경을 잘 구분하는지 확인합니다.
-Synthetic 병목은 `data_origin=synthetic`인 가상 관측값이며 실제 storage·GPU에 부하를 주입한 결과는 아닙니다.
+| 평가 항목 | 확인 |
+| --- | --- |
+| 입력만 생성 | `--generate-only`; 모델 호출 없음 |
+| 사례 선택 / 반복 | `--case sandbox_io`, `--repeats 3`; seed를 바꿔 반복 |
+| `summary.json` | 응답 형식·expected assessment·primary candidate evidence 참조 |
+| Exit code `1` | Assessment 불일치·필수 evidence 누락·호출/검증 실패 |
+| 증거 부족 기대값 | `insufficient_evidence`; 기대값 없으면 `assessment_match: null`, 수동 검토 |
+| 재실행 | 선택한 case/repeat 기존 결과를 정리하고 새로 기록; 현재 범위는 summary 확인 |
+| Evidence coverage | Counter도 포함; 수치를 올바르게 해석했는지는 별도 검토 |
+| 수동 검토 | 다른 engine·missing timestamp·shared scope·workload 크기 변경 구분 |
+| Synthetic | `data_origin=synthetic`; 실제 storage/GPU 부하 주입이 아님 |
 
 ## How Causal Claims Are Reviewed
 
@@ -257,7 +260,7 @@ Unchecked 입력은 동기화가 검증된 입력을 뜻하지 않습니다.
 
 직접 수집하는 source config에는 `cluster`와 `clock.nodes`를 추가하여 workload boundary를 만든 node와 관련 GPU·rollout·sandbox·storage producer를 모두 지정합니다.
 각 PromQL에도 같은 cluster와 실제 node/source 조건을 사용합니다.
-Clock threshold와 검사 한계는 [Clock and Node Selection](diagnosis.md#clock-and-node-selection)에 설명합니다.
+Clock threshold와 검사 한계는 [Clock and Node Selection](diagnosis-reference.md#clock-and-node-selection)에 설명합니다.
 
 ```json
 {

@@ -1,10 +1,11 @@
 # XLayer Telemetry
 
-VERL trainer·vLLM·Ray·tool/sandbox와 GPU·host·network·storage의 telemetry를 **Collect → Correlate → Diagnose**하는 cross-layer performance diagnosis 프레임워크입니다.
-Run·step·phase 문맥에서 느린 구간의 bottleneck candidate와 evidence를 조사합니다.
-Wrapper·collector·SDK로 기존 VERL 환경을 연결하고 Grafana에서 탐색합니다.
-CPU/GPU kernel 상세 분석은 Nsight Systems·PyTorch Profiler로 이어집니다([설계 배경](docs/architecture.md#why-xlayer-exists)).
-[문서 웹사이트](https://daegyu94.github.io/xlayer-telemetry/)에서 검색과 단계별 안내를 이용하거나, 아래 [Start Here](#start-here)부터 시작합니다.
+VERL·vLLM·Ray·tool/sandbox와 GPU·host·network·storage를 **Collect → Correlate → Diagnose**합니다.
+느린 step의 baseline·bottleneck candidate·supporting/counter/missing evidence를 기존 Grafana와 profiler에서 조사합니다.
+
+**[설치 시작](docs/quickstart.md)** · **[GPU 없이 Demo](docs/demo.md)** · **[기존 VERL 연결](docs/verl-quickstart.md)** · **[느린 Run 조사](docs/dashboards.md)**
+
+[문서 웹사이트](https://daegyu94.github.io/xlayer-telemetry/)는 Get Started → Observe → Investigate → Diagnose 순서로 안내합니다.
 
 ## Why Cross-Layer Telemetry
 
@@ -25,13 +26,13 @@ Logs와 profiler artifact는 관련 증거를 확인하는 경로이며 모든 l
 기존 VERL 실행부터 연결하고 필요할 때 3FS·multi-node를 추가합니다.
 SDK·adapter는 다른 framework에도 이식할 수 있으며, 주된 integration은 VERL입니다.
 
-![GPU·storage telemetry를 workload context와 연결하는 XLayer 전체 구조](docs/figures/diagrams/system-overview.svg)
+![Workload와 shared resource를 수집해 context·baseline·evidence로 조사하는 정보 흐름](docs/figures/diagrams/system-overview.svg)
 
 Application은 `run_id`로, system·shared service는 시간·node·topology로 비교합니다.
 동시 변화는 원인 후보이며 공유 자원의 run별 사용량을 뜻하지 않습니다.
 단독 자원 또는 경쟁 부하를 통제한 실험에서 관계를 가장 명확히 해석할 수 있고, 공유 환경의 attribution에는 process·cgroup·client 등 추가 근거가 필요합니다.
 3FS ClickHouse 결과는 진단 파일·`show_run`·선택적 Bottleneck Summary에서 보며 전용 실시간 service panel은 없습니다.
-[신호 흐름](docs/agent-rl.md#how-the-signals-flow)에서 source별 경로를 확인합니다.
+[수집 경로](docs/integration-reference.md#how-the-signals-flow)에서 source별 경로를 확인합니다.
 
 ## What Works Today
 
@@ -43,7 +44,7 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | VERL trainer | File logger wrapper, 완료 step scalar·stage 변환, step event와 run manifest | 실행 가능한 VERL 명령이 필요합니다. 완료 전 현재 phase는 표시하지 않고 step 시간 구간은 근사치입니다. |
 | GPU·host | GPU sampler, Node Exporter, Prometheus·Grafana dashboard | GPU 수집은 NVIDIA와 `nvidia-smi`가 필요합니다. GPU 없는 node는 `ENABLE_GPU_METRICS=0`으로 host만 수집합니다. CPU·network·disk 값은 node 전체입니다. |
 | vLLM·Ray | Native Prometheus endpoint 등록과 시간·node 비교 | Endpoint와 metric 이름이 배포에 맞아야 합니다. Stage Correlation의 subsystem row로 단독 조회하며 공유 engine metric은 run별로 자동 분리되지 않습니다. |
-| Mooncake KV storage | Store connector RPC, master cache, client DFS bytes·ops·latency·errors의 native 수집과 기존 dashboard row | [Mooncake 연결](docs/agent-rl.md#observe-mooncake-kv-storage)이 필요합니다. Client HTTP와 DFS metric은 배포 버전·connector 초기화 설정에 따라 선택적으로 나타납니다. |
+| Mooncake KV storage | Store connector RPC, master cache, client DFS bytes·ops·latency·errors의 native 수집과 기존 dashboard row | [Mooncake 연결](docs/kv-storage.md)이 필요합니다. Client HTTP와 DFS metric은 배포 버전·connector 초기화 설정에 따라 선택적으로 나타납니다. |
 | Multi-node | Node별 collector, target 등록, topology manifest, node별 step 상세 비교 | Clock check와 [optional userspace time alignment](docs/time-alignment.md)를 지원합니다. Worker 배치와 원인 관계를 자동으로 추론하지 않습니다. |
 | Log·step 탐색 | 선택적 Alloy·Loki 수집, Run Logs, Run Overview의 완료 step 목록과 Timeline | File 경로와 Loki를 설정해야 합니다. Step 경계는 VERL file logger를 바탕으로 추정합니다. |
 | Storage·3FS | Filesystem·disk 지표, 선택적 SSD SMART, 3FS ClickHouse 진단 | 3FS service latency는 진단 파일과 선택적 Bottleneck Summary에서 봅니다. 전용 Grafana service panel이나 USRBIO 호출 계측은 제공하지 않습니다. |
@@ -52,8 +53,8 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | Cross-layer diagnosis | 같은 run의 이전 step 비교, scope가 붙은 rule candidate, Bottleneck Summary와 Timeline | 진단 sidecar를 켜야 JSON 결과가 생기고 Grafana 조사 화면은 Loki도 필요합니다. Shared signal은 run별 사용량이 아닙니다. |
 | 선택적 local LLM diagnosis (experimental) | 수집 메트릭·baseline을 모델이 직접 분석해 자유 형식의 후보와 evidence 참조 생성 | [Ollama와 모델을 별도 설치](docs/local-llm.md)하고 CLI로 호출합니다. Rule catalog 없이 명시적으로 호출하며, 선택한 step의 검토된 결과는 Loki를 통해 Grafana에 표시할 수 있습니다. 자동 호출은 하지 않습니다. |
 
-동작 원리는 [Architecture](docs/architecture.md), 실제 producer·metric·scope는 [수집 범위](docs/metrics.md#what-is-actually-collected)에 정리했습니다.
-적용 전 [현재 한계와 보완 방법](docs/architecture.md#failure-boundaries-and-operating-limits)에서 attribution·시간 해상도·진단·운영 범위를 확인합니다.
+동작 원리는 [Architecture](docs/architecture.md), 실제 producer·metric·scope는 [수집 범위](docs/metrics-reference.md#what-is-actually-collected)에 정리했습니다.
+적용 전 [현재 한계와 보완 방법](docs/architecture-reference.md#failure-boundaries-and-operating-limits)에서 attribution·시간 해상도·진단·운영 범위를 확인합니다.
 
 ## Start Here
 
@@ -63,10 +64,10 @@ Application은 `run_id`로, system·shared service는 시간·node·topology로 
 | 순서 | 읽을 문서와 할 일 | 완료 확인 |
 | --- | --- | --- |
 | 1 | 아래의 [checkout 준비](#prepare-a-checkout)를 수행합니다. | `xltel --help`가 실행됩니다. |
-| 2 | [Monitoring Guide의 synthetic demo](docs/monitoring.md#try-the-demo)로 수집과 Grafana를 확인합니다. | Start Here에서 Run Overview를 열고 `Collector health`가 `Up`입니다. |
+| 2 | [Synthetic demo](docs/demo.md)로 수집과 Grafana를 확인합니다. | Run Overview에서 synthetic Step 127의 Duration → What changed?가 열립니다. |
 | 3 | 이미 실행 가능한 VERL 명령을 [VERL 연결 가이드](docs/verl-quickstart.md)에 따라 한 GPU node에 붙입니다. | `show_run`에 완료 step이 나오고 Agent RL에서 step·GPU 값이 보입니다. |
-| 4 | [Cross-Layer Integration](docs/agent-rl.md#choose-the-next-source)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM·Ray panel에서 실제 값이 나옵니다. |
-| 5 | 필요하면 [Loki log·step 수집](docs/monitoring.md#add-run-logs-with-loki), [3FS 진단](docs/agent-rl.md#add-diagnostics)을 추가합니다. | Run Logs·Run Overview의 완료 step 목록 또는 `diagnostics/latest.json`에서 해당 증거를 확인합니다. |
+| 4 | [Source 선택](docs/agent-rl.md)에서 vLLM·Ray endpoint와 여러 node를 연결합니다. | Prometheus의 `native` target이 up이고 vLLM·Ray panel에서 실제 값이 나옵니다. |
+| 5 | 필요하면 [Logs & Events](docs/logs-events.md), [진단 연결](docs/diagnosis.md#1-진단-연결)을 추가합니다. | Run Logs·Run Overview의 완료 step 목록 또는 `diagnostics/latest.json`에서 해당 증거를 확인합니다. |
 | 6 | [Cross-Layer Diagnosis](docs/diagnosis.md)와 [Dashboard Guide](docs/dashboards.md)로 한 느린 구간을 조사합니다. | Baseline, candidate, evidence, missing evidence의 측정 범위를 구분합니다. |
 
 Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습입니다.
@@ -78,12 +79,12 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 | --- | --- |
 | GPU·host 관측, Prometheus·Grafana 실행 | [Monitoring Guide](docs/monitoring.md) |
 | Grafana 화면과 주요 패널 읽는 법 | [Dashboard Guide](docs/dashboards.md) |
-| 완료된 VERL step의 node별 자원·log 비교 | [Run Overview → Timeline](docs/dashboards.md#step-explorer) |
+| 완료된 VERL step의 node별 자원·log 비교 | [Run Overview → Timeline](docs/dashboard-reference.md#step-explorer) |
 | 내 application의 loss·step 기록 | [Application Metrics Guide](docs/application-metrics.md) |
 | 기존 VERL 명령에 telemetry 추가 | [VERL 연결 가이드](docs/verl-quickstart.md) |
 | Multi-node, vLLM·Ray·3FS, tool event 연결 | [Cross-Layer Integration Guide](docs/agent-rl.md) |
-| SWE-Bench·Terminal-Bench sandbox 관측 | [Agent Sandbox Guide](docs/agent-rl.md#observe-an-agent-sandbox) |
-| 느려진 구간을 조사하고 trace 수집 | [Run Analysis](docs/dashboards.md#run-analysis) |
+| SWE-Bench·Terminal-Bench sandbox 관측 | [Agent Sandbox Guide](docs/sandbox.md) |
+| 느려진 구간을 조사하고 trace 수집 | [Deep Dive](docs/deep-dive.md) |
 | Rule catalog, baseline, scope와 Bottleneck Summary 사용 | [Cross-Layer Diagnosis](docs/diagnosis.md) |
 | Metric 이름·단위·label 결정 | [Metrics Contract](docs/metrics.md) |
 | Process·파일·시계열의 연결 원리와 설계 원칙 | [How XLayer Telemetry Works](docs/architecture.md) |
@@ -91,7 +92,7 @@ Synthetic demo는 GPU나 VERL 없이 화면·수집 경로를 익히는 연습�
 ## Terms Used in This Project
 
 Run은 workload 실행, step은 완료된 실행 단위이며 phase·span은 그 안의 작업 구간입니다.
-Metric·event·span·trace·profile과 scope의 차이는 [용어 안내](docs/diagnosis.md#what-the-signals-mean), exporter·collector의 역할은 [Architecture](docs/architecture.md#the-basic-path)를 참고합니다.
+Metric·event·span·trace·profile과 scope의 차이는 [용어 안내](docs/concepts.md), exporter·collector의 역할은 [Architecture](docs/concepts.md#collect--correlate--diagnose)를 참고합니다.
 
 ## Prepare a Checkout
 
@@ -103,18 +104,16 @@ cd xlayer-telemetry
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -e .
+xltel --help
 xltel init
-xltel doctor
-xltel install-tools
-xltel up
-xltel status
+xltel config validate
 ```
 
 Python 3.10 이상과 `venv`가 필요합니다.
 `xltel`은 공식 운영 CLI이며 `up`이 monitoring을 시작하고 `run`이 기존 workload를 감쌉니다.
 설치 후에는 저장소 밖에서도 호출할 수 있습니다.
-`status`의 Start Here 링크에서 수집 상태를 확인하고, VERL 없이 진단 경로를 먼저 익히려면 [synthetic candidate 예제](docs/diagnosis.md#practice-with-a-synthetic-candidate)를 사용합니다.
-GPU driver·VERL·CUDA와 monitoring 도구는 별도이며, [Monitoring Guide](docs/monitoring.md#prepare-the-host)에서 이어갑니다.
+`status`의 Start Here 링크에서 수집 상태를 확인하고, VERL 없이 진단 경로를 먼저 익히려면 [synthetic candidate 예제](docs/demo.md)를 사용합니다.
+GPU driver·VERL·CUDA와 monitoring 도구는 별도이며, [Monitoring Guide](docs/monitoring-reference.md#prepare-the-host)에서 이어갑니다.
 
 Advanced script 명령은 별도 설명이 없으면 저장소 루트에서 실행합니다.
 
@@ -146,7 +145,7 @@ Synthetic demo·profiling 예제와 개발 test는 checkout에서 사용합니�
 이 프로젝트는 cluster 배포, workload scheduling, training launcher를 관리하지 않습니다.
 VERL wrapper는 전달받은 명령에 file logger와 별도 telemetry process를 연결하며 기존 workload의 종료 코드를 보존합니다.
 Event·trace와 native exporter는 해당 source를 활성화했을 때만 이용할 수 있습니다.
-각 신호의 생산자와 측정 범위를 유지하는 이유는 [설계 원칙](docs/architecture.md#design-principles)에 설명합니다.
+각 신호의 생산자와 측정 범위를 유지하는 이유는 [설계 원칙](docs/architecture-reference.md#design-principles)에 설명합니다.
 
 | 경로 | 내용 |
 | --- | --- |
@@ -163,7 +162,7 @@ Event·trace와 native exporter는 해당 source를 활성화했을 때만 이�
 | [config/](config/README.md) | Metric 공통 어휘·JSON Schema와 rule diagnosis 출력 계약 |
 
 Python import와 `python -m` 명령은 책임별 package 경로를 사용합니다.
-이전 루트의 collector·analysis 호환 wrapper는 제거했으며, 외부 코드에서 직접 사용했다면 [module 경로 변경표](docs/architecture.md#python-module-paths)에 따라 바꿉니다.
+이전 루트의 collector·analysis 호환 wrapper는 제거했으며, 외부 코드에서 직접 사용했다면 [module 경로 변경표](docs/architecture-reference.md#python-module-paths)에 따라 바꿉니다.
 Metric·event SDK와 저장된 run 데이터의 형식은 그대로입니다.
 
 ## Local Validation
@@ -189,4 +188,4 @@ Synthetic demo와 smoke test의 수치는 실제 LLM 학습 성능을 나타내�
 ## Investigation Quality
 
 Collector는 여러 run을 발견할 수 있으며 wrapper의 telemetry completeness를 workload exit code와 구분합니다.
-[Baseline 비교 조건과 sampling quality](docs/diagnosis.md#select-a-comparable-workload), [sandbox device event](docs/agent-rl.md#preserve-device-evidence-in-events), [선택한 step의 optional LLM 진단](docs/local-llm.md#diagnose-a-selected-grafana-step)을 통해 evidence의 비교 가능성과 측정 한계를 확인합니다.
+[Baseline 비교 조건과 sampling quality](docs/diagnosis-reference.md#select-a-comparable-workload), [sandbox device event](docs/integration-reference.md#preserve-device-evidence-in-events), [선택한 step의 optional LLM 진단](docs/local-llm.md#diagnose-a-selected-grafana-step)을 통해 evidence의 비교 가능성과 측정 한계를 확인합니다.

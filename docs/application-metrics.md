@@ -3,7 +3,7 @@
 VERL의 기본 trainer 연결은 [file logger wrapper](verl-quickstart.md)를 사용합니다.
 이 가이드는 custom worker·tool·다른 application에 metric을 직접 추가하는 SDK 경로입니다.
 Run·worker snapshot을 collector가 읽으므로 application이 Prometheus와 직접 통신하지 않습니다.
-[데이터 경로](architecture.md#the-basic-path)에서 snapshot과 전체 step 이력의 차이를 확인합니다.
+[데이터 경로](concepts.md#collect--correlate--diagnose)에서 snapshot과 전체 step 이력의 차이를 확인합니다.
 
 ## Choose Your Path
 
@@ -12,7 +12,7 @@ Run·worker snapshot을 collector가 읽으므로 application이 Prometheus와 �
 | Custom loop, Megatron integration | 아래 최소 예제를 확인한 뒤 `emit()`을 loop에 연결 |
 | Hugging Face Trainer / TRL | [Callback 연결](#use-a-trainer-callback) |
 | VERL | [VERL 연결 가이드](verl-quickstart.md)의 wrapper 사용 |
-| vLLM·Ray 등 native metric service | [Endpoint 등록](agent-rl.md#register-native-endpoints); SDK 환경변수는 필요 없음 |
+| vLLM·Ray 등 native metric service | [Endpoint 등록](native-sources.md); SDK 환경변수는 필요 없음 |
 
 아래 절차는 SDK로 JSON snapshot을 만드는 application용입니다.
 먼저 CPU에서 metric 하나를 기록하고 확인한 뒤 실제 학습에 연결합니다.
@@ -66,7 +66,7 @@ python -m xlayer_telemetry.show_run "$PWD/artifacts/metrics-demo-001"
 
 `show_run`에는 snapshot directory의 부모 run 경로를 전달합니다.
 `emit()`은 같은 worker의 최신 snapshot을 교체하므로 scrape 사이의 모든 step을 보존하지 않습니다.
-전체 이력은 application log에, 호출 start/end는 [event span](agent-rl.md#record-a-custom-tool-span)에 기록합니다.
+전체 이력은 application log에, 호출 start/end는 [event span](integration-reference.md#record-a-custom-tool-span)에 기록합니다.
 
 ## 3. Connect Your Workload
 
@@ -132,13 +132,13 @@ Metric("agent_tool_call_errors_total", tool_error_count,
 ```
 
 `run_id`, `producer`, `role`, `worker_id`에는 64자 이하 영문자·숫자·`.`·`_`·`-`를 사용합니다.
-Request ID나 prompt처럼 값이 계속 늘어나는 정보는 label 대신 [event](agent-rl.md#record-a-custom-tool-span)에 기록합니다.
+Request ID나 prompt처럼 값이 계속 늘어나는 정보는 label 대신 [event](integration-reference.md#record-a-custom-tool-span)에 기록합니다.
 Metric 단위와 label 기준은 [Metrics Contract](metrics.md)에 있습니다.
 Snapshot 기록 중 처리되는 파일·값 오류는 경고 후 emitter를 비활성화하며 application은 계속 실행됩니다.
 
 ## 4. Publish Through the Node Collector
 
-[Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node 도구와 monitoring server를 준비합니다.
+[Monitoring Guide](monitoring-reference.md#monitor-one-gpu-node)에 따라 node 도구와 monitoring server를 준비합니다.
 SDK가 설치된 것만으로 Node Exporter가 설치되지는 않습니다.
 이미 실행 중인 `node` role이 있으면 종료한 뒤 아래 옵션을 포함해 다시 실행합니다.
 
@@ -177,7 +177,7 @@ Run Overview에서 `cluster`, `node`, `run_id`를 선택합니다.
 | Metric 파일은 있지만 dashboard가 비어 있음 | Prometheus target, cluster·node·run 선택, sample age |
 | 같은 worker가 여러 instance에 표시됨 | Shared directory를 여러 collector가 읽는지 확인 |
 
-Loss나 step time 변화가 보이면 같은 시간의 자원 지표를 [Run Analysis](dashboards.md#run-analysis)에 따라 비교합니다.
+Loss나 step time 변화가 보이면 같은 시간의 자원 지표를 [Run Analysis](deep-dive.md)에 따라 비교합니다.
 SDK는 workload의 실행과 종료를 관리하지 않으며, 이 연결 방식은 특정 launcher나 다른 저장소를 요구하지 않습니다.
 
 ## Optional Background I/O

@@ -34,14 +34,14 @@ Overview와 resource 화면의 시간 범위는 2026-09-30 12:00:02–12:01:10(K
 | 관측 source | Application·GPU·host·vLLM·Ray·sandbox cgroup → Prometheus, step·span·diagnosis·trainer log → Loki |
 | 선택한 step의 verdict | `no_anomaly_observed` |
 
-Framework revision·다른 trainer mode의 실행 결과는 [실환경 검증 기록](validation/sandbox/validation-20260930.json)과 [Real validation coverage](agent-rl.md#real-validation-coverage)에 있습니다.
+Framework revision·다른 trainer mode의 실행 결과는 [실환경 검증 기록](validation/sandbox/validation-20260930.json)과 [Real validation coverage](integration-reference.md#real-validation-coverage)에 있습니다.
 GIF의 캡처 정보와 파일 checksum은 [Recording manifest](validation/dashboards/recordings-20261001.json)에 기록했습니다.
 이 작은 integration workload는 SWE-Bench 해결률이나 학습 throughput benchmark가 아닙니다.
 
 ## Read the Result
 
 `no_anomaly_observed`는 수집 evidence에서 rule candidate를 찾지 못했다는 뜻으로 모든 병목의 부재를 보증하지 않습니다.
-빈 candidate panel은 정상이며 후보·counter/missing evidence 예시는 [synthetic GIF](monitoring.md#demo-details)를 봅니다.
+빈 candidate panel은 정상이며 후보·counter/missing evidence 예시는 [synthetic GIF](monitoring-reference.md#demo-details)를 봅니다.
 RDMA·policy lag·비활성 KV offload는 N/A/missing으로 남겼습니다.
 
 Timeline은 exact EventRecorder span, approximate trainer update 경계, sampled resource metric을 구분합니다.
@@ -62,7 +62,7 @@ Run Logs의 `Log directory`는 `swe-colocate_async`, `Run context`는 `agent-e2e
 
 이 smoke recipe는 private [verl-lab](https://github.com/daegyu94/verl-lab) 접근 권한과 준비된 dataset·Docker image가 필요합니다.
 공개 VERL 도입에는 lab checkout이 필요하지 않으며 [기존 VERL 명령 연결](verl-quickstart.md)을 사용합니다.
-Lab 환경에서는 [sandbox integration](agent-rl.md#observe-an-agent-sandbox)을 연결합니다.
+Lab 환경에서는 [sandbox integration](sandbox.md)을 연결합니다.
 [Smoke launcher](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/run_verl_lab_smoke.sh)의 cgroup 설정을 확인하고 collector·native·Loki를 켭니다.
 `show_run`·[validator](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/sandbox/validate_smoke.py)로 step·trace를 검사하며 같은 명령도 동일 성능을 보장하지는 않습니다.
 
@@ -101,12 +101,14 @@ Alloy는 `<log-root>/<run-directory>/logs/**/*.log` 경로에서 log directory�
 아래 명령은 해당 launcher와 환경 변수 계약을 유지한 checkout에서 사용하는 참고 예시이며, 현재 VERL version 전체의 호환성을 보장하지 않습니다.
 새 배포에서는 `verl-lab`의 설치·dataset 준비 절차를 확인하고 [일반 VERL wrapper](verl-quickstart.md)를 먼저 연결합니다.
 
-3FS가 POSIX FUSE 경로에 마운트돼 있고 KV 파일을 저장할 하위 디렉터리에 쓰기 권한이 있어야 합니다.
-Dataset과 필요한 tool environment는 사용하는 lab checkout의 `README.md`에 따라 준비합니다.
-[Monitoring Guide](monitoring.md#monitor-one-gpu-node)에 따라 node collector와 server를 시작하고, 같은 server 설정 파일에 `ENABLE_LOGS=1`, node에는 `LOKI_PUSH_URL`과 `TELEMETRY_LOG_ROOTS`를 지정합니다.
-Node collector의 `TELEMETRY_METRICS_DIR`는 아래 결과 디렉터리의 `telemetry/telemetry-metrics`로 설정합니다.
-`TELEMETRY_LOG_ROOTS`는 `$LAB_ROOT/results`처럼 `$RESULTS_DIR`의 부모를 가리키고, 학습 log를 수집할 collector 한 대에만 설정합니다.
-Wrapper의 `--output`이 `$RESULTS_DIR/telemetry`이므로 Run Overview의 완료 step 목록과 Timeline에 연결할 event 파일은 `$RESULTS_DIR/telemetry/telemetry-events/verl-steps.jsonl`에 생깁니다.
+| 재현 준비 | 확인 |
+| --- | --- |
+| 3FS | POSIX FUSE mount와 KV 하위 directory 쓰기 권한 |
+| Dataset / tool | 사용하는 lab checkout README에 따라 준비 |
+| Monitoring | [Node/server](monitoring-reference.md#monitor-one-gpu-node)와 `ENABLE_LOGS`·`LOKI_PUSH_URL`·`TELEMETRY_LOG_ROOTS` 설정 |
+| Snapshot path | `$RESULTS_DIR/telemetry/telemetry-metrics` |
+| Log root | `$LAB_ROOT/results`처럼 RESULTS_DIR의 부모; 수집 담당 한 대 |
+| Step file | Wrapper output이 `$RESULTS_DIR/telemetry`이므로 그 아래 `telemetry-events/verl-steps.jsonl` |
 
 ```bash
 export LAB_ROOT=/path/to/verl-lab
@@ -129,14 +131,14 @@ TELEMETRY_PYTHON="$PWD/.venv/bin/python" \
     -- bash "$LAB_ROOT/scripts/run-qwen3-4b-agentic.sh"
 ```
 
-이 host에서는 처음 실행 때의 `ncclNetInit()` 충돌을 피하려고 위 NCCL socket 설정을 사용했습니다.
-기록된 실행에서는 `actor_rollout_ref.rollout.disable_log_stats=False`와 `actor_rollout_ref.rollout.prometheus.enable=True`로 native metrics를 활성화했습니다.
-현재 lab launcher가 이 두 값을 모두 전달한다고 가정하지 말고 사용하는 VERL의 지원 설정을 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 확인합니다.
-이 recipe의 `trainer.v1.trainer_mode`는 `sync`입니다.
-`actor_rollout_ref.rollout.mode=async`는 vLLM server 방식이며 XLayer의 trainer 경계 `--execution-mode`와 다른 설정입니다.
-동적으로 정해지는 vLLM `/metrics` 주소를 학습이 시작된 직후 [Native Endpoint 등록](agent-rl.md#register-native-endpoints) 절차로 Prometheus의 `native` job에 추가해야 offload·queue 패널을 기록할 수 있습니다.
-`VERL_SAVE_FREQ=-1`로 checkpoint 저장을 끄고 validation은 두 step마다 실행했습니다.
-실행 후 `python -m xlayer_telemetry.show_run "$RESULTS_DIR/telemetry"`로 step snapshot과 event를 확인할 수 있습니다.
+| 당시 조건과 후속 확인 | 해석 |
+| --- | --- |
+| NCCL socket 설정 | 이 host의 `ncclNetInit()` 충돌 회피용; 일반 배포 기본값으로 강제하지 않음 |
+| vLLM metric | 당시 `disable_log_stats=False`·`prometheus.enable=True`; 현재 launcher 전달 여부는 [Native source](native-sources.md)에서 확인 |
+| Trainer mode | 당시 `trainer.v1.trainer_mode=sync`; rollout server `mode=async`와 다른 설정 |
+| Dynamic endpoint | 실행 직후 실제 `/metrics`를 native job에 등록해야 queue/offload 기록 가능 |
+| Checkpoint / validation | `VERL_SAVE_FREQ=-1`; validation은 두 step마다 실행 |
+| 실행 후 | `python -m xlayer_telemetry.show_run "$RESULTS_DIR/telemetry"`로 snapshot·event 확인 |
 
 ## Refresh the Recording
 

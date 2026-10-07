@@ -68,14 +68,16 @@ xltel --config /absolute/path/verl-local.conf status
 XLAYER_CONFIG=/absolute/path/verl-local.conf xltel status
 ```
 
-Config 선택은 `--config` > `XLAYER_CONFIG` > 기본 경로 순서입니다.
-알려진 설정 값은 command option > 같은 이름의 environment variable > config > 기본값 순서입니다.
-Bash config 안에서 계산한 경로는 그 계산 결과를 명시한 설정으로 취급합니다.
-`config show`는 resolved setting을 JSON으로 보여 주며 workload argument는 공개하지 않습니다.
-Config가 export한 CUDA 설정·backend credential은 child environment로 전달하며 config 출력과 저장된 lifecycle snapshot에는 포함하지 않습니다.
-`sources threefs`도 TOML `[environment]` 또는 trusted Bash `export`의 credential을 사용하며 같은 이름의 terminal 환경 변수가 우선합니다.
-`config validate`는 설정한 3FS의 비어 있지 않은 URL 문자열·database identifier·filter object·credential 환경 변수 이름을 조회 전에 검사합니다.
-Diagnostics JSON에서 `threefs`를 생략하거나 `null`, 빈 object로 두면 optional 미설정 상태를 유지합니다.
+| 확인할 항목 | 규칙 |
+| --- | --- |
+| Config 파일 선택 | `--config` → `XLAYER_CONFIG` → 기본 경로 |
+| 알려진 설정 값 | Command option → 같은 이름의 environment → config → default |
+| Bash path 계산 | 계산 결과를 명시한 설정으로 취급 |
+| `config show` | Resolved JSON; workload argument 공개하지 않음 |
+| CUDA·backend credential | Child environment로 전달; config 출력·lifecycle snapshot에서 제외 |
+| `sources threefs` credential | TOML `[environment]` 또는 trusted Bash `export`; 같은 terminal 값 우선 |
+| 3FS config 검증 | 조회 전 URL 문자열·database identifier·filter object·credential 환경 변수 이름 검증 |
+| Optional 3FS | `threefs` 생략·`null`·빈 object는 미설정 유지 |
 
 ### TOML Configuration
 
@@ -134,7 +136,7 @@ xltel inspect exp-001
 
 `--output`이 `TELEMETRY_RUNS_ROOT` 밖이면 artifact는 저장되지만 현재 collector가 자동으로 읽지는 않습니다.
 Collector의 run parent를 바꾸면 `restart`가 필요합니다.
-`ENABLE_LOGS=1`·`TELEMETRY_SOURCES_FILE`·`DIAGNOSTICS_CONFIG`의 연결 조건은 [VERL Quickstart](verl-quickstart.md#add-sources-when-needed)에 있습니다.
+`ENABLE_LOGS=1`·`TELEMETRY_SOURCES_FILE`·`DIAGNOSTICS_CONFIG`의 연결 조건은 [VERL Quickstart](verl-reference.md#add-sources-when-needed)에 있습니다.
 
 ## Health and Ownership
 
@@ -145,26 +147,17 @@ JSON의 `metrics.verl.scope=stored_artifact`와 `latest_run.workload.recorded_at
 이는 Prometheus에 모든 sample이 도착했다는 보증이나 workload correctness 판정이 아닙니다.
 종료된 run의 stale sample은 workload failure로 취급하지 않습니다.
 
-`endpoint_only`는 endpoint를 조회했지만 process ownership은 확인하지 않았다는 뜻입니다.
-Docker·systemd로 따로 시작한 server가 응답하더라도 `xltel down`은 이를 종료하지 않습니다.
-`status`의 전체 healthy 상태에는 이 config의 managed server·node, 필수 endpoint·target, 활성 GPU의 fresh sample과 등록된 native source의 scrape 성공이 필요합니다.
-`status --role node`는 node scrape·GPU 및 활성화된 Loki endpoint 상태를 확인하며 원격 Grafana UI나 다른 native engine의 상태로 collector를 unhealthy로 만들지 않습니다.
-Collector와 native source는 한 번의 target 조회를 공유합니다.
-Optional source 파일이 잘못되면 `invalid_config`와 수정 명령을 표시하면서 core 상태 조회 결과를 유지하고, `config validate`는 해당 설정을 거부합니다.
-3FS는 `sources threefs`로 직접 조회하며 `status`는 ClickHouse query를 자동 실행하지 않습니다.
-`threefs.timeout_seconds`는 distribution·counter 각각의 요청에서 DNS·HTTP header·전체 body 수신을 제한하며, worker 정리에는 별도로 최대 0.4초를 사용합니다.
-인증 정보를 보낸 ClickHouse 요청은 scheme·host·port가 바뀌는 redirect를 거부하므로, 설정에는 최종 endpoint를 사용합니다.
-Counter 조회가 실패해도 이미 받은 distribution 결과는 보존하고 `missing_sources`에 누락을 남깁니다.
-
-```bash
-xltel status --json
-xltel doctor --json
-xltel logs server --follow
-```
-
-JSON은 stdout, 오류 안내는 stderr로 나갑니다.
-일반 명령은 성공·healthy일 때 0, unhealthy/runtime failure일 때 1, 사용법·config error일 때 2를 반환합니다.
-`run`은 이 구분보다 실제 workload exit code를 우선하며 SIGINT/SIGTERM cleanup도 기존 wrapper를 사용합니다.
+| 상태·조회 | 해석과 다음 행동 |
+| --- | --- |
+| `endpoint_only` | 응답은 확인했지만 ownership은 미확인; 외부 Docker/systemd process는 `down`이 종료하지 않음 |
+| 전체 healthy | 이 config의 managed server/node·필수 endpoint/target·활성 GPU freshness·등록 native scrape 성공 필요 |
+| `status --role node` | 해당 node의 scrape/GPU·활성 Loki 검사; remote Grafana나 다른 engine 상태로 collector health를 바꾸지 않음 |
+| Target 조회 | Collector/native는 한 번의 target 결과 공유 |
+| Source `invalid_config` | 수정 안내와 core 상태 유지; `config validate`는 거부 |
+| 3FS 조회 | `status`에서 ClickHouse 자동 query하지 않음; `sources threefs` 사용 |
+| 3FS timeout | 각 distribution/counter 요청의 DNS·header·전체 body 제한; worker cleanup은 별도로 최대 0.4초 |
+| 인증한 redirect | Scheme·host·port 변경을 거부; 최종 endpoint 지정 |
+| Counter만 실패 | 수집한 distribution은 보존하고 `missing_sources`에 누락 기록 |
 
 ## Runtime Boundary
 
@@ -210,25 +203,19 @@ xltel status --role node
 xltel down --role node
 ```
 
-`status --role server`는 local collector/GPU를 요구하지 않고 등록된 전체 collector target을 확인합니다.
-`status --role node`는 local collector ownership·freshness와 configured monitoring endpoint 및 해당 node의 scrape 상태를 확인합니다.
-Backend에 닿지 않거나 target이 등록되지 않으면 process가 실행 중이어도 degraded로 표시합니다.
-Server의 Prometheus·Grafana는 계속 loopback에 bind하며 조회용 URL 설정이 listen address를 바꾸지는 않습니다.
-같은 host에서 검증 stack을 함께 실행하려면 `PROMETHEUS_PORT`, `GRAFANA_PORT`, `LOKI_PORT`를 각각 지정합니다.
-Log collector도 함께 실행한다면 `ALLOY_PORT`(기본 `12345`)를 분리합니다.
-기본 port는 `19090`·`13000`·`13100`이며 URL을 별도로 설정하지 않으면 선택한 local port에 맞춰 조회 주소도 변경됩니다.
-Grafana datasource, startup health check와 Loki 설정도 같은 port를 사용합니다.
-Remote node에서 health query가 필요하면 private SSH tunnel 등으로 monitoring endpoint에 접근할 경로를 준비합니다.
-Collector `:19100`과 remote Loki `:13100`은 신뢰 가능한 private network에서만 노출합니다.
-CLI stack은 native dashboard에 불필요한 Grafana plugin의 자동 다운로드를 기본으로 끕니다.
-추가 plugin이 필요하면 `GF_PLUGINS_PREINSTALL_DISABLED=false`를 environment에 설정하며 설치·종료 시간이 늘어날 수 있습니다.
-Plugin 파일은 공유 tool directory 대신 각 stack의 `state/server/grafana-plugins/`에 저장합니다.
-
-이 CLI는 현재 host만 제어하며 SSH 일괄 배포·remote process 종료·systemd 관리·OS clock 변경을 수행하지 않습니다.
-`clock`은 권한 없이 Step·Span의 조사 시각을 맞추는 [optional userspace calibration](time-alignment.md)이며 기본 `up/down`과 독립적으로 실행합니다.
-Workload context 전달과 clock alignment는 [Multi-node Monitoring](monitoring.md#monitor-gpu-and-storage-nodes-together)을 따릅니다.
-기존 Bash script는 계속 동작하고 [Scripts](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/README.md)에 advanced interface를 정리했습니다.
-일반 wheel 설치에도 CLI가 사용하는 launcher·dashboard를 포함하며 synthetic demo와 profiling 예제는 checkout에서 사용합니다.
+| 운영 항목 | 동작 |
+| --- | --- |
+| `status --role server` | Local collector/GPU를 요구하지 않고 등록한 전체 collector target 확인 |
+| `status --role node` | Local ownership/freshness·configured endpoint·해당 node scrape 확인 |
+| Process만 살아 있음 | Backend 또는 target이 없으면 degraded |
+| Server bind | Prometheus/Grafana는 loopback; 조회 URL이 listen address를 바꾸지 않음 |
+| 별도 검증 stack | `PROMETHEUS_PORT`·`GRAFANA_PORT`·`LOKI_PORT`·필요한 `ALLOY_PORT` 분리 |
+| Default port | 19090·13000·13100; Alloy 12345 |
+| URL / generated config | URL 미지정 시 local port에 맞춤; datasource·startup check·Loki도 같은 port 사용 |
+| Remote query | Private SSH tunnel 등 별도 접근 경로 준비 |
+| Collector / remote Loki | `:19100`·`:13100`은 신뢰된 private network에서 노출 |
+| Grafana plugin | 기본 auto-download 비활성; 필요하면 `GF_PLUGINS_PREINSTALL_DISABLED=false`, 설치·종료 비용 확인 |
+| Plugin 파일 | 공유 tools 대신 각 stack의 `state/server/grafana-plugins/` |
 
 ## Shell Completion
 

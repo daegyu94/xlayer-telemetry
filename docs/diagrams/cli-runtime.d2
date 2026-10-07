@@ -5,14 +5,17 @@
 direction: down
 cli: xltel {
   grid-columns: 1
+  grid-gap: 24
   python: "Python config / health\nArtifact / source inspection" {class: process}
   lifecycle: Existing local lifecycle launcher {
     grid-columns: 1
+    grid-gap: 24
     server: "Server: Prometheus / Grafana\nOptional Loki" {class: process}
     node: "Node: GPU / Node Exporter / textfile\nOptional Alloy" {class: process}
   }
   wrapper: Existing VERL wrapper {
     grid-columns: 1
+    grid-gap: 24
     workload: "Original workload" {class: source}
     sidecars: "Bridge / manifest / health\nOptional diagnostics" {class: optional}
   }

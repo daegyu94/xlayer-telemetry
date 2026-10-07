@@ -84,11 +84,17 @@ test("documentation uses D2 SVGs without a style selector", async () => {
 });
 
 test("built documentation has full D2 figures and captions at every breakpoint", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
-  const documents = ["index", "agent-rl", "architecture", "cli", "dashboards", "diagnosis", "grafana-ui-ux-review", "local-llm", "monitoring", "time-alignment", "validation/e2e-user-experience", "verl-quickstart"];
+  const documents = ["index", "quickstart", "demo", "verl-quickstart", "monitoring", "agent-rl",
+    "native-sources", "kv-storage", "sandbox", "logs-events", "multi-node", "application-metrics",
+    "dashboards", "deep-dive", "diagnosis", "concepts", "architecture", "metrics", "configuration",
+    "cli", "local-llm", "time-alignment", "maintainers", "reference", "documentation-ux-review",
+    "monitoring-reference", "integration-reference", "dashboard-reference", "diagnosis-reference",
+    "architecture-reference", "metrics-reference", "verl-reference", "real-verl-demo",
+    "grafana-ui-ux-review", "validation/e2e-user-experience"];
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  for (const width of [320, 390, 430, 900, 1440]) {
+  for (const width of [320, 390, 430, 900, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const document of documents) {
       await page.goto(`${address}/site/${document}.html`);
@@ -222,5 +228,31 @@ test("D2 SVGs render without overlapping labels or text outside the SVG", async 
     });
     assert.deepEqual(issues, [], name);
   }
+  await page.close();
+});
+
+
+test("task entry cards and legacy bookmarks reach canonical guides", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(`${address}/site/index.html`);
+  assert.equal(await page.locator(".xlayer-card-grid a").count(), 3);
+  await page.getByRole("link").filter({ hasText: "처음 사용합니다" }).click();
+  assert.ok(new URL(page.url()).pathname.endsWith("/demo.html"));
+  assert.ok((await page.locator("article").innerText()).includes("정상 결과"));
+  for (const [old, target] of [
+    ["monitoring.html#try-the-demo", "demo.html"],
+    ["agent-rl.html#register-native-endpoints", "native-sources.html"],
+    ["architecture.html#python-module-paths", "architecture-reference.html"],
+    ["dashboards.html#capture-a-short-trace", "deep-dive.html"],
+  ]) {
+    await page.goto(`${address}/site/${old}`);
+    await page.waitForURL((url) => url.pathname.endsWith("/" + target));
+  }
+  await page.goto(`${address}/site/concepts.html`);
+  const figure = page.locator(".xlayer-diagram-small").first();
+  const box = await figure.boundingBox();
+  assert.ok(box.width <= 601);
+  const image = figure.locator("img");
+  assert.ok((await image.boundingBox()).width <= await image.evaluate((i) => i.naturalWidth) + 1);
   await page.close();
 });
