@@ -29,8 +29,19 @@ def validate(args):
             page = browser.new_page(viewport={"width": args.width, "height": 1000})
             page.on("pageerror", lambda error: errors.append(str(error)))
 
-            def check_query(response):
-                if "/api/ds/query" not in response.url:
+            pending_queries = set()
+
+            def started(request):
+                if "/api/ds/query" in request.url:
+                    pending_queries.add(request)
+
+            def check_query(request):
+                if request not in pending_queries:
+                    return
+                pending_queries.discard(request)
+                response = request.response()
+                if response is None:
+                    errors.append("Datasource request completed without a response")
                     return
                 try:
                     payload = response.json()
@@ -41,10 +52,28 @@ def validate(args):
                         errors.append("Datasource query failed: " + json.dumps(failures))
                 except Exception as error:
                     errors.append("Cannot inspect datasource response: " + str(error))
-            page.on("response", check_query)
+
+            def failed(request):
+                if request in pending_queries:
+                    pending_queries.discard(request)
+                    if request.failure == "net::ERR_ABORTED":
+                        query_checks.append({"status": "cancelled", "reason": "navigation_or_refresh",
+                                             "http_status": None, "errors": []})
+                    else:
+                        errors.append("Datasource request failed: " + str(request.failure))
+
+            page.on("request", started)
+            page.on("requestfinished", check_query)
+            page.on("requestfailed", failed)
 
             def record(name, *, step_context=False):
                 page.wait_for_timeout(1200)
+                # Finish bounded response checks before a route unmounts its data.
+                for _ in range(100):
+                    if not pending_queries:
+                        break
+                    page.wait_for_timeout(100)
+                assert not pending_queries, "Datasource requests did not finish within 10 seconds"
                 body = page.locator("body").inner_text()
                 for failure in ("An error occurred within the plugin", "Datasource was not found", "Panel plugin not found"):
                     assert failure not in body, (name, failure)
@@ -75,7 +104,14 @@ def validate(args):
             page.wait_for_url("**/d/telemetry-overview/**", timeout=15000)
             record("02-run-overview")
             duration = page.get_by_text("18.4 s", exact=True).first
-            duration.scroll_into_view_if_needed()
+            # Grafana mounts lower panels only as they enter the viewport.
+            for _ in range(10):
+                if duration.count():
+                    break
+                page.mouse.move(max(100, args.width - 150), 750)
+                page.mouse.wheel(0, 500)
+                page.wait_for_timeout(300)
+            duration.scroll_into_view_if_needed(timeout=5000)
             duration.click()
             menu = page.get_by_text("Bottleneck Summary 열기", exact=True)
             if menu.count():
@@ -101,22 +137,22 @@ def validate(args):
             assert "Evidence type" in body and "supporting" in body
             click_link("Cross-Layer Timeline")
             record("05-timeline", step_context=True)
-            click_link("Data & Storage")
+            page.get_by_text("Subsystems", exact=True).click()
+            page.get_by_role("link", name="06 · Data & Storage", exact=True).click()
             record("06-storage", step_context=True)
-            click_link("View: Overview")
+            click_link("Cross-Layer Signals")
             record("07-overview-view", step_context=True)
-            click_link("View: Focus")
-            record("08-focus-view", step_context=True)
-            # Focus retains resource filters, then pivots back to the guided path.
-            click_link("View: Guided")
-            record("09-guided-view", step_context=True)
+            # Summary retains selected resource context; return to completed steps.
+            click_link("Run Overview")
+            record("08-run-return", step_context=True)
             assert not errors, errors
         finally:
             browser.close()
     report = {"status": "passed", "data_origin": "synthetic", "viewport_width": args.width,
               "screens": results, "browser_errors": errors, "datasource_queries": query_checks,
               "limitations": ["Synthetic candidate values; not real VERL or storage causality validation.",
-                              "Screenshots do not replace backend query validation."]}
+                              "Screenshots do not replace backend query validation.",
+                              "Navigation/refresh cancellations are recorded separately from completed queries."]}
     (args.output / "validation.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
@@ -128,7 +164,7 @@ def main():
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--node", required=True)
     parser.add_argument("--output", type=Path, required=True, help="New directory for small screenshots/report")
-    parser.add_argument("--width", type=int, choices=(900, 1440), default=1440)
+    parser.add_argument("--width", type=int, choices=(480, 900, 1440), default=1440)
     parser.add_argument("--chromium", help="Optional Chromium executable")
     validate(parser.parse_args())
 

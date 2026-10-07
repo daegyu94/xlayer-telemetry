@@ -1,13 +1,16 @@
 # Dashboard Guide
 
-Start Here에서 수집 상태를 확인하고 완료 step → candidate → evidence → detail로 조사합니다.
+Run Overview에서 Run과 관측 KPI를 확인하고 완료 step → candidate → evidence → Timeline·subsystem으로 조사합니다.
+Source를 처음 연결하거나 missing·stale 상태라면 Start Here에서 수집 상태를 먼저 확인합니다.
 실행은 [Monitoring](monitoring.md#open-the-dashboards), 실제 화면은 [Real VERL Demo](real-verl-demo.md), 데이터 경로는 [Architecture](architecture.md)를 참고합니다.
 
 제목·metric·filter·status는 영어, 안내·tooltip은 한국어로 제공합니다.
 Panel의 info 아이콘에서 scope·optional source를 확인하고 긴 table cell은 inspect로 읽습니다.
 완료 step 목록은 Duration 내림차순이며 Duration → Bottleneck Summary, Step·Stage → Timeline으로 이동합니다.
 Run·record·observer·시간을 유지하고 Resource node는 실제 배치로 선택합니다.
-Bottleneck Summary는 Current · Baseline · Change (%)를 기본 화면에 표시합니다.
+Bottleneck Summary의 **What changed?**는 Current · Baseline · Change (%)와 scope·comparability를 기본 화면에 표시합니다.
+Candidate의 **Review supporting / counter / missing evidence**는 native panel 전체 화면으로 evidence를 엽니다. Signal의 Timeline·subsystem 링크는 해당 record의 시간·context를 유지합니다.
+Unknown unit은 `Unknown`으로 표시하고 원본 query·metadata는 Inspect에 남깁니다.
 Signal 링크에서 각 interval을 열며 Baseline 이동은 현재 step의 Trace ID를 초기화합니다.
 Sample quality와 comparability는 비교 표의 오른쪽 필드에서 확인합니다.
 Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자 summary는 원문으로 표시됩니다.
@@ -18,32 +21,23 @@ Timeline은 node clock의 `exact` span과 공통 시각으로 보정한 `calibra
 Calibrated lane의 `± uncertainty`와 table의 Time uncertainty를 확인하며, 보정된 VERL step도 `calibrated_approximate`입니다.
 설정과 적용 범위는 [Userspace Time Alignment](time-alignment.md)에 있습니다.
 
-화면 상단의 **View: Guided / Overview / Focus** 버튼으로 UI 구성을 즉시 전환합니다.
-색상 테마와 독립적인 선택이며, 동일한 telemetry를 다른 배치와 탐색 방식으로 보여 줍니다.
+기본 화면은 **Run Overview**입니다. 완료 step·worker별 duration·SDK throughput·snapshot age 다음에 shared serving/device KPI와 실제 span timeline을 보여 줍니다.
+TTFT p95·KV usage는 engine별 native 값이고, GPU 카드는 가장 높은 fresh utilization을 보고한 device 한 개의 identity를 표시합니다. 이 값들은 선택한 Run의 사용량이나 정상 상태를 뜻하지 않습니다.
+완료 step 목록은 timeline 바로 다음에 있어 Duration으로 candidate·baseline을, Step·Stage로 해당 시간의 Timeline을 엽니다. Baseline 변화량은 같은 record를 선택한 Bottleneck Summary에서 비교하며 live KPI와 임의로 섞지 않습니다.
 
-| View | 화면 구성 | 사용 시점 |
-| --- | --- | --- |
-| Guided | 기존 Run → Step → Candidate → Evidence 흐름 | 느린 step의 원인을 순서대로 조사할 때 |
-| Overview | VERL·vLLM·Ray·Compute·local storage·sandbox의 3열 요약 | 여러 subsystem의 상태를 한눈에 비교할 때 |
-| Focus | Subsystem별 펼침 row와 전체 폭 graph | 원하는 subsystem을 큰 화면으로 읽을 때 |
+**Cross-Layer Signals**는 workload·serving, shared resource, optional sandbox를 2열과 펼침 section으로 비교하는 화면입니다. Queue와 KV usage를 서로 다른 단위의 graph로 나누고, local I/O Top 8은 선택한 시간 끝의 기존 rate window와 node/device label을 유지합니다.
+Graph의 data link 또는 **Open details**로 기존 subsystem 화면을 엽니다. 세부 Phase·Role·Worker는 Stage Correlation에서 선택하며 query에 사용하는 filter는 화면에 표시합니다.
 
-전환은 Grafana 안에서 바로 이루어지며 서버 재시작이나 수집 설정 변경이 필요 없습니다.
-Cluster·Run·observer/resource node·step record·시간 범위를 URL로 전달합니다.
-Logs의 directory와 telemetry Run은 별도로 전달하며, 각 화면에서 사용하는 추가 filter만 적용합니다.
-View 선택은 공유 설정을 바꾸지 않으므로 사용자끼리 영향을 주지 않습니다.
-Query 결과를 바꾸는 filter는 화면에 표시하며, 화면 이동으로 전달된 Phase·Worker·Observer node도 확인하고 바꿀 수 있습니다.
-`Reset filters`는 Cluster·Run·log directory·시간을 유지하고 Step·Trace·node·engine·device 등 나머지 선택을 초기화합니다.
-현재 선택한 step을 유지하려면 필요한 filter만 개별적으로 바꿉니다.
-선호하는 View를 bookmark하거나 Grafana Home dashboard로 지정할 수 있습니다.
+기존 Guided는 Run Overview의 역할로 정리했고 Overview UID는 Cross-Layer Signals가 유지합니다. Focus는 펼침 section과 역할이 겹쳐 통합했으며 `/d/xlayer-workspace-focus` bookmark는 `/d/xlayer-workspace-overview`로 바꿉니다.
+Run·Cluster·observer/resource·record·시간은 explicit link로 전달하고, 세부 dashboard는 native **Subsystems** dropdown에서 엽니다. Log directory와 telemetry Run은 별도 context로 보존합니다.
+`Reset filters`는 Cluster·Run·log directory·시간을 유지하며 Step·Trace·node·engine·device 등의 제한을 초기화합니다. 선택한 step을 유지하려면 필요한 filter만 개별적으로 바꿉니다.
 
-Overview와 Focus의 **Open details**는 기존 subsystem dashboard로 연결합니다.
-두 화면은 provisioning 시 기존 panel에서 생성하므로 query·unit·scope 정의를 중복 관리하지 않습니다.
-3FS ClickHouse 통계와 log는 기존 조회 경로를 사용하며, 새 화면이 없는 telemetry를 생성하지는 않습니다.
-기존 설치에는 업데이트된 provisioning을 한 번 적용해야 View 버튼이 나타납니다.
+Loki가 있으면 기록된 EventRecorder event와 span 시작점을 metric 위에 overlay합니다. Policy update·weight sync·checkpoint·KV event는 실제 기록된 경우에만 나타나며, absent event를 정상이나 미발생으로 해석하지 않습니다.
+Unknown timestamp는 overlay에서 제외하고 calibrated 기록에는 uncertainty를 표시합니다. 완료 stage duration으로 phase 실행 순서나 end event를 생성하지 않으며, 기록된 span의 양 끝은 Timeline lane에서 읽습니다.
 
 ## Dashboard Inventory
 
-기본 monitoring server는 metrics-only 구성에서 7개, Loki 구성에서 10개의 dashboard를 설치합니다.
+기본 monitoring server는 metrics-only 구성에서 6개, Loki 구성에서 9개의 dashboard를 설치합니다.
 완료 step 선택은 Run Overview에, 이전 Step Detail의 구간 요약과 자원 비교는 Timeline에 통합했습니다.
 상세 GPU memory·KV offload·log는 각각 Compute·Stage Correlation·Run Logs로 이동하므로 같은 내용을 별도 step 화면에 반복하지 않습니다.
 
@@ -57,21 +51,20 @@ Overview와 Focus의 **Open details**는 기존 subsystem dashboard로 연결합
 | 05 · Compute & Communication | GPU·process·network·allocation 상세 | 아니요 |
 | 06 · Data & Storage | Local device·filesystem·SMART 상세 | 아니요 |
 | 07 · Run Logs | Workload log 검색 | 예 |
-| Workspace · Overview | Subsystem 비교형 UI | 아니요 |
-| Workspace · Focus | Subsystem 집중형 UI | 아니요 |
+| Cross-Layer Signals | Workload·shared subsystem 비교와 scope별 detail | 아니요 |
 
-Server를 같은 output directory로 재실행하면 `step-explorer.json`과 `step-detail.json`을 제거하고 통합 화면을 설치합니다.
+Server를 같은 output directory로 재실행하면 `step-explorer.json`·`step-detail.json`·`workspace-focus.json`을 제거하고 통합 화면을 설치합니다.
 다른 이름의 사용자 dashboard는 유지합니다.
 기존 bookmark의 `/d/xlayer-step-explorer`는 `/d/telemetry-overview`로, `/d/xlayer-step-detail`은 `/d/xlayer-cross-layer-timeline`으로 바꾸고 query string의 run·node·record·시간은 그대로 유지합니다.
 이전 두 UID는 redirect dashboard로 남기지 않으므로 bookmark를 갱신해야 합니다.
 
 `targets/*.json`은 Prometheus의 scrape target 목록이며 dashboard 개수에 포함되지 않습니다.
-[Docker Compose 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 7개를 생성합니다.
+[Docker Compose 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/dashboards/README.md)도 같은 공통 template에서 metrics-only 화면 6개를 생성합니다.
 별도 legacy resource dashboard는 설치하지 않습니다.
 
 ### Readability
 
-안내 본문은 16px와 넉넉한 줄 간격으로 표시하고, Stat의 label은 18px, 값은 36px로 표시합니다.
+안내 본문은 17px와 넉넉한 줄 간격으로 표시하고, Stat의 label은 18px, 주요 값은 최대 40px로 표시합니다. Shared card는 engine/device 이름과 값을 함께 표시합니다.
 표는 큰 행 간격과 pagination을 사용합니다.
 완료 Step과 Current/Baseline 표는 핵심 열만 표시하고, 내부 timestamp·sampling metadata는 panel Inspect에서 확인합니다.
 숨긴 field도 frame에 유지하므로 Run·record·시간 범위의 data link는 동작합니다.
@@ -95,7 +88,7 @@ Stage Correlation의 접힌 vLLM·Ray row에서 subsystem별 상세 지표를 �
 
 ## Start Here
 
-기본 monitoring server의 Grafana Home은 Start Here입니다.
+기본 monitoring server의 Grafana Home은 Run Overview입니다. Start Here는 source 연결과 collection health를 확인하는 진입점입니다.
 `00 · Start Here`에서 Cluster · Node · Run을 고르고 collector 연결과 application/GPU sample age를 먼저 확인합니다.
 `Observed runs`는 exporter가 제공하는 worker snapshot 목록이며, 현재 실행 중인 run 목록이나 정상 판정이 아닙니다.
 Run과 Sample age를 누르면 해당 run의 Run Overview로 이동합니다.
@@ -546,41 +539,21 @@ UI 변경 당시의 비교 화면은 [검증 기록](validation/README.md)에 �
 
 ## Theme Selection
 
-UI 구성은 **View**, 색상은 상단 안내의 **Color: Dark / Sapphire / Desert** 링크로 따로 선택합니다.
-Color 링크는 로그인 없이 현재 화면을 다시 열어 배색을 적용하며 Run·Node·시간 범위를 유지합니다.
-Grafana 12.1은 URL theme를 페이지를 열 때 적용하므로 색상 전환 시에만 같은 탭에서 자동 reload합니다.
-View 전환과 상세 dashboard 이동에도 선택을 전달하며, 사용자나 조직의 preference를 변경하지 않습니다.
+기본 배색은 Grafana의 안정된 **Light** theme입니다. 옅은 회색 canvas 위에 흰 panel과 얇은 border를 사용하고, 주요 workload graph는 indigo·blue, 정상 KPI는 neutral, stale·candidate는 amber·red로 구분합니다.
+Dashboard마다 반복되던 Color 링크는 제거했습니다. 로그인 사용자는 Profile의 **Change theme**에서 Dark 또는 System을 선택할 수 있으며 기존 user·team·organization preference는 server default보다 우선합니다.
 
-| 빠른 선택 | Grafana theme ID | 배색 |
-| --- | --- | --- |
-| Dark | `dark` | 기본 어두운 중성 배경 |
-| Sapphire | `sapphiredusk` | 푸른 배경의 Dark 대안 |
-| Desert | `desertbloom` | 따뜻한 배경의 Light 대안 |
-
-아직 Color를 선택하지 않았다면 Grafana의 기존 theme preference를 따릅니다.
-선택은 URL에 저장되므로 원하는 View와 Color를 함께 bookmark할 수 있습니다.
-주소 없이 새로 접속할 때도 같은 테마를 쓰려면 로그인 후 Profile의 **Change theme**에서 개인 preference로 저장합니다.
-그 메뉴의 Tron·Gilded grove·Gloom 등 다른 Grafana 테마도 계속 사용할 수 있습니다.
-Color 링크를 선택한 URL에서는 URL의 색상이 개인 preference보다 우선합니다.
-
-Monitoring server와 Compose 설정은 `extraThemes`를 활성화하며 기본 화면은 기존 Dark를 유지합니다.
-추가 테마는 Grafana 12.1의 experimental 기능으로, 별도 plugin이나 CSS를 설치하지 않습니다.
-Server 기본값을 바꾸려면 config에 지정합니다.
-
-기존 TOML의 `[telemetry]`에서 설정합니다.
+Server 기본값은 TOML의 `[telemetry]`에서 변경합니다.
 
 ```toml
-GF_USERS_DEFAULT_THEME = "sapphiredusk"
-GF_FEATURE_TOGGLES_ENABLE = "extraThemes"
+GF_USERS_DEFAULT_THEME = "light"
+GF_FEATURE_TOGGLES_ENABLE = ""
 ```
 
-Server를 재시작하면 적용되며 기존 user·team·organization preference가 server default보다 우선합니다.
-Profile 메뉴의 추가 테마 목록을 숨기려면 toggle 목록에서 `extraThemes`만 제거합니다.
-이는 XLayer의 Color 바로가기와는 별개이며, 다른 toggle이 없다면 빈 문자열을 사용합니다.
-테마는 화면 배색만 바꾸며 metric, query, diagnosis 의미는 변경하지 않습니다.
+Server 재시작 후 기본값이 적용됩니다. `extraThemes`는 Grafana 12.1의 experimental 기능이므로 필요할 때만 명시적으로 켭니다.
+Font family는 Grafana 기본 UI를 유지하며 별도 CSS·font download·plugin을 설치하지 않습니다. 설명·KPI 크기, 표의 row spacing·열 제목·metadata 노출과 graph density를 조정해 읽기 쉽게 했습니다.
+좁은 viewport에서는 selector·넓은 evidence 표에 scroll이 필요하며, panel 전체 화면과 Inspect를 사용합니다. 이 제약을 숨기기 위해 context나 measurement scope를 삭제하지 않습니다.
 
-참고: [Grafana 12 themes](https://grafana.com/docs/grafana/latest/whatsnew/whats-new-in-v12-0/), [preference 우선순위](https://grafana.com/docs/grafana/latest/administration/organization-preferences/), [Ray metric 의미](https://docs.ray.io/en/latest/ray-observability/reference/system-metrics.html), [vLLM native metrics](https://docs.vllm.ai/en/latest/usage/metrics/).
-
+설계 근거와 실제 화면은 [UI/UX Review](grafana-ui-ux-review.md)에 정리했습니다. Theme preference의 동작은 [Grafana organization preferences](https://grafana.com/docs/grafana/latest/administration/organization-preferences/)를 참고합니다.
 
 ## Bottleneck Signals Beyond Utilization
 

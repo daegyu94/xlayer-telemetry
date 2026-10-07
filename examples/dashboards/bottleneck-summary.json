@@ -48,8 +48,20 @@
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
+        "name": "source_node",
+        "label": "Observer",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
         "name": "node",
-        "label": "Resource node",
+        "label": "Resource",
         "type": "query",
         "datasource": {
           "type": "prometheus",
@@ -75,7 +87,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Step record ID",
+        "label": "Record",
         "description": "Run Overview에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
       },
       {
@@ -102,20 +114,8 @@
         "description": "rule은 기존 진단입니다. llm은 선택한 record에 대해 CLI로 명시적으로 실행한 결과만 표시하며 자동 추론하지 않습니다."
       },
       {
-        "name": "source_node",
-        "label": "Observer node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
-        },
-        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
-        "hide": 2
-      },
-      {
         "name": "trace_id",
-        "label": "Trace ID",
+        "label": "Trace",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -151,7 +151,7 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
+        "label": "Engine",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -163,7 +163,7 @@
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -214,12 +214,13 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Diagnose:** Symptom → Current / Baseline → Candidate → Supporting / Counter / Missing evidence.<br>**Run:** ${run_id:text} · **Record:** ${record_id:text} · **Resource node:** ${node:text}. Signal state는 원인 확정이나 정상 보증이 아닙니다.</span>"
-      }
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**${run_id:text}** · Resource ${node:text}<br>What changed? → Candidate → Evidence → Timeline. Candidate는 원인 확정이나 정상 보증이 아닙니다.</span>"
+      },
+      "transparent": true
     },
     {
       "id": 2,
@@ -227,7 +228,7 @@
       "title": "Selected symptom",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 3,
         "w": 24,
         "h": 4
       },
@@ -293,12 +294,25 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": [],
           "noValue": "N/A"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(cluster|step|step_duration_seconds|verdict|primary_candidate|workload_comparability|missing_sources|data_origin)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -1067,6 +1081,78 @@
                 "value": 130
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Why this candidate?"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "verdict"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Diagnosis"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Step"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Signal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Current"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Baseline"
+              }
+            ]
           }
         ]
       },
@@ -1081,10 +1167,10 @@
     {
       "id": 4,
       "type": "table",
-      "title": "Measured changes versus same-run baseline",
+      "title": "What changed? · Same-run baseline",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 7,
         "w": 24,
         "h": 7
       },
@@ -1117,6 +1203,21 @@
             "format": "json",
             "replace": false,
             "keepTime": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "unit",
+                "destinationType": "string"
+              },
+              {
+                "targetField": "window_statistic",
+                "destinationType": "string"
+              }
+            ]
           }
         },
         {
@@ -1801,10 +1902,126 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unknown"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unknown"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
-      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다. Baseline으로 이동하면 현재 step의 Trace ID 필터를 초기화합니다. Quality 필드는 표 오른쪽에서 확인합니다. Query step·rate window·source age 등 상세 sampling metadata는 panel Inspect에서 확인합니다. 내부 field는 navigation과 provenance를 위해 보존합니다.",
+      "description": "비교 가능한 current/baseline signal의 변화입니다. Delta가 크다는 사실만으로 원인을 확정하지 않으며 baseline 부재와 sample quality를 확인합니다. Signal을 누르면 current 또는 baseline의 실제 시간 구간을 엽니다. Baseline으로 이동하면 현재 step의 Trace ID 필터를 초기화합니다. Quality 필드는 표 오른쪽에서 확인합니다. Query step·rate window·source age 등 상세 sampling metadata는 panel Inspect에서 확인합니다. 내부 field는 navigation과 provenance를 위해 보존합니다. 현재·baseline·변화량을 같은 signal의 단위와 scope 안에서 비교합니다. Unknown unit과 미확인 comparability는 정상이나 동일 조건으로 해석하지 않습니다.",
       "options": {
         "showHeader": true,
         "cellHeight": "lg",
@@ -1823,7 +2040,7 @@
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 14,
         "w": 24,
         "h": 7
       },
@@ -1885,12 +2102,25 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": [],
           "noValue": "N/A"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(candidate_id|component|state|summary|missing_evidence_summary)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -1900,6 +2130,11 @@
               {
                 "id": "links",
                 "value": [
+                  {
+                    "title": "Review supporting / counter / missing evidence",
+                    "url": "/d/xlayer-bottleneck-summary?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*&viewPanel=6",
+                    "targetBlank": false
+                  },
                   {
                     "title": "Cross-Layer Timeline 열기",
                     "url": "/d/xlayer-cross-layer-timeline?from=${__data.fields[\"window_start_ms\"]}&to=${__data.fields[\"window_end_ms\"]}&var-cluster=${__data.fields[\"cluster\"]}&var-run_id=${__data.fields[\"run_id\"]}&var-record_id=${__data.fields[\"record_id\"]}&${node:queryparam}&var-source_node=${__data.fields[\"observer_node\"]}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&var-trace_id=.*",
@@ -2668,6 +2903,78 @@
                 "value": 130
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Why this candidate?"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "verdict"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Diagnosis"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Step"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Signal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Current"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Baseline"
+              }
+            ]
           }
         ]
       },
@@ -2690,7 +2997,7 @@
       "title": "Evidence details: supporting, counter, and missing",
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 21,
         "w": 24,
         "h": 9
       },
@@ -2723,6 +3030,21 @@
             "format": "json",
             "replace": false,
             "keepTime": false
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "targetField": "unit",
+                "destinationType": "string"
+              },
+              {
+                "targetField": "window_statistic",
+                "destinationType": "string"
+              }
+            ]
           }
         },
         {
@@ -2760,12 +3082,25 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": [],
           "noValue": "N/A"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(candidate_id|evidence_type|signal|current|baseline|unit|observation_scope|entity|source|missing_reason|workload_comparability|quality_warnings)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -3566,10 +3901,198 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Why this candidate?"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "verdict"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Diagnosis"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Step"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "signal"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Signal"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "current"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Current"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "baseline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Baseline"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unknown"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "window_statistic"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "Unknown"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  },
+                  {
+                    "type": "value",
+                    "options": {
+                      "null": {
+                        "text": "Unknown",
+                        "color": "gray"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
-      "description": "Signal별 current·baseline·scope·source와 누락 근거를 확인합니다. Signal link는 해당 evidence 시간 구간의 상세 화면으로 연결됩니다. Evidence type과 candidate ID의 column filter로 좁힙니다. Missing 값은 N/A이며 0이 아닙니다.  이 표는 항상 표시합니다. Candidate·Evidence type의 column filter로 supporting/counter/missing을 선택합니다. Signal 메뉴에서 같은 구간의 상세 화면을 열고 Entity에 맞게 Resource node·device를 선택합니다.",
+      "description": "Signal별 current·baseline·scope·source와 누락 근거를 확인합니다. Signal link는 해당 evidence 시간 구간의 상세 화면으로 연결됩니다. Evidence type과 candidate ID의 column filter로 좁힙니다. Missing 값은 N/A이며 0이 아닙니다.  이 표는 항상 표시합니다. Candidate·Evidence type의 column filter로 supporting/counter/missing을 선택합니다. Signal 메뉴에서 같은 구간의 상세 화면을 열고 Entity에 맞게 Resource node·device를 선택합니다. Candidate의 Review evidence 링크로 표를 전체 화면에서 엽니다. Evidence type 필터로 supporting·counter·missing을 나누고 scope·entity·source·comparability를 확인합니다. Inspect는 숨긴 query와 sample quality를 보존합니다.",
       "options": {
         "showHeader": true,
         "cellHeight": "lg",
@@ -3582,13 +4105,13 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 30,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Compute / Network](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [vLLM / Sandbox](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>선택한 Resource node와 시간 구간을 유지합니다. Entity의 실제 node/device와 맞는지 확인합니다.</span>"
+        "content": "<span style=\"font-size:17px;line-height:1.65\">[Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Compute / Network](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [vLLM / Sandbox](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>선택한 Resource node와 시간 구간을 유지합니다. Entity의 실제 node/device와 맞는지 확인합니다.</span>"
       }
     }
   ]

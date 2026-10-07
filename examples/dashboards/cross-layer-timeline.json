@@ -61,8 +61,30 @@
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
+        "name": "source_node",
+        "label": "Observer",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "Application snapshot과 step event를 기록한 collector node입니다. Resource node와 다를 수 있습니다."
+      },
+      {
         "name": "node",
-        "label": "Resource node",
+        "label": "Resource",
         "type": "query",
         "datasource": {
           "type": "prometheus",
@@ -88,7 +110,7 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Step record ID",
+        "label": "Record",
         "description": "Run Overview에서 선택한 record ID입니다. 비우면 시간 구간의 여러 record가 나타날 수 있습니다."
       },
       {
@@ -100,30 +122,8 @@
           "value": ".*"
         },
         "hide": 0,
-        "label": "Trace ID",
+        "label": "Trace",
         "description": "EventRecorder의 Trace ID입니다. 지정하면 관련 span/event로 좁힙니다."
-      },
-      {
-        "name": "source_node",
-        "label": "Observer node",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "telemetry-prometheus"
-        },
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "refresh": 2,
-        "description": "Application snapshot과 step event를 기록한 collector node입니다. Resource node와 다를 수 있습니다."
       },
       {
         "name": "diagnosis_method",
@@ -163,19 +163,23 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
+        "label": "Engine",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
         },
-        "hide": 2,
-        "description": "상세 화면의 vLLM engine 선택을 navigation에서 유지합니다."
+        "query": "label_values(vllm:num_requests_waiting{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\"}, instance)",
+        "definition": "label_values(vllm:num_requests_waiting{job=\"native\",telemetry_source=\"vllm\",cluster=~\"$cluster\",node=~\"$node\"}, instance)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "description": "등록된 native vLLM endpoint의 instance입니다. 여러 engine의 시계열을 분리하며 Run별 attribution을 만들지 않습니다.",
+        "hide": 0
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "query",
         "datasource": {
           "type": "prometheus",
@@ -261,12 +265,13 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Correlate in time:** Exact = span 경계 · Approximate = logger 기반 step 구간 · Sampled = metric.<br>Resource node·Trace ID·clock·freshness를 확인합니다. Stage duration으로 실행 순서를 만들지 않으며 shared signal은 supporting evidence입니다.</span>"
-      }
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Correlate in time:** Exact = span 경계 · Approximate = logger 기반 step 구간 · Sampled = metric.<br>Resource node·Trace ID·clock·freshness를 확인합니다. Stage duration으로 실행 순서를 만들지 않으며 shared signal은 supporting evidence입니다.</span>"
+      },
+      "transparent": true
     },
     {
       "id": 20,
@@ -274,7 +279,7 @@
       "title": "Selected step and reported stages",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 3,
         "w": 24,
         "h": 5
       },
@@ -337,11 +342,24 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            }
+            },
+            "hidden": true
           },
           "links": []
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(cluster|step|node|boundary_accuracy|boundary_scope|step_duration_seconds|stage_summary|time_uncertainty_seconds)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": false
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -628,6 +646,86 @@
                 "value": "Time uncertainty"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Step"
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Observer"
+              },
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Boundary"
+              },
+              {
+                "id": "custom.width",
+                "value": 155
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_scope"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Scope"
+              },
+              {
+                "id": "custom.width",
+                "value": 105
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Reported stages"
+              },
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
           }
         ]
       },
@@ -648,7 +746,7 @@
       "description": "Exact는 node clock 경계, calibrated는 monitoring clock에 보정한 추정 경계입니다. Calibrated lane의 ± uncertainty를 확인합니다. Clock jump·보정 실패 구간은 제외합니다.",
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 8,
         "w": 24,
         "h": 6
       },
@@ -747,7 +845,11 @@
             "lineWidth": 0,
             "spanNulls": false
           },
-          "links": []
+          "links": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         },
         "overrides": []
       },
@@ -768,7 +870,7 @@
       "description": "관측 시각과 보고된 duration에서 추정한 step 구간입니다. Stage duration은 순서가 있는 phase 경계가 아닙니다.",
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 14,
         "w": 24,
         "h": 5
       },
@@ -860,7 +962,11 @@
             "lineWidth": 0,
             "spanNulls": false
           },
-          "links": []
+          "links": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#8e8e8e"
+          }
         },
         "overrides": []
       },
@@ -880,7 +986,7 @@
       "title": "GPU utilization",
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 19,
         "w": 12,
         "h": 7
       },
@@ -900,14 +1006,22 @@
           "unit": "percent",
           "links": [],
           "custom": {
-            "showPoints": "auto"
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        },
+        "legend": {
+          "placement": "bottom"
         }
       },
       "description": "선택한 Resource node의 sampled GPU utilization입니다. Exact span과 같은 해상도의 trace가 아니며 다른 workload도 포함될 수 있습니다."
@@ -918,7 +1032,7 @@
       "title": "vLLM waiting requests",
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 19,
         "w": 12,
         "h": 7
       },
@@ -938,14 +1052,22 @@
           "unit": "short",
           "links": [],
           "custom": {
-            "showPoints": "auto"
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        },
+        "legend": {
+          "placement": "bottom"
         }
       },
       "description": "선택한 node의 sampled vLLM waiting requests입니다. Shared engine은 Run별로 자동 분리되지 않습니다."
@@ -956,7 +1078,7 @@
       "title": "RDMA bytes per second",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 26,
         "w": 12,
         "h": 7
       },
@@ -976,14 +1098,22 @@
           "unit": "Bps",
           "links": [],
           "custom": {
-            "showPoints": "auto"
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        },
+        "legend": {
+          "placement": "bottom"
         }
       },
       "description": "선택한 node/port의 RDMA bytes/s입니다. Rate의 lookback 범위와 clock 상태를 함께 확인합니다."
@@ -994,7 +1124,7 @@
       "title": "Device busy ratio",
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 26,
         "w": 12,
         "h": 7
       },
@@ -1014,14 +1144,22 @@
           "unit": "percentunit",
           "links": [],
           "custom": {
-            "showPoints": "auto"
+            "showPoints": "auto",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        },
+        "legend": {
+          "placement": "bottom"
         }
       },
       "description": "선택한 node/device의 I/O busy 비율입니다. Latency p99나 특정 span의 I/O 사용량은 아닙니다."
@@ -1034,7 +1172,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 33,
         "w": 24,
         "h": 1
       },
@@ -1045,7 +1183,7 @@
           "title": "Workload spans: open step, logs, or diagnosis",
           "gridPos": {
             "x": 0,
-            "y": 35,
+            "y": 34,
             "w": 24,
             "h": 7
           },
@@ -1429,7 +1567,7 @@
           "title": "Related EventRecorder events",
           "gridPos": {
             "x": 0,
-            "y": 42,
+            "y": 41,
             "w": 24,
             "h": 7
           },
@@ -1704,7 +1842,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 34,
         "w": 24,
         "h": 1
       },
@@ -1715,7 +1853,7 @@
           "title": "Host CPU busy",
           "gridPos": {
             "x": 0,
-            "y": 36,
+            "y": 35,
             "w": 24,
             "h": 7
           },
@@ -1737,8 +1875,9 @@
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
-                "fillOpacity": 10,
-                "showPoints": "auto"
+                "fillOpacity": 5,
+                "showPoints": "auto",
+                "spanNulls": false
               }
             },
             "overrides": []
@@ -1750,7 +1889,9 @@
               "showLegend": true
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node 전체 CPU busy 비율입니다. Rate는 1분 lookback을 사용하므로 짧은 step 바깥의 sample도 포함될 수 있습니다."
@@ -1761,7 +1902,7 @@
           "title": "Host memory used",
           "gridPos": {
             "x": 0,
-            "y": 43,
+            "y": 42,
             "w": 24,
             "h": 7
           },
@@ -1783,8 +1924,9 @@
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
-                "fillOpacity": 10,
-                "showPoints": "auto"
+                "fillOpacity": 5,
+                "showPoints": "auto",
+                "spanNulls": false
               }
             },
             "overrides": []
@@ -1796,7 +1938,9 @@
               "showLegend": true
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node 전체 memory 사용량입니다. 특정 worker·Run의 memory로 자동 분리되지 않습니다."
@@ -1807,7 +1951,7 @@
           "title": "TCP/Ethernet receive and transmit",
           "gridPos": {
             "x": 0,
-            "y": 50,
+            "y": 49,
             "w": 24,
             "h": 7
           },
@@ -1834,8 +1978,9 @@
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
-                "fillOpacity": 10,
-                "showPoints": "auto"
+                "fillOpacity": 5,
+                "showPoints": "auto",
+                "spanNulls": false
               }
             },
             "overrides": []
@@ -1847,7 +1992,9 @@
               "showLegend": true
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node/interface의 receive bytes/s입니다. 1분 lookback이므로 짧은 step의 정확한 전송량은 아닙니다."
@@ -1858,7 +2005,7 @@
           "title": "Local disk read and write",
           "gridPos": {
             "x": 0,
-            "y": 57,
+            "y": 56,
             "w": 24,
             "h": 7
           },
@@ -1885,8 +2032,9 @@
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
-                "fillOpacity": 10,
-                "showPoints": "auto"
+                "fillOpacity": 5,
+                "showPoints": "auto",
+                "spanNulls": false
               }
             },
             "overrides": []
@@ -1898,7 +2046,9 @@
               "showLegend": true
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node/device의 disk read bytes/s입니다. 1분 lookback이며 특정 sandbox·3FS 요청에 자동 귀속하지 않습니다."
@@ -1913,7 +2063,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 35,
         "w": 24,
         "h": 1
       },
@@ -1924,7 +2074,7 @@
           "title": "Sandbox I/O pressure (sampled)",
           "gridPos": {
             "x": 0,
-            "y": 37,
+            "y": 36,
             "w": 24,
             "h": 7
           },
@@ -1944,7 +2094,10 @@
               "unit": "percentunit",
               "noValue": "N/A",
               "custom": {
-                "showPoints": "auto"
+                "showPoints": "auto",
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false
               }
             },
             "overrides": []
@@ -1957,6 +2110,11 @@
                 "lastNotNull",
                 "max"
               ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Resource node를 sandbox node로 선택합니다. sandbox.* lifecycle span은 JSONL이 Loki에 수집되면 위에 표시됩니다. PSI는 sampled cgroup signal이며 trajectory별 사용량이 아닙니다."
@@ -1971,7 +2129,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 36,
         "w": 24,
         "h": 1
       },
@@ -1982,7 +2140,7 @@
           "title": "Node clock offset from scrape time",
           "gridPos": {
             "x": 0,
-            "y": 38,
+            "y": 37,
             "w": 24,
             "h": 7
           },
@@ -2002,14 +2160,22 @@
               "unit": "s",
               "links": [],
               "custom": {
-                "showPoints": "auto"
+                "showPoints": "auto",
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false
               }
             },
             "overrides": []
           },
           "options": {
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            },
+            "legend": {
+              "placement": "bottom"
             }
           },
           "description": "Scrape/transport delay가 포함된 offset입니다. NTP offset 측정이나 timestamp 보정값으로 쓰지 않습니다. Baseline·current 구간의 각 node를 확인합니다."
@@ -2020,7 +2186,7 @@
           "title": "Node clock synchronization status",
           "gridPos": {
             "x": 0,
-            "y": 45,
+            "y": 44,
             "w": 24,
             "h": 7
           },
@@ -2040,14 +2206,22 @@
               "unit": "none",
               "links": [],
               "custom": {
-                "showPoints": "auto"
+                "showPoints": "auto",
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false
               }
             },
             "overrides": []
           },
           "options": {
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            },
+            "legend": {
+              "placement": "bottom"
             }
           },
           "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
@@ -2060,13 +2234,13 @@
       "title": "Continue investigation",
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 37,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range})<br>GPU memory·KV offload·Logs 상세는 위 링크에서 확인합니다. 선택한 step·node·시간 범위를 유지합니다.</span>"
+        "content": "<span style=\"font-size:17px;line-height:1.65\">[Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&${__url_time_range})<br>GPU memory·KV offload·Logs 상세는 위 링크에서 확인합니다. 선택한 step·node·시간 범위를 유지합니다.</span>"
       }
     }
   ]

@@ -37,6 +37,11 @@ def test_alert_rules_cover_node_gpu_and_selected_filesystem() -> None:
         for path in (ROOT / "examples/dashboards").glob("*.json")
         if (dashboard := json.loads(path.read_text())).get("uid")
     }
+    def panel_ids(items):
+        for panel in items:
+            yield panel["id"]
+            yield from panel_ids(panel.get("panels", []))
+
     for rule in rules.values():
         assert rule["data"][0]["datasourceUid"] == "telemetry-prometheus"
         assert rule["condition"] == "C"
@@ -44,7 +49,7 @@ def test_alert_rules_cover_node_gpu_and_selected_filesystem() -> None:
         assert rule["execErrState"] == "Error"
         assert rule["labels"]["service"] == "xlayer-telemetry"
         dashboard = dashboards[rule["dashboardUid"]]
-        assert rule["panelId"] in {panel["id"] for panel in dashboard["panels"]}
+        assert rule["panelId"] in set(panel_ids(dashboard["panels"]))
 
 
 @pytest.mark.parametrize("mountpoint", ["relative", '/mnt/"bad', "/mnt/../data"])

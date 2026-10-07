@@ -648,8 +648,8 @@ EOF
   fi
   "${PYTHON:-python3}" scripts/provision_dashboards.py "${dashboard_args[@]}"
   # Grafana's built-in theme picker; an explicit empty toggle list opts out.
-  export GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-extraThemes}"
-  export GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-dark}"
+  export GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-}"
+  export GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-light}"
   case "$GF_USERS_DEFAULT_THEME" in
     dark|light|system|sapphiredusk|gloom|desertbloom|tron|gildedgrove|aubergine|mars|matrix|synthwave|victorian|zen) ;;
     *) echo "Unsupported GF_USERS_DEFAULT_THEME: $GF_USERS_DEFAULT_THEME" >&2; exit 2 ;;
@@ -674,7 +674,7 @@ EOF
   export GF_PLUGINS_PREINSTALL_DISABLED="${GF_PLUGINS_PREINSTALL_DISABLED:-true}"
   export GF_PATHS_PLUGINS="$output_dir/grafana-plugins"
   export GF_PATHS_PROVISIONING="$output_dir/provisioning"
-  export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="${GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH:-$output_dir/dashboards/start-here.json}"
+  export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="${GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH:-$output_dir/dashboards/run-overview.json}"
   "$tools_dir/grafana-v12.1.0/bin/grafana" server \
     --homepath="$tools_dir/grafana-v12.1.0" > "$output_dir/grafana.log" 2>&1 &
   pids+=("$!")

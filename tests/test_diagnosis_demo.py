@@ -55,3 +55,15 @@ def test_cli_existing_output_is_actionable_and_preserves_artifacts(tmp_path):
     assert "Traceback" not in result.stderr
     assert sentinel.read_text() == "existing data"
     assert list(output.iterdir()) == [sentinel]
+
+
+def test_synthetic_lifecycle_points_are_explicit_and_do_not_invent_intervals(tmp_path):
+    root = tmp_path / 'lifecycle'
+    generate(root, run_id='practice', clock=lambda: 200)
+    records = [json.loads(line) for path in (root / 'telemetry-events').glob('demo-*.jsonl')
+               for line in path.read_text().splitlines()]
+    names = {'policy.update.completed', 'weight.sync.completed', 'checkpoint.completed', 'kv.cache.evicted'}
+    lifecycle = [r for r in records if r['name'] in names]
+    assert {r['name'] for r in lifecycle} == names
+    assert all(r['record_type'] == 'event' and r['attributes']['data_origin'] == 'synthetic' for r in lifecycle)
+    assert all('start_time_unix_nano' not in r and 'end_time_unix_nano' not in r for r in lifecycle)

@@ -233,8 +233,8 @@ case "$action" in
     exec env TOOLS_DIR="$tools_dir" \
     OUTPUT_DIR="${SERVER_OUTPUT_DIR:-$telemetry_home/state/server}" \
     CLUSTER_NAME="$cluster_name" \
-    GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-extraThemes}" \
-    GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-dark}" \
+    GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-}" \
+    GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-light}" \
     TELEMETRY_TARGETS="${TELEMETRY_TARGETS:-$node_name=$node_addr}" \
     TELEMETRY_SOURCES_FILE="${TELEMETRY_SOURCES_FILE:-}" \
     ENABLE_ALERTS="${ENABLE_ALERTS:-0}" \

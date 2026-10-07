@@ -65,260 +65,26 @@
     {
       "id": 90,
       "type": "text",
-      "title": "Collect → Correlate → Diagnose",
+      "title": "XLayer Telemetry · Run investigation",
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Run:** ${run_id:text} · **Observer:** ${source_node:text} · **Resource node:** ${node:text}<br>수집 상태와 age를 확인한 뒤 아래 완료 step 목록에서 Duration → Bottleneck Summary, Step·Stage → Timeline으로 이동합니다. Step 목록에는 Loki가 필요합니다.</span>"
-      }
-    },
-    {
-      "id": 1,
-      "type": "stat",
-      "title": "Collector health",
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 6,
-        "h": 4
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**${run_id:text}** · Cluster ${cluster:text} · Observer ${source_node:text} · Resource ${node:text}<br>Duration → What changed? / Evidence · Step / Stage → Timeline. 완료 snapshot이며 실행 상태가 아닙니다.</span>"
       },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "min(up{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
-          "instant": true,
-          "legendFormat": "{{nodename}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A",
-                  "color": "gray"
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "Down",
-                  "color": "red"
-                },
-                "1": {
-                  "text": "Up",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "titleSize": 18,
-          "valueSize": 36
-        },
-        "colorMode": "value"
-      },
-      "description": "선택한 모든 collector target이 Up이면 Up, 하나라도 scrape가 실패하면 Down입니다. Target별 상태는 Prometheus Targets 또는 xltel status에서 확인합니다. Up은 application·native source의 completeness나 workload 정상 여부가 아닙니다."
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Application age",
-      "gridPos": {
-        "x": 6,
-        "y": 4,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"})",
-          "instant": true,
-          "legendFormat": "{{nodename}} {{run_id}} {{role}}/{{worker_id}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "N/A",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A",
-                  "color": "gray"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "gray",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 300
-              },
-              {
-                "color": "red",
-                "value": 900
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "titleSize": 18,
-          "valueSize": 36
-        },
-        "colorMode": "value"
-      },
-      "description": "선택한 run/worker 중 가장 오래된 snapshot의 age입니다. 300초부터 Stale 색상, 900초부터 red입니다. 긴 step·종료된 run·clock 차이도 확인하며 stale을 slowdown으로 단정하지 않습니다."
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "GPU sample age",
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 6,
-        "h": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "telemetry-prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
-          "instant": true,
-          "legendFormat": "{{nodename}} {{run_id}} {{role}}/{{worker_id}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "N/A",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A",
-                  "color": "gray"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "gray",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "orange",
-                "value": 30
-              },
-              {
-                "color": "red",
-                "value": 120
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "titleSize": 18,
-          "valueSize": 36
-        },
-        "colorMode": "value"
-      },
-      "description": "선택한 node의 가장 오래된 GPU sample입니다. 30초부터 Stale입니다. CPU-only node 또는 sampler 미설정은 N/A이며 GPU idle과 다릅니다."
+      "transparent": true
     },
     {
       "id": 5,
       "type": "stat",
       "title": "Completed step",
       "gridPos": {
-        "x": 18,
-        "y": 4,
+        "x": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -367,11 +133,191 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
+        },
+        "colorMode": "none"
+      },
+      "description": "선택한 run들이 보고한 마지막 완료 step의 최대값입니다. 현재 실행 중인 phase가 아닙니다. 개별 run은 아래 표에서 선택합니다."
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "Step duration / worker",
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(training_step_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+          "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 18,
+          "valueSize": 40
+        },
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다. 느린 구간을 drag하여 확대한 뒤 Run Overview의 Duration을 누르면 해당 record의 진단을 엽니다.",
+      "links": [
+        {
+          "title": "Select a slow step",
+          "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}",
+          "targetBlank": false
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "SDK throughput / worker",
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(training_tokens_per_second{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+          "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: tokens/s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 18,
+          "valueSize": 40
+        },
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "description": "Application이 보고한 worker별 tokens/s입니다. Training sample max age를 넘으면 숨깁니다. VERL의 per-GPU throughput은 Agent RL 화면에서 확인합니다. 각 worker 값을 별도로 표시하며 합산 throughput이나 per-GPU VERL throughput이 아닙니다."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Application age",
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"})",
+          "instant": true,
+          "legendFormat": "{{nodename}} {{run_id}} {{role}}/{{worker_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A",
+                  "color": "gray"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "gray",
+                "value": null
+              },
+              {
+                "color": "#6b7280",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 900
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "titleSize": 18,
+          "valueSize": 40
         },
         "colorMode": "value"
       },
-      "description": "선택한 run들이 보고한 마지막 완료 step의 최대값입니다. 현재 실행 중인 phase가 아닙니다. 개별 run은 아래 표에서 선택합니다."
+      "description": "선택한 run/worker 중 가장 오래된 snapshot의 age입니다. 300초부터 Stale 색상, 900초부터 red입니다. 긴 step·종료된 run·clock 차이도 확인하며 stale을 slowdown으로 단정하지 않습니다."
     },
     {
       "id": 7,
@@ -379,8 +325,8 @@
       "title": "Training step time",
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 24,
+        "y": 7,
+        "w": 12,
         "h": 7
       },
       "datasource": {
@@ -397,7 +343,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          },
+          "links": [
+            {
+              "title": "Find completed steps in this time range",
+              "url": "/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}&viewPanel=20",
+              "targetBlank": false
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6366f1"
+          }
         },
         "overrides": []
       },
@@ -405,6 +368,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다. 느린 구간을 drag하여 확대한 뒤 Run Overview의 Duration을 누르면 해당 record의 진단을 엽니다.",
@@ -417,14 +385,65 @@
       ]
     },
     {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Training throughput (tokens/s)",
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(training_tokens_per_second{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
+          "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: tokens/s",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3b82f6"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      },
+      "description": "Application이 보고한 worker별 tokens/s입니다. Training sample max age를 넘으면 숨깁니다. VERL의 per-GPU throughput은 Agent RL 화면에서 확인합니다."
+    },
+    {
       "id": 20,
       "type": "table",
       "title": "Completed steps · select to investigate",
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 14,
         "w": 24,
-        "h": 10
+        "h": 9
       },
       "datasource": {
         "type": "loki",
@@ -808,6 +827,66 @@
                 "value": 130
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "step"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Step"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Run"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "node"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Observer"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stage_summary"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Stages"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "boundary_accuracy"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Boundary"
+              }
+            ]
           }
         ]
       },
@@ -833,14 +912,183 @@
       "title": "Next investigation",
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 23,
         "w": 24,
         "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">[Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 느린 phase를 찾고 [완료 step 목록](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 Duration을 누릅니다.<br>GPU matrix·NIC는 [Compute](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}), device·filesystem은 [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 확인합니다. Shared resource는 Run에 자동 귀속하지 않습니다.</span>"
+        "content": "<span style=\"font-size:17px;line-height:1.65\">[Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 느린 phase를 찾고 [완료 step 목록](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 Duration을 누릅니다.<br>GPU matrix·NIC는 [Compute](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}), device·filesystem은 [Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 확인합니다. Shared resource는 Run에 자동 귀속하지 않습니다.</span>"
       }
+    },
+    {
+      "id": 93,
+      "type": "row",
+      "title": "Collection health · observed samples",
+      "description": "Collector health는 workload 상태가 아닙니다. Missing·stale source를 먼저 확인합니다.",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Collector health",
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 12,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "min(up{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+              "instant": true,
+              "legendFormat": "{{nodename}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "gray"
+                    }
+                  }
+                },
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Down",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "Up",
+                      "color": "#6b7280"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "value"
+          },
+          "description": "선택한 모든 collector target이 Up이면 Up, 하나라도 scrape가 실패하면 Down입니다. Target별 상태는 Prometheus Targets 또는 xltel status에서 확인합니다. Up은 application·native source의 completeness나 workload 정상 여부가 아닙니다."
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "GPU sample age",
+          "gridPos": {
+            "x": 12,
+            "y": 28,
+            "w": 12,
+            "h": 4
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})",
+              "instant": true,
+              "legendFormat": "{{nodename}} {{run_id}} {{role}}/{{worker_id}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "noValue": "N/A",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A",
+                      "color": "gray"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "gray",
+                    "value": null
+                  },
+                  {
+                    "color": "#6b7280",
+                    "value": 0
+                  },
+                  {
+                    "color": "orange",
+                    "value": 30
+                  },
+                  {
+                    "color": "red",
+                    "value": 120
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "last"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {
+              "titleSize": 18,
+              "valueSize": 40
+            },
+            "colorMode": "value"
+          },
+          "description": "선택한 node의 가장 오래된 GPU sample입니다. 30초부터 Stale입니다. CPU-only node 또는 sampler 미설정은 N/A이며 GPU idle과 다릅니다."
+        }
+      ]
     },
     {
       "id": 91,
@@ -850,56 +1098,20 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 28,
         "w": 24,
         "h": 1
       },
       "panels": [
         {
-          "id": 6,
-          "type": "timeseries",
-          "title": "Training throughput (tokens/s)",
-          "gridPos": {
-            "x": 0,
-            "y": 30,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "(training_tokens_per_second{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
-              "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "ops",
-              "noValue": "N/A"
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom"
-            }
-          },
-          "description": "Application이 보고한 worker별 tokens/s입니다. Training sample max age를 넘으면 숨깁니다. VERL의 per-GPU throughput은 Agent RL 화면에서 확인합니다."
-        },
-        {
           "id": 8,
           "type": "timeseries",
           "title": "Training loss",
           "gridPos": {
-            "x": 12,
-            "y": 30,
-            "w": 12,
-            "h": 8
+            "x": 0,
+            "y": 29,
+            "w": 24,
+            "h": 7
           },
           "datasource": {
             "type": "prometheus",
@@ -915,7 +1127,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -923,6 +1141,11 @@
             "legend": {
               "displayMode": "table",
               "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "SDK/adapter가 training_loss를 기록할 때만 표시됩니다. VERL file logger bridge는 actor·critic loss를 이 값으로 자동 변환하지 않습니다. Age 기준을 넘은 sample은 숨깁니다."
@@ -937,7 +1160,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 29,
         "w": 24,
         "h": 1
       },
@@ -993,7 +1216,7 @@
             },
             "text": {
               "titleSize": 18,
-              "valueSize": 36
+              "valueSize": 40
             },
             "colorMode": "none"
           },
@@ -1023,7 +1246,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "bytes",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1031,6 +1260,11 @@
             "legend": {
               "displayMode": "table",
               "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node 전체의 사용 중인 swap입니다. 선택한 Run의 사용량으로 자동 귀속하지 않습니다."
@@ -1059,7 +1293,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "ops",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1067,6 +1307,11 @@
             "legend": {
               "displayMode": "table",
               "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           },
           "description": "Node 전체의 swap-in / swap-out pages/s입니다. Memory pressure를 조사할 때 MemAvailable과 함께 비교합니다."
@@ -1105,28 +1350,6 @@
         "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
-        "name": "node",
-        "label": "Resource node",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "telemetry-prometheus"
-        },
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "refresh": 2,
-        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
-      },
-      {
         "name": "run_id",
         "label": "Run",
         "type": "query",
@@ -1149,21 +1372,8 @@
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
-        "name": "training_max_age",
-        "label": "Training sample max age (s)",
-        "type": "custom",
-        "query": "30,60,300,900,3600",
-        "current": {
-          "text": "300",
-          "value": "300"
-        },
-        "multi": false,
-        "includeAll": false,
-        "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
-      },
-      {
         "name": "source_node",
-        "label": "Observer node",
+        "label": "Observer",
         "type": "query",
         "datasource": {
           "type": "prometheus",
@@ -1184,8 +1394,43 @@
         "description": "Application snapshot과 step event를 기록한 collector node입니다. Resource node와 다를 수 있습니다."
       },
       {
+        "name": "node",
+        "label": "Resource",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
+      },
+      {
+        "name": "training_max_age",
+        "label": "Max age (s)",
+        "type": "custom",
+        "query": "30,60,300,900,3600",
+        "current": {
+          "text": "300",
+          "value": "300"
+        },
+        "multi": false,
+        "includeAll": false,
+        "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
+      },
+      {
         "name": "record_id",
-        "label": "Step record ID",
+        "label": "Record",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1197,7 +1442,7 @@
       },
       {
         "name": "trace_id",
-        "label": "Trace ID",
+        "label": "Trace",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1245,7 +1490,7 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
+        "label": "Engine",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1257,7 +1502,7 @@
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1270,7 +1515,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-30m",
     "to": "now"
   },
   "timezone": "browser",

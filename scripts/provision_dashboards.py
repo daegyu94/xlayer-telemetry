@@ -7,22 +7,27 @@ from pathlib import Path
 import re
 import tempfile
 
-from dashboard_views import add_color_links, add_reset_link, add_view_links, build_views, expose_active_filters
+from dashboard_views import (
+    add_event_annotations, add_reset_link, add_view_links, build_run_investigation,
+    build_views, compact_navigation, expose_active_filters,
+)
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples" / "dashboards"
-METRICS = {"start-here", "run-overview", "compute-communication", "data-storage", "agent-rl-stages", "workspace-overview", "workspace-focus"}
-RETIRED = {"step-explorer.json", "step-detail.json"}
+METRICS = {"start-here", "run-overview", "compute-communication", "data-storage", "agent-rl-stages", "workspace-overview"}
+RETIRED = {"step-explorer.json", "step-detail.json", "workspace-focus.json"}
 
 
 def provision(output, enable_logs=False):
     dashboards = {path: json.loads(path.read_text()) for path in SOURCE.glob("*.json")}
+    build_run_investigation(dashboards)
     dashboards.update({SOURCE / name: view for name, view in build_views(dashboards).items()})
     for dashboard in dashboards.values():
-        expose_active_filters(dashboard)
         add_view_links(dashboard)
         add_reset_link(dashboard)
-        add_color_links(dashboard)
+        compact_navigation(dashboard)
+        if enable_logs:
+            add_event_annotations(dashboard)
     enabled = {path: value for path, value in dashboards.items()
                if enable_logs or path.stem in METRICS}
     unavailable = {value["uid"] for path, value in dashboards.items() if path not in enabled}
@@ -59,6 +64,10 @@ def provision(output, enable_logs=False):
         dashboard["links"] = [link for link in dashboard.get("links", [])
                               if not disabled(link.get("url", ""))]
         for panel in panels(dashboard["panels"]):
+            if not enable_logs:
+                defaults = panel.get("fieldConfig", {}).get("defaults", {})
+                defaults["links"] = [link for link in defaults.get("links", [])
+                                     if "viewPanel=20" not in link.get("url", "")]
             panel["links"] = [link for link in panel.get("links", [])
                               if not disabled(link.get("url", ""))]
             if panel["type"] == "text":
@@ -74,6 +83,7 @@ def provision(output, enable_logs=False):
                 for prop in override["properties"]:
                     if prop["id"] == "links":
                         prop["value"] = [link for link in prop["value"] if not disabled(link.get("url", ""))]
+        expose_active_filters(dashboard)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=output,
                                          prefix=".dashboard-", suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)

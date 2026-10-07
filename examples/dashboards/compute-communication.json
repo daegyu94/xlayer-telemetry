@@ -47,7 +47,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 3
       },
       "datasource": {
         "type": "prometheus",
@@ -106,7 +106,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -131,7 +131,13 @@
               "url": "/d/xlayer-compute-communication?var-cluster=${__field.labels.cluster}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&var-node=${__field.labels.nodename}&var-gpu=${__field.labels.gpu}&${log_run_id:queryparam}",
               "targetBlank": false
             }
-          ]
+          ],
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -139,6 +145,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Device별 GPU utilization입니다. Worker allocation과 함께 보며 특정 Run의 사용량으로 자동 귀속하지 않습니다."
@@ -151,7 +162,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 9
       },
       "datasource": {
         "type": "prometheus",
@@ -167,7 +178,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -175,6 +192,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Device별 GPU power입니다. Utilization·temperature·SM clock과 같은 시간 구간에서 비교합니다."
@@ -187,7 +209,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 34
+        "y": 33
       },
       "datasource": {
         "type": "prometheus",
@@ -203,7 +225,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "celsius",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -211,6 +239,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Device별 GPU temperature입니다. 온도만으로 throttling을 단정하지 않고 power·SM clock 변화를 함께 확인합니다."
@@ -223,7 +256,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 34
+        "y": 33
       },
       "datasource": {
         "type": "prometheus",
@@ -239,7 +272,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "mhz",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -247,6 +286,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Device별 GPU SM clock입니다. Clock 감소가 있으면 부하·temperature·power 상태와 함께 조사합니다."
@@ -260,7 +304,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 17
       },
       "datasource": {
         "type": "prometheus",
@@ -286,7 +330,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -294,6 +344,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       }
     },
@@ -305,7 +360,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 17
       },
       "datasource": {
         "type": "prometheus",
@@ -321,7 +376,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -329,6 +390,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Application이 기록한 worker-local timer입니다. Training sample max age를 넘으면 숨기므로 긴 step에서는 기준을 조정합니다. Worker 간 합산값이 아닙니다."
@@ -341,7 +407,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 25
       },
       "datasource": {
         "type": "prometheus",
@@ -362,7 +428,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "Bps",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -370,6 +442,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "Node/interface의 TCP/Ethernet bytes/s입니다. Endpoint pair나 weight-sync·storage traffic을 자동 구분하지 않습니다."
@@ -382,7 +459,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 25
       },
       "datasource": {
         "type": "prometheus",
@@ -403,7 +480,13 @@
       "fieldConfig": {
         "defaults": {
           "unit": "Bps",
-          "noValue": "N/A"
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
         },
         "overrides": []
       },
@@ -411,6 +494,11 @@
         "legend": {
           "displayMode": "table",
           "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
         }
       },
       "description": "InfiniBand/RoCE port counter의 bytes/s입니다. 지원 NIC·counter가 필요하며 개별 NCCL·3FS 요청의 traffic은 아닙니다."
@@ -423,11 +511,11 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 41
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Allocation과 communication을 함께 읽기**</span>\n\n- <span style=\"font-size:16px;line-height:1.65\">GPU utilization은 device 전체입니다. Allocation은 선택한 age 범위의 명시적 CUDA_VISIBLE_DEVICES snapshot입니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">GPU index와 UUID는 다릅니다. Snapshot이 없거나 오래됐다는 이유로 GPU가 비어 있다고 판단하지 않습니다.</span>\n- <span style=\"font-size:16px;line-height:1.65\">TCP/RDMA는 port counter입니다. 제공된 topology만으로 endpoint 간 bandwidth·latency를 측정하지는 않습니다.</span>"
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Allocation과 communication을 함께 읽기**</span>\n\n- <span style=\"font-size:17px;line-height:1.65\">GPU utilization은 device 전체입니다. Allocation은 선택한 age 범위의 명시적 CUDA_VISIBLE_DEVICES snapshot입니다.</span>\n- <span style=\"font-size:17px;line-height:1.65\">GPU index와 UUID는 다릅니다. Snapshot이 없거나 오래됐다는 이유로 GPU가 비어 있다고 판단하지 않습니다.</span>\n- <span style=\"font-size:17px;line-height:1.65\">TCP/RDMA는 port counter입니다. 제공된 topology만으로 endpoint 간 bandwidth·latency를 측정하지는 않습니다.</span>"
       }
     },
     {
@@ -439,7 +527,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 51
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -500,7 +588,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 51
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -541,15 +629,16 @@
       "type": "text",
       "title": "Compute & communication scope",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 18,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Compute / Network detail:** GPU matrix와 Resource node·GPU 필터로 범위를 좁혀 같은 시간의 device·NIC를 봅니다.<br>Run은 application timer·allocation에만 적용합니다. Shared GPU·port counter는 특정 Run의 사용량이 아닙니다.</span>"
-      }
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Compute / Network detail:** GPU matrix와 Resource node·GPU 필터로 범위를 좁혀 같은 시간의 device·NIC를 봅니다.<br>Run은 application timer·allocation에만 적용합니다. Shared GPU·port counter는 특정 Run의 사용량이 아닙니다.</span>"
+      },
+      "transparent": true
     },
     {
       "id": 93,
@@ -559,7 +648,7 @@
         "x": 18,
         "y": 0,
         "w": 6,
-        "h": 4
+        "h": 3
       },
       "datasource": {
         "type": "prometheus",
@@ -600,7 +689,7 @@
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#6b7280",
                 "value": 0
               },
               {
@@ -626,7 +715,7 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
         },
         "colorMode": "value"
       },
@@ -640,7 +729,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 58,
         "w": 24,
         "h": 1
       },
@@ -652,7 +741,7 @@
           "description": "Node 전체 CPU 비율입니다. Busy에는 I/O wait·steal이 포함되므로 세 값을 더하지 않습니다. I/O wait만으로 disk 병목을 확정하지 않습니다. Run별 수치가 아닙니다.",
           "gridPos": {
             "x": 0,
-            "y": 60,
+            "y": 59,
             "w": 12,
             "h": 8
           },
@@ -680,7 +769,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -694,7 +789,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -705,7 +802,7 @@
           "description": "Linux PSI 누적 stalled seconds의 rate입니다. Some은 적어도 한 task가 자원을 기다린 wall-time 비율이며 CPU·memory·I/O를 합산하지 않습니다. PSI kernel/collector 미지원은 N/A입니다.",
           "gridPos": {
             "x": 12,
-            "y": 60,
+            "y": 59,
             "w": 12,
             "h": 8
           },
@@ -733,7 +830,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -747,7 +850,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -758,7 +863,7 @@
           "description": "Linux PSI full은 모든 non-idle task가 memory 또는 I/O로 막힌 시간 비율입니다. Run별 stall이 아니며 kernel·pressure collector가 필요합니다.",
           "gridPos": {
             "x": 0,
-            "y": 68,
+            "y": 67,
             "w": 12,
             "h": 8
           },
@@ -781,7 +886,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -795,7 +906,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -806,7 +919,7 @@
           "description": "Node 전체 major page fault와 kernel OOM kill 발생률입니다. Major fault는 disk-backed page fault이며 모든 fault가 swap 때문은 아닙니다. vmstat가 제공하지 않으면 N/A입니다.",
           "gridPos": {
             "x": 12,
-            "y": 68,
+            "y": 67,
             "w": 12,
             "h": 8
           },
@@ -829,7 +942,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "ops",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -843,7 +962,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -854,7 +975,7 @@
           "description": "Node 전체 runnable·uninterruptible blocked process snapshot입니다. CPU core 수와 PSI를 함께 보며 load average나 특정 Run queue와 동일시하지 않습니다.",
           "gridPos": {
             "x": 0,
-            "y": 76,
+            "y": 75,
             "w": 12,
             "h": 8
           },
@@ -877,7 +998,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -891,7 +1018,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -902,7 +1031,7 @@
           "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다.",
           "gridPos": {
             "x": 12,
-            "y": 76,
+            "y": 75,
             "w": 12,
             "h": 8
           },
@@ -920,7 +1049,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -934,7 +1069,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         }
@@ -948,7 +1085,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 60,
+        "y": 59,
         "w": 24,
         "h": 1
       },
@@ -960,7 +1097,7 @@
           "description": "NIC/interface 누적 packet error·drop 발생률입니다. Endpoint pair나 특정 weight sync·3FS traffic의 실패율은 아닙니다.",
           "gridPos": {
             "x": 0,
-            "y": 61,
+            "y": 60,
             "w": 12,
             "h": 8
           },
@@ -993,7 +1130,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "pps",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1007,7 +1150,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1018,7 +1163,7 @@
           "description": "Node TCP retransmitted segments/s입니다. RDMA 재전송 지표가 아니며 retransmits만으로 원격 장애 원인을 확정하지 않습니다.",
           "gridPos": {
             "x": 12,
-            "y": 61,
+            "y": 60,
             "w": 12,
             "h": 8
           },
@@ -1036,7 +1181,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "pps",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1050,7 +1201,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1061,7 +1214,7 @@
           "description": "InfiniBand/RoCE port의 packet errors·discard rate입니다. NIC·driver가 제공하는 counter만 표시합니다. Run 또는 NCCL collective별 오류량은 아닙니다.",
           "gridPos": {
             "x": 0,
-            "y": 69,
+            "y": 68,
             "w": 12,
             "h": 8
           },
@@ -1089,7 +1242,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "pps",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1103,7 +1262,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1114,7 +1275,7 @@
           "description": "송신할 data가 있지만 보내지 못한 hardware ticks/s입니다. Tick 시간은 장치별로 달라 seconds나 stall 비율로 변환하지 않습니다. Counter 미지원은 N/A입니다.",
           "gridPos": {
             "x": 12,
-            "y": 69,
+            "y": 68,
             "w": 12,
             "h": 8
           },
@@ -1132,7 +1293,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "suffix:ticks/s",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1146,7 +1313,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1157,7 +1326,7 @@
           "description": "Port link recovery와 link-down counter 발생률입니다. Receiver·switch·fabric 상태 및 NIC log와 함께 확인합니다.",
           "gridPos": {
             "x": 0,
-            "y": 77,
+            "y": 76,
             "w": 12,
             "h": 8
           },
@@ -1180,7 +1349,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "ops",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1194,7 +1369,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1205,7 +1382,7 @@
           "description": "지원 InfiniBand/RoCE port의 symbol·local-link-integrity error 발생률입니다. Physical link 문제를 조사할 때 discards·link recovery와 비교합니다. ECN·QP retry counter는 bundled Node Exporter 1.9.1에서 제공하지 않습니다.",
           "gridPos": {
             "x": 12,
-            "y": 77,
+            "y": 76,
             "w": 12,
             "h": 8
           },
@@ -1228,7 +1405,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "ops",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1242,7 +1425,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         }
@@ -1256,7 +1441,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 61,
+        "y": 60,
         "w": 24,
         "h": 1
       },
@@ -1268,7 +1453,7 @@
           "description": "기존 DCGM exporter의 device utilization·tensor pipe·DRAM activity입니다. Tensor/DRAM은 profiling 지원 GPU와 field 설정이 필요합니다. Sentinel·범위 밖 값은 제외하며 sampler와 합산하지 않습니다.",
           "gridPos": {
             "x": 0,
-            "y": 62,
+            "y": 61,
             "w": 12,
             "h": 8
           },
@@ -1296,7 +1481,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1310,7 +1501,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1321,7 +1514,7 @@
           "description": "DCGM profiling PCIe RX/TX는 이미 bytes/s인 gauge입니다. rate를 다시 적용하지 않습니다. GPU/PCIe traffic이며 KV offload·weight transfer 소유량은 별도 근거가 필요합니다.",
           "gridPos": {
             "x": 12,
-            "y": 62,
+            "y": 61,
             "w": 12,
             "h": 8
           },
@@ -1344,7 +1537,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "Bps",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1358,7 +1557,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1369,7 +1570,7 @@
           "description": "마지막으로 보고한 XID error code gauge입니다. 0은 보고된 no-error 값, N/A는 미수집/미지원입니다. 발생 횟수·error rate가 아니며 새 오류 시점은 GPU log에서 확인합니다.",
           "gridPos": {
             "x": 0,
-            "y": 70,
+            "y": 69,
             "w": 12,
             "h": 8
           },
@@ -1387,7 +1588,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1401,7 +1608,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1412,7 +1621,7 @@
           "description": "PCIe replay counter 증가율입니다. 유효하지 않은 sentinel가 rate window에 포함되면 제외합니다. GPU/NVLink/NCCL 오류 전체를 대표하지 않습니다.",
           "gridPos": {
             "x": 12,
-            "y": 70,
+            "y": 69,
             "w": 12,
             "h": 8
           },
@@ -1430,7 +1639,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "ops",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1444,7 +1659,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1455,7 +1672,7 @@
           "description": "Device framebuffer used/free MiB를 bytes로 변환합니다. CUDA process memory와 같지 않으며 GPU sampler device total과 중복 합산하지 않습니다.",
           "gridPos": {
             "x": 0,
-            "y": 78,
+            "y": 77,
             "w": 12,
             "h": 8
           },
@@ -1478,7 +1695,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "bytes",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1492,7 +1715,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1503,7 +1728,7 @@
           "description": "선택적 DCGM violation field가 제공하는 누적 nanoseconds를 초당 비율로 변환합니다. Exporter field를 별도 활성화해야 할 수 있으며 원인별 값을 합산하지 않습니다.",
           "gridPos": {
             "x": 12,
-            "y": 78,
+            "y": 77,
             "w": 12,
             "h": 8
           },
@@ -1526,7 +1751,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "percentunit",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1540,7 +1771,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         },
@@ -1551,7 +1784,7 @@
           "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다.",
           "gridPos": {
             "x": 0,
-            "y": 86,
+            "y": 85,
             "w": 12,
             "h": 8
           },
@@ -1569,7 +1802,13 @@
           "fieldConfig": {
             "defaults": {
               "unit": "short",
-              "noValue": "N/A"
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
             },
             "overrides": []
           },
@@ -1583,7 +1822,9 @@
               ]
             },
             "tooltip": {
-              "mode": "multi"
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
             }
           }
         }
@@ -1594,7 +1835,8 @@
   "schemaVersion": 41,
   "tags": [
     "compute",
-    "telemetry"
+    "telemetry",
+    "xlayer-subsystem"
   ],
   "templating": {
     "list": [
@@ -1621,29 +1863,6 @@
         "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
-        "name": "node",
-        "label": "Resource node",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "telemetry-prometheus"
-        },
-        "definition": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
-        "query": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "refresh": 2,
-        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다.",
-        "regex": "/node=\"([^\"]+)\"/"
-      },
-      {
         "name": "run_id",
         "label": "Run",
         "type": "query",
@@ -1666,8 +1885,43 @@
         "description": "Application/step의 Run입니다. Host·GPU·native shared-service metric을 Run별로 나누지는 않습니다."
       },
       {
+        "name": "source_node",
+        "label": "Observer",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
+        "name": "node",
+        "label": "Resource",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "definition": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
+        "query": "query_result(count by (node) (label_replace(up{job=\"telemetry\",cluster=~\"$cluster\"}, \"node\", \"$1\", \"nodename\", \"(.+)\") or up{job=\"native\",cluster=~\"$cluster\",node!=\"\"}))",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다.",
+        "regex": "/node=\"([^\"]+)\"/"
+      },
+      {
         "name": "training_max_age",
-        "label": "Training sample max age (s)",
+        "label": "Max age (s)",
         "type": "custom",
         "query": "30,60,300,900,3600",
         "current": {
@@ -1679,20 +1933,8 @@
         "description": "Application snapshot을 표시할 최대 age(초)입니다. 긴 step에서 숨겨진 값을 볼 때 조정합니다."
       },
       {
-        "name": "source_node",
-        "label": "Observer node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
-        },
-        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
-        "hide": 2
-      },
-      {
         "name": "record_id",
-        "label": "Step record ID",
+        "label": "Record",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1704,7 +1946,7 @@
       },
       {
         "name": "trace_id",
-        "label": "Trace ID",
+        "label": "Trace",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1763,7 +2005,7 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
+        "label": "Engine",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -1775,7 +2017,7 @@
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "textbox",
         "query": ".*",
         "current": {

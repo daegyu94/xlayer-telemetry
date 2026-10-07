@@ -1,89 +1,60 @@
 # Grafana Investigation UX Review
 
-2026-10-02의 설계·변경 기록입니다.
-현재 dashboard 구성과 사용 순서는 [Dashboard Guide](dashboards.md)가 기준이며, 아래 제안·panel 수·남은 범위는 당시 상태를 나타냅니다.
+2026-10-07 기준 최신 `main` (`7b89986`)에서 격리된 Grafana 12.1.0·Prometheus 3.5.0·Loki·Alloy와 synthetic fixture를 실행해 검토했습니다. 현재 사용법은 [Dashboard Guide](dashboards.md)가 기준이며, 아래 검증은 실제 Agent RL 성능·GPU·3FS cluster의 검증과 구분합니다.
 
-## Scope and decision
+## References and design decisions
 
-2026-10-02 기준 dashboard JSON, provisioning, Loki projection, links와 regression test를 검토했습니다.
-기존 8개 dashboard와 UID를 유지하고, 선택한 step의 비교와 evidence를 찾는 경로를 개선합니다.
-Metric producer·label·backend는 변경하지 않습니다.
-Baseline table을 기본 노출하므로 Summary 진입 시 기존 comparison query 한 개가 추가로 실행됩니다.
-선택한 run·record·time 범위와 기존 5,000행 limit은 유지합니다.
+Datadog의 공식 문서와 공개 Dashboard·APM·Infrastructure·Service Map 화면을 직접 비교했습니다. 로그인한 Datadog 계정을 조작하지는 않았으며 제품 기능·metric·인과 모델을 XLayer의 데이터 계약으로 가져오지 않았습니다.
 
-![Run과 step context를 유지하는 Grafana investigation navigation](figures/diagrams/investigation-flow.svg)
-
-## Current dashboard audit
-
-| Dashboard / primary question | Current panels and strengths | Gap / proposed improvement | Priority |
-| --- | --- | --- | --- |
-| Start Here / 수집되고 있는가? | Availability, sample age, observed runs. Missing을 healthy로 만들지 않음 | 다음 행동 안내와 context 유지. 실제 browser에서 강조와 링크가 정상 렌더링됨 | 유지 |
-| Run Overview / 어떤 step이 느린가? | Duration trend, 완료 step 표, 단일 클릭 drill-down | Trend 높이를 줄여 step 목록을 먼저 발견하도록 조정 | P1 |
-| Agent RL Stage Correlation / 어느 stage인가? | Stage·vLLM·sandbox, 별도 sandbox node selector | 기존 optional row와 engine 선택 유지. 추가 panel 불필요 | 유지 |
-| Bottleneck Summary / 무엇을 비교하고 왜 의심하는가? | Symptom, candidates, supporting/counter/missing, baseline | Baseline이 마지막 접힌 row에 숨음. Current/Baseline/Delta를 기본 화면으로 이동 | P0 |
-| Cross-Layer Timeline / 같은 구간에 무엇이 변했는가? | Selected step, exact spans, approximate step, sampled resources, clock quality | 기존 boundary와 completion annotation 유지. 새 정밀 phase trace를 만들지 않음 | 유지 |
-| Compute & Communication / GPU와 통신 중 어디인가? | GPU matrix, utilization, power, memory, TCP/RDMA, allocation | Temperature/clock보다 memory와 communication을 먼저 배치 | P1 |
-| Data & Storage / 어느 storage scope인가? | Local block device, filesystem, topology, optional SMART | Local device와 filesystem의 차이를 유지. 3FS service는 기존 diagnosis evidence에서 조사 | 유지 |
-| Run Logs / 해당 구간에 어떤 기록이 있는가? | 실제 Loki schema에 맞는 workload/log-directory filter | Telemetry run과 log-directory 구분 유지. 존재하지 않는 level/stage/pattern 필터를 추가하지 않음 | 유지 |
-
-Dashboard 간 context는 이미 explicit data link로 전달됩니다.
-특히 observer node와 resource node를 분리하고, completed-step 행의 cluster·record·window를 사용하는 구조는 유지할 가치가 있습니다.
-반면 baseline으로 이동하면서 current trace filter까지 전달하면 이전 step의 다른 trace가 숨겨질 수 있으므로 baseline link에서만 trace 선택을 초기화합니다.
-
-## References and selected patterns
-
-아래 공식 문서의 interaction을 조사했습니다.
-Grafana Cloud의 전용 backend나 최신 preview 기능은 현재 Grafana 12.1.0 deployment에 추가하지 않습니다.
-
-| Reference | Apply to XLayer | Not adopted |
+| Reference | Adopted in XLayer | Not adopted |
 | --- | --- | --- |
-| [Application Observability Service Overview](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/application-observability/manual/service/) | 같은 context에서 summary → related detail, 시간 비교를 기본 조사 경로로 배치 | Cloud service model이나 RED metric을 training metric으로 대체하지 않음 |
-| [Metrics Drilldown](https://grafana.com/docs/grafana/latest/visualizations/simplified-exploration/metrics/drill-down-metrics/) | Summary에서 signal별 detail과 native Explore로 이동 | 별도 queryless app dependency |
-| [Logs patterns](https://grafana.com/docs/grafana/latest/visualizations/simplified-exploration/logs/patterns/) / [Traces filtering](https://grafana.com/docs/grafana/latest/visualizations/simplified-exploration/traces/investigate/add-filters/) | 실제 제공되는 field만 filtering. Supporting/counter/missing을 표에서 구분 | Pattern ingester나 Tempo가 없는 상태에서 pattern/trace UI를 가장하지 않음 |
-| [Kubernetes navigation](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/kubernetes-monitoring/navigate-k8s-monitoring/) | Run → step → resource로 scope를 좁히되 observer와 resource를 보존 | Kubernetes dependency, 고정 node topology |
-| [Profiles views](https://grafana.com/docs/grafana/latest/visualizations/simplified-exploration/profiles/choose-a-view/) | Current와 baseline을 나란히 비교하고 각각의 interval로 이동 | Profile 없이 flame graph/diff 생성 |
-| [Scenes App](https://grafana.com/developers/scenes/scene-app) / [URL sync](https://grafana.com/developers/scenes/url-sync) | Tabs·breadcrumb·URL state 관리의 설계 참고 | 이번에는 App Plugin/TypeScript build와 배포 추가 없음 |
-| [Canvas](https://grafana.com/docs/grafana/latest/visualizations/panels-visualizations/visualizations/canvas/) | 실제 component/edge evidence와 연결되는 경우 향후 검토 | Static 장식 topology, 검증되지 않은 traffic attribution |
+| [Datadog Dashboards](https://docs.datadoghq.com/getting_started/dashboards/) | 질문 중심의 section, KPI → timeline → 정렬된 step 목록, Top-N과 context link | 모든 정보를 첫 화면에 넣는 과밀 grid, KPI를 정상 판정으로 치환 |
+| [APM Service Page](https://docs.datadoghq.com/tracing/services/service_page/) | Light background·white card·얇은 border, 큰 값과 작은 label, summary에서 evidence·resource로 이동 | HTTP RED·SLO·service health를 학습 Run 상태처럼 표시 |
+| [Infrastructure Host List](https://docs.datadoghq.com/infrastructure/list/) | 필요한 열만 먼저 표시하는 표와 entity를 유지한 detail, 기존 GPU matrix·allocation을 활용 | 근거 없는 worker/engine/GPU join이나 낮은 GPU utilization을 자동 anomaly로 표시 |
+| [Service Map](https://docs.datadoghq.com/tracing/services/services_map/) | 같은 context에서 관련 subsystem으로 pivot | 설정 topology를 관측된 traffic·dependency로 표시, Trainer → vLLM → 3FS를 확정적으로 연결 |
+| [Agent Monitoring](https://docs.datadoghq.com/llm_observability/guide/agent_monitoring/) | 실제 tool·sandbox span과 lifecycle event를 metric 시간축에서 조사 | 존재하지 않는 trace·cost·policy event, 완료 stage duration으로 phase 순서를 합성 |
+| [Grafana Application Observability](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-applications/application-observability/manual/inventory/) | inventory·summary·detail의 역할 분리, 같은 시간과 resource context 유지 | Cloud 전용 backend·knowledge graph·preview 기능 |
 
-## Implementation proposal
+Light는 안정된 native theme를 사용합니다. Canvas·Node Graph는 사용 가능한 기능이지만 현재 telemetry에는 Agent RL execution edge·traffic attribution과 phase별 자원 window가 충분하지 않아 이번 변경에 추가하지 않았습니다. 새 frontend·plugin·font dependency도 도입하지 않았습니다.
 
-1. **P0:** Baseline comparison을 기본 화면에 노출하고 Signal → Current/Baseline 시간 구간 이동을 유지합니다.
-   Baseline pivot은 current trace filter를 초기화하고 나머지 workload/resource context를 보존합니다.
-2. **P1:** Run Overview의 trend를 줄여 완료 step 선택까지의 scroll을 줄입니다.
-   Compute에서는 utilization → memory/worker → communication → temperature/clock 순으로 조사합니다.
-3. **유지:** Text panel은 실제 Grafana에서 강조와 링크가 정상 렌더링되어 변경하지 않습니다.
-   Font 크기·native Grafana UI·Korean 설명을 유지합니다.
-4. **P2 / deferred:** Dynamic tabs, conditional layouts, topology Canvas는 실제 탐색 문제가 남을 때 재검토합니다.
-   현재 data link와 native table로 해결할 수 있어 Scenes prototype은 추가하지 않습니다.
+## Problems in the previous UI
 
-## Remaining scope
+Run 첫 화면의 주요 card는 collector health와 age였고, step 선택은 View·Color·navigation과 큰 설명 아래로 밀렸습니다. Guided·Overview·Focus의 역할이 겹쳤으며 Workspace의 3열 graph와 다중 단위 vLLM panel은 legend·축을 읽기 어려웠습니다.
 
-Device·Mount·SSD와 Stage의 worker/role은 해당 detail 화면의 filter이며 모든 화면에 전달하지 않습니다.
-좁은 화면의 evidence table은 내부 가로 scroll과 panel View가 필요합니다.
-Log pattern grouping, duration heatmap, profile diff는 현재 signal schema와 backend가 제공할 때만 추가할 수 있습니다.
+Timeline과 evidence 표에는 새 내부 metadata가 그대로 노출될 수 있었고, 긴 selector와 반복 link가 특히 좁은 화면의 많은 공간을 차지했습니다. Normal age가 초록색으로 강조되는 반면 candidate·missing evidence의 우선순위는 약했습니다.
 
-## Correctness and validation contract
+## Implemented changes
 
-Comparison은 동일 단위 signal끼리 읽으며 delta는 causal proof가 아닙니다.
-Missing source·미검증 workload comparability·sample quality를 숨기거나 confidence 점수로 치환하지 않습니다.
-정확한 span, approximate step boundary, sampled resource를 계속 구분합니다.
+기본 Home을 **Run Overview**, 기본 배색을 **Light**로 바꿨습니다. Run·cluster·observer/resource context, 완료 snapshot KPI, engine/device scope를 표시한 TTFT·KV·GPU card, 실제 exact/calibrated span timeline과 느린 순서의 완료 step 목록을 배치합니다. GPU card는 가장 높은 fresh device 한 개의 identity를 보존하며 shared value를 Run 사용량으로 표시하지 않습니다.
 
-변경 전후 synthetic fixture를 실제 Grafana/Prometheus/Loki에서 실행해 provisioning·query·row click·context round trip을 확인합니다.
-Loki 없는 provisioning, UID·grid·link regression은 기존 test로 검증하며 실제 browser에서 좁은 viewport와 no-data 상태도 확인합니다.
-실제 Agent RL 성능이나 물리 multi-node 정확성을 이 UI 검증으로 주장하지 않습니다.
+기존 Overview UID는 **Cross-Layer Signals**가 유지하고 Focus는 펼침 section으로 통합했습니다. Workload/serving과 shared resource를 2열로 분리하고 queue·KV를 서로 다른 graph로 읽으며 local I/O Top 8은 기존 rate window와 node/device label을 유지합니다. 상세 dashboard는 native **Subsystems** 메뉴로 묶었습니다.
 
-## Before and after
+Bottleneck Summary는 **What changed?**와 candidate의 설명·missing evidence를 우선합니다. **Review supporting / counter / missing evidence**는 native 전체 화면 panel로 이동하고, Current/Baseline interval과 Timeline·resource 링크는 record·scope·시간을 유지합니다. Unknown unit은 `Unknown`으로 표시하며 원본 metadata·query·sample quality는 Inspect에 남깁니다.
 
-동일한 synthetic fixture를 변경 전후에 각각 수집한 화면입니다.
-시간값은 각 실행 시각이며 실제 학습 성능 결과가 아닙니다.
+Metric 위에는 EventRecorder가 기록한 event와 span 시작점만 overlay합니다. Unknown timestamp는 제외하고 calibrated uncertainty를 표시하며, span end는 실제 timeline 경계에서 읽습니다. Policy/KV section은 weight-sync duration·policy lag·prefix hit·offload를 같은 시간으로 비교하되 policy version이나 cache reset을 추론하지 않습니다.
 
-Before: baseline은 접힌 영역에 있어 candidate와 evidence만 바로 보였습니다.
+흰 card와 native light-gray border, neutral 정상값, indigo·blue graph, stale·candidate의 amber·red를 사용합니다. 설명은 17px, 주요 KPI는 최대 40px로 조정했고 표의 열 제목·행 간격·metadata 노출·tooltip을 정리했습니다. Font family는 native Grafana UI를 유지합니다.
 
-![Before: comparison이 접힌 Bottleneck Summary](figures/grafana-comparison-before.png)
+## Browser validation
 
-After: symptom 다음에 Current·Baseline·Change와 scope/comparability가 표시됩니다.
-Signal 메뉴에서 두 구간을 따로 열 수 있고, evidence와 상세 resource 화면은 기존 링크를 사용합니다.
+변경 전 fresh 환경에서 Run → 완료 step → Summary → evidence → Timeline → storage 클릭 흐름을 확인했습니다. 이후 세 번의 개선 loop에서 배치·navigation·Light 대비·내부 metadata를 수정하고 실제 browser로 다시 확인했습니다.
 
-![After: 기본 화면에 노출된 current/baseline 비교](figures/grafana-comparison-after.png)
+1. **Loop 1:** 수집 중심 card를 workload KPI로 바꾸고 View·Color 중복을 제거했습니다. 실제 native menu와 provisioning 반영을 확인하고 Timeline 표의 내부 metadata를 숨겼습니다.
+2. **Loop 2:** Light로 전환해 1440px·900px에서 조사 흐름과 context 왕복을 확인했습니다. Unit·normal-value 대비를 조정하고 사용자가 다음에 선택할 link를 정리했습니다.
+3. **Loop 3:** Run에 shared KPI와 실제 span timeline을 통합하고 What changed·evidence 전체 화면·Policy/KV section을 확인했습니다. Step 목록이 아래로 밀린 문제를 고쳐 timeline 바로 뒤에 배치했습니다.
 
-[검증 기록](validation/dashboards/ux-20261002.json)은 backend query, browser journey, Loki 미설정 상태와 viewport 검증 범위를 구분합니다.
+최종 결과와 검증 한계는 [검증 기록](validation/dashboards/product-ux-20261007.json)에 있습니다. Loki 없는 fresh Grafana와 missing Run/engine/device도 별도로 확인하며, No data를 0이나 정상으로 표시하지 않습니다.
+
+![Light Run Overview: scope를 표시한 KPI와 실제 span timeline](figures/grafana-run-light.png)
+
+![What changed와 candidate 설명을 중심으로 읽는 Light 조사 화면](figures/grafana-evidence-light.png)
+
+![Workload·serving·shared resource를 구분하는 Cross-Layer Signals](figures/grafana-signals-light.png)
+
+## Remaining candidates
+
+**Phase × Subsystem Matrix**는 실제 phase span과 clock uncertainty를 고려한 resource window·entity join이 준비되면 가장 먼저 검토합니다. 현재 완료 stage duration을 phase 구간으로 바꿔 GPU·storage 값을 채우지 않습니다.
+
+**System Map**에는 observed/instrumented·configured·contextual relationship의 provenance가 필요합니다. 설정으로 선언한 GPU/storage topology와 시간 correlation을 실제 traffic edge나 causality로 표시하지 않으며, 기존 topology·allocation evidence에서 조사합니다.
+
+**Policy/KV lifecycle**은 actual policy version과 KV reset/version event가 제공될 때 확장할 수 있습니다. **Evidence drawer**와 좁은 화면의 compact filter는 native fullscreen/Inspect를 넘어서는 필요가 확인되면 검토하며, 현재는 plugin·custom CSS를 추가하지 않습니다.

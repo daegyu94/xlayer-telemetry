@@ -84,6 +84,20 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
                     trace_id=tool.trace_id, span_id=tool.span_id,
                     attributes={"observation_scope": "cgroup", "io_pressure_ratio": .43,
                                 "data_origin": "synthetic"})
+    # Recorded point events demonstrate overlays, not inferred phase durations.
+    lifecycle_times = iter((11, 12, 13))
+    lifecycle = EventRecorder(output / "telemetry-events",
+        CorrelationContext(run_id=run_id, producer="demo", role="trainer", worker_id="driver", node=node),
+        clock_ns=lambda: int((start + next(lifecycle_times)) * 1e9))
+    for name, phase in (("policy.update.completed", "policy_update"),
+                        ("weight.sync.completed", "weight_sync"),
+                        ("checkpoint.completed", "checkpoint")):
+        lifecycle.event(name, phase=phase, step=127,
+                        attributes={"data_origin": "synthetic", "observation_scope": "application"})
+    kv = EventRecorder(output / "telemetry-events", recorder.context,
+                      clock_ns=lambda: int((start + 14) * 1e9))
+    kv.event("kv.cache.evicted", phase="rollout", step=127,
+             attributes={"data_origin": "synthetic", "observation_scope": "synthetic_engine"})
     logs = output / "logs"
     logs.mkdir()
     (logs / "agent.log").write_text(

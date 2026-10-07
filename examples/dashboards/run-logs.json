@@ -47,7 +47,7 @@
         "h": 20,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 3
       },
       "id": 1,
       "options": {
@@ -76,15 +76,16 @@
       "type": "text",
       "title": "Log source & context",
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Log detail:** Cluster · Node · Workload · Log directory로 필터합니다. Run context는 조사 중인 application을 유지합니다.<br>Log directory와 telemetry run_id는 다를 수 있습니다. 빈 panel은 정상 판정이 아니며 Loki·Alloy·log 경로를 확인합니다.</span>"
-      }
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Log detail:** Cluster · Node · Workload · Log directory로 필터합니다. Run context는 조사 중인 application을 유지합니다.<br>Log directory와 telemetry run_id는 다를 수 있습니다. 빈 panel은 정상 판정이 아니며 Loki·Alloy·log 경로를 확인합니다.</span>"
+      },
+      "transparent": true
     }
   ],
   "refresh": "5s",
@@ -116,6 +117,29 @@
         "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Log directory",
+        "name": "run_id",
+        "query": ".*",
+        "type": "textbox",
+        "description": "Alloy가 log 경로에서 추출한 directory 이름입니다. 기존 var-run_id URL 필터를 유지합니다. Application의 Run context와 다를 수 있습니다."
+      },
+      {
+        "name": "source_node",
+        "label": "Observer",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
+        "hide": 2
+      },
+      {
         "allValue": ".*",
         "current": {
           "text": "All",
@@ -127,7 +151,7 @@
         },
         "definition": "label_values({cluster=~\"$cluster\"}, node)",
         "includeAll": true,
-        "label": "Node",
+        "label": "Resource",
         "multi": true,
         "name": "node",
         "query": "label_values({cluster=~\"$cluster\"}, node)",
@@ -156,31 +180,8 @@
         "description": "Alloy가 log root에 지정한 Workload label입니다."
       },
       {
-        "current": {
-          "text": ".*",
-          "value": ".*"
-        },
-        "label": "Log directory",
-        "name": "run_id",
-        "query": ".*",
-        "type": "textbox",
-        "description": "Alloy가 log 경로에서 추출한 directory 이름입니다. 기존 var-run_id URL 필터를 유지합니다. Application의 Run context와 다를 수 있습니다."
-      },
-      {
-        "name": "source_node",
-        "label": "Observer node",
-        "type": "textbox",
-        "query": ".*",
-        "current": {
-          "text": ".*",
-          "value": ".*"
-        },
-        "description": "Step/diagnosis event를 만든 collector node입니다. Resource node와 독립적으로 유지합니다.",
-        "hide": 2
-      },
-      {
         "name": "record_id",
-        "label": "Step record ID",
+        "label": "Record",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -192,7 +193,7 @@
       },
       {
         "name": "trace_id",
-        "label": "Trace ID",
+        "label": "Trace",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -228,7 +229,7 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
+        "label": "Engine",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -240,7 +241,7 @@
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "textbox",
         "query": ".*",
         "current": {

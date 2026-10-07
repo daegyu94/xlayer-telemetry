@@ -66,7 +66,7 @@ Custom config에서는 output·node·cluster·backend URL을 설정에 맞춥니
 | 화면 / 계층 | Synthetic coverage |
 | --- | --- |
 | Start Here / Run Overview | Collector health·freshness·step·throughput·loss·CPU·memory·swap |
-| Stage Correlation / Workspaces | VERL stages·vLLM queue/KV/preemption/offload/token/latency·Ray tasks/actors/resources/object store/evictions |
+| Stage Correlation / Cross-Layer Signals | VERL stages·vLLM queue/KV/preemption/offload/token/latency·Ray tasks/actors/resources/object store/evictions |
 | Compute & Communication | GPU matrix·allocation·process memory·power·temperature·clock·worker timers·Ethernet·RDMA·topology |
 | Data & Storage | GPU/storage node의 disk·filesystem·SSD SMART·storage topology |
 | Sandbox row / Timeline | Pool·PSI·I/O·CPU·memory·OOM·clock status와 exact synthetic tool/sandbox span |

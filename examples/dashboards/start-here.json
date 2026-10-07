@@ -39,12 +39,13 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id:text} · **Resource node:** ${node:text}<br>먼저 수집 상태와 age를 확인합니다. 아래 Run을 선택한 뒤 느린 step을 조사합니다.</span>"
-      }
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Cluster:** ${cluster:text} · **Run:** ${run_id:text} · **Resource node:** ${node:text}<br>먼저 수집 상태와 age를 확인합니다. 아래 Run을 선택한 뒤 느린 step을 조사합니다.</span>"
+      },
+      "transparent": true
     },
     {
       "id": 2,
@@ -52,7 +53,7 @@
       "title": "Collector health",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -92,7 +93,7 @@
                 },
                 "1": {
                   "text": "Up",
-                  "color": "green"
+                  "color": "#6b7280"
                 }
               }
             }
@@ -113,7 +114,7 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
         },
         "colorMode": "value"
       },
@@ -125,7 +126,7 @@
       "title": "Application age",
       "gridPos": {
         "x": 6,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -168,7 +169,7 @@
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#6b7280",
                 "value": 0
               },
               {
@@ -194,7 +195,7 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
         },
         "colorMode": "value"
       },
@@ -206,7 +207,7 @@
       "title": "GPU sample age",
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -249,7 +250,7 @@
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#6b7280",
                 "value": 0
               },
               {
@@ -275,7 +276,7 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
         },
         "colorMode": "value"
       },
@@ -287,7 +288,7 @@
       "title": "Completed step",
       "gridPos": {
         "x": 18,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -336,9 +337,9 @@
         },
         "text": {
           "titleSize": 18,
-          "valueSize": 36
+          "valueSize": 40
         },
-        "colorMode": "value"
+        "colorMode": "none"
       },
       "description": "선택한 run들이 보고한 마지막 완료 step의 최대값입니다. 현재 실행 중인 phase가 아닙니다. 개별 run은 아래 표에서 선택합니다."
     },
@@ -349,7 +350,7 @@
       "description": "현재 exporter가 제공하는 worker snapshot 목록입니다. Age는 freshness이며 active run이나 healthy workload 판정이 아닙니다. Run을 누르면 Overview, Age를 누르면 해당 Run의 Run Overview를 엽니다.",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 7,
         "w": 24,
         "h": 9
       },
@@ -632,13 +633,13 @@
       "title": "Potential issue → next action",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 16,
         "w": 24,
         "h": 6
       },
       "options": {
         "mode": "markdown",
-        "content": "<span style=\"font-size:16px;line-height:1.65\">**Down / Stale / N/A:** [Run Overview](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 source와 freshness를 확인합니다.<br>**Step·stage가 느림:** [Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) → [Run Overview](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 Duration을 누릅니다.<br>**Candidate 조사:** [Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})의 supporting / counter / missing evidence → [Cross-Layer Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>**Subsystem only (no step required):** [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}). Loki 화면은 log 수집을 연결했을 때 사용할 수 있습니다.</span>"
+        "content": "<span style=\"font-size:17px;line-height:1.65\">**Down / Stale / N/A:** [Run Overview](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 source와 freshness를 확인합니다.<br>**Step·stage가 느림:** [Agent RL Stage Correlation](/d/agent-rl-stage-correlation?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) → [Run Overview](/d/telemetry-overview?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})에서 Duration을 누릅니다.<br>**Candidate 조사:** [Bottleneck Summary](/d/xlayer-bottleneck-summary?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam})의 supporting / counter / missing evidence → [Cross-Layer Timeline](/d/xlayer-cross-layer-timeline?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}).<br>**Subsystem only (no step required):** [Compute & Communication](/d/xlayer-compute-communication?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Data & Storage](/d/xlayer-data-storage?${cluster:queryparam}&${node:queryparam}&${run_id:queryparam}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}) · [Run Logs](/d/xlayer-run-logs?${cluster:queryparam}&${node:queryparam}&var-telemetry_run_id=${run_id:percentencode}&var-run_id=${log_run_id:percentencode}&${source_node:queryparam}&${record_id:queryparam}&${trace_id:queryparam}&${diagnosis_method:queryparam}&${__url_time_range}&${log_run_id:queryparam}&${gpu:queryparam}&${engine:queryparam}&${sandbox_node:queryparam}). Loki 화면은 log 수집을 연결했을 때 사용할 수 있습니다.</span>"
       }
     }
   ],
@@ -671,28 +672,6 @@
         "description": "Prometheus·Loki target에 설정한 Cluster입니다. 다른 cluster의 같은 node 이름과 구분합니다."
       },
       {
-        "name": "node",
-        "label": "Resource node",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "telemetry-prometheus"
-        },
-        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "refresh": 2,
-        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
-      },
-      {
         "name": "run_id",
         "label": "Run",
         "type": "query",
@@ -716,7 +695,7 @@
       },
       {
         "name": "source_node",
-        "label": "Observer node",
+        "label": "Observer",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -727,8 +706,30 @@
         "hide": 2
       },
       {
+        "name": "node",
+        "label": "Resource",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "telemetry-prometheus"
+        },
+        "definition": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "query": "label_values(up{job=\"telemetry\",cluster=~\"$cluster\"}, nodename)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "description": "GPU·host·NIC·disk를 조사할 resource node입니다. Application/step의 observer node와 독립적이며 shared 자원을 Run에 자동 귀속하지 않습니다."
+      },
+      {
         "name": "record_id",
-        "label": "Step record ID",
+        "label": "Record",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -740,7 +741,7 @@
       },
       {
         "name": "trace_id",
-        "label": "Trace ID",
+        "label": "Trace",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -788,7 +789,7 @@
       },
       {
         "name": "engine",
-        "label": "vLLM engine",
+        "label": "Engine",
         "type": "textbox",
         "query": ".*",
         "current": {
@@ -800,7 +801,7 @@
       },
       {
         "name": "sandbox_node",
-        "label": "Sandbox node",
+        "label": "Sandbox",
         "type": "textbox",
         "query": ".*",
         "current": {

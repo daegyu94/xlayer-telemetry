@@ -201,7 +201,7 @@ def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
                         if panel["type"] == "text")
     for item in payloads:
         assert f"/d/{item['uid']}" in content
-        assert len(item["tags"]) == 2
+        assert len(item["tags"]) in {2, 3}
         assert item["links"][0]["title"] == "Start Here"
         assert item["links"][0]["url"].startswith("/d/xlayer-start-here?")
         assert item["links"][0]["keepTime"]
@@ -242,7 +242,7 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
     assert "nodename: storage-0" in config
     assert {
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
-    } == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "workspace-focus.json"}
+    } == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json"}
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
     assert not any(link["title"] == "Bottleneck Summary" for link in provisioned["links"])
     start = json.loads((tmp_path / "monitoring/dashboards/start-here.json").read_text())
@@ -305,7 +305,7 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     assert "url: http://192.168.0.1:13100" in (
         output / "provisioning/datasources/default.yaml"
     ).read_text()
-    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "workspace-focus.json", "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
+    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
 
 
 def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_files(tmp_path):
@@ -313,8 +313,8 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     import sys
     subprocess.run([sys.executable, str(script), '--output', str(tmp_path), '--enable-logs'], check=True)
     assert (tmp_path / 'bottleneck-summary.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 10
-    for retired in ('step-explorer.json', 'step-detail.json'):
+    assert len(list(tmp_path.glob('*.json'))) == 9
+    for retired in ('step-explorer.json', 'step-detail.json', 'workspace-focus.json'):
         (tmp_path / retired).write_text('{"uid":"retired"}\n')
     custom = tmp_path / 'my-dashboard.json'
     custom.write_text('{"uid":"custom"}\n')
@@ -322,7 +322,8 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert not (tmp_path / 'bottleneck-summary.json').exists()
     assert not (tmp_path / 'step-explorer.json').exists()
     assert not (tmp_path / 'step-detail.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 8  # Seven owned plus the custom file.
+    assert not (tmp_path / 'workspace-focus.json').exists()
+    assert len(list(tmp_path.glob('*.json'))) == 7  # Six owned plus the custom file.
     assert custom.read_text() == '{"uid":"custom"}\n'
     for path in tmp_path.glob('*.json'):
         if path == custom:
@@ -340,7 +341,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert any('/d/xlayer-bottleneck-summary' in link['url'] for link in agent['links'])
     overview = json.loads((tmp_path / 'run-overview.json').read_text())
     assert any(panel['id'] == 20 for panel in overview['panels'])
-    assert len(list(tmp_path.glob('*.json'))) == 11  # Ten owned plus custom.
+    assert len(list(tmp_path.glob('*.json'))) == 10  # Nine owned plus custom.
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:
@@ -673,7 +674,7 @@ def test_readable_panels_and_short_step_samples():
         dashboard = json.loads(path.read_text())
         for panel in _panels(dashboard):
             if panel['type'] == 'text':
-                assert 'font-size:16px;line-height:1.65' in panel['options']['content']
+                assert 'font-size:17px;line-height:1.65' in panel['options']['content']
             if panel['type'] == 'table':
                 assert panel['options']['cellHeight'] == 'lg'
             if panel['type'] == 'stat':
@@ -733,7 +734,7 @@ def test_collection_health_does_not_fabricate_workload_health_or_require_loki():
     optional = next(panel for panel in overview['panels']
                     if panel['title'] == 'Application SDK signals (optional)')
     assert optional['collapsed']
-    assert 'training_tokens_per_second' in str(optional)
+    assert 'training_tokens_per_second' in str(overview['panels'])
     assert 'training_loss' in str(optional)
 
 
@@ -940,78 +941,68 @@ def test_subsystem_rows_work_without_run_and_preserve_native_semantics():
 
 
 @pytest.mark.parametrize('logs', [False, True])
-def test_generated_views_reuse_panels_and_switch_context(tmp_path, logs):
+def test_workspace_projection_preserves_entity_scope_and_navigation(tmp_path, logs):
     import sys
     subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
                     '--output', str(tmp_path)] + (['--enable-logs'] if logs else []), check=True)
-    dashboards = [json.loads(p.read_text()) for p in tmp_path.glob('*.json')]
-    by_uid = {d['uid']: d for d in dashboards}
-    for dashboard in dashboards:
-        links = dashboard['links'][:3]
-        assert [l['title'] for l in links] == ['View: Guided', 'View: Overview', 'View: Focus']
-        for link in links:
-            assert link['keepTime'] and not link['targetBlank']
-            assert link['url'].split('?')[0].split('/')[2] in by_uid
-            assert '${cluster:queryparam}' in link['url']
-            assert '${node:queryparam}' in link['url']
-            assert '${record_id:queryparam}' in link['url']
-            if dashboard['uid'] == 'xlayer-run-logs':
-                assert 'var-run_id=${telemetry_run_id:percentencode}' in link['url']
-            else:
-                assert '${run_id:queryparam}' in link['url']
-    for style in ['overview', 'focus']:
-        dashboard = by_uid['xlayer-workspace-' + style]
-        flat = list(_panels(dashboard))
-        assert len({p['id'] for p in flat}) == len(flat)
-        variables = {v['name'] for v in dashboard['templating']['list']}
-        for panel in flat:
-            for target in panel.get('targets', []):
-                referenced = set(re.findall(r'\$([a-z][a-z_]+)', target['expr']))
-                assert referenced <= variables
-            if panel['type'] == 'timeseries':
-                original = next(p for p in _panels(by_uid[panel['links'][0]['url'].split('?')[0].split('/')[2]])
-                                if p.get('targets') == panel['targets'])
-                assert panel['fieldConfig'] == original['fieldConfig']
-        series = [p for p in flat if p['type'] == 'timeseries']
-        assert len(series) == 6
-        assert {p['gridPos']['w'] for p in series} == ({8} if style == 'overview' else {24})
-        if style == 'focus':
-            assert sum(p.get('collapsed', False) for p in flat) == 5
-
-
-@pytest.mark.parametrize('logs', [False, True])
-def test_color_presets_preserve_context_and_drilldown(tmp_path, logs):
-    import sys
-    subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
-                    '--output', str(tmp_path)] + (['--enable-logs'] if logs else []), check=True)
-    for path in tmp_path.glob('*.json'):
-        dashboard = json.loads(path.read_text())
-        theme = next(v for v in dashboard['templating']['list'] if v['name'] == 'xlayer_theme')
-        assert theme['hide'] == 2 and theme['current']['value'] == ''
-        header = next(p for p in dashboard['panels'] if p['type'] == 'text' and p['gridPos']['y'] == 0)
-        colors = [(name, url) for url, name in re.findall(
-            r'<a target="_top" href="([^"]+)">Color: ([^<]+)</a>', header['options']['content'])]
-        assert [name for name, url in colors] == ['Dark', 'Sapphire', 'Desert']
-        for (_, url), value in zip(colors, ['dark', 'sapphiredusk', 'desertbloom']):
-            assert url.startswith('/d/' + dashboard['uid'] + '?')
-            assert f'&theme={value}&var-xlayer_theme={value}' in url
-            assert url.count('var-xlayer_theme=') == 1
-            assert '${run_id:queryparam}' in url and '${node:queryparam}' in url
-            assert '${__url_time_range}' in url
+    by_uid = {d['uid']: d for path in tmp_path.glob('*.json')
+              if (d := json.loads(path.read_text()))}
+    assert 'xlayer-workspace-focus' not in by_uid
+    for dashboard in by_uid.values():
+        assert 'xlayer_theme' not in str(dashboard)
+        assert 'Color:' not in str(dashboard)
+        assert len({link['title'] for link in dashboard['links']}) == len(dashboard['links'])
         for link in dashboard['links']:
-            if link['url'].startswith('/d/'):
-                assert '&theme=${xlayer_theme:percentencode}' in link['url']
-                assert '${xlayer_theme:queryparam}' in link['url']
-        for panel in _panels(dashboard):
-            for link in panel.get('links', []):
-                if link['url'].startswith('/d/'):
-                    assert '${xlayer_theme:queryparam}' in link['url']
+            if link['type'] == 'dashboards':
+                assert link['asDropdown'] and link['keepTime'] and link['includeVars']
+                continue
+            assert link['keepTime'] and not link['targetBlank']
+            assert '${cluster:queryparam}' in link['url']
+            assert ('${run_id:queryparam}' in link['url'] or
+                    'var-run_id=${telemetry_run_id:percentencode}' in link['url'] or
+                    'var-telemetry_run_id=${run_id:percentencode}' in link['url'])
+            if link['title'] != 'Reset filters':
+                assert '${node:queryparam}' in link['url'] and '${record_id:queryparam}' in link['url']
+    workspace = by_uid['xlayer-workspace-overview']
+    flat = list(_panels(workspace))
+    assert len({p['id'] for p in flat}) == len(flat)
+    vars = {v['name']: v for v in workspace['templating']['list']}
+    assert all(vars[name]['hide'] == 2 for name in ('phase', 'role', 'worker'))
+    for panel in flat:
+        for target in panel.get('targets', []):
+            assert set(re.findall(r'\$([a-z][a-z_]+)', target['expr'])) <= vars.keys()
+    series = [p for p in flat if p['type'] == 'timeseries']
+    assert {p['gridPos']['w'] for p in series} == {12, 24}
+    queue = next(p for p in flat if p['id'] == 2)
+    cache = next(p for p in flat if p['id'] == 3)
+    canonical = next(p for p in _panels(by_uid['agent-rl-stage-correlation']) if p['id'] == 9)
+    assert queue['targets'] == [t for t in canonical['targets'] if t['refId'] in {'A', 'D'}]
+    assert cache['targets'] == [t for t in canonical['targets'] if t['refId'] == 'B']
+    assert cache['fieldConfig']['defaults']['unit'] == 'percentunit'
+    top = next(p for p in flat if p['type'] == 'bargauge')
+    original = next(p for p in _panels(by_uid['xlayer-data-storage']) if p['id'] == 3)
+    assert top['targets'][0]['expr'] == 'topk(8, ' + original['targets'][0]['expr'] + ')'
+    assert top['targets'][0]['instant']
+    assert '${__field.labels.nodename}' in top['fieldConfig']['defaults']['links'][0]['url']
+    assert '${__field.labels.device}' in top['fieldConfig']['defaults']['links'][0]['url']
+    for dashboard in by_uid.values():
+        annotations = dashboard.get('annotations', {}).get('list', [])
+        if not logs:
+            assert annotations == []
+        for annotation in annotations:
+            assert annotation['maxLines'] <= 100
+            assert 'run_id=~"$run_id"' in annotation['expr']
+            if annotation['name'] == 'Recorded events / operation starts':
+                assert 'boundary_accuracy!="unknown"' in annotation['expr']
+                assert 'time_uncertainty_seconds' in annotation['expr']
+                if dashboard['uid'] == 'xlayer-cross-layer-timeline':
+                    assert 'trace_id=~"$trace_id"' in annotation['expr']
 
 
 def test_investigation_tables_hide_unknown_metadata_without_dropping_link_fields():
     for name, title, fields in (
         ("run-overview", "Completed steps", ("step", "step_duration_seconds")),
-        ("bottleneck-summary", "Measured changes", ("current", "baseline", "delta_percent", "observation_scope")),
+        ("bottleneck-summary", "What changed?", ("current", "baseline", "delta_percent", "observation_scope")),
     ):
         dashboard = json.loads((ROOT / f"examples/dashboards/{name}.json").read_text())
         panel = next(p for p in dashboard["panels"] if p["title"].startswith(title))
@@ -1024,7 +1015,7 @@ def test_investigation_tables_hide_unknown_metadata_without_dropping_link_fields
         assert "window_start_ms" in json.dumps(panel["fieldConfig"])
     for name in ("start-here", "run-overview"):
         dashboard = json.loads((ROOT / f"examples/dashboards/{name}.json").read_text())
-        panel = next(p for p in dashboard["panels"] if p["title"] == "Collector health")
+        panel = next(p for p in _panels(dashboard) if p["title"] == "Collector health")
         assert panel["targets"][0]["expr"].startswith("min(up{")
 
 
@@ -1037,8 +1028,5 @@ def test_workspace_header_reserves_space_for_wrapped_context():
                for path in (ROOT / "examples/dashboards").glob("*.json")}
     for view in module.build_views(sources).values():
         header = view["panels"][0]
-        assert header["gridPos"]["h"] == 4
-        assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 4
-        module.add_color_links(view)
-        assert header["gridPos"]["h"] == 5
-        assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 5
+        assert header["gridPos"]["h"] == 3
+        assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 3

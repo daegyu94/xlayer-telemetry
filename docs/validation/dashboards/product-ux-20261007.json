@@ -1,0 +1,261 @@
+{
+  "review_date": "2026-10-07",
+  "base_commit": "7b89986",
+  "data_origin": "synthetic",
+  "versions": {
+    "grafana": "12.1.0",
+    "prometheus": "3.5.0"
+  },
+  "isolation": "Fresh task-owned state, ports, fixture directories; existing monitoring and 3FS resources preserved.",
+  "browser_surface": "Repository Playwright/Chromium fallback; Browser skill runtime initialization failed before a browser binding was created.",
+  "journeys": [
+    {
+      "run": "before",
+      "status": "passed",
+      "width": 1440,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-focus-view",
+        "09-guided-view"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 35,
+      "cancelled_navigation_queries": 0
+    },
+    {
+      "run": "loop2-desktop",
+      "status": "passed",
+      "width": 1440,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-run-return"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 38,
+      "cancelled_navigation_queries": 0
+    },
+    {
+      "run": "loop2-narrow",
+      "status": "passed",
+      "width": 900,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-run-return"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 35,
+      "cancelled_navigation_queries": 0
+    },
+    {
+      "run": "loop3-final-desktop",
+      "status": "passed",
+      "width": 1440,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-run-return"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 41,
+      "cancelled_navigation_queries": 0
+    },
+    {
+      "run": "final-desktop",
+      "status": "passed",
+      "width": 1440,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-run-return"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 41,
+      "cancelled_navigation_queries": 0
+    },
+    {
+      "run": "final-narrow",
+      "status": "passed",
+      "width": 900,
+      "screens": [
+        "01-start-here",
+        "02-run-overview",
+        "03-bottleneck-summary",
+        "04-evidence",
+        "05-timeline",
+        "06-storage",
+        "07-overview-view",
+        "08-run-return"
+      ],
+      "context_preserved": true,
+      "browser_errors": [],
+      "completed_datasource_queries": 40,
+      "cancelled_navigation_queries": 0
+    }
+  ],
+  "extended_checks": [
+    {
+      "name": "missing-run",
+      "status": "passed",
+      "checks": [
+        "N/A"
+      ]
+    },
+    {
+      "name": "missing-engine",
+      "status": "passed",
+      "checks": [
+        "N/A"
+      ]
+    },
+    {
+      "name": "missing-resource",
+      "status": "passed",
+      "checks": [
+        "N/A"
+      ]
+    },
+    {
+      "name": "alert-collector-panel",
+      "status": "passed",
+      "checks": [
+        "Collector health",
+        "Up"
+      ]
+    },
+    {
+      "name": "metrics-only-home",
+      "status": "passed",
+      "checks": [
+        "XLayer Telemetry · Run investigation",
+        "Completed step"
+      ]
+    },
+    {
+      "name": "policy-kv",
+      "status": "passed",
+      "checks": []
+    },
+    {
+      "name": "policy-kv-expanded",
+      "status": "passed",
+      "checks": [
+        "weight sync",
+        "policy lag",
+        "prefix hit",
+        "offload"
+      ]
+    },
+    {
+      "name": "candidate-review",
+      "status": "passed",
+      "checks": [
+        "storage_queue_saturation"
+      ]
+    },
+    {
+      "name": "evidence-fullscreen",
+      "status": "passed",
+      "checks": []
+    },
+    {
+      "name": "top-devices",
+      "status": "passed",
+      "checks": []
+    },
+    {
+      "name": "top-devices-ranking",
+      "status": "passed",
+      "checks": []
+    },
+    {
+      "name": "phone-overview",
+      "status": "passed",
+      "checks": [
+        "Completed step"
+      ]
+    },
+    {
+      "name": "recorded-event-overlay",
+      "status": "passed",
+      "checks": [
+        "rollout.generate",
+        "policy.update.completed",
+        "weight.sync.completed",
+        "checkpoint.completed",
+        "kv.cache.evicted"
+      ]
+    }
+  ],
+  "backend_queries": {
+    "count": 228,
+    "covered": 228,
+    "all_queries_covered": true
+  },
+  "screenshots": [
+    "docs/figures/grafana-run-light.png",
+    "docs/figures/grafana-evidence-light.png",
+    "docs/figures/grafana-signals-light.png"
+  ],
+  "validation_limits": [
+    "Not a real VERL/GPU/3FS cluster or physical multi-node validation.",
+    "Precomputed diagnosis values and live metric curves are independent synthetic illustrations.",
+    "480px screenshot check; full click journey validated at 1440px and 900px.",
+    "Narrow selector bars and evidence tables can require scrolling.",
+    "Phase/resource joins and Agent RL execution edges are not synthesized."
+  ],
+  "cleanup": {
+    "owned_managed_stacks": "stopped",
+    "owned_metrics_only_grafana": "stopped",
+    "task_runtime_databases": "removed",
+    "small_fixture_reports_and_browser_captures": "retained",
+    "shared_installed_binaries_and_existing_monitoring_3fs_resources": "preserved"
+  },
+  "checks": {
+    "compileall": "passed",
+    "shell_syntax": "passed",
+    "documentation_links_and_diagrams": {
+      "passed": 8
+    },
+    "strict_sphinx_build": "passed without warnings",
+    "promtool": "enabled in CPU tests",
+    "cpu_suite": {
+      "passed": 1229,
+      "skipped": 0,
+      "python": "3.12.3",
+      "elapsed_seconds": 187.49
+    }
+  }
+}
