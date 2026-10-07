@@ -17,8 +17,6 @@
       link.href = source;
       link.target = "_blank";
       link.rel = "noopener";
-      link.title = "그림 크게 보기";
-      link.setAttribute("aria-label", `${image.alt} — 그림 크게 보기 (새 탭)`);
       if (standalone) paragraph.replaceWith(wrapper);
       else image.parentNode.insertBefore(wrapper, image);
       wrapper.appendChild(link);

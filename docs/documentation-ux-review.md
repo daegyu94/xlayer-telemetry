@@ -30,7 +30,7 @@
 - Furo + MyST 유지; CSS card·표 scroll·기존 anchor 이동만 가벼운 JS로 보완.
 - 본문 16px, sidebar/TOC 14px, table 14px, code 13px, H1/H2/H3 29/22/18px.
 - Thin neutral border·white/light-gray background·blue/indigo accent.
-- D2 node 18px, compact label·gap·padding; Small/Medium/Large preview와 그림 크게 보기.
+- D2 node 18px, compact label·gap·padding; Small/Medium/Large preview와 클릭 가능한 그림.
 - Scope·precision·missing 등 판단을 바꾸는 제약은 task 본문 가까이에 callout으로 유지.
 
 ## 검증 방법과 한계

@@ -42,7 +42,7 @@ python scripts/render_diagrams.py --check
 
 - Node label은 1–3줄; 자세한 설명은 caption·본문으로 이동.
 - Thin neutral border, primary blue/indigo, optional dashed + label.
-- 본문은 compact preview; mouse·keyboard로 그림을 크게 보기.
+- 본문은 compact preview; 그림의 mouse·keyboard 접근을 유지.
 - Desktop 1440px·laptop 1280px·narrow viewport에서 실제 크기 확인.
 
 ## 문서 역할
