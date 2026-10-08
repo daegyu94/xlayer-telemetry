@@ -617,6 +617,9 @@ body.theme-dark .xlt {
 .xlt-health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0}
 .xlt-health-grid .xlt-card{padding:10px;font-size:11px}.xlt-health-grid span,.xlt-health-grid small{display:block;margin-top:5px}.xlt-health-grid small{font-size:10px;color:var(--xl-muted)}
 .xlt-workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:14px}.xlt-workspace-grid>div{min-width:0}
+.xlt-common-storage{border-bottom:1px solid var(--xl-border);padding-bottom:10px;margin-bottom:12px}
+.xlt-common-storage th,.xlt-common-storage td{font-size:12px;vertical-align:top}
+.xlt-common-storage td small{display:block;color:var(--xl-muted);margin-top:3px}
 .xlt-chips{display:flex;gap:5px;flex-wrap:wrap;margin:8px 0}.xlt-chips button{font-size:11px}.xlt-chips [aria-pressed=true]{background:#eaf0ff;color:#3158c8;border-color:#bed0f2}
 @media(max-width:900px){.xlt-overview-top,.xlt-workspace-grid{grid-template-columns:1fr}}
 

@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from xlayer_telemetry.demos.live import Demo, prometheus_config
 from xlayer_telemetry.demos.diagnosis import generate
-from xlayer_telemetry.analysis.diagnostics import _investigation_rows
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows, write_report
 from xlayer_telemetry.demos.scenario import make_scenario
 from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.events import CorrelationContext
@@ -169,10 +169,22 @@ datasources:
             if stopping.is_set():
                 break
             directory=args.output/f'fixture-{cycle}'
-            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,storage_series=args.storage_series,
+            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,storage_series=args.storage_series,publish_diagnosis=False,
                             rollout_workers=[CorrelationContext(run_id='verl-agent-demo', producer='demo_distributed', role='rollout',
                                 worker_id=f'rollout-{index}', node=demo.gpu['gpu_nodes'][index % len(demo.gpu['gpu_nodes'])],
                                 gpu=str(index % demo.gpu['gpus_per_node'])) for index in range(4)] if args.multi_worker else None)
+            # Read the already-scraped synthetic native endpoints through the
+            # real diagnosis/query path. No connector/client numbers are inferred
+            # from illustrative 3FS values, and no ClickHouse backend is declared.
+            steps=[json.loads(line) for line in (directory/'telemetry-events/verl-steps.jsonl').read_text().splitlines()]
+            selected=next(row for row in steps if row.get('record_id')==report['trigger_record_id'])
+            node=demo.gpu['gpu_nodes'][0]
+            native_report=DiagnosticEngine({'cluster':'scenes-demo','rollout_node':node,
+                'clock':{'monitoring_node':node},'sampling':{'check_source_freshness':True},
+                'prometheus':{'url':prom,'metric_profiles':['mooncake','mooncake_storage'],'mooncake_master_node':node}}).analyze(selected,steps)
+            report['storage_overview']={**native_report['storage_overview'],'data_origin':'synthetic',
+                'query_execution':native_report['query_execution']}
+            write_report(directory/'diagnostics',report)
             streams=[]
             files=[('verl_step',directory/'telemetry-events/verl-steps.jsonl')]+[('xlayer_event',p) for p in (directory/'telemetry-events').glob('*.jsonl') if p.name!='verl-steps.jsonl']
             for source, path in files:

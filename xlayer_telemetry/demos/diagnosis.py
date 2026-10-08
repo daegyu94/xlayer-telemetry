@@ -23,7 +23,7 @@ from ..time_alignment import CalibrationCache, estimate
 from ..fileio import atomic_write_text
 
 
-def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None, rollout_workers: list[CorrelationContext] | None = None, storage_series: bool = False) -> dict:
+def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None, rollout_workers: list[CorrelationContext] | None = None, storage_series: bool = False, publish_diagnosis: bool = True) -> dict:
     if scenario is not None:
         validate_scenario(scenario)
         if scenario["run_id"] != run_id or scenario["node"] != node:
@@ -218,7 +218,10 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         from ..analysis.storage_series import apply_collection_limits
         report['storage_series']=synthetic_storage_series(window,prior['analysis_window'],slow=bool(candidates))
         apply_collection_limits(candidates)
-    write_report(output / "diagnostics", report)
+    # The live demo enriches the report from its already-scraped native sources
+    # before publishing one immutable completed projection.
+    if publish_diagnosis:
+        write_report(output / "diagnostics", report)
     # Use the same discovery and inspect paths as a wrapped workload. These are
     # synthetic application values, not measurements of the host or its storage.
     MetricEmitter(output / "telemetry-metrics", run_id=run_id, node=node,

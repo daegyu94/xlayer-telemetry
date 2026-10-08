@@ -33,6 +33,7 @@ from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, project_storage_series, project_storage_summary, validate_series_settings
+from .storage_overview import storage_overview
 
 # Keep the existing local opener hook while bounding credential redirects.
 urlopen = build_opener(_CredentialSafeRedirectHandler()).open
@@ -1151,6 +1152,8 @@ class DiagnosticEngine:
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
         for candidate in candidates:
+            if candidate['id'].startswith('mooncake_dfs_') and comparison['workload_comparability'] != 'matched_configured_fields':
+                candidate['missing_evidence'].append('workload_comparability_unverified')
             if candidate["id"] == "gpu_memory_pressure" and "gpu:memory_entity_match" in missing:
                 candidate["missing_evidence"].append("gpu_memory_entity_match")
             if candidate["id"] == "sandbox_local_storage_pressure" and tool_event is not None:
@@ -1237,6 +1240,9 @@ class DiagnosticEngine:
             "sampling_quality": sampling_quality,
             "metric_profiles": profiles,
             "query_execution": budget.summary(),
+            "storage_overview": storage_overview(comparison, signal_queries, missing,
+                unsafe_clock=unsafe_timing, threefs_configured=threefs is not None,
+                threefs_rows=threefs_rows if current_3fs_samples else [], profiles=profiles),
             **({"storage_series": storage_series} if storage_series is not None else {}),
             "sandbox_device_mapping": sandbox_device_mapping,
             "diagnosis_method": "rule",
@@ -1506,7 +1512,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
              "candidate_count": len(report.get("candidates", [])),
              "strong_candidate_count": len(strong),
              "primary_candidate": strong[0].get("id") if strong else None,
-             "missing_sources": ", ".join(report.get("missing_sources", []))}]
+             "missing_sources": ", ".join(report.get("missing_sources", [])),
+             "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':'))}]
     for candidate in report.get("candidates", []):
         rows.append({**common, "row_kind": "candidate", "candidate_id": candidate.get("id"),
                      "component": candidate.get("component"), "state": candidate.get("state"),

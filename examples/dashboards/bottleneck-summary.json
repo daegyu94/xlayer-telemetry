@@ -266,7 +266,9 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "storage_overview": true
+            },
             "indexByName": {
               "step": 1,
               "step_duration_seconds": 2,

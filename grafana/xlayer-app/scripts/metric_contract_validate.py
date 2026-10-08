@@ -92,6 +92,33 @@ with sync_playwright() as p:
   assert parse_qs(urlparse(page.url).query)==before,label
  page.get_by_role('button',name='3FS evidence',exact=True).click()
  assert page.get_by_text('3FS · saved service observations',exact=True).count()==1
+ common=page.locator('.xlt-common-storage')
+ assert 'Backend / adapter not reported' in common.inner_text()
+ assert 'No saved common-storage coverage' not in common.inner_text()
+ common.get_by_text('Source coverage · values, scope, entity and quality',exact=True).click()
+ assert 'mooncake_dfs_read_p95_seconds' in common.inner_text()
+ assert 'mooncake_master_allocated_bytes' in common.inner_text()
+ assert 'not configured' in common.inner_text(), 'Demo has no real ClickHouse backend'
+ before=parse_qs(urlparse(page.url).query)
+ common.get_by_role('link',name='Source metrics ↗',exact=True).first.click();page.wait_for_timeout(700)
+ source=parse_qs(urlparse(page.url).query)
+ for key in ('from','to','var-run_id','var-record_id','var-source_node'):
+  assert source[key]==before[key],key
+ assert source['var-engine']==['synthetic-vllm-0'],source.get('var-engine')
+ page.go_back();page.get_by_role('heading',name='Common Storage Overview',exact=True).wait_for(timeout=15000)
+ common.get_by_text('Source coverage · values, scope, entity and quality',exact=True).click()
+ before=parse_qs(urlparse(page.url).query)
+ common.get_by_role('button',name='3FS Deep Dive →',exact=True).click()
+ assert page.get_by_role('combobox',name='Storage metric').count()==1
+ assert parse_qs(urlparse(page.url).query)==before
+ for width in (1440,390):
+  page.set_viewport_size({'width':width,'height':1000});page.wait_for_timeout(250)
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+  common.screenshot(path=str(root/f'common-storage-{width}.png'))
+ page.set_viewport_size({'width':1440,'height':1000})
+ common.get_by_text('Source coverage · values, scope, entity and quality',exact=True).click()
+ report['common_storage']={'real_prometheus_queries_on_synthetic_endpoints':True,'backend_not_inferred':True,
+  'threefs_optional':True,'context_preserved':True,'widths':[1440,390]}
  page.screenshot(path=str(root/'storage-evidence.png'),full_page=True)
  page.get_by_role('button',name='DFS batch',exact=True).click();page.wait_for_timeout(500)
  page.screenshot(path=str(root/'dfs-batch.png'),full_page=True)

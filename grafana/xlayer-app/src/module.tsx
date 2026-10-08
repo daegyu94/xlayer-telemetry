@@ -67,6 +67,7 @@ import {
 import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
 import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS,detailTabIndex} from './presentation';
 import { storageMetrics, storagePlotSelection } from './storage-series';
+import {parseStorageOverview,storageDetailGroups,storageSourceContext} from './storage-overview';
 import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
 import { ComparisonWindow } from "./comparison-window";
@@ -298,7 +299,7 @@ function makeScene(page: Page, catalog: Catalog) {
       evidence: query("summary", 6),
       spans: query("timeline", 9),
     });
-  if(page==='deep-dive')body.setState({detailPanels:DEEP_DIVE_SPECS.map(s=>s.dashboard&&s.panel!==undefined?native(s.dashboard,s.panel):undefined)});
+  if(page==='deep-dive')body.setState({summary:query('summary',2),detailPanels:DEEP_DIVE_SPECS.map(s=>s.dashboard&&s.panel!==undefined?native(s.dashboard,s.panel):undefined)});
   if (page === 'deep-dive') {
     const samples = query('storage',101), status = query('storage',104);
     const samplePanel = findPanel(catalog.storage,101), statusPanel = findPanel(catalog.storage,104);
@@ -1138,7 +1139,7 @@ function ShellView({ model }: { model: Shell }) {
         </details>
       )}
       {state.page === "deep-dive" && (
-        <><DeepWorkspace model={model} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
+        <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}
       {state.selectedCell && (
         <div className="xlt-evidence-layout">
@@ -1771,17 +1772,30 @@ function HealthSummary({candidates}:{candidates:RecordRow[]}) {
 function TopChanges({rows}:{rows:RecordRow[]}) {
   return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">Saved comparison window, not a phase resource attribution. Workload comparability remains source-defined.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
-function DeepWorkspace({model,candidate,evidence,panels,context,catalog}:{model:Shell;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
+function CommonStorageOverview({model,summary,context,onThreeFS}:{model:Shell;summary?:RecordRow;context:Context;onThreeFS:()=>void}){
+ const state=model.useState(),value=parseStorageOverview(summary?.storage_overview);
+ const groups=[['connector','Connector RPC'],['dfs_client','Mooncake DFS client'],['master_memory','Master memory']] as const;
+ return <div className="xlt-common-storage"><div className="xlt-section"><h3>Common Storage Overview</h3><span className="xlt-badge">Backend / adapter not reported</span></div>
+ <DataStatus provider={state.summary}/><p className="xlt-muted">Step / Phase → KV operation → Connector / DFS client → backend is an investigation path, not an observed execution dependency.</p>
+ {!value?<p className="xlt-empty">No saved common-storage coverage for this selection. Native metric tabs remain available; a configured 3FS source does not identify the workload backend.</p>:<>
+ <div className="xlt-health-grid">{groups.map(([layer,title])=>{const entries=value.signals.filter(row=>row.layer===layer),observed=entries.filter(row=>row.current!==null);return <article className="xlt-card" key={layer}><b>{title}</b><span>{observed.length} / {entries.length} reported signals</span><small>{entries.every(row=>row.status==='not_configured')?'Profile not configured':'Shared service · sampled / rolling'}</small></article>;})}</div>
+ <details><summary>Source coverage · values, scope, entity and quality</summary><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current / Baseline</th><th>State / Scope</th><th>Entity / Quality</th></tr></thead><tbody>{value.signals.map(row=><tr key={row.signal}><td>{row.signal}<small>{row.unit} · {row.statistic}</small></td><td>{format(row.current,row.unit==='seconds'?'s':row.unit)} / {format(row.baseline,row.unit==='seconds'?'s':row.unit)}</td><td>{row.status.replace(/_/g,' ')}<small>{row.scope}</small></td><td title={JSON.stringify(row.entity)}>{compactEntity(row.entity)}<small>{row.quality_issues.join(', ')||'No additional quality annotations'}</small>{row.entity.node&&<Link to="stage" context={storageSourceContext(context,row)} catalog={state.catalog}>Source metrics</Link>}</td></tr>)}</tbody></table></div></details>
+ <p className="xlt-muted">3FS source: {value.threefs.status.replace(/_/g,' ')} · shared-service. Connection to this Mooncake client is not established.</p></>}
+ <button onClick={onThreeFS}>3FS Deep Dive →</button><p className="xlt-notice">Missing native metrics may be disabled, idle, unsupported or unavailable. Delivered DFS keys/bytes can overlap checksum failures; rates are not physical IOPS or an operation failure probability.</p>
+ </div>;
+}
+function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}:{model:Shell;summary?:RecordRow;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
  const[tab,setTab]=useState(()=>detailTabIndex(context.variables.detail_tab?.[0])),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
- return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div>
+ const groups=storageDetailGroups(DEEP_DIVE_SPECS);
+ return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><div className="xlt-workspace-grid"><div>
   <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
   {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
   <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
   <p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
- </div><div><h3>Detailed Metrics</h3><div className="xlt-chips">{DEEP_DIVE_SPECS.map((s,i)=><button key={s.label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{s.label}</button>)}</div>
+ </div><div><h3>Detailed Metrics</h3>{([['Common storage',groups.common],['Backend-specific · implemented',groups.backend],['Related subsystem context',groups.context]] as const).map(([title,items])=><div key={title}><h4>{title}</h4><div className="xlt-chips">{items.map(s=>{const index=detailTabIndex(s.label);return <button key={s.label} aria-pressed={tab===index} onClick={()=>setTab(index)}>{s.label}</button>;})}</div></div>)}
   {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
-  <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector → DFS client → 3FS service → local device are investigation layers; an instrumented dependency or Run ownership is not inferred.</p>
+  <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector / DFS client observations are backend independent. 3FS service evidence is an optional separate source; node-device observations remain context without a verified path.</p>
   <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
  </div></div></section>;
 }

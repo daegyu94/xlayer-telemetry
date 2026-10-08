@@ -52,6 +52,7 @@ BASELINE_REQUIRED = {
     "rdma_bytes_per_second", "threefs_p99_latency",
     "threefs_throughput_bytes_per_second",
     "tool_duration_seconds",
+    "mooncake_dfs_read_p95_seconds", "mooncake_dfs_write_p95_seconds",
 }
 BASELINE_IDENTITY = (
     "run_id", "node", "worker_id", "boundary_scope", "execution_mode",
@@ -203,17 +204,19 @@ def evaluate_rules(
         value, before = val(name), val(name, previous=True)
         return value is not None and before is not None and before - value >= amount
 
-    def add(identifier: str, component: str, summary: str, checks: list[tuple[str, bool]], *, scope: str, related: Mapping[str, Any] | None = None, cap_state: str | None = None) -> None:
+    def add(identifier: str, component: str, summary: str, checks: list[tuple[str, bool]], *, scope: str, related: Mapping[str, Any] | None = None, cap_state: str | None = None, unmatched: set[str] | None = None) -> None:
         unlinked=({'network_utilization_ratio'} if identifier=='device_limited_storage'
                   else {'storage_device_busy_ratio'} if identifier=='network_limited_storage' else set())
-        observed = [name for name, ok in checks if ok and name not in unlinked]
+        excluded = unlinked | (unmatched or set())
+        observed = [name for name, ok in checks if ok and name not in excluded]
         if not observed:
             return
         required = [name for name, _ in checks]
         missing = [name for name in required if val(name) is None]
         missing.extend(f'{name}:storage_path_unverified' for name in sorted(unlinked))
+        missing.extend(f'{name}:entity_mismatch' for name in sorted(unmatched or set()))
         missing.extend(f"baseline:{name}" for name in required if name in BASELINE_REQUIRED and val(name, previous=True) is None)
-        contrary = [name for name, ok in checks if name not in unlinked and not ok and val(name) is not None and (name not in BASELINE_REQUIRED or val(name, previous=True) is not None)]
+        contrary = [name for name, ok in checks if name not in excluded and not ok and val(name) is not None and (name not in BASELINE_REQUIRED or val(name, previous=True) is not None)]
         # A single symptom is weak; two independent supporting signals are
         # supporting; all requirements must be present and true for strong.
         state = "strong_signal" if len(observed) == len(required) and not missing else (
@@ -221,9 +224,17 @@ def evaluate_rules(
         )
         if cap_state == "supporting_signal" and state == "strong_signal":
             state = "supporting_signal"
-        if component == "storage" and finite(context.get("per_run_storage_bytes")) is None:
+        common_storage = identifier.startswith('mooncake_dfs_')
+        if common_storage:
+            missing.extend(['storage_backend_identity_unverified', 'storage_operation_attribution_unverified',
+                            'dfs_latency_observes_batches_with_delivered_io_only'])
+            for name in observed:
+                if name.startswith('mooncake_') and not (labels_for(name).get('node') and labels_for(name).get('instance')):
+                    missing.append(name + ':entity_unverified')
+                    state = 'weak_signal'
+        elif component == "storage" and finite(context.get("per_run_storage_bytes")) is None:
             missing.append("per_run_3fs_client_bytes")
-        if component == 'storage' and scope == 'mixed':
+        if component == 'storage' and scope == 'mixed' and not common_storage:
             # Shared 3FS reports do not identify which SSD/interface served it.
             missing.append('storage_service_resource_relation_unverified')
             if state=='strong_signal':
@@ -268,6 +279,28 @@ def evaluate_rules(
         })
 
     slow = raised("step_duration_seconds", thresholds.get("step_slowdown_ratio", 1.5))
+    # DFS latency/failed-key observations are client-local, backend independent.
+    # A batch with no delivered I/O has no latency sample upstream. Failed keys
+    # are useful on their own, but cannot be divided by successful keys: checksum
+    # failures may also contribute delivered bytes/keys. Never infer a 3FS path.
+    if slow:
+        identity_keys = ('cluster', 'node', 'instance', 'component', 'client_mode', 'cluster_id')
+        for direction in ('read', 'write'):
+            latency = f'mooncake_dfs_{direction}_p95_seconds'
+            errors = f'mooncake_dfs_{direction}_errors_per_second'
+            regressed = raised(latency, thresholds.get('mooncake_dfs_latency_slowdown_ratio', 2))
+            failed = val(errors) is not None and val(errors) > 0
+            if not (regressed or failed):
+                continue
+            anchor = latency if regressed else errors
+            other = errors if regressed else latency
+            a, b = labels_for(anchor), labels_for(other)
+            matched = bool(a.get('node') and a.get('instance') and b.get('node') and b.get('instance')) and all(a.get(key) == b.get(key) for key in identity_keys)
+            unmatched = {other} if val(other) is not None and not matched else set()
+            add(f'mooncake_dfs_{direction}_pressure', 'storage',
+                f'Slow step overlaps Mooncake DFS {direction} latency or failed-key observations; backend path is unverified',
+                [('step_duration_seconds', True), (latency, regressed), (errors, failed)],
+                scope='mixed', cap_state='supporting_signal', unmatched=unmatched)
     storage = raised("threefs_p99_latency", thresholds.get("threefs_latency_slowdown_ratio", 2))
     disk = high("storage_device_busy_ratio", thresholds.get("disk_busy_ratio", 0.9))
     network = high("network_utilization_ratio", thresholds.get("network_utilization_ratio", 0.8))

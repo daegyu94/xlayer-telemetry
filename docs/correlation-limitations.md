@@ -2,7 +2,7 @@
 
 **읽는 목적:** 현재 XLayer가 설명할 수 있는 것과 추가 계측이 필요한 것을 구분합니다. Backend가 달라도 latency·bytes·operation의 의미를 보존하는 후속 연구개발 기준입니다.
 
-> **Reference / TBD** · 2026-10-08 소스 조사. 이 문서의 제안은 구현 완료 기능이 아닙니다. Runtime·upstream 수정, 실장비 실행, pNFS 배포 검증은 수행하지 않았습니다.
+> **Reference / TBD** · 2026-10-08 소스 조사. 현재 구현과 Future Work를 구분합니다. Common Storage·기존 3FS는 XLayer 내부 구현이며 pNFS·operation-level linkage는 TBD입니다. Upstream 수정·물리 multi-node·pNFS 배포 검증은 수행하지 않았습니다.
 
 ## 현재 지원과 완료된 P0
 
@@ -13,6 +13,7 @@
 | Clock inventory·`doctor --correlation` | Monitoring·resource·producer host의 sampled clock screening; continuous clock proof가 아님 |
 | Selected-entity sampling quality | 다른 engine/device의 sample을 합쳐 strong을 만들지 않음; known stale/future 값은 raw로만 유지 |
 | Mooncake connector/master/DFS native metric | RPC·batch·key·shared memory 관측; 실제 replica 선택이나 SSD I/O로 바꾸지 않음 |
+| Common Storage coverage / DFS candidate | ClickHouse 없이 source·unit·entity·quality를 보존. Backend 미보고·모든 batch 실패·다른 client 오류를 구분하며 최대 supporting |
 | Bounded 3FS collection time-series | Producer host·report 시각·reset/gauge 계약 보존; 미검증 clock이면 finding/candidate/delta 보류 |
 | Supporting / Counter / Missing·저장 artifact·선택적 profiling | Mixed storage path가 미확인이면 최대 supporting; 운영·query 예산과 workload lifecycle 분리 |
 | Compact signature·local parent/child relation delta | 선택된 worker/boundary 내부의 observed parent만 집계; cross-worker propagation·전역 critical path는 아님 |
@@ -33,7 +34,7 @@
 | 여러 worker 중 어디가 다르나? | 비교 가능한 worker/call duration·fingerprint·resource identity | 독립 실행·다른 concurrency·token/tool workload를 동일한 peer로 취급 |
 | 이 Run이 resource를 얼마나 썼나? | Node/device/shared-service 변화 | Run별 GPU·RDMA·SSD 사용량, shared cache 비용의 독점 귀속 |
 
-veRL fully-async 경로는 rollout sample ID와 자체 `global_steps`를 사용하며 trainer update와 sample 소비·policy 적용은 별도 과정입니다. vLLM `request_id`는 generation 요청 식별자입니다. 어느 쪽도 그 자체로 Mooncake batch/key나 3FS I/O의 공통 operation ID가 되지 않습니다. 근거는 [async rollouter](https://github.com/volcengine/verl/blob/18eb23dde5ec84edf51a8b780a74a116524aa5cb/verl/experimental/fully_async_policy/fully_async_rollouter.py)와 [vLLM server 호출](https://github.com/volcengine/verl/blob/18eb23dde5ec84edf51a8b780a74a116524aa5cb/verl/workers/rollout/vllm_rollout/vllm_async_server.py)입니다.
+veRL fully-async 경로는 rollout sample ID와 자체 `global_steps`를 사용하며 trainer update와 sample 소비·policy 적용은 별도 과정입니다. vLLM `request_id`는 generation 요청 식별자입니다. 어느 쪽도 그 자체로 Mooncake batch/key나 3FS I/O의 공통 operation ID가 되지 않습니다. 근거는 [async rollouter](https://github.com/volcengine/verl/blob/704a9f01bda8b9863c02c113547191bf167bc88f/verl/experimental/fully_async_policy/fully_async_rollouter.py)와 [vLLM server 호출](https://github.com/volcengine/verl/blob/704a9f01bda8b9863c02c113547191bf167bc88f/verl/workers/rollout/vllm_rollout/vllm_async_server.py)입니다.
 
 Clock alignment는 시간축을 맞추며 missing execution edge를 생성하지 않습니다. Scrape 사이의 clock jump·짧은 phase·mutable collection cadence·rolling lookback·partial capture는 남는 오차입니다. Query evaluation 두 개가 실제 scrape 두 개나 전체 window coverage를 뜻하지 않습니다.
 
@@ -41,7 +42,7 @@ Clock alignment는 시간축을 맞추며 missing execution edge를 생성하지
 
 최신 Mooncake의 [선택 함수](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/include/replica_selection.h)는 locality·complete 상태·설정한 remote scoring을 사용합니다. MEMORY 외에도 NOF·LOCAL_DISK·DFS·DISK가 있으므로 backend 이름이나 cache hit 감소만으로 실제 read tier를 정하지 않습니다.
 
-[Descriptor 조회](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/real_client.cpp)는 후보 replica 목록을 반환합니다. vLLM의 [tier logging helper](https://github.com/vllm-project/vllm/blob/458ba2edf85bc9b7ebc0d5141f34ea658520faf5/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/worker.py)는 첫 descriptor를 memory/disk/unknown으로 분류하며 DFS 선택·fallback·completion을 확정하지 않습니다. 이런 hint와 실제 `selected_replica`는 별도 evidence입니다.
+[Descriptor 조회](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/real_client.cpp)는 후보 replica 목록을 반환합니다. vLLM의 [tier logging helper](https://github.com/vllm-project/vllm/blob/194da61de1769c28bfad2b6642c60cc7eca544dd/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/worker.py)는 첫 descriptor를 memory/disk/unknown으로 분류하며 DFS 선택·fallback·completion을 확정하지 않습니다. 이런 hint와 실제 `selected_replica`는 별도 evidence입니다.
 
 KV key는 여러 request·Run에서 재사용될 수 있고 batch 하나에 여러 request/key가 묶입니다. GET 성공·DFS successful key 수·SSD batch·block/NFS RPC 수는 다른 모집단입니다. 같은 key나 timestamp가 있다는 이유만으로 one-to-one ownership을 만들지 않습니다.
 
@@ -60,6 +61,23 @@ Correlation ≠ Attribution ≠ Causality. 정확한 span은 그 계측 경계�
 ```
 
 ## Storage Backend Coverage
+
+### 최신 upstream와 현재 활용 상태
+
+| 영역 | 현재 충분한 관측 / 활용 | 확인한 공백 / 이번 처리 |
+| --- | --- | --- |
+| veRL | Reward·step/rollout duration·token throughput·MFU·정책 보고·SDK phase | Async rollouter의 stale-sample/resource-utilization은 trainer update 소유 관계가 아님. Native metric/trace adapter 호환 연결은 TBD |
+| GPU / CPU / Memory | Sampled GPU/device·host memory, opt-in DCGM·PSI·fault evidence | MFU와 GPU/tensor activity를 대체하지 않음. 새 collector·임의 metric 추가 없음 |
+| Network / RDMA | Interface별 bytes·errors/drops·retransmit·hardware wait ticks | NIC와 remote storage path 관계는 미계측. Wait tick을 임의 ms로 변환하지 않음 |
+| Ray | Session tasks·object-store spill/restore·memory eviction | Byte gauge에 counter rate를 적용하지 않음. Worker/sample와 Ray task의 정확한 부모 관계는 TBD |
+| vLLM / KV | Engine별 queue·TTFT/TPOT/E2E·preemption·cache/offload·Store RPC | Native operation/status는 RPC/batch 경계; request→selected replica→I/O의 공통 ID 아님 |
+| Mooncake | Canonical DFS latency·delivered bytes/keys·failed/skipped keys·Master memory | 비교표에서만 사용하던 DFS signal을 backend 공통 supporting candidate와 coverage에 연결 |
+| 3FS | Existing distribution·reset report·collection series·host clock | 기존 deep query를 유지. Common Overview와 source availability를 분리하고 path 소유권을 추가하지 않음 |
+| Sandbox | Worker/cgroup queue·tool span·PSI·resource evidence | Host SSD와 cgroup을 같은 소유 자원으로 묶지 않음. Runtime/scheduler 추가 없음 |
+
+veRL [async metric report](https://github.com/volcengine/verl/blob/704a9f01bda8b9863c02c113547191bf167bc88f/verl/experimental/fully_async_policy/fully_async_rollouter.py), vLLM [native metrics](https://github.com/vllm-project/vllm/blob/194da61de1769c28bfad2b6642c60cc7eca544dd/vllm/v1/metrics/loggers.py), Ray [metric 정의](https://github.com/ray-project/ray/blob/07197d0cae70cdfb75f4e3f97f3c0b14f8ba05b3/src/ray/raylet/metrics.h)와 [spill/restore 실제 기록](https://github.com/ray-project/ray/blob/07197d0cae70cdfb75f4e3f97f3c0b14f8ba05b3/src/ray/raylet/local_object_manager.cc)를 대조했습니다. Definition comment만으로 state 지원을 판단하지 않고 call site도 확인했습니다. 기존 opt-in profile은 version-dependent이며 배포 endpoint에 이름·label이 없는 경우 missing을 유지합니다.
+
+최신 Mooncake의 transfer interface metric도 native에 있으나 DFS/connector metric에 합산하지 않습니다. 최소 추가 가치가 검증되지 않은 transfer profile과 이번 범위에서 제외한 Local SSD Deep Dive는 추가하지 않았습니다.
 
 ### Backend 이름보다 실제 adapter와 소유 host
 
@@ -85,7 +103,7 @@ Correlation ≠ Attribution ≠ Causality. 정확한 span은 그 계측 경계�
 | Mooncake FileStorage | `mooncake_ssd_*`: successful batch key/bytes·read/write latency histogram/summary | Native에 있음. 현재 canonical DFS panel/profile로 대체하지 않으며 backend 전용 활용은 TBD |
 | 최신 Mooncake transfer API | `mooncake_transfer_{read,write}_operation_*`, `op_name`별 interface count/bytes/latency | Native에 있음. XLayer 자동 diagnosis profile 소비는 미구현. Request·selected replica별 trace는 아님 |
 
-근거: [connector metric](https://github.com/vllm-project/vllm/blob/458ba2edf85bc9b7ebc0d5141f34ea658520faf5/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/metrics.py), [Mooncake metric 정의](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/include/client_metric.h), [DFS observe call site](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/client_service.cpp), [FileStorage call site](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/file_storage.cpp).
+근거: [connector metric](https://github.com/vllm-project/vllm/blob/194da61de1769c28bfad2b6642c60cc7eca544dd/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/metrics.py), [Mooncake metric 정의](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/include/client_metric.h), [DFS observe call site](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/client_service.cpp), [FileStorage call site](https://github.com/kvcache-ai/Mooncake/blob/dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2/mooncake-store/src/file_storage.cpp).
 
 DFS ops는 successful key 수이며 physical IOPS가 아닙니다. FileStorage read/write도 성공 batch/key accounting으로, SSD controller latency가 아닙니다. Client metric 활성화와 HTTP endpoint 공개는 별도 조건이므로 정의가 있어도 embedded client의 `/metrics` 노출을 가정하지 않습니다.
 
@@ -116,7 +134,9 @@ NFS data가 container 안에 mount되어 있다면 exporter의 `/proc/self/mount
 | 사라짐 | 3FS ClickHouse의 producer/operation/entity distribution·storage-client/server report·reset counter 계약·3FS host-clock mapping 비교 |
 | 대체 불가 | NFS RPC mean·diskstats mean·FileStorage batch p95를 `threefs_p99_latency`나 같은 baseline 통계로 변환하지 않음 |
 
-Prometheus·SDK·기본 window/quality 모델은 backend 공통이지만 `ThreeFSClient`·`storage_queries.py`·`threefs_*` storage rule과 저장 projection은 3FS 전용입니다. Optional source가 없어도 core monitoring을 쓸 수 있다는 것과 같은 storage diagnosis coverage를 제공한다는 것은 다릅니다. Backend-neutral capability model은 아직 구현하지 않았습니다.
+Prometheus·SDK·기본 window/quality 모델과 `storage_overview`의 common source coverage는 backend 공통입니다. `ThreeFSClient`·`storage_queries.py`·`threefs_*` rule·collection projection은 3FS 전용으로 유지합니다. ClickHouse가 없거나 실패해도 검증된 Mooncake source의 공통 관측·후보를 제공하지만 같은 backend diagnosis coverage를 약속하지 않습니다.
+
+현재 coverage는 기존 조회 결과·quality·설정 여부를 요약하는 작은 additive model입니다. 실제 backend/adapter discovery나 generic provider registry는 아닙니다. `threefs.status=observed`여도 `backend.status=not_reported`일 수 있습니다. Verified adapter/mount/DS identity와 pNFS capability provider는 후속 과제입니다. [Common / 3FS / pNFS 흐름](storage-correlation.md)을 따릅니다.
 
 ## Future Work (TBD)
 
@@ -126,8 +146,8 @@ Prometheus·SDK·기본 window/quality 모델은 backend 공통이지만 `ThreeF
 
 | 우선 | 제안 / 기대효과 | 최소 변경과 upstream 경계 |
 | --- | --- | --- |
-| P1-A | Backend capability / coverage. 3FS 없는 환경의 unsupported를 정상값·같은 통계로 표시하지 않음 | 기존 `MetricQuery`·source discovery·sampling/clock quality·schema의 additive 확장과 얇은 backend provider. 새 telemetry backend 불필요 |
-| P1-B | 기존 FileStorage/transfer/NFS native evidence 활용 | Optional profile/canonical query·mountstats 명시 설정·device/export identity. Mooncake/kernel 변경 없이 먼저 검증 |
+| P1-A | 현재 coverage에 verified backend/adapter·mount/DS identity 확장 | 기존 `storage_overview`·quality·source discovery를 재사용. 공통 metadata·3FS collection을 다시 구현하지 않음 |
+| P1-B | pNFS native evidence와 backend-specific Deep Dive | Optional canonical query·mountstats 명시 설정·export/MDS/DS identity. 이번에는 Runtime/UI 미구현; Local SSD 확장은 별도 범위 |
 | P1-C | Native sample/request ID를 기존 SDK identity에 연결. Async framework 경계의 오결합 방지 | Existing context/span·local relation 집계를 재사용하고 framework-native trace/ID의 호환 변환만 추가. 기존 local parent relation·phase wrapper 재구현 금지 |
 | P1-D | vLLM KV enqueue/start/completion과 request↔batch/key link | KV connector module/plugin으로 XLayer decorator 우선 평가. Callback 공개/override 가능한 버전만 무수정 PoC; 안정적 callback이 없으면 최소 vLLM patch TBD |
 | P2-A | Actual selected replica·fallback·completion | `SelectBestReplica`→execution plan/completion의 작은 callback/structured event. 비공개 C++ 경계는 최소 Mooncake 변경 필요 |
@@ -136,8 +156,8 @@ Prometheus·SDK·기본 window/quality 모델은 backend 공통이지만 `ThreeF
 
 ### 기존 hook과 소스 근거
 
-- **veRL:** [`RLInsightLogger.trace_state/trace_span`](https://github.com/volcengine/verl/blob/18eb23dde5ec84edf51a8b780a74a116524aa5cb/verl/utils/tracking.py)은 이미 있습니다. Wrapper도 optional rl-insight logger를 선택하지만 XLayer schema·Run/worker·parent·clock/reference가 자동으로 맞는다고 가정하지 않습니다. 호환 취입을 먼저 검증합니다.
-- **vLLM:** [`KVConnectorFactory` module path](https://github.com/vllm-project/vllm/blob/458ba2edf85bc9b7ebc0d5141f34ea658520faf5/vllm/distributed/kv_transfer/kv_connector/factory.py)와 [Store connector](https://github.com/vllm-project/vllm/blob/458ba2edf85bc9b7ebc0d5141f34ea658520faf5/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/connector.py)를 사용하는 안입니다. Store의 `wait_for_layer_load`/`save_kv_layer`는 no-op이므로 실측 layer I/O로 만들지 않습니다. `start_load_kv`·`wait_for_save`·`get_finished`·실제 worker operation callback을 구분하고 enqueue/return을 completion으로 오인하지 않는 검증이 필요합니다.
+- **veRL:** [`RLInsightLogger.trace_state/trace_span`](https://github.com/volcengine/verl/blob/704a9f01bda8b9863c02c113547191bf167bc88f/verl/utils/tracking.py)은 이미 있습니다. Wrapper도 optional rl-insight logger를 선택하지만 XLayer schema·Run/worker·parent·clock/reference가 자동으로 맞는다고 가정하지 않습니다. 호환 취입을 먼저 검증합니다.
+- **vLLM:** [`KVConnectorFactory` module path](https://github.com/vllm-project/vllm/blob/194da61de1769c28bfad2b6642c60cc7eca544dd/vllm/distributed/kv_transfer/kv_connector/factory.py)와 [Store connector](https://github.com/vllm-project/vllm/blob/194da61de1769c28bfad2b6642c60cc7eca544dd/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/store/connector.py)를 사용하는 안입니다. Store의 `wait_for_layer_load`/`save_kv_layer`는 no-op이므로 실측 layer I/O로 만들지 않습니다. `start_load_kv`·`wait_for_save`·`get_finished`·실제 worker operation callback을 구분하고 enqueue/return을 completion으로 오인하지 않는 검증이 필요합니다.
 - **Mooncake:** Native DFS/SSD/transfer metric은 이미 있어 같은 counter/histogram을 새로 제안하지 않습니다. 부족한 selected replica·retry·completion만 `real_client.cpp` execution plan과 `client_service.cpp`/`FileStorage` 경계에서 추가하는 안입니다.
 - **pNFS:** Client mountstats, kernel nfsd server counter, DS host exporter를 먼저 활용합니다. Layout/DS edge는 [Linux file layout](https://github.com/torvalds/linux/blob/47324d3a5b3abd781295044d01d92d09f184e872/fs/nfs/filelayout/filelayout.c)·[flexfile layout](https://github.com/torvalds/linux/blob/47324d3a5b3abd781295044d01d92d09f184e872/fs/nfs/flexfilelayout/flexfilelayout.c)에 의존하므로 일반 Node Exporter가 자동 제공한다고 하지 않습니다.
 
@@ -172,9 +192,10 @@ Overhead는 no-telemetry / 현재 lightweight / 추가안 / triggered capture에
 
 | Source | 조사 revision |
 | --- | --- |
-| XLayer main | `47d8fa0a6e284b7b43b106b5fcabe00d250d6970` |
-| veRL main | `18eb23dde5ec84edf51a8b780a74a116524aa5cb` |
-| vLLM main | `458ba2edf85bc9b7ebc0d5141f34ea658520faf5` |
+| XLayer main 조사 시작 | `4734fcee5d2f408b252b4a54cb85904e20c12163`; common-storage 개선은 현행 checkout |
+| veRL main | `704a9f01bda8b9863c02c113547191bf167bc88f` |
+| vLLM main | `194da61de1769c28bfad2b6642c60cc7eca544dd` |
+| Ray main | `07197d0cae70cdfb75f4e3f97f3c0b14f8ba05b3` |
 | Mooncake main | `dcddb56c0cddc96f41eeb8dd82e5bd9f497183a2` |
 | 3FS main | `22fca04564c7cc230fd8b9523b8b92864e1dad47` |
 | Node Exporter | XLayer 사용 버전 `v1.9.1`; 최신 master `1271bc244266457fd225dcef9b8a33641b582c64`도 비교 |
