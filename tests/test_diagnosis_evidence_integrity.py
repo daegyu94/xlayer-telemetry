@@ -36,14 +36,15 @@ def test_threefs_no_samples_cannot_produce_legacy_latency_finding(current_count,
     assert report["evidence"]["threefs_distributions"][0]["count"] == current_count
 
 
-def test_observed_threefs_latency_regression_keeps_shared_scope():
+def test_unverified_threefs_clock_preserves_raw_regression_values_without_finding():
     engine = DiagnosticEngine({"prometheus": {"url": "http://unused"}},
                               prometheus=EmptyPrometheus(), clock=lambda: 101,
                               threefs=DistributionWindows([distribution(5, 20)], [distribution(5, 2)]))
-    finding, = engine.analyze(None, [])["findings"]
-    assert finding["candidate"] == "latency_regression"
-    assert finding["attribution"] == "shared_storage_window"
-    assert finding["signals"]["metrics"][0]["ratio"] == 10
+    report=engine.analyze(None,[])
+    assert report['findings']==[]
+    assert report['evidence']['threefs_distributions'][0]['max_observed_p99']==20
+    assert report['evidence']['threefs_baseline_distributions'][0]['max_observed_p99']==2
+    assert report['threefs_clock_quality']=={'current':False,'baseline':False}
 
 
 def statistics(value):
@@ -260,5 +261,5 @@ def test_zero_latency_with_observed_operations_is_real_current_evidence():
                               prometheus=EmptyPrometheus(), clock=lambda: 101,
                               threefs=DistributionWindows([distribution(5, 0)], [distribution(5, 2)]))
     report = engine.analyze(None, [])
-    assert report["verdict"] == "no_anomaly_observed"
+    assert report["verdict"] == "insufficient_data"
     assert "threefs:no_data" not in report["missing_sources"]

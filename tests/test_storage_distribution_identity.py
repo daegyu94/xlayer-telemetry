@@ -33,7 +33,7 @@ class Windows:
         return next(self.rows)
 
 
-def report(current, baseline, *, request_size=False):
+def report(current, baseline, *, request_size=False, verified=False):
     records = [{"record_id": str(i), "run_id": "r", "worker_id": "w", "node": "n",
                 "step": i, "observed_at": i * 10, "step_duration_seconds": 5,
                 "analysis_window": {"start": i * 10 - 5, "end": i * 10}}
@@ -41,7 +41,16 @@ def report(current, baseline, *, request_size=False):
     config = {"prometheus": {"url": "http://unused"}}
     if request_size:
         config["threefs"] = {"url": "http://unused", "request_size_metric": "request_bytes"}
-    engine = diagnostics.DiagnosticEngine(config, prometheus=EmptyPrometheus(),
+    class Clocks(EmptyPrometheus):
+        def query_range(self,query,*args):
+            if 'node_time_seconds' in query or 'node_timex' in query:
+                value=1 if 'sync_status' in query else .001
+                return dict(min=value,max=value,mean=value,last=value,sample_count=3)
+            return None
+    if verified:
+        config.update(cluster='synthetic-clocks',clock={'monitoring_node':'monitor'})
+        config['threefs']={**config.get('threefs',{}),'url':'http://unused','clock_nodes':['a','b']}
+    engine = diagnostics.DiagnosticEngine(config, prometheus=Clocks() if verified else EmptyPrometheus(),
                                           threefs=Windows(current, baseline))
     return engine.analyze(records[1], records[:1])
 
@@ -77,7 +86,7 @@ def test_different_distribution_identity_never_produces_latency_comparison(befor
 def test_multi_entity_comparison_selects_same_entity_and_projects_full_identity():
     current = [distribution(20), distribution(100, host="b")]
     before = [distribution(10), distribution(1000, host="b")]
-    result = report(current, before)
+    result = report(current, before, verified=True)
     row, = [r for r in result["comparison"]["signals"] if r["signal"] == "threefs_p99_latency"]
     assert (row["current"], row["baseline"]) == (20, 10)
     assert row["labels"] == {"metricName": "client_read_latency", **current[0]["labels"]}

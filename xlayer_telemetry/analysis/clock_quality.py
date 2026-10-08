@@ -13,6 +13,17 @@ from ..prometheus import escape_label
 from ..time_alignment import validate_alignment
 
 
+def producer_hosts_verified(clock: dict, hosts: Iterable[str], aliases: dict | None = None) -> bool:
+    """Raw producer timestamps require coverage of actual returned hosts."""
+    hosts=set(hosts)
+    nodes=(clock.get('system_clock_screening',{}).get('nodes',{})
+           if clock.get('scope')=='mapped_workload_to_prometheus_scrape_time' else clock.get('nodes',{}))
+    nodes={**nodes,**clock.get('producer_clock_screening',{}).get('nodes',{})}
+    return bool(hosts) and clock.get('status')=='aligned' and all(
+        isinstance(host,str) and bool(host) and
+        nodes.get((aliases or {}).get(host,host),{}).get('status')=='aligned' for host in hosts)
+
+
 def clock_inventory(config: dict, producer_node: str) -> dict:
     """Configured observation hosts, not discovered execution dependencies."""
     roles: dict[str,list[str]] = {}

@@ -10,7 +10,8 @@ def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_pa
 
     assert report["comparison"]["baseline_record_id"]
     queue = next(item for item in report["candidates"] if item["id"] == "storage_queue_saturation")
-    assert queue["state"] == "strong_signal"
+    assert queue["state"] == "supporting_signal"
+    assert 'storage_service_resource_relation_unverified' in queue['missing_evidence']
     assert "per_run_3fs_client_bytes" in queue["missing_evidence"]
     assert not any(item["id"] == "network_limited_storage" for item in report["candidates"])
     assert len((root / "telemetry-events/verl-steps.jsonl").read_text().splitlines()) == 2
@@ -24,7 +25,9 @@ def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_pa
     assert all(e["attributes"]["data_origin"] == "synthetic" for e in events)
     assert "[synthetic]" in (root / "logs/agent.log").read_text()
     rows = [json.loads(line) for line in next((root / "diagnostics/investigation").glob("*.jsonl")).read_text().splitlines()]
-    assert next(row for row in rows if row["row_kind"] == "summary")["primary_candidate"] == "storage_queue_saturation"
+    summary=next(row for row in rows if row['row_kind']=='summary')
+    assert summary['primary_candidate'] is None and summary['strong_candidate_count']==0
+    assert summary['candidate_count']>0
     assert all(row["data_origin"] == "synthetic" for row in rows)
 
 

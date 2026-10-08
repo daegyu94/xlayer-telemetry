@@ -341,6 +341,7 @@ Custom query에 `offset`·`@`·subquery나 추가 bare metric이 있으면 원�
 Source timestamp가 분석 구간 종료보다 미래이면 `source_timestamp_in_future`를 표시하고 age를 0으로 보정하지 않습니다.
 
 Evidence와 comparison은 `sampling_quality.current`·`baseline`에 interval 길이, query step, range window와 evaluation count를 보존합니다.
+Entity를 선택한 evidence는 해당 entity의 evaluation count를 사용합니다. 다른 engine/device의 sample 수를 빌리지 않습니다. Source timestamp count는 반환된 source series별 고유 timestamp 수의 최솟값이며, 여러 entity의 sample을 합쳐 충분한 coverage처럼 표시하지 않습니다.
 예를 들어 6초 step의 `[1m]` rate에는 `range_window_exceeds_interval`이 표시됩니다.
 이 값은 step 전후 활동을 포함할 수 있으므로 해당 step의 정밀한 resource 사용량으로 해석하지 않습니다.
 
@@ -349,6 +350,7 @@ Warning·info 수는 각각 1,000에서 제한하고 backend 원문은 저장하
 Info만으로 entity 누락을 단정하지 않으며, 버린 series 수는 응답에 있었지만 유효한 finite sample이 없어 제외한 series만 셉니다.
 이 품질 제한은 `missing_sources`·candidate의 `missing_evidence`에도 구간별 안전한 code와 수로 남고, 관련 candidate는 최대 `supporting_signal`로 표시합니다.
 유효한 값과 labels는 유지하며 NaN·Inf·잘못된 sample을 0으로 바꾸지 않습니다.
+Known stale/future source 값은 raw evidence·comparison에 보존하지만 rule의 supporting/counter 입력과 legacy finding에서는 제외합니다. Application symptom은 독립적으로 남으므로 resource evidence가 없어도 missing을 가진 weak candidate가 보일 수 있습니다.
 
 Source freshness를 확인하려면 diagnostics 또는 LLM source config에 다음 설정을 추가합니다.
 
@@ -391,8 +393,12 @@ Clock 상태를 나중에 고쳤다고 이미 끝난 step의 과거 timestamp가
 
 ClickHouse endpoint의 server clock만 확인해서 3FS distribution timestamp를 검증할 수는 없습니다.
 `threefs.clock_nodes`에 timestamp를 만드는 실제 3FS producer node 목록을 넣고 해당 node의 host collector를 `TELEMETRY_TARGETS`에 등록합니다.
-목록이 없으면 3FS candidate에 `threefs_producer_clock_alignment`가 missing evidence로 남고 `strong_signal`을 `supporting_signal`로 제한합니다.
+Producer coverage가 부족하면 `threefs:producer_clock_alignment`가 missing source로 남으며 3FS를 사용한 regression finding·candidate·delta를 보류합니다.
 이 clock 검사는 step별 3FS 사용량의 attribution을 제공하지 않습니다.
+
+3FS regression finding과 candidate는 반환된 distribution의 실제 `labels.host`가 current·baseline의 raw clock screening에 포함될 때만 사용합니다. Host 이름이 Node Exporter identity와 다르면 기존 `threefs.time_series.host_clock_nodes` mapping을 사용하며 series 활성화는 필요하지 않습니다. 다른 host의 정상 clock이나 application calibration만으로 해당 producer를 인증하지 않습니다. 미검증이면 raw current/baseline은 남고 delta는 `producer_clock_unverified`로 보류합니다. Host 없는 legacy artifact도 정밀 time correlation을 인증하지 않습니다.
+
+3FS service와 SSD/interface가 같은 I/O path라는 관계는 현재 telemetry에 없습니다. Mixed storage 후보는 최대 supporting이며 `storage_service_resource_relation_unverified`를 남깁니다. 별도 interface의 healthy 값으로 storage-path headroom을 확인하거나 다른 device의 busy 값으로 이를 반박하지 않습니다. 실제 GET/PUT→3FS→SSD/network 관계와 operation attribution은 기존 [TBD](storage-correlation.md)의 계측 과제입니다.
 
 ## Data and UI Boundaries
 

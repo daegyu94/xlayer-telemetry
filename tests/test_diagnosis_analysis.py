@@ -55,9 +55,13 @@ def test_strong_synthetic_scenarios(identifier, changes, context, candidate_vali
     candidates = evaluate_rules(BASE | changes, BASE, thresholds={}, context=context)
     selected = next(item for item in candidates if item["id"] == identifier)
     candidate_validator.validate(selected)
-    assert selected["state"] == "strong_signal"
+    assert selected["state"] == ("supporting_signal" if selected['component']=='storage' else "strong_signal")
     assert selected["evidence"]
-    assert selected["missing_evidence"] == (["per_run_3fs_client_bytes"] if selected["component"] == "storage" else [])
+    if selected['component']=='storage':
+        assert 'per_run_3fs_client_bytes' in selected['missing_evidence']
+        assert 'storage_service_resource_relation_unverified' in selected['missing_evidence']
+    else:
+        assert selected['missing_evidence']==[]
 
 
 def test_normal_and_insufficient_evidence():

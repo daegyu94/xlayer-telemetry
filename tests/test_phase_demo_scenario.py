@@ -66,7 +66,8 @@ def test_completed_report_and_native_spans_use_the_same_schedule(tmp_path):
     report = generate(tmp_path / "completed", run_id="phase-demo", node="gpu-node-0", scenario=schedule, clock=lambda: 1090)
     baseline, current = schedule["frames"]
     assert report["step"] == current["step"]
-    assert any(c["id"] == "storage_queue_saturation" and c["state"] == "strong_signal" for c in report["candidates"])
+    assert any(c["id"] == "storage_queue_saturation" and c["state"] == "supporting_signal" and
+               'storage_service_resource_relation_unverified' in c['missing_evidence'] for c in report["candidates"])
     assert report["analysis_window"]["start"] == current["start"]
     assert report["analysis_window"]["end"] == current["end"]
     assert report["comparison"]["baseline_interval"]["start"] == baseline["start"]

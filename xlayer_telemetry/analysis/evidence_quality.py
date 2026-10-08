@@ -43,12 +43,24 @@ def result_quality_issues(value: Mapping[str, Any]) -> list[str]:
 
 RESOLUTION_BLOCKERS = frozenset({'query_step_exceeds_interval','fewer_than_two_query_evaluations',
     'source_timestamp_in_future','source_sample_before_interval','fewer_than_two_observed_source_samples'})
+INVALID_SOURCE_TIME = frozenset({'source_timestamp_in_future','source_sample_before_interval'})
+
+
+def selected_quality(value: Mapping[str,Any], stats: Mapping[str,Any]) -> dict:
+    """Keep query annotations, but never borrow another entity's evaluations."""
+    count=finite_number(stats.get('sample_count'))
+    warnings=[w for w in value.get('warnings',[]) if w not in {'fewer_than_two_query_evaluations','selected_entity_evaluation_count_unknown'}]
+    if count is None:
+        warnings.append('selected_entity_evaluation_count_unknown')
+    elif count<2:
+        warnings.append('fewer_than_two_query_evaluations')
+    return {**value,'evaluation_count':count,'evaluation_count_kind':'selected_entity_query_evaluations_not_scrapes','warnings':warnings}
 
 
 def correlation_quality_issues(value: Mapping[str,Any]) -> list[str]:
     """Sampling limits cap strong hypotheses even without backend annotations."""
     return result_quality_issues(value)+[warning for warning in value.get('warnings',[])
-        if warning in RESOLUTION_BLOCKERS | {'range_window_exceeds_interval','range_window_unknown','source_freshness_unknown'}]
+        if warning in RESOLUTION_BLOCKERS | {'range_window_exceeds_interval','range_window_unknown','source_freshness_unknown','selected_entity_evaluation_count_unknown'}]
 
 
 def timestamp_query(query: str) -> str | None:
@@ -113,7 +125,7 @@ def quality(query: str, start: float, end: float, query_step: float,
             "range_window_seconds": lookback, "evaluation_count": evaluations,
             "evaluation_count_kind": "query_evaluations_not_scrapes",
             "observed_source_samples": source.get("observed_source_samples"),
-            "source_sample_count_kind": "distinct_timestamps_seen_at_query_evaluations_not_complete_scrape_count",
+            "source_sample_count_kind": "minimum_distinct_timestamps_per_returned_source_series_not_complete_scrape_count",
             "last_source_timestamp": last, "source_age_seconds": age,
             "freshness": "observed" if last is not None and not future else "unknown",
             "source_coverage": "returned_series_only" if last is not None else "unknown",
@@ -130,10 +142,10 @@ def check_source(client, query: str, start: float, end: float, step: float) -> d
         series = detail.get("series", [])
         last = [finite_number(item.get("stats", {}).get("max")) for item in series]
         last = [value for value in last if value is not None]
-        timestamps = [stamp for item in series for stamp in item.get("source_timestamps", [])]
+        counts=[len(set(stamp for stamp in item.get('source_timestamps',[]) if start<=stamp<=end))
+                for item in series if 'source_timestamps' in item]
         return {"last_source_timestamp": min(last) if last else None,
-                "observed_source_samples": sum(len(set(stamp for stamp in item.get("source_timestamps", [])
-                                                            if start <= stamp <= end)) for item in series) if timestamps else None}
+                "observed_source_samples": min(counts) if counts and len(counts)==len(series) else None}
     except (OSError, RuntimeError, TimeoutError, ValueError):
         return {}
 
@@ -161,7 +173,7 @@ def validate_quality(value: Any) -> None:
         allowed_warnings = {"range_window_exceeds_interval", "query_step_exceeds_interval",
                             "fewer_than_two_query_evaluations", "source_freshness_unknown", "range_window_unknown",
                             "source_timestamp_in_future", "source_sample_before_interval",
-                            "fewer_than_two_observed_source_samples"} | {code for code, _ in _RESULT_FIELDS.values()}
+                            "fewer_than_two_observed_source_samples", "selected_entity_evaluation_count_unknown"} | {code for code, _ in _RESULT_FIELDS.values()}
         warnings = item.get("warnings", [])
         if not isinstance(warnings, list) or any(not isinstance(warning, str) or warning not in allowed_warnings for warning in warnings):
             raise ValueError("invalid sampling quality warnings")

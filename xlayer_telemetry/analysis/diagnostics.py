@@ -22,9 +22,9 @@ from urllib.request import Request, build_opener
 from .._http_redirects import _CredentialSafeRedirectHandler
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, recent_baseline_history, select_baseline, validate_baseline_policy
-from .clock_quality import assess_interval, clock_inventory
+from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
-from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, correlation_quality_issues, RESOLUTION_BLOCKERS
+from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
 from ..sandbox import device_window
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
@@ -857,9 +857,6 @@ class DiagnosticEngine:
                 finding_evidence.pop(name, None)
         else:
             finding_evidence.update(selected_vllm_stats)
-        findings = self._findings(
-            finding_evidence, threefs_rows, threefs_baseline, float(start), end, execution_mode
-        )
         def gpu_identity(item):
             labels = item.get("labels", {})
             return tuple((key, str(labels[key])) for key in ("cluster", "instance", "nodename", "node", "gpu", "gpu_uuid") if key in labels)
@@ -932,6 +929,8 @@ class DiagnosticEngine:
         # but cannot supply an entity-matched baseline for these signals.
         comparable_profiles = PROFILE_SIGNALS | {
             "rdma_bytes_per_second": MetricQuery("", "network-interface", "bytes/s", "mean"),
+            "storage_device_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
+            "network_utilization_ratio": MetricQuery("", "network-interface", "percentunit", "max"),
         }
         for name, spec in comparable_profiles.items():
             items = [item for item in current_series.get(name, [])
@@ -954,8 +953,8 @@ class DiagnosticEngine:
             baseline_signals.pop(name, None)
             matching = [item for item in baseline_series.get(name, [])
                         if selected_identity and profile_identity(item) == selected_identity]
-            if name == "rdma_bytes_per_second" and not (
-                    selected_identity.get("device") and any(
+            if name in {"rdma_bytes_per_second","storage_device_busy_ratio","network_utilization_ratio"} and not (
+                    any(selected_identity.get(k) for k in ("device","interface","port")) and any(
                         selected_identity.get(key) for key in ("instance", "node", "nodename"))):
                 matching = []
                 signal_scopes[name] = "unknown"
@@ -1049,8 +1048,47 @@ class DiagnosticEngine:
             sources["threefs_p99_latency"] = f"3fs_clickhouse:{selected_3fs_metric}"
         if self.config.get("threefs", {}).get("request_size_metric"):
             sources["storage_request_bytes"] = "3fs_clickhouse:" + str(self.config["threefs"]["request_size_metric"])
+
+        # Selection changes the evidence population. Retain query annotations,
+        # but use only that entity's evaluations for its quality assessment.
+        for name,qualities in sampling_quality.items():
+            signal='vllm_preemptions_delta' if name=='vllm_preemptions_total' else name
+            labels=signal_labels.get(signal)
+            if not labels:
+                continue
+            for role,series in (('current',current_series),('baseline',baseline_series)):
+                matches=[item for item in series.get(name,[]) if all(item.get('labels',{}).get(k)==v for k,v in labels.items() if k!='__name__')]
+                if role in qualities:
+                    qualities[role]=selected_quality(qualities[role],matches[0].get('stats',{}) if len(matches)==1 else {})
+
+        rule_current,rule_baseline=dict(current_signals),dict(baseline_signals)
+        for name,qualities in sampling_quality.items():
+            signal='vllm_preemptions_delta' if name=='vllm_preemptions_total' else name
+            for role,values in (('current',rule_current),('baseline',rule_baseline)):
+                invalid=INVALID_SOURCE_TIME.intersection(qualities.get(role,{}).get('warnings',[]))
+                if invalid:
+                    values.pop(signal,None)
+                    missing.extend(f'prometheus:{name}:{role}:{issue}' for issue in sorted(invalid))
+                    if role=='current':
+                        finding_evidence.pop(name,None)
+
+        aliases=self.config.get('threefs',{}).get('time_series',{}).get('host_clock_nodes',{})
+        def storage_clock_ok(rows,clock):
+            return producer_hosts_verified(clock,[row.get('labels',{}).get('host') for row in _distribution_index(rows).values()],aliases)
+        storage_clock={'current':storage_clock_ok(threefs_rows,clock_quality),
+                       'baseline':storage_clock_ok(threefs_baseline,clock_quality.get('baseline',{}))}
+        storage_comparable=all(storage_clock.values())
+        if threefs is not None:
+            for role,values in (('current',rule_current),('baseline',rule_baseline)):
+                if not storage_clock[role]:
+                    values.pop('threefs_p99_latency',None)
+                    if self.config.get('threefs',{}).get('request_size_metric'):
+                        values.pop('storage_request_bytes',None)
+                    missing.append(f'threefs:producer_clock_alignment:{role}')
+        findings=self._findings(finding_evidence,threefs_rows if storage_comparable else [],
+            threefs_baseline if storage_comparable else [],float(start),end,execution_mode)
         candidates = evaluate_rules(
-            current_signals, baseline_signals, thresholds=self.thresholds,
+            rule_current, rule_baseline, thresholds=self.thresholds,
             context={"sources": sources, "window": window,
                      "boundary_accuracy": window.get("accuracy", "unknown"),
                      "node": node,
@@ -1135,13 +1173,16 @@ class DiagnosticEngine:
             if any(RESOLUTION_BLOCKERS.intersection(q.get('warnings',[]))
                    for q in (row['sampling_quality'] or {}).values()):
                 row.update(delta=None,delta_percent=None,comparison_status='insufficient_sampling_coverage')
+            if row['signal'] in {'threefs_p99_latency','storage_request_bytes'} and threefs is not None and not storage_comparable:
+                row.update(delta=None,delta_percent=None,comparison_status='producer_clock_unverified')
             if row["signal"] in PROFILE_SIGNALS:
                 row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
                 row["query"] = signal_queries.get(row["signal"])
                 row["window_statistic"] = PROFILE_SIGNALS[row["signal"]].statistic
         # Raw empty distributions and an observed baseline cannot establish
         # that the current resource interval was measured.
-        external_count = len(set(evidence) - {"slow_stages", "threefs_distributions", "threefs_baseline_distributions"}) + int(current_3fs_samples)
+        invalid_current={name for name,qualities in sampling_quality.items() if INVALID_SOURCE_TIME.intersection(qualities.get('current',{}).get('warnings',[]))}
+        external_count = len(set(evidence) - {"slow_stages", "threefs_distributions", "threefs_baseline_distributions"} - invalid_current) + int(current_3fs_samples and storage_clock['current'])
         verdict = "bottleneck_suspected" if findings or candidates else "no_anomaly_observed"
         if unsafe_timing:
             verdict = "insufficient_data"
@@ -1156,7 +1197,7 @@ class DiagnosticEngine:
             limitations.append("Clock alignment is unsafe or unknown; cross-layer diagnosis and baseline deltas are withheld. Raw resource windows remain available for inspection.")
         if clock_quality["status"] == "unchecked":
             limitations.append("Clock alignment was not checked. Configure cluster to enable Node Exporter clock checks.")
-        if threefs is not None and not self.config.get("threefs", {}).get("clock_nodes"):
+        if threefs is not None and not storage_comparable:
             limitations.append("3FS producer clocks were not checked; shared-service timestamp alignment requires threefs.clock_nodes covering its producers.")
             for candidate in candidates:
                 if any(item.get("signal", "").startswith("threefs_") for item in candidate.get("evidence", [])):
@@ -1189,6 +1230,7 @@ class DiagnosticEngine:
             "boundary_scope": (current or {}).get("boundary_scope", "continuous_window"),
             "analysis_window": window,
             "clock_quality": clock_quality,
+            **({'threefs_clock_quality':storage_clock} if threefs is not None else {}),
             "verdict": verdict,
             "findings": findings,
             "evidence": evidence,

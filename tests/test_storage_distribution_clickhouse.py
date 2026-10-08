@@ -74,8 +74,16 @@ def test_storage_diagnosis_matches_actual_sql_entities_instead_of_metric_only(st
         return {"record_id": str(stamp), "run_id": "fixture", "node": "node", "worker_id": "worker",
                 "observed_at": stamp+3, "step_duration_seconds": 5,
                 "analysis_window": {"start": stamp-1, "end": stamp+3, "accuracy": "approximate"}}
-    report = DiagnosticEngine({"prometheus": {"url": "http://unused"}},
-                              prometheus=NoMetrics(), threefs=client).analyze(step(200), [step(100)])
+    class AlignedClocks(NoMetrics):
+        def query_range(self,query,*args):
+            if 'node_time_seconds' in query or 'node_timex' in query:
+                value=1 if 'sync_status' in query else .001
+                return dict(min=value,max=value,mean=value,last=value,sample_count=3)
+            return None
+    report = DiagnosticEngine({"cluster":"synthetic-clocks","clock":{"monitoring_node":"monitor"},
+                               "prometheus": {"url": "http://unused"},
+                               "threefs":{"url":"http://unused","clock_nodes":["a","b"]}},
+                              prometheus=AlignedClocks(), threefs=client).analyze(step(200), [step(100)])
     selected, = [row for row in report["comparison"]["signals"] if row["signal"] == "threefs_p99_latency"]
     assert selected["current"] == 20 and selected["baseline"] == 10
     assert selected["labels"]["host"] == "a" and selected["labels"]["method"] == "read"

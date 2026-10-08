@@ -276,11 +276,11 @@ def test_async_diagnosis_correlates_external_signals_without_claiming_step_owner
 
     assert report["verdict"] == "bottleneck_suspected"
     assert report["boundary_scope"] == "trainer_update"
-    assert {finding["component"] for finding in report["findings"]} >= {"vllm", "ray", "verl_async", "3fs"}
+    assert {finding["component"] for finding in report["findings"]} >= {"vllm", "ray", "verl_async"}
     assert any("not owned by this step" in item for item in report["limitations"])
-    threefs = next(item for item in report["findings"] if item["component"] == "3fs")
-    assert threefs["attribution"] == "shared_storage_window"
-    assert threefs["signals"]["metrics"][0]["ratio"] == 4.0
+    assert not any(item['component']=='3fs' for item in report['findings'])
+    assert report['evidence']['threefs_distributions'][0]['max_observed_p99']==20
+    assert 'threefs:producer_clock_alignment:current' in report['missing_sources']
 
 
 def test_no_external_samples_is_insufficient_data() -> None:

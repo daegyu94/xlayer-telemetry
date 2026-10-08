@@ -275,5 +275,58 @@
   "ci_helpers": {
     "passed": 17,
     "clock_browser_wired": true
+  },
+  "quality_boundary_followup": {
+    "baseline_revision": "05072ef",
+    "scope": "selected-entity sampling and legacy 3FS rule/finding boundaries; no UI or telemetry coverage changes",
+    "reproduced": [
+      "other entities mask a selected sparse engine evaluation count",
+      "source samples pooled across distinct entities",
+      "known stale/future resource values still enter legacy finding/rule inputs",
+      "legacy 3FS finding/delta survives missing or wrong producer clock coverage",
+      "unrelated SSD/interface observations establish strong shared storage hypotheses or path headroom",
+      "core storage/network baselines subtract different devices"
+    ],
+    "boundary_tests": 13,
+    "cost": {
+      "scope": "CPU processing with bounded in-memory source fixture; not network/production benchmark",
+      "repeats": 30,
+      "before": {
+        "median_ms": 0.358732882887125,
+        "query_counts": [
+          40
+        ]
+      },
+      "after": {
+        "median_ms": 0.375963281840086,
+        "query_counts": [
+          40
+        ]
+      },
+      "extra_backend_queries": 0
+    },
+    "limits": [
+      "clock coverage is sampled and host aliases are explicit",
+      "shared service, device and network resource relations remain uninstrumented",
+      "no operation attribution or causality added",
+      "physical multi-node Agent RL not tested"
+    ],
+    "cpu": {
+      "passed": 1487,
+      "skipped": 0,
+      "seconds": 193.5,
+      "real_promtool": true,
+      "isolated_clickhouse": "25.1.5.31; synthetic clock fixture"
+    },
+    "documentation": {
+      "links_diagrams_passed": 10,
+      "strict_build": "passed"
+    },
+    "ui_changed": false,
+    "cleanup": {
+      "owned_clickhouse_removed": true,
+      "fixture_databases_removed": true,
+      "existing_user_stack_untouched": true
+    }
   }
 }

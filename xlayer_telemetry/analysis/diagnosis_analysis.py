@@ -204,13 +204,16 @@ def evaluate_rules(
         return value is not None and before is not None and before - value >= amount
 
     def add(identifier: str, component: str, summary: str, checks: list[tuple[str, bool]], *, scope: str, related: Mapping[str, Any] | None = None, cap_state: str | None = None) -> None:
-        observed = [name for name, ok in checks if ok]
+        unlinked=({'network_utilization_ratio'} if identifier=='device_limited_storage'
+                  else {'storage_device_busy_ratio'} if identifier=='network_limited_storage' else set())
+        observed = [name for name, ok in checks if ok and name not in unlinked]
         if not observed:
             return
         required = [name for name, _ in checks]
         missing = [name for name in required if val(name) is None]
+        missing.extend(f'{name}:storage_path_unverified' for name in sorted(unlinked))
         missing.extend(f"baseline:{name}" for name in required if name in BASELINE_REQUIRED and val(name, previous=True) is None)
-        contrary = [name for name, ok in checks if not ok and val(name) is not None and (name not in BASELINE_REQUIRED or val(name, previous=True) is not None)]
+        contrary = [name for name, ok in checks if name not in unlinked and not ok and val(name) is not None and (name not in BASELINE_REQUIRED or val(name, previous=True) is not None)]
         # A single symptom is weak; two independent supporting signals are
         # supporting; all requirements must be present and true for strong.
         state = "strong_signal" if len(observed) == len(required) and not missing else (
@@ -220,6 +223,16 @@ def evaluate_rules(
             state = "supporting_signal"
         if component == "storage" and finite(context.get("per_run_storage_bytes")) is None:
             missing.append("per_run_3fs_client_bytes")
+        if component == 'storage' and scope == 'mixed':
+            # Shared 3FS reports do not identify which SSD/interface served it.
+            missing.append('storage_service_resource_relation_unverified')
+            if state=='strong_signal':
+                state='supporting_signal'
+            summary = ('Storage latency and device pressure coincide; network-path headroom is unverified'
+                       if identifier=='device_limited_storage' else
+                       'Storage latency and interface pressure coincide; storage-device headroom is unverified'
+                       if identifier=='network_limited_storage' else
+                       summary+'; resource observations are concurrent context, not a verified storage path')
         evidence = [{
             "signal": name,
             **_APPLICATION_DURATION_METADATA.get(name, {}),
