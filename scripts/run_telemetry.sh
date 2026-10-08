@@ -74,65 +74,11 @@ cleanup() {
       wait "$pid" 2>/dev/null || true
     fi
   done
-  if [[ "$role" == node ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom"; fi
+  if [[ "$role" == node || "$role" == storage ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom"; fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-start_smartctl_exporter() {
-  : "${NODE_ADDR:?Set NODE_ADDR to this storage node management address}"
-  local exporter smartctl_path smartctl_cmd sudo_mode needs_sudo first_device scan_output
-  exporter="${SMARTCTL_EXPORTER:-$tools_dir/smartctl_exporter-0.14.0.linux-$release_arch/smartctl_exporter}"
-  if [[ ! -x "$exporter" ]]; then
-    echo "smartctl_exporter not found or not executable: $exporter" >&2
-    exit 1
-  fi
-  if ! smartctl_path="$(command -v "${SMARTCTL:-smartctl}")"; then
-    echo "smartctl is required for SSD health collection" >&2
-    exit 1
-  fi
-  smartctl_cmd="$smartctl_path"
-  sudo_mode="${SMARTCTL_SUDO:-auto}"
-  case "$sudo_mode" in
-    auto|0|1) ;;
-    *) echo "SMARTCTL_SUDO must be auto, 0, or 1" >&2; exit 2 ;;
-  esac
-  needs_sudo=0
-  if [[ "$sudo_mode" == 1 ]]; then
-    needs_sudo=1
-  elif [[ "$sudo_mode" == auto ]]; then
-    # NVMe SMART needs an admin-passthrough ioctl on the controller char
-    # device (/dev/nvmeN), which stays root:root mode 0600 regardless of the
-    # sibling block device's group (/dev/nvmeXn1, disk-group readable).
-    # A plain user can receive "Permission denied" and no SMART fields.
-    if ! scan_output="$("$smartctl_path" --scan 2>/dev/null)"; then
-      needs_sudo=1
-    fi
-    first_device="$(awk 'NR==1{print $1}' <<< "$scan_output")"
-    if [[ -n "$first_device" ]] && ! "$smartctl_path" -i "$first_device" >/dev/null 2>&1; then
-      needs_sudo=1
-    fi
-  fi
-  if [[ "$needs_sudo" == 1 ]]; then
-    if ! command -v sudo >/dev/null 2>&1; then
-      echo "smartctl needs root for NVMe SMART queries but sudo is unavailable; set SMARTCTL_SUDO=0 or grant access another way" >&2
-      exit 1
-    fi
-    if ! sudo -n "$smartctl_path" --scan >/dev/null 2>&1; then
-      echo "passwordless sudo smartctl preflight failed; check sudo permissions before starting SSD health collection" >&2
-      exit 1
-    fi
-    smartctl_cmd="$output_dir/smartctl-sudo"
-    printf '#!/usr/bin/env bash\nexec sudo -n %q "$@"\n' "$smartctl_path" > "$smartctl_cmd"
-    chmod 0755 "$smartctl_cmd"
-  fi
-  "$exporter" \
-    --smartctl.path="$smartctl_cmd" \
-    --smartctl.interval="${SMARTCTL_INTERVAL:-60s}" \
-    --web.listen-address="$NODE_ADDR:${SMARTCTL_PORT:-19633}" \
-    > "$output_dir/smartctl-exporter.log" 2>&1 &
-  pids+=("$!")
-}
 # Validate before writing an active scrape configuration. CPU-only nodes do
 # not need to invoke Python when no Python collector is enabled.
 if [[ "$role" == server ]]; then
@@ -150,7 +96,8 @@ except ConfigError as error:
     raise SystemExit(2)
 PYBUDGET
 fi
-if [[ "$role" == node ]]; then
+if [[ "$role" == node || "$role" == storage ]]; then
+  if [[ "$role" == storage ]]; then ENABLE_GPU_METRICS=0; fi
   : "${NODE_ADDR:?Set NODE_ADDR to this node management address}"
   node_name="${NODE_NAME:-$(hostname)}"
   if [[ -n "${LOKI_PUSH_URL:-}" || -n "${TELEMETRY_LOG_ROOTS:-}" ]]; then
@@ -367,9 +314,6 @@ EOF
     --web.listen-address="$NODE_ADDR:19100" \
     --collector.textfile.directory="$output_dir/textfile" > "$output_dir/node-exporter.log" 2>&1 &
   pids+=("$!")
-  if [[ "${ENABLE_SSD_HEALTH:-0}" == 1 ]]; then
-    start_smartctl_exporter
-  fi
   if [[ "${ENABLE_GPU_METRICS:-1}" == 1 ]]; then
     gpu_sampler_args=(
       --output "$output_dir/gpu-$(date -u +%Y%m%dT%H%M%S).jsonl"
@@ -416,8 +360,6 @@ EOF
       > "$output_dir/alloy.log" 2>&1 &
     pids+=("$!")
   fi
-elif [[ "$role" == storage ]]; then
-  start_smartctl_exporter
 elif [[ "$role" == server ]]; then
   prometheus_retention="${PROMETHEUS_RETENTION-1d}"
   "${PYTHON:-python3}" - "$prometheus_retention" <<'PY'
@@ -526,46 +468,6 @@ EOF
     relabel_configs:
       - target_label: cluster
         replacement: $cluster_name
-EOF
-  fi
-  if [[ -n "${STORAGE_TARGETS:-}" ]]; then
-    storage_system="${STORAGE_SYSTEM:-local}"
-    if [[ ! "$storage_system" =~ ^[A-Za-z0-9_.-]+$ ]]; then
-      echo "STORAGE_SYSTEM must contain only letters, digits, dots, underscores, or hyphens" >&2
-      exit 2
-    fi
-    IFS=',' read -r -a storage_targets <<< "$STORAGE_TARGETS"
-    cat >> "$output_dir/prometheus.yml" <<EOF
-  - job_name: storage-smart
-    scrape_interval: 60s
-    scrape_timeout: 10s
-    static_configs:
-EOF
-    seen_storage_nodes=""
-    for target in "${storage_targets[@]}"; do
-      node="${target%%=*}"
-      address="${target#*=}"
-      if [[ "$node" == "$target" || ! "$node" =~ ^[A-Za-z0-9_.-]+$ || ! "$address" =~ ^[A-Za-z0-9_.-]+$ ]]; then
-        echo "STORAGE_TARGETS entries must be node=address with letters, digits, dots, underscores, or hyphens" >&2
-        exit 2
-      fi
-      if [[ " $seen_storage_nodes " == *" $node "* ]]; then
-        echo "STORAGE_TARGETS node names must be unique: $node" >&2
-        exit 2
-      fi
-      seen_storage_nodes+=" $node"
-      cat >> "$output_dir/prometheus.yml" <<EOF
-      - targets: ['$address:${SMARTCTL_PORT:-19633}']
-        labels:
-          cluster: $cluster_name
-          nodename: $node
-          storage_system: $storage_system
-EOF
-    done
-    cat >> "$output_dir/prometheus.yml" <<EOF
-    relabel_configs:
-      - source_labels: [nodename]
-        target_label: instance
 EOF
   fi
   fi

@@ -116,7 +116,7 @@ def test_cpu_only_collector_reports_gpu_disabled_and_cleans_marker(tmp_path):
                             env=os.environ | {"TOOLS_DIR": str(tools), "OUTPUT_DIR": str(output),
                             "MARKER_COPY": str(copied), "NODE_ADDR": "127.0.0.1", "ENABLE_GPU_METRICS": "0",
                             "LOKI_PUSH_URL": "", "TELEMETRY_LOG_ROOTS": "", "TOPOLOGY_DIR": "",
-                            "TELEMETRY_METRICS_DIR": "", "DURATION": "", "ENABLE_SSD_HEALTH": "0"},
+                            "TELEMETRY_METRICS_DIR": "", "DURATION": ""},
                             capture_output=True, text=True, timeout=5)
     assert result.returncode == 0, result.stderr
     assert "telemetry_gpu_collection_enabled 0" in copied.read_text()

@@ -162,10 +162,10 @@ Node Exporter는 bundled **v1.9.1**의
 [PSI](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/pressure_linux.go),
 [diskstats](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/diskstats_linux.go),
 [InfiniBand](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/infiniband_linux.go)
-계약을 확인했습니다. Newer mlx5 hardware ACK/ECN/retry counters, NVMe SMART physical
+계약을 확인했습니다. Newer mlx5 hardware ACK/ECN/retry counters, NVMe physical
 writes/endurance, filesystem operation latency/errors, per-process/cgroup ownership,
 NCCL per-collective stall 시간은 이 profile에 없습니다. 필요하면 별도 검증된 exporter,
-profiler 또는 application spans를 연결합니다. SMART 값은 shared-device context이며
+profiler 또는 application spans를 연결합니다. Device I/O 값은 shared-device context이며
 정확한 run별 WAF나 physical writes로 환산하지 않습니다.
 
 vLLM은 commit `5f30fc7031cae49bf51073fc953d419b08f8887c`의

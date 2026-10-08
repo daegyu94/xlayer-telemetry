@@ -11,7 +11,7 @@ Trainer는 [VERL Quickstart](verl-quickstart.md), 데이터 경로는 [Architect
 | --- | --- | --- |
 | `node` role | GPU sampler와 Node Exporter로 GPU·host 지표 노출 | 각 GPU·sandbox·storage host |
 | `server` role | Prometheus로 metric을 수집하고 Grafana로 표시 | Monitoring host |
-| `storage` role | SMART exporter로 SSD 건강 상태 노출 | 전용 storage node |
+| `storage` shell role | GPU를 끈 node collector alias; host/I/O·clock 관측 | 전용 storage node. 공식 CLI는 `--role node` 사용 |
 | Alloy / Loki | File log 전송 / 저장; 선택 기능 | Log를 읽는 node / monitoring host |
 
 Monitoring host는 Prometheus·Grafana 등을 실행하는 machine이며 처음에는 GPU node와 같아도 됩니다.
@@ -70,7 +70,7 @@ Custom config에서는 output·node·cluster·backend URL을 설정에 맞춥니
 | Start Here / Run Overview | Collector health·freshness·step·throughput·loss·CPU·memory·swap |
 | Stage Correlation / Cross-Layer Signals | VERL stages·vLLM queue/KV/preemption/offload/token/latency·Ray tasks/actors/resources/object store/evictions |
 | Compute & Communication | GPU matrix·allocation·process memory·power·temperature·clock·worker timers·Ethernet·RDMA·topology |
-| Data & Storage | GPU/storage node의 disk·filesystem·SSD SMART·storage topology |
+| Data & Storage | Storage Cluster inventory·host/device I/O·filesystem |
 | Sandbox row / Timeline | Pool·PSI·I/O·CPU·memory·OOM·clock status와 exact synthetic tool/sandbox span |
 | Bottleneck Summary / Logs | Baseline/current·candidate·supporting/counter/missing evidence·관련 event·raw log |
 
@@ -120,9 +120,9 @@ bash scripts/install_telemetry_tools.sh node
 bash scripts/install_telemetry_tools.sh server
 ```
 
-`node` 설치는 Node Exporter·SMART exporter·Alloy를 준비합니다.
-`server` 설치는 Node Exporter·SMART exporter·Prometheus·Grafana·Loki를 준비합니다.
-Driver, `smartmontools`, training framework는 별도입니다.
+`node` 설치는 Node Exporter·Alloy를 준비합니다.
+`server` 설치는 Node Exporter·Prometheus·Grafana·Loki를 준비합니다.
+GPU driver와 training framework는 별도입니다.
 
 ### 2. Start the Collector
 
@@ -200,19 +200,15 @@ OUTPUT_DIR="$HOME/telemetry/state/storage-host" \
 ```
 
 이 경로는 CPU·memory·network·disk·filesystem·clock metric을 노출하며 NVIDIA driver가 필요하지 않습니다.
-SMART도 필요하면 `ENABLE_SSD_HEALTH=1`을 추가하고 관련 권한을 준비합니다.
-기존 `storage` role은 SMART 전용이며 host/clock metric을 제공하지 않으므로 host collector를 대신하지 않습니다.
+`storage` shell role도 같은 host/I/O 수집 경로이며 GPU sampling을 끕니다. 공식 `xltel` 경로에서는 `--role node`와 `ENABLE_GPU_METRICS=false`를 사용합니다.
 GPU가 있는 collector에서 `ENABLE_GPU_METRICS=0`으로 바꾸면 이전 `gpu.prom`도 제거합니다.
 
 Monitoring host의 `server.conf`에는 모든 host collector를 등록합니다.
-`STORAGE_TARGETS`는 선택적인 SMART endpoint이고 `TELEMETRY_TARGETS`는 host/clock endpoint입니다.
-둘은 용도가 다릅니다.
+`TELEMETRY_TARGETS`에 DS/MDS를 포함한 host/clock endpoint를 등록합니다.
 
 ```bash
 CLUSTER_NAME='training-cluster'
 TELEMETRY_TARGETS='gpu-a=10.0.0.10,gpu-b=10.0.0.11,storage-a=10.0.1.10'
-# SMART를 활성화한 경우에만 추가합니다.
-STORAGE_TARGETS='storage-a=10.0.1.10'
 ```
 
 VERL launcher에서 지정한 telemetry 환경 변수가 remote Ray worker에 자동 전달된다고 가정하지 않습니다.
@@ -334,7 +330,7 @@ Target이 up인데 run이 보이지 않는다면 [VERL 연결 가이드](verl-re
 | Run Overview | Target 상태·sample freshness, step 시간 추이와 선택적 완료 step 목록 |
 | Agent RL Stage Correlation | VERL 완료 stage와 등록한 rollout engine 지표 |
 | Compute & Communication | GPU·host·NIC/RDMA와 topology |
-| Data & Storage | Local device·filesystem, storage topology, 선택적 SMART |
+| Data & Storage | Storage Cluster inventory·node/device 성능·filesystem |
 | Bottleneck Summary | 진단 sidecar와 Loki를 연결한 run의 candidate·baseline·evidence |
 | Cross-Layer Timeline | 선택한 step 요약·span·step band와 Prometheus resource를 같은 시간축에서 확인 |
 | Run Logs | Loki를 활성화했을 때만 제공되는 log 검색 |
@@ -434,7 +430,7 @@ Run directory는 node별로 두고 shared storage의 동일 snapshot을 여러 c
 | 연결 방향 | 기본 port | 용도 |
 | --- | --- | --- |
 | Monitoring host → GPU node | `19100` | Host·GPU·application metric |
-| Monitoring host → storage node | `19633` | 선택적 SMART |
+| Monitoring host → DS/MDS node | `19100` | Node Exporter host/I/O·clock |
 | Log collector → monitoring host | `13100` | 선택적 Loki 전송 |
 | Browser → monitoring host | SSH tunnel | Loopback Grafana 접근 |
 
@@ -492,42 +488,58 @@ Alloy는 `<run>/telemetry-events/`와 `<run>/telemetry/telemetry-events/`의 ste
 `03 · Bottleneck Summary`는 diagnosis projection, `04 · Cross-Layer Timeline`은 span·step·sample을 사용합니다.
 연결하지 않은 source의 panel은 비어 있으며 [진단 설정](diagnosis.md)에서 추가합니다.
 
-## SSD Health
-
-`storage` role은 전용 storage node의 SSD 건강 상태를 수집합니다.
-3FS operation latency 수집과는 별도이며 [3FS 연결](diagnosis.md#1-진단-연결)에서 서비스 지표를 추가합니다.
-Storage node에 node 도구와 system package `smartmontools`를 설치한 뒤 실행합니다.
-
-```bash
-TOOLS_DIR="$HOME/telemetry/tools" \
-NODE_ADDR='10.0.0.30' \
-OUTPUT_DIR="$HOME/telemetry/state/storage" \
-  bash scripts/run_telemetry.sh storage
-```
-
-SMART exporter 기본 port는 `19633`, 장치 조회 주기는 60초입니다.
-`SMARTCTL_PORT`·`SMARTCTL_INTERVAL`로 조정하고, 실행 파일은 `SMARTCTL_EXPORTER`·`SMARTCTL`로 지정할 수 있습니다.
-NVMe SMART 접근에는 추가 권한이 필요할 수 있으며 자동 모드는 필요할 때 `smartctl`만 passwordless sudo로 실행합니다.
-`SMARTCTL_SUDO=0` 또는 `1`로 명시할 수 있고 sudo preflight가 실패하면 수집을 시작하지 않습니다.
-
-Monitoring host의 같은 server 설정 파일에 `STORAGE_SYSTEM='3fs'`, `STORAGE_TARGETS='storage-0=10.0.0.30'`을 추가해 재시작합니다.
-
-```bash
-bash scripts/run_telemetry.sh server --config "$HOME/telemetry/config/server.conf"
-```
-
-`STORAGE_SYSTEM`은 배치 식별 label이며 값을 `3fs`로 설정해도 3FS 서비스를 자동 계측하지 않습니다.
-Compute node의 SSD를 수집할 때는 `node` role에 `ENABLE_SSD_HEALTH=1`을 추가하고 해당 SMART endpoint도 server에 등록합니다.
-
-Data & Storage에서 온도·critical warning·media error·endurance를 확인합니다.
-`smartctl_device_bytes_written`은 host write 누계이며 SSD 내부 NAND write나 write amplification을 뜻하지 않습니다.
-장치 지표에는 다른 workload와 replication 영향도 포함되므로 특정 run의 I/O 양으로 귀속하지 않습니다.
 
 ## Topology and Native Sources
 
 `TOPOLOGY_DIR`에 `compute-topology.json`과 `storage-topology.json`을 둔 뒤 node collector에 전달하면 component·edge를 표시합니다.
 연결 관계는 사용자가 제공해야 하며 topology 그림만으로 link bandwidth나 서비스 latency를 측정하지 않습니다.
 Native service 연결은 [상세 가이드](native-sources.md)를 따릅니다.
+
+## Storage Cluster Inventory
+
+**목적:** 선언된 DS/MDS node와 실제 exporter의 host/device 성능을 같은 cluster에서 조사합니다. Topology publisher의 node를 resource owner로 사용하지 않습니다.
+
+1. DS/MDS host에서 Node Exporter 기반 collector를 실행합니다. GPU가 없으면 `ENABLE_GPU_METRICS=false`를 지정합니다.
+2. Monitoring host의 `TELEMETRY_TARGETS`에 각각의 `node=address`를 등록합니다.
+3. Collector의 `TOPOLOGY_DIR`에 `storage-topology.json`을 둡니다. `resource_node`는 해당 target의 `nodename`과 정확히 일치해야 합니다.
+
+```toml
+[telemetry]
+NODE_NAME = "storage-a"
+ENABLE_GPU_METRICS = false
+TOPOLOGY_DIR = "/path/to/declared-topology"
+```
+
+```json
+{
+  "components": [
+    {"id":"mds-0","role":"metadata","resource_node":"metadata-a","storage_system":"3fs"},
+    {"id":"ds-0","role":"data","resource_node":"storage-a","storage_system":"3fs"},
+    {"id":"ds-0/nvme0n1","role":"ssd","resource_node":"storage-a","device":"nvme0n1","storage_system":"3fs"}
+  ],
+  "edges": [{"source":"ds-0","destination":"ds-0/nvme0n1","relation":"declared-local-device"}]
+}
+```
+
+```bash
+xltel config validate
+xltel restart --role node
+xltel status
+```
+
+**정상 결과:** `telemetry_topology_component_info{kind="storage"}`에 명시 mapping이 나타나며, **Data & Storage → Storage Cluster Overview**에서 inventory·exporter availability·CPU/memory·network/RDMA를 확인합니다. 같은 component의 mapping이 충돌하면 성능 집계에서 제외합니다. Source target이 없으면 unknown이며 scrape `up=0`은 node 자체의 장애 판정이 아닙니다.
+
+| 관측 | 경계 |
+| --- | --- |
+| `data` / `ds`, `metadata` / `mds` | 사용자가 선언한 node 역할. 자동 backend discovery가 아님 |
+| `resource_node` | 실제 exporter target identity. Topology를 게시한 node와 별개 |
+| `device` | 해당 node의 block-device 이름. 동일 `nvme0n1`을 다른 node와 결합하지 않음 |
+| `storage_system` | 선언한 배치 구분. 값이 `3fs`여도 service→SSD operation path를 증명하지 않음 |
+| CPU/memory/network/device I/O | Node 또는 device 전체 값. 특정 Run·KV request 소유량 아님 |
+
+SMART 수집·exporter·scrape job·health panel은 제거했습니다. 이전 설정의 `STORAGE_TARGETS`, `SMARTCTL_*`, `ENABLE_SSD_HEALTH`는 더 이상 사용하지 않습니다. 기존 사용자 binary/config를 자동 삭제하지 않으며 host 수집은 `TELEMETRY_TARGETS`의 `19100` endpoint로 등록합니다. `storage` shell role은 GPU를 끈 host collector alias이며 공식 CLI는 `--role node`를 사용합니다.
+
+Mapping이 없으면 **Node / Device**를 명시 선택해 원본 I/O를 읽고 cluster 소속은 unknown으로 둡니다. 3FS service·Mooncake와의 실제 path 검증은 P1이며, [기존 Backend Deep Dive](storage-correlation.md)를 유지합니다. pNFS는 TBD입니다.
 
 ## Check and Stop
 
@@ -543,7 +555,7 @@ Server는 앞서 복사한 `server.conf`로 다시 시작해 알림·로그·sto
 | Target down | Node process, 주소·port, network 접근 |
 | GPU는 보이고 run은 없음 | Application metric 연결과 freshness |
 | Loki log 없음 | File 경로, 최근 수정 시각, Alloy log와 push URL |
-| SMART 값 N/A | `smartctl` 권한, 실제 장치 지원 항목 |
+| Storage Cluster 값 없음 | 명시 node mapping·target 등록·충돌/중복 identity |
 
 Monitoring host에서 준비된 Python 환경으로 상태를 검사할 수 있습니다.
 

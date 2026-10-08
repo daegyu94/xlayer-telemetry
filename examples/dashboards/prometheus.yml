@@ -24,11 +24,3 @@ scrape_configs:
       - files:
           - /etc/prometheus/targets/native.json
         refresh_interval: 30s
-
-  - job_name: storage-smart
-    scrape_interval: 60s
-    scrape_timeout: 10s
-    file_sd_configs:
-      - files:
-          - /etc/prometheus/targets/storage.json
-        refresh_interval: 30s

@@ -51,7 +51,7 @@ Unknown timestamp는 overlay에서 제외하고 calibrated 기록에는 uncertai
 | 03 · Bottleneck Summary | Candidate와 supporting/counter/missing evidence | 예 |
 | 04 · Cross-Layer Timeline | 선택한 step·span·자원을 같은 시간 구간에서 비교 | 예 |
 | 05 · Compute & Communication | GPU·process·network·allocation 상세 | 아니요 |
-| 06 · Data & Storage | Local device·filesystem·SMART 상세 | 아니요 |
+| 06 · Data & Storage | Storage Cluster·host/device I/O·filesystem·3FS evidence | 아니요 |
 | 07 · Run Logs | Workload log 검색 | 예 |
 | Cross-Layer Signals | Workload·shared subsystem 비교와 scope별 detail | 아니요 |
 
@@ -76,7 +76,7 @@ Panel 제목·축·legend·표 본문의 font는 Grafana 기본 UI를 따릅니�
 
 Cross-Layer Timeline은 단일 표본도 point로 표시합니다.
 기본 Prometheus datasource의 query 간격은 host collector의 scrape 간격인 2초로 설정합니다.
-Native source는 기본 5초, SMART는 60초마다 수집하므로 해당 panel의 2초 query 간격이 2초 해상도의 원본 관측을 뜻하지는 않습니다.
+Native source는 기본 5초마다 수집하므로 해당 panel의 2초 query 간격이 2초 해상도의 원본 관측을 뜻하지는 않습니다.
 외부 Prometheus를 연결했다면 datasource의 Scrape interval을 실제 수집 주기에 맞춥니다.
 Query 간격을 줄여도 원본 표본이 더 생기거나, 1분 rate lookback이 정밀한 step trace로 바뀌지는 않습니다.
 
@@ -136,14 +136,14 @@ Start Here/Run Overview에서 Cluster·Node·Run·시간을 고릅니다.
 `Observer node`는 step/diagnosis의 수집 출처, `Resource node`는 조사할 GPU·host·service의 위치입니다.
 두 node는 같을 필요가 없습니다.
 Application step·stage·age는 observer로, GPU·NIC·disk·native vLLM은 resource로 조회하므로 다른 node의 detail을 봐도 step 문맥이 유지됩니다.
-Device·Mount·SSD 등 추가 filter는 별도로 확인하며 `All`은 여러 대상의 값을 함께 표시합니다.
+Device·Mount·Storage resource node 등 추가 filter는 별도로 확인하며 `All`은 여러 대상의 값을 함께 표시합니다.
 
 | 신호 | 주요 범위 | 읽을 때 주의할 점 |
 | --- | --- | --- |
 | VERL 학습 지표 | `run_id`, `node`, `role`, `worker` | 선택한 run의 완료 step에서 갱신되며 진행 중인 phase를 실시간으로 뜻하지 않습니다. |
 | GPU·host·NIC·device 지표 | node, GPU 또는 device | 해당 node의 전체 사용량이므로 선택한 run만의 값으로 귀속하지 않습니다. |
 | Native vLLM 지표 | 등록한 vLLM endpoint와 node | Engine이 여러 run을 처리하면 값이 섞일 수 있으며 `Run` 필터로 분리되지 않습니다. |
-| SMART 지표 | storage system label, storage node, SSD | Exporter를 별도로 연결해야 하며 `storage_system=3fs`만 지정해도 3FS 서비스 지표가 생기지는 않습니다. |
+| Storage inventory | declared storage system·resource node·role | 명시 mapping만 cluster resource에 연결. 설정 이름만으로 service→SSD path를 확정하지 않습니다. |
 | Loki log | cluster, node, workload, log directory | `Run`은 log 경로의 run directory 이름으로 추출되며 telemetry의 `run_id`와 다를 수 있습니다. |
 
 `N/A`는 source가 연결되지 않았거나 선택한 범위에 표본이 없다는 뜻이며 측정값 0과 다릅니다.
@@ -157,7 +157,7 @@ GPU·host, native vLLM·Ray, 3FS 같은 공유 source는 같은 시간·node에�
 ## Run Overview
 
 Run Overview는 수집 상태와 마지막 완료 step을 보여 줍니다.
-`Collector availability`는 `telemetry` job만 검사하며 native·SMART는 포함하지 않습니다.
+`Collector availability`는 `telemetry` job만 검사하며 native source는 포함하지 않습니다.
 `Application sample age`·`GPU sample age`는 마지막 보고 시각부터의 경과 시간입니다.
 계속 늘면 target이 Up이어도 producer가 새 값을 쓰지 않을 수 있습니다.
 
@@ -226,11 +226,9 @@ TCP/Ethernet과 RDMA 패널은 interface 또는 port의 전송량입니다.
 Filesystem used·free space는 선택한 마운트의 용량 상태이고, disk busy time은 지연 시간의 p99가 아닙니다.
 같은 시간대의 변화는 조사 단서지만 이번 run의 KV offload I/O 양을 직접 증명하지는 않습니다.
 
-Storage topology 표는 component·edge 정보를 공급했을 때, SSD health 패널은 SMART exporter를 연결했을 때 채워집니다.
-SMART panel은 기본적으로 접힌 `SSD health / SMART (optional)` 행을 펼쳐 확인합니다.
-상단 `Storage node`·`SSD` 필터는 local disk의 `Node`·`Device` 필터와 별도로 적용됩니다.
-3FS 서비스 latency는 이 상세 그래프에 포함되지 않습니다.
-진단을 켜면 Bottleneck Summary에서 ClickHouse 비교 결과와 측정 범위를 확인하고, 원본 수치는 [ClickHouse 진단](diagnosis.md#1-진단-연결)에서 확인합니다.
+Storage Cluster Overview는 명시 resource_node mapping과 실제 exporter reachability를 구분합니다. Mapping이 없거나 같은 component에 여러 node가 선언되면 cluster 성능을 임의 결합하지 않습니다. DS/MDS가 같은 host를 쓰면 node resource를 중복 합산하지 않습니다.
+
+상단 Declared storage system·Storage resource node는 topology 선언을, Node·Device는 원본 host/device 관측을 선택합니다. GPU-host sandbox local I/O는 DS/MDS backend resource와 별도입니다. 3FS service latency와 collection time-series는 기존 선택적 saved evidence·Deep Dive에서 봅니다. [Storage inventory 설정](monitoring-reference.md#storage-cluster-inventory)을 따릅니다.
 
 ## Run Logs
 
@@ -439,7 +437,7 @@ Checkpoint 지연을 조사한다면 application의 지연 시각을 먼저 정�
 그 시간대의 3FS 서비스 latency, storage node의 device 상태, client network를 비교합니다.
 3FS ClickHouse의 `max_observed_p99`는 관측된 p99 중 최댓값이며 전체 요청의 global p99가 아닙니다.
 
-SSD SMART 지표는 장치 건강 상태를 설명하고 application의 write latency를 직접 측정하지 않습니다.
+SSD I/O mean latency·queue·BW는 Node Exporter의 node/device 관측이며 service p99와 별개입니다.
 Device write bytes 역시 해당 run의 checkpoint bytes와 같다고 가정하지 않습니다.
 여러 run이 shared storage를 사용한다면 같은 창에 경쟁한 작업도 확인합니다.
 
@@ -589,7 +587,7 @@ N/A는 미등록·미지원·표본 부족일 수 있으며 `0`으로 보정하�
 
 Disk latency는 `rate(read/write time) / rate(completed operations)`의 평균입니다.
 분모가 0이면 N/A로 남기며 p95/p99를 생성하지 않습니다. Filesystem inode total=0과
-prefix-cache queries=0도 동일하게 처리합니다. Dirty/writeback이나 SMART lifetime 값은
+prefix-cache queries=0도 동일하게 처리합니다. Dirty/writeback 값은
 특정 Run의 physical writes·write amplification·checkpoint bytes로 귀속하지 않습니다.
 
 DCGM profiling PCIe RX/TX 값은 이미 bytes/s인 gauge이고 XID는 마지막 error code입니다.

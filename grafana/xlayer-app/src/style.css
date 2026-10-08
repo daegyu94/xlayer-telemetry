@@ -679,3 +679,8 @@ body.theme-dark .xlt {
 @media(max-width:750px){.xlt-matrix-toolbar,.xlt-matrix-toolbar label{width:100%}.xlt-matrix-toolbar select{max-width:100%;width:100%}}
 
 .xlt-app-layout .xlt-kpi strong.xlt-kpi-state{font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+
+.xlt-storage-cluster-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.xlt-storage-cluster-panels>div{min-width:0}.xlt-storage-cluster{margin:10px 0 16px}
+@media(max-width:900px){.xlt-storage-cluster-panels{grid-template-columns:1fr}}
+
+.xlt-storage-cluster-controls{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}

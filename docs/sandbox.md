@@ -23,6 +23,10 @@
 Docker CLI worker의 cgroup이 container resource를 포함한다고 가정하지 않습니다. Cgroup PSI와 node/device busy는 다른 scope이며 개별 trajectory의 SSD 사용량이 아닙니다.
 ```
 
+GPU cluster에서 실행하는 colocated sandbox는 해당 GPU host의 로컬 SSD를 사용할 수 있습니다. Cgroup `io.stat`·I/O PSI와 같은 **sandbox node + device**의 Node Exporter BW·IOPS·mean latency·queue를 비교합니다. 이 경로는 backend Storage Cluster의 DS/MDS I/O와 별도입니다.
+
+`sandbox.node`, `sandbox.device`, 실제 `device_major_minor`를 확인합니다. 같은 `nvme0n1` 이름만으로 다른 host를 연결하지 않습니다. OverlayFS·LVM·page cache·shared device에서는 cgroup의 device evidence가 physical SSD 요청의 완전한 attribution이 아니므로, tool→cgroup→device supporting/missing 경계를 유지합니다.
+
 ## 1. Configure
 
 1. [SandboxRecorder integration](integration-reference.md#record-lifecycle-spans)으로 실제 runtime lifecycle을 감쌉니다.

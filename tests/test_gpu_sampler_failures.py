@@ -285,7 +285,7 @@ def test_real_node_launcher_survives_gpu_failures_recovers_and_stops_owned_child
         "TEST_NODE_MARKER": str(marker), "TEST_GPU_MODE": str(mode), "TEST_GPU_CALLS": str(calls),
         "PATH": str(bindir) + os.pathsep + os.environ["PATH"],
         "TELEMETRY_METRICS_DIR": "", "TELEMETRY_RUNS_ROOT": "", "TOPOLOGY_DIR": "",
-        "LOKI_PUSH_URL": "", "TELEMETRY_LOG_ROOTS": "", "ENABLE_SSD_HEALTH": "0", "DURATION": "",
+        "LOKI_PUSH_URL": "", "TELEMETRY_LOG_ROOTS": "", "DURATION": "",
         "GPU_PROCESS_METRICS": "0", "GPU_MAX_PROCESSES": "256",
     }
     unrelated = subprocess.Popen(["sleep", "30"], start_new_session=True)

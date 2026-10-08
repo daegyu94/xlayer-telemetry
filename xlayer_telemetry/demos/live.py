@@ -48,6 +48,10 @@ def load_topology(directory: Path) -> tuple[dict, dict]:
                 or network["bandwidth_gbps"] <= 0):
             raise ValueError("invalid network topology")
     nodes = gpu["gpu_nodes"] + storage["storage_nodes"]
+    metadata = storage.get('metadata_nodes', [])
+    if not isinstance(metadata, list) or any(not isinstance(node,str) or not _NAME.fullmatch(node) for node in metadata):
+        raise ValueError('invalid metadata node topology')
+    nodes += metadata
     if len(set(nodes)) != len(nodes) or set(nodes) & {"topology", "vllm", "ray", "dcgm", "mooncake-master", "mooncake-client"}:
         raise ValueError("demo node names must be unique and not reserved native endpoints")
     return gpu, storage
@@ -121,6 +125,8 @@ class Demo:
                 return self._gpu_node(endpoint, now, phase, values)
             if endpoint in self.storage["storage_nodes"]:
                 return self._storage_node(endpoint, now, phase, values)
+            if endpoint in self.storage.get('metadata_nodes', []):
+                return self._storage_node(endpoint, now, phase, values, devices=False)
             if endpoint == "topology":
                 return self._topology()
             if endpoint == "vllm":
@@ -575,14 +581,17 @@ class Demo:
                     self._counter("dcgm", f"{gpu}/{name}", rate, now), labels, kind="counter"))
         return samples
 
-    def _storage_node(self, node: str, now: float, phase: str, value: dict[str, float]) -> list[GaugeSample]:
+    def _storage_node(self, node: str, now: float, phase: str, value: dict[str, float], *, devices: bool = True) -> list[GaugeSample]:
         samples = self._host(node, now, value)
         samples.extend(self._filesystem_health())
         samples.extend([
             GaugeSample("node_filesystem_size_bytes", "Synthetic data filesystem size.", 64 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
             GaugeSample("node_filesystem_avail_bytes", "Synthetic data filesystem free space.", 39 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
         ])
-        for index in range(self.storage["ssds_per_node"]):
+        for name, rate in (("node_network_receive_bytes_total", value["rx"] * 1e9 / 8),
+                           ("node_network_transmit_bytes_total", value["tx"] * 1e9 / 8)):
+            samples.append(GaugeSample(name, "Synthetic node network counter.", self._counter(node,name,rate,now), {'device':'roce0'},kind='counter'))
+        for index in range(self.storage["ssds_per_node"] if devices else 0):
             labels = {"device": f"nvme{index}n1"}
             samples.extend(self._disk_pressure(node, labels["device"], now, value))
             for name, rate in (("node_disk_read_bytes_total", value["read"] * _GIB),
@@ -591,21 +600,6 @@ class Demo:
                                ("node_disk_writes_completed_total", value["write"] * _GIB / (256 * 1024)),
                                ("node_disk_io_time_seconds_total", value["busy"])):
                 samples.append(GaugeSample(name, "Synthetic disk counter.", self._counter(node, name + str(index), rate, now), labels, kind="counter"))
-            for name, rate in (("node_network_receive_bytes_total", value["rx"] * 1e9 / 8),
-                               ("node_network_transmit_bytes_total", value["tx"] * 1e9 / 8)):
-                if index == 0:
-                    samples.append(GaugeSample(name, "Synthetic RoCE counter.", self._counter(node, name, rate, now), {"device": "roce0"}, kind="counter"))
-            samples += [
-                GaugeSample("smartctl_device", "Synthetic SSD inventory.", 1, {**labels, "protocol": "NVMe", "model_name": "Demo SSD", "firmware_version": "1.0"}),
-                GaugeSample("smartctl_device_smart_status", "Synthetic SSD SMART status.", 1, labels),
-                GaugeSample("smartctl_device_smartctl_exit_status", "Synthetic smartctl exit status.", 0, labels),
-                GaugeSample("smartctl_device_critical_warning", "Synthetic SSD critical warning.", 0, labels),
-                GaugeSample("smartctl_device_temperature", "Synthetic SSD temperature.", 38 + index, {**labels, "temperature_type": "current"}),
-                GaugeSample("smartctl_device_percentage_used", "Synthetic SSD endurance used.", 3 + index, labels),
-                GaugeSample("smartctl_device_available_spare", "Synthetic SSD available spare.", 100 - index, labels),
-                GaugeSample("smartctl_device_media_errors", "Synthetic SSD media errors.", 0, labels),
-                GaugeSample("smartctl_device_bytes_written", "Synthetic SSD host bytes written.", self._counter(node, f"ssd-{index}", value["write"] * _GIB / self.storage["ssds_per_node"], now), labels, kind="counter"),
-            ]
         return samples
 
     def _topology(self) -> list[GaugeSample]:
@@ -621,13 +615,16 @@ class Demo:
             samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": node, "destination": "roce-fabric", "relation": self.network}))
         samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": "roce-fabric", "role": "network"}))
         for node in self.storage["storage_nodes"]:
-            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": node, "role": "storage-node"}))
+            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": node, "role": "data", "resource_node": node, "storage_system": "synthetic-3fs"}))
             for ssd in range(self.storage["ssds_per_node"]):
                 samples += [
-                    GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": f"{node}/nvme{ssd}n1", "role": "ssd"}),
+                    GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": f"{node}/nvme{ssd}n1", "role": "ssd", "resource_node": node, "device": f"nvme{ssd}n1", "storage_system": "synthetic-3fs"}),
                     GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": f"{node}/nvme{ssd}n1", "relation": "attached"}),
                 ]
             samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": "roce-fabric", "relation": self.network}))
+        for node in self.storage.get('metadata_nodes', []):
+            samples.append(GaugeSample('telemetry_topology_component_info','Synthetic topology component.',1,
+                {'kind':'storage','component':node,'role':'metadata','resource_node':node,'storage_system':'synthetic-3fs'}))
         samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": "roce-fabric", "role": "network"}))
         return samples
 
@@ -643,8 +640,7 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
                 lines.append(extra)
         return lines
     lines = ["global:", "  scrape_interval: 2s", "scrape_configs:"]
-    lines += targets("telemetry", [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], "topology"])
-    lines += targets("storage-smart", demo.storage["storage_nodes"], "          storage_system: demo")
+    lines += targets("telemetry", [*demo.gpu["gpu_nodes"], *demo.storage["storage_nodes"], *demo.storage.get('metadata_nodes', []), "topology"])
     lines += ["  - job_name: native", "    static_configs:"]
     for endpoint, source in (("vllm", "vllm"), ("ray", "ray"), ("dcgm", "dcgm"),
                              ("mooncake-master", "mooncake"), ("mooncake-client", "mooncake")):

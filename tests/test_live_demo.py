@@ -20,7 +20,7 @@ def test_cli_finds_checkout_topology_without_an_explicit_directory(tmp_path) -> 
     config = output.read_text()
     assert "nodename: gpu-node-0" in config
     assert "nodename: storage-node-0" in config
-    assert config.count("__metrics_path__:") == 26
+    assert config.count("__metrics_path__:") == 19
 
 
 def test_demo_matches_the_b300_and_storage_topology() -> None:
@@ -43,13 +43,14 @@ def test_demo_matches_the_b300_and_storage_topology() -> None:
     assert {sample.labels.get("phase") for sample in agent if sample.name == "rl_stage_duration_seconds"} == {
         "actor_update", "critic_update", "reward", "rl_step", "rollout", "weight_sync",
     }
-    assert len([sample for sample in storage if sample.name == "smartctl_device"]) == 4
+    assert not any(sample.name.startswith("smartctl_") for sample in storage)
+    assert len([sample for sample in storage if sample.name == "node_disk_read_bytes_total"]) == 4
     assert len([sample for sample in topology if sample.labels.get("role") == "B300"]) == 32
     assert len([sample for sample in topology if sample.labels.get("role") == "ssd"]) == 32
-    assert config.count("__metrics_path__:") == 26
+    assert config.count("__metrics_path__:") == 19
     assert "nodename: gpu-node-0" in config
     assert "job_name: telemetry" in config
-    assert "job_name: storage-smart" in config
+    assert "job_name: storage-smart" not in config
 
 
 def test_all_prometheus_dashboard_metrics_have_synthetic_producers():
@@ -87,7 +88,7 @@ def test_native_and_gpu_labels_match_actual_dashboard_filters():
     assert "job_name: native" in config
     assert "telemetry_source: vllm" in config and "instance: synthetic-vllm-0" in config
     assert "telemetry_source: ray" in config and "node: gpu-node-0" in config
-    assert config.count("data_origin: synthetic") == 26
+    assert config.count("data_origin: synthetic") == 19
     assert config.count("telemetry_source: mooncake") == 2
     assert "component: mooncake-master-0" in config and "instance: synthetic-mooncake-client-0" in config
     assert "telemetry_source: dcgm" in config and "instance: synthetic-dcgm-0" in config

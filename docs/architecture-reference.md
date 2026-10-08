@@ -238,7 +238,7 @@ Source마다 저장소와 화면이 달라서 endpoint를 하나 등록하는 �
 | GPU·CPU·memory·network·disk | GPU sampler·Node Exporter > Prometheus | Run Overview, Compute, Data & Storage |
 | vLLM·Ray native metrics | 각 `/metrics` endpoint > Prometheus `native` job | Stage Correlation의 vLLM·Ray row, Grafana Explore·진단 |
 | Workload log·step event | File > Alloy > Loki | Run Logs, Run Overview의 완료 step 목록 |
-| 3FS FUSE mount·SSD | Node Exporter·선택적 SMART exporter > Prometheus | Data & Storage |
+| 3FS FUSE mount·SSD | Node Exporter host/device 성능 > Prometheus | Data & Storage |
 | 3FS service latency | ClickHouse > 선택적 diagnostics process | `diagnostics/latest.json`, `show_run` |
 | Custom tool span | Application SDK > JSONL event > 선택적 Alloy/Loki | `show_run`, 원본 event, Cross-Layer Timeline |
 | 진단 후보·timeline | Diagnostics JSON > Alloy > Loki, EventRecorder JSONL > Alloy > Loki | Bottleneck Summary, Cross-Layer Timeline; Loki 없이 JSON·`show_run` |

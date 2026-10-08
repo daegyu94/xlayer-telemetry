@@ -118,6 +118,7 @@ type ShellState = SceneObjectState & {
   storageStatusTable?: VizPanel;
   storagePlot?: VizPanel;
   storageComparison?: VizPanel;
+  storageCluster?: VizPanel[];
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -307,6 +308,7 @@ function makeScene(page: Page, catalog: Catalog) {
       storageSampleTable:samplePanel ? viz(samplePanel,samples) : undefined,
       storageStatusTable:statusPanel ? viz(statusPanel,status) : undefined,
       storagePlot:native('storage',102),storageComparison:native('storage',103)});
+    body.setState({storageCluster:[111,112,113,114,115].map(id=>native('storage',id)).filter(Boolean) as VizPanel[]});
   }
   if (page === "overview")
     body.setState({
@@ -1786,9 +1788,10 @@ function CommonStorageOverview({model,summary,context,onThreeFS}:{model:Shell;su
 }
 function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}:{model:Shell;summary?:RecordRow;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
  const[tab,setTab]=useState(()=>detailTabIndex(context.variables.detail_tab?.[0])),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
+ const[clusterOpen,setClusterOpen]=useState(false),state=model.useState();
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  const groups=storageDetailGroups(DEEP_DIVE_SPECS);
- return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><div className="xlt-workspace-grid"><div>
+ return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">Explicit resource-node mappings only. Exporter availability is not node health or an observed service-to-device path. GPU-host sandbox local I/O remains separate from backend DS/MDS resources.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div>
   <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
   {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
   <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}

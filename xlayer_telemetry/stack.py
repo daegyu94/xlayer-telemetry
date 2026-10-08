@@ -18,7 +18,7 @@ from xlayer_telemetry.run_summary import make_run_summary
 
 
 TARGET_FILES = ("applications.json", "gpus.json", "nodes.json")
-OPTIONAL_TARGET_FILES = ("native.json", "storage.json")
+OPTIONAL_TARGET_FILES = ("native.json",)
 
 
 def validate_target_files(directory: Path) -> dict[str, int]:

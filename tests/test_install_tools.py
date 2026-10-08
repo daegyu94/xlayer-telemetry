@@ -67,12 +67,12 @@ done
         assert result.returncode == 0, result.stderr
         return len(log.read_text().splitlines())
 
-    assert install() == 3
-    assert install() == 3
+    assert install() == 2
+    assert install() == 2
     env["TEST_ARCH"] = "aarch64"
-    assert install() == 6, "AMD64 cache must not satisfy an ARM64 download"
+    assert install() == 4, "AMD64 cache must not satisfy an ARM64 download"
     script.write_text(script.read_text().replace("v1.19.2", "v1.19.3"))
-    assert install() == 7, "a previous release must not satisfy an updated URL"
+    assert install() == 5, "a previous release must not satisfy an updated URL"
 
 
 def test_interrupted_archive_is_not_resumed_from_another_url(tmp_path):

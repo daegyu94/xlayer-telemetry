@@ -181,7 +181,7 @@ def test_gpu_less_host_collector_does_not_start_gpu_sampler(tmp_path):
                           'NODE_ADDR': '127.0.0.1', 'ENABLE_GPU_METRICS': '0', 'DURATION': '0.1',
                           'PYTHON': str(fake_python), 'MARKER': str(marker),
                           'TELEMETRY_METRICS_DIR': '', 'TOPOLOGY_DIR': '', 'LOKI_PUSH_URL': '',
-                          'TELEMETRY_LOG_ROOTS': '', 'ENABLE_SSD_HEALTH': '0'},
+                          'TELEMETRY_LOG_ROOTS': ''},
         capture_output=True, text=True, timeout=5)
     assert result.returncode == 0, result.stderr
     assert not marker.exists() and not (state / 'textfile/gpu.prom').exists()

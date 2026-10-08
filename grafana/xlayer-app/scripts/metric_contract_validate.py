@@ -77,6 +77,21 @@ with sync_playwright() as p:
  page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='storage',exact=True)).get_by_role('button',name='Deep Dive →',exact=True).first.click()
  page.get_by_role('button',name='Connector RPC',exact=True).wait_for(timeout=20000)
  page.wait_for_timeout(1500)
+ page.get_by_text('Storage Cluster Resources · declared DS/MDS inventory',exact=True).click()
+ cluster=page.locator('.xlt-storage-cluster')
+ cluster.get_by_text('Storage exporter availability',exact=True).wait_for(timeout=20000)
+ page.wait_for_timeout(1000)
+ assert 'metadata-node-0' in cluster.inner_text(),cluster.inner_text()
+ assert 'storage-node-0' in cluster.inner_text(),cluster.inner_text()
+ assert 'metadata' in cluster.inner_text() and 'data' in cluster.inner_text()
+ assert 'SMART' not in cluster.inner_text()
+ for width in (1440,390):
+  page.set_viewport_size({'width':width,'height':1000});page.wait_for_timeout(200)
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+  cluster.screenshot(path=str(root/f'storage-cluster-{width}.png'))
+ page.set_viewport_size({'width':1440,'height':1000})
+ page.get_by_text('Storage Cluster Resources · declared DS/MDS inventory',exact=True).click()
+ report['storage_cluster']={'declared_mds_ds_visible':True,'gpu_sandbox_local_io_separate':True,'no_smart':True,'widths':[1440,390]}
  requests=[]
  def record(request):
   if '/api/ds/query' in request.url:

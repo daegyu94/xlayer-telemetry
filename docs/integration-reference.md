@@ -27,7 +27,7 @@ VERL step event는 별도로 Loki에 수집하면 Run Overview의 완료 step �
 | Rollout queue·KV cache·KV offload 상태 | 배포한 vLLM의 Prometheus endpoint | Grafana의 native rollout·KV offload panel |
 | Orchestration 상태 | 배포한 Ray의 Prometheus endpoint | Stage Correlation의 Ray row, Explore |
 | 3FS 서비스 latency 변화 | 3FS가 기록한 ClickHouse distributions | `xltel sources threefs` 조회, 진단 JSON과 `show_run` |
-| Storage node의 자원·SSD 상태 | Node Exporter와 SMART exporter | Data & Storage |
+| Storage node의 CPU·memory·network·device I/O | Node Exporter | Data & Storage |
 | Workload log | Alloy와 Loki | Run Logs |
 | Custom tool 호출의 대기 시간 | `EventRecorder`로 기록한 span | JSONL event와 `show_run` |
 
@@ -49,7 +49,7 @@ Native metric은 `run_id`로 나뉘지 않으므로 run 선택이 해당 engine�
 | Ray | Stage Correlation의 task·actor state, logical CPU/GPU, object store, OOM eviction | Native endpoint 등록 |
 | Mooncake | Stage Correlation의 Mooncake row: connector RPC·master cache·client DFS 지표 | [Mooncake 연결](#observe-mooncake-kv-storage)과 지원 버전 |
 | 기타 native exporter | `sources`의 endpoint별 Explore 링크 | Native endpoint 등록 |
-| GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector, SSD는 선택적 SMART exporter |
+| GPU / host / NIC / local disk / SSD | Compute & Communication / Data & Storage | Node collector의 host/device I/O; 장치 health와 구분 |
 | 3FS service metrics | `xltel sources threefs`의 시간 구간별 distributions·raw counters·freshness | 기존 `DIAGNOSTICS_CONFIG`의 ClickHouse 연결 |
 | Subsystem log | Run Logs의 Workload·Node·Log directory | `ENABLE_LOGS=1`과 실제 log 파일 등록 |
 

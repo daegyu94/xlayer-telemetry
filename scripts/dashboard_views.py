@@ -61,7 +61,7 @@ def add_view_links(dashboard):
     # Preserve view-specific filters on the new views without inventing variables
     # in canonical dashboards that do not use those filters.
     present = {v['name'] for v in dashboard['templating']['list']}
-    for name in ('phase', 'role', 'worker', 'device', 'mount', 'storage_system', 'storage_node', 'ssd'):
+    for name in ('phase', 'role', 'worker', 'device', 'mount', 'storage_system', 'storage_node'):
         parameter = '${' + name + ':queryparam}'
         if name in present and parameter not in suffix:
             suffix += '&' + parameter

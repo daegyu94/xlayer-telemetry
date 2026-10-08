@@ -49,8 +49,7 @@ python -m xlayer_telemetry.source_discovery \
   --output artifacts/compose-targets/native.json
 ```
 
-`storage.json`은 별도 SMART exporter를 사용한 경우에만 `cluster`·`nodename`·`storage_system`과 실제 주소를 지정합니다.
-SMART·native source가 없으면 해당 상세 패널의 N/A는 정상입니다.
+Storage DS/MDS의 Node Exporter도 `nodes.json`에 등록합니다. 선언한 topology의 `resource_node`와 `nodename`을 일치시킵니다. Native source가 없으면 해당 상세 패널의 N/A는 정상입니다.
 
 ## Start and Validate
 

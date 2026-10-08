@@ -39,14 +39,374 @@
   ],
   "panels": [
     {
+      "id": 110,
+      "type": "text",
+      "title": "Storage Cluster Overview",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"font-size:17px;line-height:1.65\">**Declared DS/MDS inventory · exporter availability · host resources**<br/><br/>Availability는 exporter scrape 상태이며 node 장애 판정이 아닙니다. 등록되지 않은 target·ambiguous mapping은 unknown입니다. 선언된 topology를 서비스→SSD의 관측된 dependency로 해석하지 않습니다.</div>"
+      }
+    },
+    {
+      "id": 111,
+      "type": "table",
+      "title": "Declared storage node inventory",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\"})",
+          "legendFormat": "{{nodename}} · {{instance}} · value",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "N/A",
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "enablePagination": true,
+        "sortBy": [
+          {
+            "displayName": "Component",
+            "desc": false
+          }
+        ]
+      },
+      "description": "명시 storage inventory와 같은 cluster/node의 관측입니다. Publisher를 자원 소유 node로 해석하지 않고 ambiguous mapping은 제외합니다. No data는 0이나 정상 상태가 아닙니다.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "cluster": true
+            },
+            "indexByName": {
+              "role": 0,
+              "resource_node": 1,
+              "component": 2,
+              "storage_system": 3
+            },
+            "renameByName": {
+              "role": "Role (declared)",
+              "resource_node": "Resource node",
+              "component": "Component",
+              "storage_system": "System (declared)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 112,
+      "type": "table",
+      "title": "Storage exporter availability",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"telemetry\",cluster=~\"$cluster\"} and on (cluster, nodename) (max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\")))",
+          "legendFormat": "{{nodename}} · {{instance}} · value",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "N/A",
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Scrape availability"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Scrape down",
+                        "color": "orange"
+                      },
+                      "1": {
+                        "text": "Reachable",
+                        "color": "blue"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg",
+        "enablePagination": true
+      },
+      "description": "명시 storage inventory와 같은 cluster/node의 관측입니다. Publisher를 자원 소유 node로 해석하지 않고 ambiguous mapping은 제외합니다. No data는 0이나 정상 상태가 아닙니다.",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "cluster": true,
+              "data_origin": true,
+              "job": true
+            },
+            "indexByName": {
+              "nodename": 0,
+              "instance": 1,
+              "Value": 2
+            },
+            "renameByName": {
+              "nodename": "Resource node",
+              "instance": "Exporter identity",
+              "Value": "Scrape availability"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "type": "timeseries",
+      "title": "Storage node CPU and memory",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(1 - avg without (cpu, mode) (rate(node_cpu_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",mode=\"idle\"}[$__rate_interval]))) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · CPU busy",
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"$cluster\"} / node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"$cluster\"})) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · Memory used",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "drawStyle": "line"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      },
+      "description": "명시 storage inventory와 같은 cluster/node의 관측입니다. Publisher를 자원 소유 node로 해석하지 않고 ambiguous mapping은 제외합니다. No data는 0이나 정상 상태가 아닙니다."
+    },
+    {
+      "id": 114,
+      "type": "timeseries",
+      "title": "Storage node network throughput",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",device!=\"lo\"}[$__rate_interval]) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · {{device}} RX",
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",device!=\"lo\"}[$__rate_interval]) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · {{device}} TX",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "drawStyle": "line"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      },
+      "description": "명시 storage inventory와 같은 cluster/node의 관측입니다. Publisher를 자원 소유 node로 해석하지 않고 ambiguous mapping은 제외합니다. No data는 0이나 정상 상태가 아닙니다."
+    },
+    {
+      "id": 115,
+      "type": "timeseries",
+      "title": "Storage node RDMA throughput",
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_infiniband_port_data_received_bytes_total{job=\"telemetry\",cluster=~\"$cluster\"}[$__rate_interval]) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · {{device}} / {{port}} RX",
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_infiniband_port_data_transmitted_bytes_total{job=\"telemetry\",cluster=~\"$cluster\"}[$__rate_interval]) and on (cluster, nodename) ((max by (cluster, nodename) (label_replace(((max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) and on (cluster, component) (count by (cluster, component) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",role=~\"data|ds|metadata|mds|storage-node\",resource_node!=\"\"})) == 1)) and on (cluster, component, resource_node, role, storage_system) (max by (cluster, component, resource_node, role, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",storage_system=~\"$storage_system\",resource_node=~\"$storage_node\"})), \"nodename\", \"$1\", \"resource_node\", \"(.+)\"))) and on (cluster, nodename) (count by (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"}) == 1)) and on (cluster, nodename) (up{job=\"telemetry\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{nodename}} · {{instance}} · {{device}} / {{port}} TX",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": false,
+            "showPoints": "auto",
+            "drawStyle": "line"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      },
+      "description": "명시 storage inventory와 같은 cluster/node의 관측입니다. Publisher를 자원 소유 node로 해석하지 않고 ambiguous mapping은 제외합니다. No data는 0이나 정상 상태가 아닙니다."
+    },
+    {
+      "id": 90,
+      "type": "text",
+      "title": "Storage resource and device selection",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"font-size:17px;line-height:1.65\">**Storage Cluster → node resources → device I/O → Backend Deep Dive**<br/><br/>명시 resource_node mapping만 cluster 관측에 사용합니다. Mapping이 없으면 Node / Device로 원본 관측을 조사합니다. Declared topology와 같은 시간의 metric은 실제 요청 경로나 Run attribution이 아닙니다.</div>"
+      },
+      "transparent": true
+    },
+    {
       "id": 1,
       "type": "timeseries",
       "title": "Disk read and write throughput",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 3
+        "y": 27
       },
       "datasource": {
         "type": "prometheus",
@@ -95,10 +455,10 @@
       "type": "timeseries",
       "title": "Disk IOPS",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 3
+        "y": 27
       },
       "datasource": {
         "type": "prometheus",
@@ -143,15 +503,127 @@
       "description": "선택한 Node·Device의 read/write operations/s입니다. Device 전체 counter이며 request size나 metadata latency를 직접 보여 주지는 않습니다."
     },
     {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Disk mean completed I/O latency",
+      "description": "완료 I/O의 누적 read/write time을 operations로 나눈 평균 seconds/op입니다. Queue+service 시간이 포함되며 p95/p99가 아닙니다. I/O가 없거나 분모가 0이면 N/A입니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(rate(node_disk_read_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])) / (rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval]) > 0)",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} read mean"
+        },
+        {
+          "refId": "B",
+          "expr": "(rate(node_disk_write_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])) / (rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval]) > 0)",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} write mean"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Disk outstanding I/O and average queue",
+      "description": "In-progress는 scrape 시점의 outstanding I/O, weighted I/O time rate는 구간 평균 outstanding I/O입니다. Parallel NVMe에서는 1을 초과할 수 있으며 busy 비율과 다릅니다.",
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_disk_io_now{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} in progress"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_disk_io_time_weighted_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} average outstanding"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
       "id": 3,
       "type": "timeseries",
       "title": "Disk I/O busy time",
       "description": "I/O가 진행 중이던 wall-time 비율입니다. Latency percentile이 아니며 p99와 동일하게 해석하지 않습니다.",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 41
       },
       "datasource": {
         "type": "prometheus",
@@ -195,10 +667,10 @@
       "type": "timeseries",
       "title": "Filesystem used",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 41
       },
       "datasource": {
         "type": "prometheus",
@@ -244,10 +716,10 @@
       "type": "timeseries",
       "title": "Filesystem free space",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 48
       },
       "datasource": {
         "type": "prometheus",
@@ -287,18 +759,181 @@
       "description": "선택한 Mount의 filesystem 여유 공간입니다. 3FS FUSE mount를 골라도 local device I/O가 3FS service latency로 바뀌지는 않습니다."
     },
     {
-      "id": 6,
-      "type": "text",
-      "title": "Data path and storage topology",
+      "id": 32,
+      "type": "timeseries",
+      "title": "Filesystem available inodes",
+      "description": "선택 Mount의 free/total inode 비율입니다. Byte 여유가 있어도 inode 고갈로 create가 실패할 수 있습니다. Total=0 또는 미지원 filesystem은 N/A입니다.",
       "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 12,
-        "y": 19
+        "y": 48,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(node_filesystem_files_free{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}) / (node_filesystem_files{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"} > 0)",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} inode available"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
       },
       "options": {
-        "mode": "markdown",
-        "content": "<span style=\"font-size:17px;line-height:1.65\">**Local device와 remote storage 구분**</span>\n\n- <span style=\"font-size:17px;line-height:1.65\">Disk·filesystem 값은 선택한 node 전체이며 Run별로 분리되지 않습니다.</span>\n- <span style=\"font-size:17px;line-height:1.65\">Dataset·checkpoint I/O attribution에는 workload 계측이 필요합니다.</span>\n- <span style=\"font-size:17px;line-height:1.65\">Topology는 명시적으로 제공한 component·edge 관계입니다. 3FS service latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다.</span>\n- <span style=\"font-size:17px;line-height:1.65\">SSD health는 아래 SMART 행을 펼칩니다. Exporter가 없으면 N/A입니다.</span>"
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Filesystem read-only and collection errors",
+      "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_readonly{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} read-only"
+        },
+        {
+          "refId": "B",
+          "expr": "node_filesystem_device_error{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} stat error"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Dirty and writeback memory",
+      "description": "Node 전체 dirty/writeback bytes입니다. Checkpoint·KV offload 지연 시 disk queue·I/O pressure와 비교하며 특정 file·Run의 dirty data로 자동 귀속하지 않습니다.",
+      "gridPos": {
+        "x": 12,
+        "y": 55,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_Dirty_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} dirty"
+        },
+        {
+          "refId": "B",
+          "expr": "node_memory_Writeback_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
+          "legendFormat": "{{cluster}}/{{nodename}} {{instance}} writeback"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "text",
+      "title": "Storage investigation layers",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"font-size:17px;line-height:1.65\">**Step / KV → Mooncake client → Backend evidence → Storage node resources**<br/><br/>3FS는 기존 ClickHouse와 saved evidence로 조사하고 pNFS는 TBD입니다. Service latency와 특정 SSD/interface의 관계는 검증되지 않았습니다. Topology edge는 사용자 선언이며 실제 operation trace가 아닙니다.</div>"
       }
     },
     {
@@ -306,10 +941,10 @@
       "type": "table",
       "title": "Storage topology components",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 65
       },
       "datasource": {
         "type": "prometheus",
@@ -342,10 +977,10 @@
       "title": "Storage topology matrix",
       "description": "선택한 Cluster의 명시적으로 제공된 edge입니다. 측정 traffic이 아니며 Node·Run 필터는 적용되지 않습니다. Cluster를 포함한 endpoint identity로 충돌을 방지합니다.",
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 65
       },
       "datasource": {
         "type": "prometheus",
@@ -382,836 +1017,6 @@
       ]
     },
     {
-      "id": 90,
-      "type": "text",
-      "title": "Device / mount / SSD selection",
-      "gridPos": {
-        "h": 3,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "<span style=\"font-size:17px;line-height:1.65\">**Storage detail:** Local I/O는 Node · Device · Mount, SMART는 Storage node · SSD를 선택합니다.<br>3FS latency는 Bottleneck Summary의 ClickHouse evidence에서 확인합니다. Local sandbox NVMe와 shared storage는 서로 다른 scope입니다.</span>"
-      },
-      "transparent": true
-    },
-    {
-      "id": 91,
-      "type": "row",
-      "title": "SSD health / SMART (optional)",
-      "description": "SMART exporter를 연결한 경우 펼칩니다. Storage system · Storage node · SSD 필터는 위 Node 필터와 별도입니다.",
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 36
-      },
-      "panels": [
-        {
-          "id": 9,
-          "type": "stat",
-          "title": "SSDs with critical warnings",
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 0,
-            "y": 37
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "sum(smartctl_device_critical_warning{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"} != bool 0)",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#6b7280"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              },
-              "mappings": [
-                {
-                  "type": "special",
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A",
-                      "color": "#8e8e8e"
-                    }
-                  }
-                }
-              ]
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "text": {
-              "titleSize": 18,
-              "valueSize": 40
-            }
-          },
-          "description": "선택한 SSD 중 NVMe critical-warning bitmask가 0이 아닌 device 수입니다. SMART exporter가 없으면 N/A입니다."
-        },
-        {
-          "id": 10,
-          "type": "stat",
-          "title": "Maximum SSD temperature",
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 6,
-            "y": 37
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "max(smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "celsius",
-              "noValue": "N/A",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#6b7280"
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 70
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "mappings": [
-                {
-                  "type": "special",
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A",
-                      "color": "#8e8e8e"
-                    }
-                  }
-                }
-              ]
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "text": {
-              "titleSize": 18,
-              "valueSize": 40
-            }
-          },
-          "description": "선택한 SSD의 최대 temperature입니다. Node 필터와 별도로 Storage node·SSD 선택을 확인합니다."
-        },
-        {
-          "id": 11,
-          "type": "stat",
-          "title": "Maximum endurance used",
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 12,
-            "y": 37
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "max(smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "noValue": "N/A",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#6b7280"
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 80
-                  },
-                  {
-                    "color": "red",
-                    "value": 100
-                  }
-                ]
-              },
-              "mappings": [
-                {
-                  "type": "special",
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A",
-                      "color": "#8e8e8e"
-                    }
-                  }
-                }
-              ]
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "text": {
-              "titleSize": 18,
-              "valueSize": 40
-            }
-          },
-          "description": "Vendor가 추정한 NVMe endurance 사용량입니다. 값이 거칠고 power-on hour 기준으로 갱신될 수 있습니다."
-        },
-        {
-          "id": 12,
-          "type": "stat",
-          "title": "Minimum available spare",
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 18,
-            "y": 37
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "min(smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "noValue": "N/A",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 10
-                  },
-                  {
-                    "color": "#6b7280",
-                    "value": 20
-                  }
-                ]
-              },
-              "mappings": [
-                {
-                  "type": "special",
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A",
-                      "color": "#8e8e8e"
-                    }
-                  }
-                }
-              ]
-            },
-            "overrides": []
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "text": {
-              "titleSize": 18,
-              "valueSize": 40
-            }
-          },
-          "description": "선택한 SSD의 최소 available spare입니다. SMART exporter가 제공하는 device health 값입니다."
-        },
-        {
-          "id": 13,
-          "type": "timeseries",
-          "title": "SSD temperature",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 41
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "smartctl_device_temperature{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\",temperature_type=\"current\"}",
-              "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "celsius",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          },
-          "description": "Storage node·SSD별 device temperature입니다. Host GPU temperature와 별도 source입니다."
-        },
-        {
-          "id": 14,
-          "type": "timeseries",
-          "title": "SSD endurance and available spare",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 41
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "smartctl_device_percentage_used{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "legendFormat": "{{storage_system}}/{{instance}} {{device}} used"
-            },
-            {
-              "refId": "B",
-              "expr": "smartctl_device_available_spare{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "legendFormat": "{{storage_system}}/{{instance}} {{device}} spare"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "min": 0,
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          },
-          "description": "SSD endurance 사용량과 available spare입니다. 값의 의미가 다르므로 legend를 확인합니다."
-        },
-        {
-          "id": 15,
-          "type": "timeseries",
-          "title": "NVMe media errors",
-          "description": "Lifetime unrecovered media-error counter입니다. 증가하면 device 상태와 SMART/exporter log를 조사합니다.",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 49
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "smartctl_device_media_errors{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "legendFormat": "{{storage_system}}/{{instance}} {{device}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "min": 0,
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        },
-        {
-          "id": 16,
-          "type": "bargauge",
-          "title": "Lifetime host bytes written by SSD",
-          "description": "SSD가 보고한 lifetime host writes입니다. Garbage collection·wear leveling의 내부 NAND writes는 포함하지 않습니다.",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 49
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "smartctl_device_bytes_written{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "legendFormat": "{{storage_system}}/{{instance}} {{device}}",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "bytes",
-              "min": 0,
-              "noValue": "N/A"
-            },
-            "overrides": []
-          },
-          "options": {
-            "displayMode": "gradient",
-            "orientation": "horizontal",
-            "showUnfilled": true
-          }
-        },
-        {
-          "id": 17,
-          "type": "table",
-          "title": "SSD inventory and SMART status",
-          "gridPos": {
-            "h": 8,
-            "w": 24,
-            "x": 0,
-            "y": 57
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "max by (cluster, storage_system, instance, device, protocol, model_name, firmware_version) (smartctl_device{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"})",
-              "format": "table",
-              "instant": true
-            },
-            {
-              "refId": "B",
-              "expr": "smartctl_device_smart_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "format": "table",
-              "instant": true
-            },
-            {
-              "refId": "C",
-              "expr": "smartctl_device_smartctl_exit_status{job=\"storage-smart\",cluster=~\"$cluster\",storage_system=~\"$storage_system\",instance=~\"$storage_node\",device=~\"$ssd\"}",
-              "format": "table",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "noValue": "N/A"
-            },
-            "overrides": []
-          },
-          "options": {
-            "showHeader": true,
-            "cellHeight": "lg",
-            "enablePagination": true
-          },
-          "description": "Serial number는 표시하지 않습니다. SMART status 1은 passed이며 smartctl exit status는 bitmask입니다. Non-zero는 수집 오류나 health 경고일 수 있으므로 각 bit와 exporter log를 확인합니다."
-        }
-      ],
-      "options": {}
-    },
-    {
-      "id": 92,
-      "type": "row",
-      "title": "Local I/O latency and filesystem pressure",
-      "description": "Local NVMe/device의 평균 latency·queue와 inode·writeback을 확인합니다. 3FS RPC/FUSE operation latency는 별도 producer 근거가 필요합니다.",
-      "collapsed": true,
-      "gridPos": {
-        "x": 0,
-        "y": 37,
-        "w": 24,
-        "h": 1
-      },
-      "panels": [
-        {
-          "id": 30,
-          "type": "timeseries",
-          "title": "Disk mean completed I/O latency",
-          "description": "완료 I/O의 누적 read/write time을 operations로 나눈 평균 seconds/op입니다. Queue+service 시간이 포함되며 p95/p99가 아닙니다. I/O가 없거나 분모가 0이면 N/A입니다.",
-          "gridPos": {
-            "x": 0,
-            "y": 38,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "(rate(node_disk_read_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])) / (rate(node_disk_reads_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval]) > 0)",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} read mean"
-            },
-            {
-              "refId": "B",
-              "expr": "(rate(node_disk_write_time_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])) / (rate(node_disk_writes_completed_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval]) > 0)",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} write mean"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "s",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        },
-        {
-          "id": 31,
-          "type": "timeseries",
-          "title": "Disk outstanding I/O and average queue",
-          "description": "In-progress는 scrape 시점의 outstanding I/O, weighted I/O time rate는 구간 평균 outstanding I/O입니다. Parallel NVMe에서는 1을 초과할 수 있으며 busy 비율과 다릅니다.",
-          "gridPos": {
-            "x": 12,
-            "y": 38,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "node_disk_io_now{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} in progress"
-            },
-            {
-              "refId": "B",
-              "expr": "rate(node_disk_io_time_weighted_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\"}[$__rate_interval])",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{device}} average outstanding"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        },
-        {
-          "id": 32,
-          "type": "timeseries",
-          "title": "Filesystem available inodes",
-          "description": "선택 Mount의 free/total inode 비율입니다. Byte 여유가 있어도 inode 고갈로 create가 실패할 수 있습니다. Total=0 또는 미지원 filesystem은 N/A입니다.",
-          "gridPos": {
-            "x": 0,
-            "y": 46,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "(node_filesystem_files_free{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}) / (node_filesystem_files{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"} > 0)",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} inode available"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percentunit",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        },
-        {
-          "id": 33,
-          "type": "timeseries",
-          "title": "Filesystem read-only and collection errors",
-          "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다.",
-          "gridPos": {
-            "x": 12,
-            "y": 46,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "node_filesystem_readonly{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} read-only"
-            },
-            {
-              "refId": "B",
-              "expr": "node_filesystem_device_error{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",mountpoint=~\"$mount\",fstype!~\"tmpfs|overlay\"}",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} {{mountpoint}} stat error"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        },
-        {
-          "id": 34,
-          "type": "timeseries",
-          "title": "Dirty and writeback memory",
-          "description": "Node 전체 dirty/writeback bytes입니다. Checkpoint·KV offload 지연 시 disk queue·I/O pressure와 비교하며 특정 file·Run의 dirty data로 자동 귀속하지 않습니다.",
-          "gridPos": {
-            "x": 0,
-            "y": 54,
-            "w": 12,
-            "h": 8
-          },
-          "datasource": {
-            "type": "prometheus",
-            "uid": "telemetry-prometheus"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "node_memory_Dirty_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} dirty"
-            },
-            {
-              "refId": "B",
-              "expr": "node_memory_Writeback_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
-              "legendFormat": "{{cluster}}/{{nodename}} {{instance}} writeback"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "bytes",
-              "noValue": "N/A",
-              "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            }
-          }
-        }
-      ]
-    },
-    {
       "id": 100,
       "type": "row",
       "title": "3FS · saved collection context (optional Loki)",
@@ -1222,7 +1027,7 @@
       "collapsed": true,
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 72,
         "w": 24,
         "h": 1
       },
@@ -1238,7 +1043,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 39,
+            "y": 73,
             "w": 24,
             "h": 8
           },
@@ -1334,7 +1139,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 47,
+            "y": 81,
             "w": 24,
             "h": 8
           },
@@ -1465,7 +1270,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 55,
+            "y": 89,
             "w": 24,
             "h": 8
           },
@@ -1561,7 +1366,7 @@
           },
           "gridPos": {
             "x": 0,
-            "y": 63,
+            "y": 97,
             "w": 24,
             "h": 8
           },
@@ -1764,14 +1569,14 @@
       },
       {
         "name": "storage_system",
-        "label": "Storage system",
+        "label": "Declared storage system",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"storage-smart\", cluster=~\"$cluster\"}, storage_system)",
-        "query": "label_values(up{job=\"storage-smart\", cluster=~\"$cluster\"}, storage_system)",
+        "definition": "label_values(telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\"}, storage_system)",
+        "query": "label_values(telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\"}, storage_system)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -1782,18 +1587,18 @@
           ]
         },
         "refresh": 2,
-        "description": "SMART target의 Storage system label입니다. 3FS service metric을 자동 연결하지 않습니다."
+        "description": "사용자가 선언한 storage system입니다. 실제 요청 backend나 Run 소유권을 뜻하지 않습니다."
       },
       {
         "name": "storage_node",
-        "label": "Storage node",
+        "label": "Storage resource node",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "telemetry-prometheus"
         },
-        "definition": "label_values(up{job=\"storage-smart\", cluster=~\"$cluster\", storage_system=~\"$storage_system\"}, instance)",
-        "query": "label_values(up{job=\"storage-smart\", cluster=~\"$cluster\", storage_system=~\"$storage_system\"}, instance)",
+        "definition": "label_values(telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",resource_node!=\"\"}, resource_node)",
+        "query": "label_values(telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\",kind=\"storage\",resource_node!=\"\"}, resource_node)",
         "includeAll": true,
         "allValue": ".*",
         "multi": true,
@@ -1804,29 +1609,7 @@
           ]
         },
         "refresh": 2,
-        "description": "SMART exporter를 수집하는 storage node입니다. 위 Node 필터와 별도로 선택합니다."
-      },
-      {
-        "name": "ssd",
-        "label": "SSD",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "telemetry-prometheus"
-        },
-        "definition": "label_values(smartctl_device{job=\"storage-smart\", cluster=~\"$cluster\", storage_system=~\"$storage_system\", instance=~\"$storage_node\"}, device)",
-        "query": "label_values(smartctl_device{job=\"storage-smart\", cluster=~\"$cluster\", storage_system=~\"$storage_system\", instance=~\"$storage_node\"}, device)",
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "refresh": 2,
-        "description": "SMART exporter가 보고하는 SSD device입니다."
+        "description": "Topology의 명시 resource_node를 선택합니다. Topology publisher의 node를 사용하지 않습니다."
       },
       {
         "name": "record_id",
@@ -1932,7 +1715,7 @@
   },
   "timezone": "browser",
   "title": "06 · Data & Storage",
-  "description": "Local device·filesystem·topology와 선택적 SSD SMART 상태를 조사합니다.",
+  "description": "Storage Cluster의 선언된 DS/MDS inventory, Node Exporter의 host/device 성능과 선택적 3FS evidence를 조사합니다. 실제 backend path나 Run attribution을 추정하지 않습니다.",
   "uid": "xlayer-data-storage",
   "version": 6
 }

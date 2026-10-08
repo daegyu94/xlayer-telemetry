@@ -30,7 +30,6 @@ export const VARIABLE_NAMES = [
   "storage_node",
   "storage_metric",
   "detail_tab",
-  "ssd",
   "training_max_age",
 ] as const;
 export type VariableName = (typeof VARIABLE_NAMES)[number];

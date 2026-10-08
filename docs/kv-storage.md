@@ -12,7 +12,7 @@ Backend 선택에 따른 실제 path·native telemetry·미관측 영역과 향�
 | Mooncake Store | Connector·master·선택적 client endpoint | RPC·RAM/lookup·DFS batch I/O |
 | Local device / filesystem | Node Exporter | Busy·mean I/O latency·IOPS·용량 |
 | Shared 3FS | 기존 ClickHouse distributions와 diagnostics config | 같은 producer identity의 reported p99 max / evidence |
-| SSD health | Optional SMART exporter | 온도·warning·media error; operation p99가 아님 |
+| Storage Cluster | 선언된 DS/MDS inventory + Node Exporter | Exporter availability·CPU/memory·network/RDMA·device I/O |
 
 ```{admonition} Scope
 :class: important
@@ -82,7 +82,7 @@ Endpoint를 연결한 뒤 기존 diagnostics config의 `prometheus.metric_profil
 ```{admonition} 비교 범위
 :class: important
 
-Profile은 기존 canonical panel query를 재사용하며 새로운 원인 rule을 만들지 않습니다. One-minute rolling window와 operation/status/client/engine identity를 보존합니다. 같은 entity의 변화량은 Run별 사용량·인과관계나 계층 간 I/O amplification을 뜻하지 않습니다.
+Profile은 기존 canonical query를 재사용하며 backend-independent DFS supporting candidate에 연결됩니다. 실제 원인이나 backend path를 확정하지 않습니다. One-minute rolling window와 operation/status/client/engine identity를 보존합니다. 같은 entity의 변화량은 Run별 사용량·인과관계나 계층 간 I/O amplification을 뜻하지 않습니다.
 ```
 
 ## Troubleshooting
@@ -92,9 +92,9 @@ Profile은 기존 canonical panel query를 재사용하며 새로운 원인 rule
 | Client endpoint 503 | Client metric 비활성 / HTTP 초기화 옵션 |
 | Connector만 보임 | Master/client 별도 endpoint와 version 지원 |
 | 3FS evidence 없음 | Diagnostics config·database·metricName·filter·settle 시간 |
-| SMART만 보임 | SMART는 health이며 3FS service 계측과 별도 |
+| Cluster 값 없음 | `resource_node` mapping·target 등록·중복/충돌 identity 확인 |
 
 ## 다음
 
 [Step / Phase의 Storage collection 조사](storage-correlation.md) ·
-[느린 Step 조사](dashboards.md) · [Storage interpretation](dashboard-reference.md#follow-the-storage-path) · [SMART 운영](monitoring-reference.md#ssd-health)
+[느린 Step 조사](dashboards.md) · [Storage interpretation](dashboard-reference.md#follow-the-storage-path) · [Storage Cluster 설정](monitoring-reference.md#storage-cluster-inventory)

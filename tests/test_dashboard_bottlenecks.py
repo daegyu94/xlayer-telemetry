@@ -82,19 +82,20 @@ def test_optional_bottleneck_rows_preserve_scope_and_missing_evidence():
         assert "sum by (cluster, nodename, instance, device" in query("compute-communication", title)
 
 
-def test_all_35_added_panels_are_inside_collapsed_rows():
+def test_optional_subsystem_panels_are_collapsed_but_storage_performance_is_primary():
     additions = {
         "compute-communication": set(range(30, 36)) | set(range(40, 46)) | set(range(50, 57)),
-        "data-storage": set(range(30, 35)),
         "agent-rl-stages": set(range(27, 35)) | set(range(40, 43)),
     }
-    assert sum(map(len, additions.values())) == 35
+    assert sum(map(len, additions.values())) == 30
     for name, expected_ids in additions.items():
         dashboard = json.loads((SOURCE / f"{name}.json").read_text())
         assert not expected_ids.intersection(p["id"] for p in dashboard["panels"])
         collapsed_ids = {p["id"] for row in dashboard["panels"] if row.get("collapsed")
                          for p in row.get("panels", [])}
         assert expected_ids <= collapsed_ids
+    storage=json.loads((SOURCE / "data-storage.json").read_text())
+    assert set(range(30,35)) <= {panel["id"] for panel in storage["panels"]}
 
 
 def test_dcgm_and_native_queries_keep_exporter_units_and_identity():

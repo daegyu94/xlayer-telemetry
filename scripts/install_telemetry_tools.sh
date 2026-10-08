@@ -58,8 +58,6 @@ download() {
 }
 download "https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-$release_arch.tar.gz" node_exporter.tar.gz
 tar xzf node_exporter.tar.gz
-download "https://github.com/prometheus-community/smartctl_exporter/releases/download/v0.14.0/smartctl_exporter-0.14.0.linux-$release_arch.tar.gz" smartctl_exporter.tar.gz
-tar xzf smartctl_exporter.tar.gz
 if [[ "$role" == server ]]; then
   download "https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-$release_arch.tar.gz" prometheus.tar.gz
   tar xzf prometheus.tar.gz

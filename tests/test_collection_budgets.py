@@ -33,13 +33,13 @@ def test_toml_and_legacy_config_preserve_collection_budgets(tmp_path):
         assert all(config[key] == value for key, value in custom.items())
 
 
-def test_launcher_generates_bounded_host_native_and_smart_scrapes(tmp_path):
+def test_launcher_generates_bounded_host_and_native_scrapes(tmp_path):
     sources = tmp_path / 'sources.json'
     sources.write_text(json.dumps({'schema_version': 1, 'sources': [
         {'name': 'dcgm-node', 'kind': 'dcgm', 'target': 'node:9400', 'labels': {'node': 'node'}}]}))
     output = tmp_path / 'server'
     env = os.environ | {'SERVER_CONFIG_ONLY': '1', 'OUTPUT_DIR': str(output),
-        'TELEMETRY_TARGETS': 'node=127.0.0.1', 'STORAGE_TARGETS': 'disk=127.0.0.1',
+        'TELEMETRY_TARGETS': 'node=127.0.0.1',
         'TELEMETRY_SOURCES_FILE': str(sources), 'PROMETHEUS_SAMPLE_LIMIT': '12000',
         'NATIVE_SCRAPE_INTERVAL_SECONDS': '10', 'NATIVE_SCRAPE_TIMEOUT_SECONDS': '8'}
     result = subprocess.run(['bash', str(ROOT / 'scripts/run_telemetry.sh'), 'server'],
@@ -49,7 +49,7 @@ def test_launcher_generates_bounded_host_native_and_smart_scrapes(tmp_path):
     for fragment in ('sample_limit: 12000', 'target_limit: 1024', 'body_size_limit: 16MB',
                      'label_limit: 40', 'label_name_length_limit: 128', 'label_value_length_limit: 1024',
                      'scrape_interval: 2s', 'scrape_timeout: 2s',
-                     'scrape_interval: 10s', 'scrape_timeout: 8s', 'scrape_interval: 60s'):
+                     'scrape_interval: 10s', 'scrape_timeout: 8s'):
         assert fragment in text
     bad = subprocess.run(['bash', str(ROOT / 'scripts/run_telemetry.sh'), 'server'],
                          env=env | {'OUTPUT_DIR': str(tmp_path / 'bad'), 'PROMETHEUS_SAMPLE_LIMIT': '0'},

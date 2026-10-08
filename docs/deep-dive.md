@@ -15,7 +15,7 @@
 | Rollout 지연 + queue 증가 | 같은 vLLM engine의 KV·TTFT·preemption | Shared engine signal |
 | Rollout 지연 + 낮은 queue | Tool span·외부 호출 log | 없는 queue source를 낮은 queue로 읽지 않음 |
 | Update 지연 + 낮은 GPU | Host staging·collective·memory | Node metric은 worker attribution이 아님 |
-| Checkpoint 지연 | Client → network → filesystem → storage device | Local busy·SMART·service p99는 다른 scope |
+| Checkpoint 지연 | Client → network → filesystem → storage device | Local busy·I/O mean·service p99는 다른 scope |
 | Weight sync 지연 | NIC/RDMA·replica 준비·실제 timer | Port bytes는 Run별 NCCL bytes가 아님 |
 | Peer straggler | 같은 조건의 worker/device 비교 | Cluster 평균만으로 worker 판정하지 않음 |
 

@@ -24,7 +24,7 @@
 | 연결 방향 | 기본 port | 목적 |
 | --- | --- | --- |
 | Monitoring host → collector | 19100 | Host/GPU/application |
-| Monitoring host → SMART | 19633 | Optional SSD health |
+| Monitoring host → DS/MDS | 19100 | Host/I/O·clock collector |
 | Collector → Loki | 13100 | Optional log/event |
 | Browser → Grafana | SSH tunnel | Loopback UI 접근 |
 

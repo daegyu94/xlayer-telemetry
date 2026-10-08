@@ -26,7 +26,7 @@ Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel 
 | vLLM | `vllm:num_requests_waiting`, `vllm:kv_cache_usage_perc`, `vllm:num_preemptions_total` | VERL/vLLM에서 native metric을 켜고 monitoring server에 endpoint 등록 | Serving engine; metric 이름은 version별 확인 |
 | Mooncake KV storage | `vllm:mooncake_store_operation_*`, `master_allocated_bytes`, `mooncake_dfs_*` | [Store connector·master·client endpoint 연결](kv-storage.md); client HTTP는 기본 비활성 | Connector RPC / shared master / client batch; 물리 SSD I/O나 run 소유량이 아님 |
 | Ray | `ray_tasks` 등 배포의 native metric | Ray endpoint 등록 | Ray component; Stage Correlation의 Ray row |
-| SSD health | `smartctl_device_*` | 선택적 SMART exporter와 device 접근 권한 | SSD device; local sandbox와 3FS storage node를 구분 |
+| Storage inventory | `telemetry_topology_component_info`의 명시 `resource_node`·`role`·`storage_system` | 기존 topology textfile collector | 사용자 선언. Publisher identity·실제 요청 경로·Run attribution과 구분 |
 | 3FS service | ClickHouse distributions의 p99·mean과 raw counter의 identity·min/max/last·sample count·freshness | 기존 ClickHouse 설정으로 `xltel sources threefs` 조회 | Shared service; recorder reset·gauge가 섞여 rate나 누적 총량을 자동 계산하지 않음 |
 | Tool / sandbox lifecycle | `tool.call`, `sandbox.exec`, `sandbox.resource_sample` | `EventRecorder` / `SandboxRecorder`를 integration 경계에서 호출 | Trace / span; JSONL이며 duration metric 자동 생성 아님 |
 | Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_memory_pressure_ratio`, `sandbox_cpu_throttled_seconds_total` | Stable worker cgroup v2 경로를 sandbox sampler에 전달; CPU·memory·I/O와 압력·event counter | Worker cgroup; CPU quota 통계는 선택 cgroup 자체의 제한 |
@@ -262,8 +262,7 @@ Host pressure·disk await/queue·network error 신호는 이미 실행하는 Nod
 NVMe에서는 busy fraction만으로 포화라고 판단하지 않고 queue·operation latency·IOPS를 함께 봅니다.
 네트워크 오류/retransmit은 node/port evidence이며 해당 run의 NCCL 전송 오류로 귀속하지 않습니다.
 
-실제 collector용 generated server config는 host 2초/timeout 2초, native 5초/timeout 4초,
-SMART 60초/timeout 10초로 조회합니다. 모든 job은 기본적으로 scrape당 100,000 samples,
+실제 collector용 generated server config는 host 2초/timeout 2초, native 5초/timeout 4초로 조회합니다. 모든 job은 기본적으로 scrape당 100,000 samples,
 1,024 targets/job, uncompressed body 16 MB, 40 labels/sample, label name 128 bytes,
 label value 1,024 bytes 제한을 상속합니다. 한도 초과 시 일부 값만 성공으로 표시하지 않고
 scrape 전체가 실패하므로 `up`, scrape duration·sample count와 Prometheus Targets 오류를 확인합니다.

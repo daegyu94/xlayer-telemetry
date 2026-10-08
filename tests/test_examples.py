@@ -69,13 +69,13 @@ def test_compose_uses_current_metrics_dashboards_and_selected_mounts(tmp_path):
     assert 'uid: telemetry-prometheus' in datasource
 
 
-@pytest.mark.parametrize('filename', ['native.json', 'storage.json'])
+@pytest.mark.parametrize('filename', ['native.json'])
 def test_compose_optional_target_files_are_validated(tmp_path, filename):
     from xlayer_telemetry.stack import validate_target_files
 
     for path in (ROOT / 'examples/dashboards/targets').glob('*.json'):
         shutil.copyfile(path, tmp_path / path.name)
-    assert validate_target_files(tmp_path)['files'] == 5
+    assert validate_target_files(tmp_path)['files'] == 4
     (tmp_path / filename).write_text(json.dumps([{
         'targets': ['engine.internal:8000'], 'labels': {'cluster': None},
     }]))

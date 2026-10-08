@@ -97,7 +97,7 @@ def test_installer_selects_release_architecture(
     assert result.returncode == 0, result.stderr
     urls = curl_log.read_text()
     assert f"node_exporter-1.9.1.linux-{release_arch}.tar.gz" in urls
-    assert f"smartctl_exporter-0.14.0.linux-{release_arch}.tar.gz" in urls
+    assert 'smartctl' not in urls
     assert f"prometheus-3.5.0.linux-{release_arch}.tar.gz" in urls
     assert f"grafana-12.1.0.linux-{release_arch}.tar.gz" in urls
     assert f"loki-linux-{release_arch}.zip" in urls

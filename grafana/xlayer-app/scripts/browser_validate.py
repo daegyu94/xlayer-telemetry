@@ -120,6 +120,7 @@ def datasource_boundary_checks(page, url, checks, capture):
         coverage = page.locator('details').filter(has=page.locator('summary').filter(has_text='Diagnosis / Query Coverage'))
         coverage.locator('summary').click()
         assert 'Synthetic browser boundary datasource error' in coverage.inner_text()
+        page.get_by_role('combobox', name='Completed Step').locator('option').nth(2).wait_for(state='attached',timeout=15000)
         assert page.get_by_role('combobox', name='Completed Step').locator('option').count() >= 3
         assert errors
         capture('datasource-error-fixture')

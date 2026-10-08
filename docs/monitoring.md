@@ -163,7 +163,7 @@ curl --fail --silent http://127.0.0.1:19100/metrics   | rg 'node_cpu_seconds_tot
 
 <a id="ssd-health" class="xlayer-legacy-anchor"></a>
 
-[SSD Health](monitoring-reference.md#ssd-health)
+[Storage Cluster Inventory](monitoring-reference.md#storage-cluster-inventory)
 
 <a id="topology-and-native-sources" class="xlayer-legacy-anchor"></a>
 
