@@ -32,7 +32,8 @@ class QueryBudget:
         class Client:
             def __getattr__(self, attribute):
                 method = getattr(client, attribute)
-                if attribute not in {"query_range", "query_range_detail", "query_window"}:
+                if attribute not in {"query_range", "query_range_detail", "query_window", "query_counters",
+                                     "query_distribution_series", "query_counter_series"}:
                     return method
 
                 def query(*args, **kwargs):

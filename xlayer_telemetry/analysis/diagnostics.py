@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 import statistics
 import time
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import urlencode
 from urllib.request import Request, build_opener
 
@@ -271,6 +271,16 @@ class ThreeFSClient:
                    for key in ("sample_count", "min", "max", "last", "first_observed_at", "last_observed_at")},
             })
         return result
+
+    def query_distribution_series(self, start: float, end: float, *, metric_names: Sequence[str] = (), max_points: int = 2000) -> list[dict[str, Any]]:
+        """Read second-resolution collection reports with bounded full identity."""
+        from .storage_queries import distribution_series
+        return distribution_series(self, start, end, metric_names=metric_names, max_points=max_points)
+
+    def query_counter_series(self, start: float, end: float, *, metric_names: Sequence[str] = (), max_points: int = 2000) -> list[dict[str, Any]]:
+        """Keep raw report values; sum only verified reset-on-collect producers."""
+        from .storage_queries import counter_series
+        return counter_series(self, start, end, metric_names=metric_names, max_points=max_points)
 
 
 class _DeadlineThreeFSClient(ThreeFSClient):
