@@ -58,6 +58,11 @@ BASELINE_IDENTITY = (
     "cluster", "producer", "role", "rank", "local_rank", "gpu",
 )
 _POLICY_IDENTIFIERS = {"policy_version", "fully_async/count/current_param_version"}
+_APPLICATION_DURATION_METADATA = {
+    name: {"unit": "s", "window_statistic": "sum of reported stages" if name == "communication_duration_seconds" else "reported completed duration"}
+    for name in ("step_duration_seconds", "rollout_duration_seconds", "actor_update_duration_seconds",
+                 "critic_update_duration_seconds", "checkpoint_duration_seconds", "communication_duration_seconds")
+}
 
 
 def validate_baseline_policy(policy: Mapping[str, Any]) -> None:
@@ -148,6 +153,7 @@ def compare_signals(
         change = now - before if before is not None else None
         rows.append({
             "signal": name,
+            **_APPLICATION_DURATION_METADATA.get(name, {}),
             "scope": (scopes or {}).get(name, SIGNAL_SCOPE.get(name, "unknown")),
             "labels": dict((labels or {}).get(name, {})),
             "current": now,
@@ -216,6 +222,7 @@ def evaluate_rules(
             missing.append("per_run_3fs_client_bytes")
         evidence = [{
             "signal": name,
+            **_APPLICATION_DURATION_METADATA.get(name, {}),
             "value": val(name),
             "baseline": val(name, previous=True),
             "observation_scope": scope_for(name),
@@ -239,7 +246,7 @@ def evaluate_rules(
         candidates.append({
             "id": identifier, "component": component, "summary": summary,
             "state": state, "evidence": evidence,
-            "counter_evidence": [{"signal": name, "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
+            "counter_evidence": [{"signal": name, **_APPLICATION_DURATION_METADATA.get(name, {}), "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
             "missing_evidence": missing,
             "observation_scope": scope,
             "related_nodes": sorted(set((related or {}).get("nodes", [])) | set(observed_nodes)) or ([fallback_node] if fallback_node else []),

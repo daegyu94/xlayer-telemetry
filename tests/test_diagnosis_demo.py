@@ -6,6 +6,7 @@ from xlayer_telemetry.demos.diagnosis import generate
 def test_synthetic_investigation_has_inspectable_candidate_and_exact_span(tmp_path):
     root = tmp_path / "run" / "telemetry"
     report = generate(root, run_id="synthetic-run", clock=lambda: 200)
+    assert report["worker_id"] == "driver"
 
     assert report["comparison"]["baseline_record_id"]
     queue = next(item for item in report["candidates"] if item["id"] == "storage_queue_saturation")

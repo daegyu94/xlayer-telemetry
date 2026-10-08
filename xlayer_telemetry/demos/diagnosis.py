@@ -188,6 +188,7 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         "schema_version": 1, "record_type": "bottleneck_diagnosis",
         "generated_at": datetime.fromtimestamp(end, timezone.utc).isoformat(),
         "run_id": run_id, "node": node, "execution_mode": "sync",
+        "worker_id": observed.get("worker_id"),
         "trigger": "step_observed", "trigger_record_id": observed["record_id"],
         "step": step, "boundary_scope": "rl_step", "analysis_window": window,
         "verdict": "bottleneck_suspected" if candidates else "no_anomaly_observed", "findings": [], "evidence": {},

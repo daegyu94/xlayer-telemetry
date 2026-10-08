@@ -128,3 +128,19 @@ def test_investigation_projection_keeps_explicit_async_boundary():
     assert row["boundary_scope"] == "trainer_update"
     assert row["execution_mode"] == "async"
     assert row["worker_id"] == "trainer-0"
+
+
+def test_application_duration_contract_reaches_comparison_and_evidence_without_guessing_storage_units():
+    comparison = compare_signals({"step_duration_seconds": 20, "rollout_duration_seconds": 8,
+                                  "threefs_p99_latency": 1000},
+                                 {"step_duration_seconds": 10, "rollout_duration_seconds": 4,
+                                  "threefs_p99_latency": 500})
+    for row in comparison:
+        if row["signal"] != "threefs_p99_latency":
+            assert row["unit"] == "s" and row["window_statistic"] == "reported completed duration"
+        else:
+            assert row.get("unit") is None
+    candidate = next(c for c in evaluate_rules({"rollout_duration_seconds": 8, "vllm_requests_waiting": 3},
+                     {"rollout_duration_seconds": 4}, thresholds={}, context={}) if c["id"] == "rollout_queue_backlog")
+    duration = next(e for e in candidate["evidence"] if e["signal"] == "rollout_duration_seconds")
+    assert duration["unit"] == "s"
