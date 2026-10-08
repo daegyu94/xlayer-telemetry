@@ -9,7 +9,7 @@
 | vLLM GPU KV | Native vLLM endpoint | Cache usage·prefix hit·지원되는 preemption/offload |
 | Mooncake Store | Connector·master·선택적 client endpoint | RPC·RAM/lookup·DFS batch I/O |
 | Local device / filesystem | Node Exporter | Busy·mean I/O latency·IOPS·용량 |
-| Shared 3FS | 기존 ClickHouse distributions와 diagnostics config | 같은 시간·metricName의 latency / evidence |
+| Shared 3FS | 기존 ClickHouse distributions와 diagnostics config | 같은 producer identity의 reported p99 max / evidence |
 | SSD health | Optional SMART exporter | 온도·warning·media error; operation p99가 아님 |
 
 ```{admonition} Scope
@@ -61,6 +61,27 @@ xltel sources threefs --window-seconds 60
 - **Stage Correlation → Policy & KV lifecycle / Mooncake:** endpoint·engine별 변화.
 - **Data & Storage:** local device와 filesystem; service p99와 구분.
 - **Bottleneck Summary:** 선택한 step의 3FS evidence·unit·scope·missing.
+- **App Deep Dive:** Connector RPC → DFS batch / bytes / failures → 저장된 3FS evidence → Local I/O mean. Run·record·worker·시간을 유지하고 계층의 metric을 서로 대체하지 않습니다.
+
+## Mooncake를 Baseline과 비교
+
+Endpoint를 연결한 뒤 기존 diagnostics config의 `prometheus.metric_profiles`에 `mooncake`를 선택적으로 추가합니다. 기본 수집·진단에는 자동 활성화하지 않습니다.
+
+```json
+"prometheus": {
+  "url": "http://monitor.internal:19090",
+  "metric_profiles": ["mooncake", "disk"]
+},
+"rollout_node": "actual-connector-or-client-node"
+```
+
+**정상 결과:** `comparison.signals`에 실제 endpoint가 반환한 connector RPC p95·DFS read/write/staging p95·read bytes/s·failed keys/s가 같은 entity의 baseline과 함께 표시됩니다. Client endpoint가 없으면 해당 signal은 missing입니다. 여러 node의 비교는 node별 diagnostics context에서 수행합니다.
+
+```{admonition} 비교 범위
+:class: important
+
+Profile은 기존 canonical panel query를 재사용하며 새로운 원인 rule을 만들지 않습니다. One-minute rolling window와 operation/status/client/engine identity를 보존합니다. 같은 entity의 변화량은 Run별 사용량·인과관계나 계층 간 I/O amplification을 뜻하지 않습니다.
+```
 
 ## Troubleshooting
 

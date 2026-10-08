@@ -1,0 +1,398 @@
+{
+  "review_date": "2026-10-08",
+  "baseline_revision": "e1b8f70",
+  "scope": "synthetic Grafana and fault-injection response fixtures; regression and actual PromQL; no physical GPU/VERL/Mooncake/3FS/RDMA workload",
+  "sufficient": [
+    "four App workspaces",
+    "canonical datasource/query reuse",
+    "full 3FS producer identity and positive contributors",
+    "rolling connector RPC p95 kept distinct from 3FS p99 max and local mean",
+    "exact/calibrated/approximate/sampled and shared/no-data/zero boundaries"
+  ],
+  "improvements": [
+    "training snapshot age ownership versus VERL stage dimensions",
+    "explicit trainer-update scope and application duration seconds metadata",
+    "compact full-tooltip entities and matching selection guidance",
+    "six opt-in canonical Mooncake comparison queries",
+    "layer-qualified existing storage detail panels and saved 3FS evidence",
+    "Scenes GPU/Ray data provider sharing"
+  ],
+  "frontend": {
+    "passed": 88,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "cpu": {
+    "passed": 1382,
+    "skipped": 3,
+    "skip_reason": "optional isolated ClickHouse container not configured; no actual 3FS machines used",
+    "real_promtool": true
+  },
+  "ci_helper_tests": 17,
+  "browser_loops": {
+    "before": {
+      "checks": [
+        "Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data",
+        "Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states",
+        "Storage cell opens supporting / against / missing evidence without asserting phase attribution",
+        "Existing Data & Storage keeps Run/Step/observer/resource/GPU/phase/time; Browser Back restores investigation",
+        "900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable",
+        "Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs",
+        "Analyze \u2192 baseline / candidates \u2192 evidence \u2192 measured timeline keeps Step; Compute pivot and Escape restore focus",
+        "App Timeline / Deep Dive routing preserves investigation context",
+        "Unknown Run stays selected and displays no-data rather than inferred healthy/zero values",
+        "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+        "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+        "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate",
+        "Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation"
+      ],
+      "browser_errors": [],
+      "grafana_version": "12.1.0",
+      "scenes_version": "6.20.0",
+      "browser_version": "145.0.7632.116",
+      "playwright_version": "1.63.0",
+      "browser_locale": "en-US",
+      "browser_timezone": "UTC",
+      "data_origin": "live synthetic metrics + SDK-generated step/span/diagnosis fixtures",
+      "native_requests_after_step_selection": 22,
+      "bounded_baseline_requests": 5,
+      "native_requests_matching_step_window": 22,
+      "selected_context": {
+        "from": [
+          "2026-10-08T06:13:01.909Z"
+        ],
+        "to": [
+          "2026-10-08T06:13:49.910Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-0"
+        ],
+        "var-record_id": [
+          "afb9fc849023fe997a71a090"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "0"
+        ],
+        "var-engine": [
+          "synthetic-vllm-0"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      }
+    },
+    "loop2": {
+      "checks": [
+        "Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data",
+        "Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states",
+        "Storage cell opens supporting / against / missing evidence without asserting phase attribution",
+        "Existing Data & Storage keeps Run/Step/observer/resource/GPU/phase/time; Browser Back restores investigation",
+        "900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable",
+        "Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs",
+        "Analyze \u2192 baseline / candidates \u2192 evidence \u2192 measured timeline keeps Step; Compute pivot and Escape restore focus",
+        "App Timeline / Deep Dive routing preserves investigation context",
+        "Unknown Run stays selected and displays no-data rather than inferred healthy/zero values",
+        "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+        "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+        "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate",
+        "Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation"
+      ],
+      "browser_errors": [],
+      "grafana_version": "12.1.0",
+      "scenes_version": "6.20.0",
+      "browser_version": "145.0.7632.116",
+      "playwright_version": "1.63.0",
+      "browser_locale": "en-US",
+      "browser_timezone": "UTC",
+      "data_origin": "live synthetic metrics + SDK-generated step/span/diagnosis fixtures",
+      "native_requests_after_step_selection": 22,
+      "bounded_baseline_requests": 5,
+      "native_requests_matching_step_window": 22,
+      "selected_context": {
+        "from": [
+          "2026-10-08T06:25:17.949Z"
+        ],
+        "to": [
+          "2026-10-08T06:26:05.950Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-0"
+        ],
+        "var-record_id": [
+          "8060abe60d065b1ec4ce9046"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "0"
+        ],
+        "var-engine": [
+          "synthetic-vllm-0"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      }
+    },
+    "multiworker": {
+      "checks": [
+        "Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected",
+        "Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time",
+        "Selected measured worker \u2192 Compute dashboard \u2192 browser Back preserves exact resource and observer/Step context",
+        "Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence",
+        "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+        "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+        "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate"
+      ],
+      "browser_errors": [],
+      "data_origin": "live synthetic metrics + four explicit SDK rollout worker spans",
+      "grafana_version": "12.1.0",
+      "scenes_version": "6.20.0",
+      "browser_version": "145.0.7632.116",
+      "playwright_version": "1.63.0",
+      "browser_locale": "en-US",
+      "browser_timezone": "UTC",
+      "selected_context": {
+        "from": [
+          "2026-10-08T06:31:55.133Z"
+        ],
+        "to": [
+          "2026-10-08T06:32:43.134Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-3"
+        ],
+        "var-record_id": [
+          "1f7efdb504b7bf1479ec192a"
+        ],
+        "var-phase_worker": [
+          "[[\"cluster\",\"scenes-demo\"],[\"node\",\"gpu-node-3\"],[\"producer\",\"demo_distributed\"],[\"role\",\"rollout\"],[\"worker_id\",\"rollout-3\"],[\"rank\",null],[\"local_rank\",null],[\"gpu\",\"3\"]]"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "3"
+        ],
+        "var-engine": [
+          "$__all"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      },
+      "multi_worker": true,
+      "worker_rows": 4,
+      "native_dashboard_back_entries": 1,
+      "context_transition_count": 24,
+      "datasource_fixtures": "Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement"
+    },
+    "contracts": {
+      "data_origin": "synthetic",
+      "notes": "Grafana datasource response fixtures test presentation; no real async VERL or backend outage.",
+      "metrics_only_verl_stage": {
+        "value": "12.00 s",
+        "age": "Reported rollout\n12.00 s\nNo baseline\nSample age 24.10 s\nReported \u00b7 worker\ngpu-node-0 \u00b7 driver",
+        "worker": "driver"
+      },
+      "async_scope": {
+        "update_time_visible": true,
+        "scope_notice_visible": true
+      },
+      "shared_detail_query": {
+        "extra_gpu_ray_queries_on_tab_selection": 0
+      },
+      "storage_layers": {
+        "tabs_context_preserved": true,
+        "existing_panels_reused": true,
+        "saved_service_evidence_visible": true
+      },
+      "browser_errors": []
+    }
+  },
+  "profile": {
+    "new_queries_when_selected": 6,
+    "metric_requests_with_baseline": 12,
+    "default_enabled": false,
+    "default_request_count_unchanged": true,
+    "server_query_budget_seconds": 30,
+    "native_sources": "existing vLLM Store connector and Mooncake client",
+    "units": "canonical validated; DFS microseconds converted to seconds",
+    "strong_rules_added": 0,
+    "installed_wheel_outside_checkout": "validated by isolated worker"
+  },
+  "limits": [
+    "response fixtures are not real backend outage or async VERL",
+    "one-minute rates may precede short phase/step windows",
+    "no run attribution or GET/PUT to DFS to 3FS physical amplification mapping",
+    "3FS raw unit remains unknown unless explicitly reported",
+    "Clock/backend partial-quality and server execution budgets remain prior followups"
+  ],
+  "cleanup": {
+    "owned_live_demo_launchers_exited": true,
+    "owned_children_stopped": true,
+    "existing_user_stack_untouched": true,
+    "temporary_state_removed": true
+  },
+  "duration_units": {
+    "application_seconds": "common producer-side metadata on comparisons and supporting/counter evidence",
+    "threefs_raw_unit": "not inferred"
+  },
+  "documentation": {
+    "links_diagrams_passed": 10,
+    "strict_build": "passed",
+    "browser_passed": 9,
+    "viewports_px": [
+      320,
+      390,
+      430,
+      900,
+      1280,
+      1440
+    ],
+    "screenshots_updated": [
+      "grafana-app-context-overview.png",
+      "grafana-app-deep-dive.png",
+      "grafana-app-worker-comparison.png"
+    ]
+  }
+}

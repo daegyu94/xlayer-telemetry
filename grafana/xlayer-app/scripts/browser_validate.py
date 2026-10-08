@@ -174,7 +174,7 @@ def loading_context_check(page, url, checks, capture):
         threading.Event().wait(.3)
         snapshots.append(page.evaluate("""() => ({
           runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
-          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
+          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Update time','Reported duration','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
           completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
         })"""))
         threading.Event().wait(.9)

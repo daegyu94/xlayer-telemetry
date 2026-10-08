@@ -83,14 +83,19 @@ def run(args):
                 command.append('--multi-worker')
             if args.browser:
                 command.extend(['--browser', args.browser])
-            validator = subprocess.Popen(command, cwd=ROOT, start_new_session=True)
-            try:
-                code = validator.wait(timeout=args.browser_timeout)
-                if code:
-                    raise subprocess.CalledProcessError(code, command)
-            finally:
-                # A timed-out browser must not leave owned Chromium processes behind.
-                stop_owned(validator, whole_group=True)
+            contracts = [sys.executable, str(SCRIPTS / 'metric_contract_validate.py'),
+                         '--url', connection['grafana'], '--output', str(args.output / 'metric-contracts')]
+            if args.browser:
+                contracts.extend(['--browser', args.browser])
+            for validation_command in (command, contracts):
+                validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
+                try:
+                    code = validator.wait(timeout=args.browser_timeout)
+                    if code:
+                        raise subprocess.CalledProcessError(code, validation_command)
+                finally:
+                    # A timed-out browser must not leave owned Chromium processes behind.
+                    stop_owned(validator, whole_group=True)
     finally:
         if process is not None:
             stop_owned(process)

@@ -87,17 +87,21 @@ Worker selection은 `phase_worker` URL state로 보존하며 observer `source_no
 | System Signals | 저장된 candidate 상태. Collector UP 기반 health 판정이 아님 |
 | System Pressure | Full entity tuple 유지. 명시 Step evidence 일치 → pending/failed state → 같은 단위의 baseline 변화 → signal 순으로 최대 두 entity 표시 |
 | Recorded errors | 조회한 span의 status coverage·count·5,000 record limit. 전체 workload error rate가 아님 |
-| Detailed Metrics | Canonical native panel. Local I/O mean·KV RPC p95와 3FS service p99를 구분 |
+| Detailed Metrics | 기존 Connector RPC·DFS batch/bytes/failures·저장된 3FS evidence·local I/O mean을 계층별 선택. Metric 간 대체·합산 없음 |
 
 ### KPI / Event 연결 조건
 
 - Application KPI는 canonical query의 observer filter와 full label tuple을 보존합니다. 여러 Run/worker가 반환되면 **Multiple entities**이며 대표값이나 합계를 만들지 않습니다.
 - 현재 application KPI는 동일 producer·worker·Run·node·observer·rank의 age를 확인합니다. 누락·충돌이면 **Freshness unknown**, age 초과면 **Stale**로 값을 숨깁니다. 저장 completed-Step observation은 live freshness와 구분합니다.
+- `phase`·`verl_stage`·`reported_key`는 reported metric의 dimension이며 snapshot age의 ownership label이 아닙니다. Native range endpoint를 age의 evaluation 기준으로 사용하고 wall-clock now로 과거 window를 보정하지 않습니다.
+- Async `trainer_update`는 **Trainer update / Update time**으로 표시합니다. Boundary scope가 없는 legacy projection은 **Observation**이며 synchronous Step이나 rollout 소유권으로 추정하지 않습니다.
+- Multi-entity 안내는 실제로 다른 Run·Worker·GPU·Engine/endpoint를 가리킵니다. Compact entity summary의 tooltip에는 원래 full labels를 보존합니다.
 - Recent Event는 cluster·Run·Step과 명시 `step_record_id`, execution identity 또는 실제 parent chain으로 연결합니다. 같은 번호의 여러 record가 남으면 **Choose Step**, 연결 근거가 없으면 **Step link unavailable**입니다.
 - Run/time 전환 중 Loading/Error가 보관한 이전 frame을 현재 custom KPI·Step·evidence로 읽지 않습니다. Native graph의 loading 표시는 Grafana가 관리합니다.
 - Pressure supporting match는 선택 Step의 cluster·record·observer·window, resource entity·unit·sample 시각을 함께 확인합니다.
 - GPU 낮은 utilization은 자동 fault가 아닙니다. Pressure 카드의 entity 순위와 **Inspect entity** 링크는 조사 우선순위이며 causal verdict가 아닙니다.
 - **Diagnosis / Query Coverage**는 현재 provider의 error·empty·optional unavailable·native target 수·Grafana가 보고한 마지막 query elapsed를 보여줍니다. Coverage 표시 때문에 추가 query를 활성화하지 않습니다.
+- GPU/Ray detail은 동일 target의 Pressure provider를 Scenes proxy로 공유합니다. Parent/time/variable scope를 유지하며 다른 native panel은 필요할 때 활성화합니다. Coverage의 custom-provider 수에 모든 native panel의 비용이 포함되는 것은 아닙니다.
 
 MFU·policy version·wrapper 상태의 producer와 missing 조건은 [UI Telemetry Reference](ui-telemetry-coverage.md)에서 관리합니다. Trainer version을 rollout applied version으로, wrapper command 상태를 전체 async Run 완료로 바꾸지 않습니다.
 
@@ -154,11 +158,20 @@ AGENTS.md가 dashboard 색 수를 제한하는 것은 아닙니다. 현재 배�
 
 다음 화면은 같은 clock의 live synthetic metric·SDK span·저장 report로 재현했습니다. 실제 GPU/VERL 성능 검증과 구분합니다.
 
+최신 보강에서는 기존 네 workspace를 유지하면서 reported-stage freshness, async update 표시, 계층별 Storage 상세 선택과 query 공유를 검증했습니다. {download}`KPI / Storage 검증 기록<validation/kpi-storage-20261008.json>`에서 source·단위·missing·browser fixture와 장비 미검증 범위를 확인합니다.
+
 ```{figure} figures/grafana-app-context-overview.png
 :alt: Native Grafana sidebar를 유지하고 상단에 Run Context를 묶은 XLayer Overview
 :width: 720px
 
 상단 filter는 Run·Step·시간을 유지하면서 card와 chart의 폭을 확보합니다. Phase별 색은 execution category이며 health 판정이 아닙니다.
+```
+
+```{figure} figures/grafana-app-deep-dive.png
+:alt: 기존 Connector RPC와 DFS batch panel, 저장된 3FS evidence, Local I/O mean을 구분하는 Storage Deep Dive
+:width: 720px
+
+Source별 탭은 같은 조사 context를 유지합니다. DFS batch p95·3FS reported p99 max·local I/O mean은 다른 통계이며 의존관계나 Run 소유량으로 합치지 않습니다.
 ```
 
 ```{figure} figures/grafana-app-phase-matrix.png

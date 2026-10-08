@@ -61,6 +61,8 @@ apps:
 
 MFU·policy·wrapped-command는 producer와 freshness/identity 조건이 맞을 때만 표시합니다. 미수집·stale·모호한 source는 N/A / not reported입니다. 연결 계약은 [UI Telemetry Coverage](../../docs/ui-telemetry-coverage.md)를 따릅니다.
 
+Reported stage의 `verl_stage` 등 metric dimension은 snapshot age의 ownership label과 구분합니다. Async `trainer_update`는 Update time으로 표시하며 legacy의 missing boundary는 Observation으로 남깁니다. Deep Dive의 Connector RPC / DFS / 3FS evidence / Local I/O mean은 기존 canonical panel과 저장 evidence를 재사용합니다. 동일 GPU/Ray Pressure query는 native Scenes proxy로 공유합니다.
+
 ## Live demo
 
 기존 stack과 별개인 loopback-only Grafana·Prometheus·Loki를 실행합니다. 이미 설치한 binary를 재사용하며 container나 사용자의 monitoring config를 수정하지 않습니다.
@@ -96,6 +98,8 @@ python grafana/xlayer-app/scripts/browser_validate.py \
 ```
 
 Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합니다. 설치된 Chromium을 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 결과는 desktop·900px·390px capture와 validation JSON입니다. Test는 실제 Grafana query request의 Step interval도 확인합니다.
+
+`metric_contract_validate.py --url <owned-loopback-demo> --output <new-directory>`는 metrics-only veRL label·async presentation의 browser response fixture와 Storage layer context·GPU/Ray query 재사용을 검사합니다. `ci_demo.py`도 기본 journey 뒤에 이 검사를 실행합니다. Async fixture는 실제 veRL 실행이나 backend 장애 실험이 아닙니다.
 
 최신 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 
