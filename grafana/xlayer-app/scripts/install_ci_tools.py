@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install only the three pinned Linux/amd64 demo tools, after SHA256 verification."""
+"""Install selected pinned Linux/amd64 demo tools, after SHA256 verification."""
 import argparse
 import hashlib
 import os
@@ -78,9 +78,15 @@ def unpack(archive, output):
                     raise ValueError('Release archive contains unsupported link/device')
 
 
-def install(output):
+def install(output, only=None):
+    assets = ASSETS
+    if only is not None:
+        names = {name.split('.')[0] for name, _, _ in assets}
+        if not only or set(only) - names:
+            raise ValueError('Unknown tool selection')
+        assets = tuple(row for row in assets if row[0].split('.')[0] in only)
     output.mkdir(parents=True, exist_ok=True)
-    for name, url, digest in ASSETS:
+    for name, url, digest in assets:
         archive = output / name
         if not verified(archive, digest):
             print('Downloading pinned release: ' + name, flush=True)
@@ -100,10 +106,11 @@ def install(output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--only', nargs='+', choices=('grafana', 'prometheus', 'loki'), help='Default installs all tools; CPU CI needs only prometheus/promtool')
     args = parser.parse_args()
     if platform.system() != 'Linux' or platform.machine() not in ('x86_64', 'amd64'):
         parser.error('This isolated CI installer supports Linux amd64 only')
-    install(args.output.resolve())
+    install(args.output.resolve(), args.only)
 
 
 if __name__ == '__main__':

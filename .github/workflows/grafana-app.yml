@@ -2,14 +2,18 @@ name: Optional Grafana App PoC
 
 on:
   pull_request:
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "xlayer_telemetry/events.py", "xlayer_telemetry/step_history.py", "xlayer_telemetry/time_alignment.py", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/**", "config/**", "pyproject.toml", "requirements.txt", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   push:
     branches: [main]
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "xlayer_telemetry/events.py", "xlayer_telemetry/step_history.py", "xlayer_telemetry/time_alignment.py", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/**", "config/**", "pyproject.toml", "requirements.txt", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: grafana-app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -36,10 +40,6 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
-      - name: Verify CI / packaging helpers
-        run: |
-          python -m pip install pytest
-          python -m pytest -q scripts/test_ci_helpers.py
       - name: Package unsigned development App
         run: python scripts/package_plugin.py --output ../../artifacts/grafana-app-package
       - name: Install CPU demo / browser test dependencies
@@ -71,9 +71,9 @@ jobs:
         with:
           name: xlayer-grafana-app-poc-${{ matrix.demo }}
           path: |
-            artifacts/grafana-app-browser/*.json
-            artifacts/grafana-app-browser/*.png
-            artifacts/grafana-app-browser/*.log
+            artifacts/grafana-app-browser/**/*.json
+            artifacts/grafana-app-browser/**/*.png
+            artifacts/grafana-app-browser/**/*.log
             artifacts/grafana-app-package/*.zip
             artifacts/grafana-app-package/*.sha256
           retention-days: 7

@@ -9,16 +9,23 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cpu-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: test (${{ matrix.os }}, ${{ matrix.python }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-22.04
             python: '3.10'
+            backends: false
           - os: ubuntu-24.04
             python: '3.12'
+            backends: true
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -29,8 +36,58 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
       - run: python -m pip install -r requirements.txt -e .
-      - run: python -m pytest -q
+      - name: Cache pinned Prometheus archive
+        if: matrix.backends
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/xlayer-cpu-tools/prometheus.tar.gz
+          key: xlayer-cpu-prometheus3.5.0-linux-amd64-v1
+      - name: Enable real PromQL and isolated ClickHouse SQL regression
+        if: matrix.backends
+        run: |
+          python grafana/xlayer-app/scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-cpu-tools" --only prometheus
+          promtool="$RUNNER_TEMP/xlayer-cpu-tools/prometheus-3.5.0.linux-amd64/promtool"
+          "$promtool" --version
+          echo "PROMTOOL=$promtool" >> "$GITHUB_ENV"
+          docker run --detach --name xlayer-ci-clickhouse --network none \
+            --memory 1g --cpus 2 --pids-limit 256 --ulimit nofile=65536:65536 \
+            --tmpfs /var/lib/clickhouse:rw,size=256m \
+            --log-opt max-size=1m --log-opt max-file=1 \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/.github/ci/clickhouse.xml,target=/etc/clickhouse-server/config.d/ci.xml,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/.github/ci/clickhouse-users.xml,target=/etc/clickhouse-server/users.d/ci.xml,readonly" \
+            open3fs/clickhouse@sha256:dd59b719a03c920eff9e9396edfd5ea943db78df05c243145cfdc8b6dc5661c9
+          timeout 60 docker exec xlayer-ci-clickhouse bash -c \
+            'until clickhouse-client --query "SELECT 1" 2>/dev/null; do sleep 1; done'
+          echo 'XLAYER_TEST_CLICKHOUSE_CONTAINER=xlayer-ci-clickhouse' >> "$GITHUB_ENV"
+      - name: CPU contracts, fault injection and optional backend regression
+        run: python -m pytest -q -ra --durations=15 --junitxml=artifacts/ci/pytest.xml tests grafana/xlayer-app/scripts/test_ci_helpers.py
+      - name: Reject skipped checks in backend-enabled CPU gate
+        if: matrix.backends
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          suites = ET.parse('artifacts/ci/pytest.xml').getroot().iter('testsuite')
+          skipped = sum(int(suite.get('skipped', '0')) for suite in suites)
+          assert skipped == 0, f'{skipped} CPU checks skipped despite configured CI tools; inspect pytest.xml'
+          PY
       - name: Check Python and shell syntax
         run: |
           python -m compileall -q xlayer_telemetry examples
           git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
+      - name: Preserve failed SQL service diagnostics
+        if: failure() && matrix.backends
+        run: |
+          mkdir -p artifacts/ci
+          docker logs --tail 150 xlayer-ci-clickhouse > artifacts/ci/clickhouse.log 2>&1 || true
+          docker exec xlayer-ci-clickhouse tail -150 /var/log/clickhouse-server/clickhouse-server.err.log >> artifacts/ci/clickhouse.log 2>&1 || true
+      - name: Clean up owned SQL service
+        if: always() && matrix.backends
+        run: docker rm --force --volumes xlayer-ci-clickhouse || true
+      - name: Preserve regression results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-regression-${{ matrix.os }}-python${{ matrix.python }}
+          path: artifacts/ci/
+          retention-days: 7
+          if-no-files-found: warn

@@ -1,5 +1,6 @@
 """CPU-only regression for App packaging, trusted assets and owned process readiness."""
 import importlib.util
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -146,6 +147,34 @@ def test_download_sha_mismatch_never_extracts_or_replaces_archive(tmp_path, monk
         TOOLS.install(tmp_path)
     assert not (tmp_path / 'fake.tar.gz').exists()
     assert not list(tmp_path.glob('*.part'))
+
+
+def test_selected_tool_install_reuses_verified_archive_without_other_downloads(tmp_path, monkeypatch):
+    archive = tmp_path / 'prometheus.tar.gz'
+    with tarfile.open(archive, 'w:gz') as package:
+        member = tarfile.TarInfo('prometheus-test/promtool')
+        member.size = 4
+        member.mode = 0o755
+        package.addfile(member, io.BytesIO(b'tool'))
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    monkeypatch.setattr(TOOLS, 'ASSETS', (
+        ('grafana.tar.gz', 'https://example.test/grafana', '0' * 64),
+        ('prometheus.tar.gz', 'https://example.test/prometheus', digest),
+        ('loki.zip', 'https://example.test/loki', '0' * 64),
+    ))
+    monkeypatch.setattr(TOOLS.urllib.request, 'urlopen', lambda *args, **kwargs: pytest.fail('Selected verified archive must avoid network'))
+    TOOLS.install(tmp_path, only=['prometheus'])
+    assert (tmp_path / 'prometheus-test/promtool').read_bytes() == b'tool'
+    assert not (tmp_path / 'grafana.tar.gz').exists()
+    assert not (tmp_path / 'loki.zip').exists()
+
+
+def test_invalid_tool_selection_fails_before_creating_directory_or_downloading(tmp_path, monkeypatch):
+    output = tmp_path / 'tools'
+    monkeypatch.setattr(TOOLS.urllib.request, 'urlopen', lambda *args, **kwargs: pytest.fail('Invalid selection must avoid network'))
+    with pytest.raises(ValueError, match='Unknown tool'):
+        TOOLS.install(output, only=['promtool'])
+    assert not output.exists()
 
 
 def test_browser_deadline_cleanup_signals_only_its_owned_session(monkeypatch):
