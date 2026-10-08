@@ -162,15 +162,17 @@ def summarize(boundary: Boundary, events: Iterable[Mapping[str, Any]],
                 continue
             spans[span_key] = record
         group = groups.setdefault(key, {"phase": phase, "name": name, "entity": entity, "count": 0, "span_count": 0,
-                                        "errors": 0, "durations": [], "accuracy_counts": {}})
+                                        "errors": 0, "durations": [], "accuracy_counts": {}, "duration_accuracy_counts": {}})
         group["count"] += 1
         group["span_count"] += int(is_span)
         group["errors"] += int(record.get("status") == "error")
+        accuracy = record.get("boundary_accuracy", "unknown")
+        accuracy = accuracy if accuracy in ACCURACIES else "unknown"
         duration = finite_number(record.get("duration_seconds"))
         if is_span and duration is not None and duration >= 0:
             group["durations"].append(duration)
-        accuracy = record.get("boundary_accuracy", "unknown")
-        accuracy = accuracy if accuracy in ACCURACIES else "unknown"
+            counts = group["duration_accuracy_counts"]
+            counts[accuracy] = counts.get(accuracy, 0) + 1
         accuracies[accuracy] = accuracies.get(accuracy, 0) + 1
         group["accuracy_counts"][accuracy] = group["accuracy_counts"].get(accuracy, 0) + 1
         quality["accepted_events"] += 1
@@ -280,6 +282,21 @@ def _compatible(current: Mapping, other: Mapping, *, peer: bool) -> bool:
                  else b["sequence"] < a["sequence"]))
 
 
+def _incomplete(signature: Mapping) -> bool:
+    return any(signature["quality"].get(key) for key in ("events_truncated", "observations_truncated", "dropped_groups"))
+
+
+def _duration_accuracy(row: Mapping) -> dict:
+    # Earlier artifacts only counted all events together. Point-event accuracy
+    # cannot certify the spans contributing to a duration; keep it unknown.
+    return row.get("duration_accuracy_counts", {"unknown": row["duration_seconds"]["count"]})
+
+
+def _precise_duration(counts: Mapping) -> bool:
+    return bool(counts) and all(key in {"exact", "calibrated"} and type(value) is int and value > 0
+                                for key, value in counts.items())
+
+
 def compare(current: Mapping, references: Iterable[Mapping], *, peer: bool = False,
             max_references: int = 32, slowdown_ratio: float = 1.5) -> dict:
     """Compare bounded exact-workload references without entity substitution."""
@@ -287,12 +304,15 @@ def compare(current: Mapping, references: Iterable[Mapping], *, peer: bool = Fal
         raise ValueError("invalid reference budget")
     if finite_number(slowdown_ratio) is None or slowdown_ratio <= 1:
         raise ValueError("slowdown ratio must exceed 1")
-    eligible, truncated, seen = [], False, set()
+    eligible, truncated, seen, rejected_incomplete = [], False, set(), 0
     for index, item in enumerate(references):
         if index == max_references:
             truncated = True
             break
         if _compatible(current, item, peer=peer):
+            if _incomplete(item):
+                rejected_incomplete += 1
+                continue
             boundary = item["boundary"]
             identity = (*sorted(boundary["context"].items()), boundary["scope"], boundary["phase"],
                         boundary["sequence"], boundary["step"], boundary.get("rollout_id"))
@@ -306,13 +326,20 @@ def compare(current: Mapping, references: Iterable[Mapping], *, peer: bool = Fal
     ratio = duration / baseline if duration is not None and baseline is not None and baseline > 0 else None
     groups = []
     for row in current["events"]:
-        values = [other["duration_seconds"]["mean"] for item in eligible for other in item["events"]
-                  if (other["phase"], other["name"], other["entity"]) == (row["phase"], row["name"], row["entity"])
-                  and other["duration_seconds"]["mean"] is not None]
+        matches = [other for item in eligible for other in item["events"]
+                   if (other["phase"], other["name"], other["entity"]) == (row["phase"], row["name"], row["entity"])
+                   and other["duration_seconds"]["mean"] is not None]
+        values = [other["duration_seconds"]["mean"] for other in matches]
+        baseline_accuracy: dict[str, int] = {}
+        for other in matches:
+            for accuracy, count in _duration_accuracy(other).items():
+                baseline_accuracy[accuracy] = baseline_accuracy.get(accuracy, 0) + count
         before = statistics.median(values) if values else None
         now = row["duration_seconds"]["mean"]
         groups.append({"phase": row["phase"], "name": row["name"], "current_mean": now,
                        "entity": row["entity"], "accuracy_counts": row["accuracy_counts"],
+                       "duration_accuracy_counts": _duration_accuracy(row),
+                       "baseline_duration_accuracy_counts": baseline_accuracy,
                        "baseline_mean": before, "delta": now-before if now is not None and before is not None else None})
     relations = []
     for row in current["relations"]:
@@ -344,6 +371,7 @@ def compare(current: Mapping, references: Iterable[Mapping], *, peer: bool = Fal
         metric_deltas.append({**row, "baseline": before,
                               "delta": row["value"]-before if row["value"] is not None and before is not None else None})
     return {"comparison": "peer" if peer else "history", "reference_count": len(eligible),
+            "rejected_incomplete_references": rejected_incomplete,
             "references_truncated": truncated, "baseline_duration_seconds": baseline,
             "duration_ratio": ratio, "slow": ratio >= slowdown_ratio if ratio is not None else None,
             "events": groups, "relations": relations, "observations": metric_deltas,
@@ -379,31 +407,39 @@ def candidates(signature: Mapping, comparison: Mapping) -> list[dict]:
         if not metric_rows:
             missing.append({"signal": signal, "reason": "missing_matching_entity"})
         event_rows = [row for row in comparison["events"] if row["phase"] == phase]
-        event_observed = False
+        event_observed, duration_observed = False, False
         for row in event_rows:
             if row["baseline_mean"] is None or row["baseline_mean"] <= 0 or row["current_mean"] is None:
                 continue
-            event_observed = True
-            (supporting if row["current_mean"] >= 1.5 * row["baseline_mean"] else against).append({"event": row["name"], "phase": phase,
-                                                                                                   "current": row["current_mean"], "baseline": row["baseline_mean"]})
-        if not event_observed:
+            duration_observed = True
+            precise = (_precise_duration(row.get("duration_accuracy_counts", {}))
+                       and _precise_duration(row.get("baseline_duration_accuracy_counts", {})))
+            event_observed |= precise
+            slow = row["current_mean"] >= 1.5 * row["baseline_mean"]
+            (supporting if slow else against).append({"event": row["name"], "phase": phase,
+                                                     "current": row["current_mean"], "baseline": row["baseline_mean"],
+                                                     "duration_accuracy_counts": row.get("duration_accuracy_counts", {}),
+                                                     "baseline_duration_accuracy_counts": row.get("baseline_duration_accuracy_counts", {})})
+            if slow and not precise:
+                missing.append({"event": row["name"], "phase": phase, "reason": "span_time_unknown_or_approximate"})
+        if not duration_observed:
             missing.append({"phase": phase, "reason": "missing_comparable_span_duration"})
         if signature["boundary"]["accuracy"] in {"unknown", "clock_discontinuity"}:
             missing.append({"reason": "boundary_time_unknown_for_resource_correlation"})
-        if event_observed and not any(any(row["accuracy_counts"].get(accuracy, 0) for accuracy in ("exact", "calibrated")) for row in event_rows):
-            missing.append({"reason": "span_time_unknown_or_approximate"})
         resource_support = any(item.get("signal") == signal for item in supporting)
         phase_support = any(item.get("phase") == phase for item in supporting)
-        hot_metrics = [row for row in metric_rows if row["status"] == "observed" and row["unit"] == expected_unit and row["value"] is not None and row["value"] >= threshold]
+        hot_metrics = [row for row in metric_rows if row["status"] == "observed" and row["accuracy"] not in {"unknown", "clock_discontinuity"}
+                       and row["unit"] == expected_unit and row["value"] is not None and row["value"] >= threshold]
         slow_events = [row for row in event_rows if row["baseline_mean"] is not None and row["baseline_mean"] > 0
-                       and row["current_mean"] is not None and row["current_mean"] >= 1.5 * row["baseline_mean"]]
+                       and row["current_mean"] is not None and row["current_mean"] >= 1.5 * row["baseline_mean"]
+                       and _precise_duration(row.get("duration_accuracy_counts", {}))
+                       and _precise_duration(row.get("baseline_duration_accuracy_counts", {}))]
         paired_entity = any(all(event["entity"].get(key, context.get(key)) == value
                                    for key, value in metric["entity"].items() if key in {"gpu", "engine", "device", "interface"})
                             for metric in hot_metrics for event in slow_events)
         if resource_support and phase_support and not paired_entity:
             missing.append({"reason": "missing_matching_instrumented_resource_identity"})
-        incomplete = signature["quality"]["events_truncated"] or signature["quality"]["observations_truncated"] or signature["quality"]["dropped_groups"] > 0
-        if incomplete:
+        if _incomplete(signature):
             missing.append({"reason": "signature_budget_exhausted"})
         rows.append({"candidate": name, "state": "supported_candidate" if resource_support and phase_support and not missing else "supporting_signal" if supporting else "missing_evidence" if missing else "against",
                      "supporting": supporting, "against": against, "missing": missing,

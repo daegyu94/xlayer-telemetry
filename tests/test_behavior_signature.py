@@ -159,6 +159,45 @@ def test_candidates_keep_against_missing_and_source_quality():
     assert rows[3]["missing"]
 
 
+@pytest.mark.parametrize("current_accuracy,baseline_accuracy", [("unknown", "exact"), ("exact", "unknown"), ("approximate", "exact")])
+def test_unrelated_exact_span_does_not_validate_slow_span(current_accuracy, baseline_accuracy):
+    before, now = boundary(step=0), boundary(step=1)
+    old = summarize(before, [span(before, "slow", boundary_accuracy=baseline_accuracy), span(before, "normal")])
+    current = summarize(now, [span(now, "slow", duration=.4, boundary_accuracy=current_accuracy), span(now, "normal")],
+                        [observation("host_cpu_pressure_ratio", .4)])
+    comparison = compare(current, [old])
+    assert comparison["events"][0]["delta"] == pytest.approx(.3)
+    selected = candidates(current, comparison)[0]
+    assert selected["state"] == "supporting_signal"
+    assert any(row["reason"] == "span_time_unknown_or_approximate" for row in selected["missing"])
+
+
+def test_point_event_and_one_exact_span_do_not_validate_mixed_duration_group():
+    before, now = boundary(step=0), boundary(step=1)
+    old = summarize(before, [span(before)])
+    current = summarize(now, [span(now), span(now, duration=.9, span_id="unknown", boundary_accuracy="unknown"),
+                              span(now, record_type="event")], [observation("host_cpu_pressure_ratio", .4)])
+    assert current["events"][0]["duration_seconds"]["mean"] == .5
+    assert candidates(current, compare(current, [old]))[0]["state"] == "supporting_signal"
+
+
+@pytest.mark.parametrize("budget", ["events_truncated", "observations_truncated", "dropped_groups"])
+def test_incomplete_reference_cannot_be_a_complete_baseline(budget):
+    before, now = boundary(step=0), boundary(step=1)
+    old = summarize(before, [span(before)])
+    old["quality"][budget] = 1
+    current = summarize(now, [span(now, duration=.4)], [observation("host_cpu_pressure_ratio", .4)])
+    result = compare(current, [old])
+    assert result["reference_count"] == 0
+    assert result["rejected_incomplete_references"] == 1
+    assert result["missing_evidence"]
+    assert candidates(current, result)[0]["state"] != "supported_candidate"
+    complete = summarize(before, [span(before)])
+    result = compare(current, [old, complete])
+    assert result["reference_count"] == 1
+    assert candidates(current, result)[0]["state"] == "supported_candidate"
+
+
 def test_optional_hook_delivery_cooldown_duplicate_and_budget(tmp_path):
     output = tmp_path / "request.json"
     code = "import sys,pathlib; pathlib.Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())"
