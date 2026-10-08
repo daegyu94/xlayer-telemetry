@@ -114,6 +114,17 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
         "vllm_kv_offload_lookup_p95_seconds": MetricQuery(quantile("vllm:kv_offload_lookup_sync_delay_seconds"), "service", "seconds"),
         "vllm_kv_offload_async_lookup_p95_seconds": MetricQuery(quantile("vllm:kv_offload_lookup_async_delay_seconds"), "service", "seconds"),
     },
+    # Expressions are borrowed lazily from the canonical dashboard references
+    # below. Metadata is validated against its native panel units on selection.
+    # No source/entity relationship or new storage verdict is inferred here.
+    "mooncake": {
+        "mooncake_connector_rpc_p95_seconds": MetricQuery("", "shared-service", "seconds"),
+        "mooncake_dfs_read_p95_seconds": MetricQuery("", "shared-service", "seconds"),
+        "mooncake_dfs_write_p95_seconds": MetricQuery("", "shared-service", "seconds"),
+        "mooncake_dfs_write_staging_p95_seconds": MetricQuery("", "shared-service", "seconds"),
+        "mooncake_dfs_read_bytes_per_second": MetricQuery("", "shared-service", "bytes/s", "mean"),
+        "mooncake_dfs_read_errors_per_second": MetricQuery("", "shared-service", "keys/s"),
+    },
     "ray": {
         # These are current bytes, not spill/restore throughput counters.
         "ray_spilled_bytes": MetricQuery('sum without (Location, ObjectState) (ray_object_store_memory' + RAY[:-1] + ',Location="SPILLED"})', "service", "bytes"),
@@ -138,6 +149,14 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
 # Profile selection is fixed and opt-in, keeping the default request count and
 # the existing global per-analysis deadline unchanged.
 PROFILE_SIGNALS = {name: spec for profile in METRIC_PROFILES.values() for name, spec in profile.items()}
+_MOONCAKE_REFERENCES = {
+    "mooncake_connector_rpc_p95_seconds": (60, "A"),
+    "mooncake_dfs_read_p95_seconds": (66, "A"),
+    "mooncake_dfs_write_p95_seconds": (66, "B"),
+    "mooncake_dfs_write_staging_p95_seconds": (66, "C"),
+    "mooncake_dfs_read_bytes_per_second": (64, "A"),
+    "mooncake_dfs_read_errors_per_second": (67, "A"),
+}
 
 
 def validate_metric_profiles(settings: Mapping) -> list[str]:
@@ -152,6 +171,12 @@ def validate_metric_profiles(settings: Mapping) -> list[str]:
 def profile_queries(settings: Mapping, cluster: str) -> dict[str, str]:
     queries = {}
     for profile in validate_metric_profiles(settings):
+        if profile == "mooncake":
+            from .canonical_queries import borrow_mooncake_queries
+            references = {name: (*reference, METRIC_PROFILES[profile][name].unit)
+                          for name, reference in _MOONCAKE_REFERENCES.items()}
+            queries.update(borrow_mooncake_queries(references, cluster=bool(cluster)))
+            continue
         for name, spec in METRIC_PROFILES[profile].items():
             job = "native" if profile in {"vllm", "kv_offload", "ray", "dcgm"} else "telemetry"
             labels = 'job="' + job + '",'
