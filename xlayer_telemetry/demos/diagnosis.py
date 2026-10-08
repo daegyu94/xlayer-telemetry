@@ -209,7 +209,9 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
     }
     if storage_series:
         from .storage_series import synthetic_storage_series
+        from ..analysis.storage_series import apply_collection_limits
         report['storage_series']=synthetic_storage_series(window,prior['analysis_window'],slow=bool(candidates))
+        apply_collection_limits(candidates)
     write_report(output / "diagnostics", report)
     # Use the same discovery and inspect paths as a wrapped workload. These are
     # synthetic application values, not measurements of the host or its storage.

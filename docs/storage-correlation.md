@@ -9,7 +9,7 @@
 | 3FS distribution | Collection 초·full producer identity별 positive count·weighted mean·reported p99 max |
 | 3FS reset report | 검증된 이름만 반환 report 합계; cumulative counter의 delta가 아님 |
 | Gauge / unknown counter | Raw extrema·단일 report 값; 복수 report의 순서와 대표값은 unknown |
-| Current / Baseline | 같은 table·metric·full entity. Host clock 미확인이면 delta 유보 |
+| Current / Baseline | 같은 table·metric·full entity. Host clock 미확인·다른 reset report 구간 길이는 delta 유보 |
 | Grafana | 기존 Deep Dive의 3FS evidence → 원본 points·records·comparison·coverage |
 
 ```{admonition} 시간 해상도
@@ -42,7 +42,7 @@
 }
 ```
 
-**정상 결과:** Config validation이 통과합니다. `host_clock_nodes`는 실제 host와 clock target의 mapping이며 보정값이 아닙니다. 기존 `threefs.clock_nodes`에도 해당 clock target을 등록해야 host screening을 수행할 수 있습니다. Mapping·clock evidence가 없으면 values는 원본으로 남고 delta는 `clock_unverified`입니다.
+**정상 결과:** Config validation이 통과합니다. `host_clock_nodes`는 실제 host와 clock target의 mapping이며 보정값이 아닙니다. 기존 `threefs.clock_nodes`에도 해당 clock target을 등록해야 host screening을 수행할 수 있습니다. Mapping·raw source clock evidence가 없으면 values는 원본으로 남고 delta는 `clock_unverified`입니다. Application timestamp calibration만으로 3FS producer clock을 검증하지 않습니다.
 
 Mooncake의 기존 6-query `mooncake` profile은 유지합니다. Write·key ops·memory context가 필요하면 다음 companion profile을 선택합니다.
 
@@ -73,6 +73,7 @@ xltel inspect <run-directory>
 | `query_failed` | Query budget·schema·source 접속·point 상한 확인 |
 | `budget_exhausted` | Current/baseline 전체 point 수·구간·entity filter 축소 |
 | `clock_unverified` | Host mapping·clock source·reference 확인; delta로 원인 판정하지 않음 |
+| `different_report_window_exposure` | Reset report 구간 길이·정수 초 bucket 수를 맞춤. 합계를 throughput 변화로 해석하지 않음 |
 
 ## 3. Investigate
 
@@ -94,6 +95,7 @@ Loki의 저장 위치는 owner observation의 `observed_at`입니다. 실제 poi
 | 함정 | 유지하는 경계 |
 | --- | --- |
 | Reset reports 5, 7 | 반환 report 합계 12; `increase=2`로 계산하지 않음 |
+| 다른 길이의 reset report 구간 | 원본 합계는 유지하되 delta 유보. 같은 길이도 complete I/O total이나 exact rate가 아님 |
 | Gauge reports 5, 7 | 합계 12를 I/O로 사용하지 않음. 같은 초의 last/order는 unknown |
 | Missing row | Zero suppression·idle·loss를 구분할 수 없음; no zero fill |
 | 1초 cadence 가정 | 실제 collection interval이 없어 exact bandwidth/IOPS를 만들지 않음 |
@@ -114,7 +116,7 @@ Counter registry의 `source_revision`은 계약 검증 기준이며 실제 서�
 
 ## 검증 결과
 
-격리 ClickHouse 25.1.5.31의 실제 SQL, Prometheus/promtool, controlled live demo와 fault fixture를 사용했습니다. 전체 CPU 1,451개, frontend 96개, 문서 link/diagram 10개·browser 9개가 통과했습니다. 실제 GPU/Agent RL·물리 multi-node workload는 검증하지 않았습니다.
+격리 ClickHouse 25.1.5.31의 실제 SQL, Prometheus/promtool, controlled live demo와 fault fixture를 사용했습니다. 전체 CPU 1,457개, frontend 96개, 문서 link/diagram 10개·browser 9개가 통과했습니다. 실제 GPU/Agent RL·물리 multi-node workload는 검증하지 않았습니다.
 
 ```{figure} figures/grafana-storage-collection-points.png
 :alt: Raw collection timestamp별 reported latency spike와 sparse gap을 phase 소유량으로 귀속하지 않는 Storage Deep Dive
@@ -123,7 +125,7 @@ Counter registry의 `source_revision`은 계약 검증 기준이며 실제 서�
 Point plot은 현재 source timestamp를 사용합니다. Baseline 원본 시각·full identity와 clock 미확인 상태는 아래 records/comparison/coverage에서 함께 확인합니다.
 ```
 
-2,000개 합성 report의 Python 처리·projection 7회 median은 6.62ms, 추가 peak allocation은 약 3.89MB, serialized projection은 약 2.08MB였습니다. Backend·network·수집 비용은 이 timed region에 포함하지 않았습니다. 기본 추가 query는 0이며 opt-in series·보관량 비용은 point 상한으로 제한합니다. {download}`검증 원본<validation/storage-correlation-20261008.json>`에서 측정 범위를 확인합니다.
+2,000개 합성 report의 Python 처리·projection 7회 median은 12.52ms, 추가 peak allocation은 약 2.96MB, serialized projection은 약 2.69MB였습니다. Backend·network·수집 비용은 이 timed region에 포함하지 않았습니다. 격리 ClickHouse의 1,000-point 조회 5회 median은 75.34ms였으며 Docker exec/client 시작·decode를 포함합니다. Production HTTP·실제 storage workload 성능은 아닙니다. 기본 추가 query는 0이며 opt-in series·보관량 비용은 point 상한으로 제한합니다. {download}`검증 원본<validation/storage-correlation-20261008.json>`에서 측정 범위를 확인합니다.
 
 ## P1 / P2 · TBD
 

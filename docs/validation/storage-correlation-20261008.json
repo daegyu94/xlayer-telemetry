@@ -8,9 +8,9 @@
     "external_source_modified": false
   },
   "cpu": {
-    "passed": 1451,
+    "passed": 1457,
     "skipped": 0,
-    "seconds": 193.78,
+    "seconds": 192.52,
     "real_promtool": true,
     "isolated_clickhouse_series_tests": 3
   },
@@ -137,10 +137,10 @@
       ],
       "context": {
         "from": [
-          "2026-10-08T08:50:08.466Z"
+          "2026-10-08T09:26:04.117Z"
         ],
         "to": [
-          "2026-10-08T08:50:56.467Z"
+          "2026-10-08T09:26:52.118Z"
         ],
         "timezone": [
           "browser"
@@ -158,7 +158,7 @@
           "gpu-node-0"
         ],
         "var-record_id": [
-          "b7f0e902809a502c8723b789"
+          "1f7efdb504b7bf1479ec192a"
         ],
         "var-candidate_id": [
           "device_limited_storage"
@@ -217,18 +217,19 @@
       "original timestamp p99 spike with sparse gaps",
       "reset amount 64KiB, not B/s",
       "clock-unverified delta withheld",
-      "1440/1280/900/390 page containment"
+      "1440/1280/900/390 page containment",
+      "synthetic storage candidates retain the same supporting/missing collection-coverage limit as production"
     ]
   },
   "processing_cost": {
-    "scope": "actual Python processing of 2000 synthetic reports; no collection/network/backend cost",
+    "scope": "actual Python processing of 2000 prebuilt synthetic reports; no collection/network/backend cost",
     "points": 2000,
     "window_seconds": 1000,
     "repeats": 7,
-    "wall_median_ms": 6.621519103646278,
-    "cpu_median_ms": 6.622339999999998,
-    "peak_incremental_python_bytes": 3888492,
-    "serialized_projection_bytes": 2077607,
+    "wall_median_ms": 12.520584277808666,
+    "cpu_median_ms": 12.519032999999999,
+    "peak_incremental_python_bytes": 2955782,
+    "serialized_projection_bytes": 2685887,
     "backend_calls_per_run": 2,
     "collector_changes": 0,
     "default_extra_queries": 0
@@ -252,5 +253,20 @@
     "owned_clickhouse_removed": true,
     "fixture_databases_removed": true,
     "existing_user_stack_untouched": true
-  }
+  },
+  "query_cost": {
+    "scope": "real ClickHouse 25.1.5.31 Memory table + docker exec/client startup and decoding; not HTTP transport or production workload",
+    "rows_in_table": 2000,
+    "points_per_request": 1000,
+    "repeats": 5,
+    "wall_median_ms": 75.33607538789511,
+    "container_cpu_limit": 1,
+    "container_memory_limit_mib": 768
+  },
+  "final_accuracy_regressions": [
+    "application calibration does not certify raw 3FS producer clock",
+    "structured machine series identity avoids label-delimiter collisions",
+    "unequal reset report window exposure preserves amounts and withholds delta",
+    "live demo uses the same collection coverage candidate limits as production"
+  ]
 }

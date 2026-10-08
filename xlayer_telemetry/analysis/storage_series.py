@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import json
+import math
 from typing import Mapping
 
 from ..measurements import finite_number as finite
@@ -33,7 +35,11 @@ def validate_series_settings(settings: Mapping) -> dict:
 def _quality(window, rows, clock, settings, queried_at):
     hosts = sorted({row.get("labels", {}).get("host") for row in rows if row.get("labels", {}).get("host")})
     aliases = settings.get("host_clock_nodes", {})
-    nodes = {**clock.get("nodes", {}), **clock.get("producer_clock_screening", {}).get("nodes", {})}
+    # A mapped workload clock says nothing about uncalibrated ClickHouse
+    # producer timestamps. Only their raw OS/producer screening is usable.
+    nodes = (clock.get("system_clock_screening", {}).get("nodes", {})
+             if clock.get("scope") == "mapped_workload_to_prometheus_scrape_time" else clock.get("nodes", {}))
+    nodes = {**nodes, **clock.get("producer_clock_screening", {}).get("nodes", {})}
     aligned = bool(hosts) and clock.get("status") == "aligned" and all(
         aliases.get(host) in nodes and nodes[aliases[host]].get("status") == "aligned" for host in hosts)
     issues = ["collection_interval_unknown", "zero_suppression_or_loss_not_distinguishable"]
@@ -98,6 +104,10 @@ def collect_storage_series(client, current_window, baseline_window, *, settings,
     current, baseline = result.get("current", {}), result.get("baseline", {})
     eligible = all(entry.get("quality", {}).get("host_clock_coverage") == "screened_aligned" for entry in (current, baseline))
     result["comparison"]["eligible"] = eligible
+    windows = [entry.get("window", {}) for entry in (current, baseline)]
+    equal_exposure = all("start" in window and "end" in window for window in windows) and (
+        math.isclose(windows[0]["end"]-windows[0]["start"], windows[1]["end"]-windows[1]["start"], abs_tol=1e-6)
+        and math.ceil(windows[0]["end"])-math.ceil(windows[0]["start"]) == math.ceil(windows[1]["end"])-math.ceil(windows[1]["start"]))
     # Keep exact table+metric+producer population; window statistics are not
     # pooled quantiles or complete operation totals, even with aligned clocks.
     def groups(entry):
@@ -111,6 +121,7 @@ def collect_storage_series(client, current_window, baseline_window, *, settings,
     for key in sorted(a.keys() & b.keys()):
         table, metric, labels = key
         unit = settings.get("distribution_units", {}).get(metric) if table == "distributions" else a[key][0].get("unit")
+        status = "shared_report_window" if eligible else "clock_unverified"
         if table == "distributions":
             values = [[finite(row.get("max_observed_p99")) for row in group] for group in (a[key], b[key])]
             statistic = "maximum reported p99, not pooled p99"
@@ -123,12 +134,15 @@ def collect_storage_series(client, current_window, baseline_window, *, settings,
             if any(not group or any(value is None for value in group) for group in values):
                 continue
             now, before = sum(values[0]), sum(values[1])
+            if eligible and not equal_exposure:
+                status = "different_report_window_exposure"
         else:
             continue
         result["comparison"]["rows"].append({"metricName": metric, "labels": dict(labels), "table": table,
-            "current": now, "baseline": before, "delta": now-before if eligible else None,
-            "delta_percent": 100*(now-before)/abs(before) if eligible and before else None,
-            "unit": unit, "statistic": statistic, "comparison_status": "shared_report_window" if eligible else "clock_unverified"})
+            "current": now, "baseline": before, "delta": now-before if status == "shared_report_window" else None,
+            "delta_percent": 100*(now-before)/abs(before) if status == "shared_report_window" and before else None,
+            "unit": unit, "statistic": statistic, "comparison_status": status,
+            "host_clock_coverage": "screened_aligned" if eligible else "unknown"})
     return result
 
 
@@ -149,7 +163,8 @@ def project_storage_series(series, common):
                     "source_table": table, "metric_name": point["metricName"], "signal": point["metricName"],
                     "sample_timestamp_ms": point["timestamp_seconds"]*1000,
                     "sample_value": value, "unit": unit, "entity": entity, "source_host": point["labels"].get("host"),
-                    "series_key": f"{table}:{point['metricName']}:{entity}", "observation_scope": "shared-service",
+                    "series_key": json.dumps([table, point['metricName'], sorted(point['labels'].items())], ensure_ascii=False, separators=(",", ":")),
+                    "observation_scope": "shared-service",
                     "observation_type": "collection_report", "timestamp_resolution_seconds": 1,
                     "collection_interval": "unknown", "host_clock_coverage": quality.get("host_clock_coverage", "unknown"),
                     "phase_attribution": "not_established", "counter_kind": point.get("kind"),
@@ -159,6 +174,18 @@ def project_storage_series(series, common):
                     "ambiguous_sample": point.get("ambiguous_sample", False)})
                 rows[-1]["plot_eligible"] = value is not None and (reset or not point.get("ambiguous_sample", False))
     return rows
+
+
+def apply_collection_limits(candidates):
+    """Keep demo and production evidence subject to the same source limits."""
+    for candidate in candidates:
+        if any(str(item.get("signal", "")).startswith("threefs_") for item in candidate.get("evidence", [])):
+            missing = candidate.setdefault("missing_evidence", [])
+            issue = "threefs_collection_interval_and_complete_operation_coverage"
+            if issue not in missing:
+                missing.append(issue)
+            if candidate["state"] == "strong_signal":
+                candidate["state"] = "supporting_signal"
 
 
 def project_storage_summary(series, common):
@@ -183,8 +210,8 @@ def project_storage_summary(series, common):
             "source_table": row["table"], "current": row["current"], "baseline": row["baseline"],
             "delta_percent": row["delta_percent"], "unit": row["unit"], "statistic": row["statistic"],
             "comparison_status": row["comparison_status"],
-            "clock_status": "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown",
-            "host_clock_coverage": "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown",
+            "clock_status": row.get("host_clock_coverage", "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown"),
+            "host_clock_coverage": row.get("host_clock_coverage", "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown"),
             "quality_issues": "collection_interval_unknown, returned_reports_only",
             "entity": ",".join(f"{key}={value}" for key, value in sorted(row["labels"].items())),
             "observation_scope": "shared-service", "phase_attribution": "not_established"})

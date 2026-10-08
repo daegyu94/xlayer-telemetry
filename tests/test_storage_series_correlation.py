@@ -139,3 +139,62 @@ def test_cli_explicit_window_requires_both_bounds_and_does_not_reset_user_state(
     for args in ({'start':100},{'end':105},{'start':105,'end':100},{'start':100,'end':4000}):
         with pytest.raises(ValueError):inspect_threefs({},**args)
     assert inspect_threefs({},start=100,end=105,series=True)=={'status':'not_configured'}
+
+
+def test_application_calibration_is_not_source_collection_clock_alignment():
+    clock={'status':'aligned','scope':'mapped_workload_to_prometheus_scrape_time',
+           'nodes':{'trainer':{'status':'aligned'}},
+           'system_clock_screening':{'status':'unsafe','nodes':{'trainer':{'status':'unsafe'}}}}
+    result=collect_storage_series(Source([distribution(101,10)]),{'start':100,'end':105},None,
+        settings=settings(host_clock_nodes={'storage-a':'trainer'}),clock_quality=clock,queried_at=200)
+    assert result['current']['quality']['host_clock_coverage']=='unknown'
+
+
+def test_structured_series_identity_cannot_collide_on_label_delimiters():
+    first, second = distribution(101, 10), distribution(102, 20)
+    first['labels'].update(tag='a,thread=x', thread='y')
+    second['labels'].update(tag='a', thread='x,thread=y')
+    result = collect_storage_series(Source([first, second]), {'start':100, 'end':105}, None,
+        settings=settings(), clock_quality={}, queried_at=200)
+    rows = project_storage_series(result, {'observed_at':105})
+    assert rows[0]['series_key'] != rows[1]['series_key']
+    first['labels'] = dict(reversed(list(first['labels'].items())))
+    repeated = collect_storage_series(Source([first]), {'start':100, 'end':105}, None,
+        settings=settings(), clock_quality={}, queried_at=200)
+    assert project_storage_series(repeated, {'observed_at':105})[0]['series_key'] == rows[0]['series_key']
+
+
+@pytest.mark.parametrize('end, status, delta', [
+    (110, 'different_report_window_exposure', None),
+    (105, 'shared_report_window', 50),
+])
+def test_reset_report_amount_delta_requires_equal_window_exposure(end, status, delta):
+    class Counters(Source):
+        def query_counter_series(self, start, end, **kwargs):
+            return [{'timestamp_seconds':start+1, 'metricName':'storage_client.data_payload_bytes',
+                     'labels':dict(LABELS), 'kind':'reset_after_collect', 'unit':'bytes',
+                     'observed_sum':100 if start == 100 else 50}]
+    clock = {'status':'aligned', 'nodes':{'storage-monitor':{'status':'aligned'}}}
+    clock['baseline'] = {'status':'aligned', 'nodes':clock['nodes']}
+    result = collect_storage_series(Counters([]), {'start':100, 'end':end}, {'start':80, 'end':85},
+        settings=settings(counter_metrics=['storage_client.data_payload_bytes'],
+                          host_clock_nodes={'storage-a':'storage-monitor'}),
+        clock_quality=clock, queried_at=200)
+    row, = result['comparison']['rows']
+    assert row['current'] == 100 and row['baseline'] == 50
+    assert row['delta'] == delta
+    assert row['delta_percent'] == (100 if delta is not None else None)
+    assert row['comparison_status'] == status
+    from xlayer_telemetry.analysis.storage_series import project_storage_summary
+    summary = next(row for row in project_storage_summary(result, {}) if row['row_kind'] == 'storage_comparison')
+    assert summary['host_clock_coverage'] == 'screened_aligned'
+
+
+def test_storage_series_demo_preserves_production_candidate_coverage_limits(tmp_path):
+    from xlayer_telemetry.demos.diagnosis import generate
+    report = generate(tmp_path/'demo', run_id='synthetic-storage-coverage', clock=lambda:2000, storage_series=True)
+    candidates = [candidate for candidate in report['candidates']
+                  if any(str(item.get('signal','')).startswith('threefs_') for item in candidate.get('evidence',[]))]
+    assert candidates
+    assert all(candidate['state'] != 'strong_signal' for candidate in candidates)
+    assert all('threefs_collection_interval_and_complete_operation_coverage' in candidate['missing_evidence'] for candidate in candidates)

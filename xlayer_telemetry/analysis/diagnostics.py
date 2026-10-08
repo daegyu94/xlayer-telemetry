@@ -32,7 +32,7 @@ from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
-from .storage_series import collect_storage_series, project_storage_series, project_storage_summary, validate_series_settings
+from .storage_series import apply_collection_limits, collect_storage_series, project_storage_series, project_storage_summary, validate_series_settings
 
 # Keep the existing local opener hook while bounding credential redirects.
 urlopen = build_opener(_CredentialSafeRedirectHandler()).open
@@ -1053,11 +1053,7 @@ class DiagnosticEngine:
             for role in ("current", "baseline"):
                 for issue in storage_series.get(role, {}).get("errors", []):
                     missing.append(f"threefs:series:{role}:{issue}")
-            for candidate in candidates:
-                if any(str(item.get("signal", "")).startswith("threefs_") for item in candidate.get("evidence", [])):
-                    candidate["missing_evidence"].append("threefs_collection_interval_and_complete_operation_coverage")
-                    if candidate["state"] == "strong_signal":
-                        candidate["state"] = "supporting_signal"
+            apply_collection_limits(candidates)
         if unsafe_timing:
             # Keep raw evidence inspectable; do not use an unaligned resource
             # window as a bottleneck hypothesis for this workload interval.
