@@ -23,7 +23,7 @@ from ..time_alignment import CalibrationCache, estimate
 from ..fileio import atomic_write_text
 
 
-def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None, rollout_workers: list[CorrelationContext] | None = None) -> dict:
+def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None, rollout_workers: list[CorrelationContext] | None = None, storage_series: bool = False) -> dict:
     if scenario is not None:
         validate_scenario(scenario)
         if scenario["run_id"] != run_id or scenario["node"] != node:
@@ -207,6 +207,9 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         },
         "candidates": candidates,
     }
+    if storage_series:
+        from .storage_series import synthetic_storage_series
+        report['storage_series']=synthetic_storage_series(window,prior['analysis_window'],slow=bool(candidates))
     write_report(output / "diagnostics", report)
     # Use the same discovery and inspect paths as a wrapped workload. These are
     # synthetic application values, not measurements of the host or its storage.

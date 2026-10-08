@@ -1341,7 +1341,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | window_role=\"current\" | metric_name=${storage_metric:json} | ambiguous_sample != \"true\" | sample_value != \"\" | sample_value != \"null\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | window_role=\"current\" | plot_eligible=\"true\" | sample_value != \"\" | sample_value != \"null\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
               "queryType": "range",
               "maxLines": 2500
             }
@@ -1366,7 +1366,8 @@
             "legend": {
               "displayMode": "list",
               "placement": "bottom",
-              "calcs": []
+              "calcs": [],
+              "showLegend": false
             },
             "tooltip": {
               "mode": "multi",
@@ -1391,6 +1392,24 @@
                 "format": "json",
                 "replace": false,
                 "keepTime": false
+              }
+            },
+            {
+              "id": "filterByValue",
+              "options": {
+                "type": "include",
+                "match": "all",
+                "filters": [
+                  {
+                    "fieldName": "metric_name",
+                    "config": {
+                      "id": "equal",
+                      "options": {
+                        "value": "$storage_metric"
+                      }
+                    }
+                  }
+                ]
               }
             },
             {
@@ -1466,7 +1485,20 @@
                 "filterable": true
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "comparison_status"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": false
+                  }
+                ]
+              }
+            ]
           },
           "options": {
             "showHeader": true,
@@ -1499,6 +1531,7 @@
                   "names": [
                     "metric_name",
                     "source_table",
+                    "comparison_status",
                     "statistic",
                     "current",
                     "baseline",

@@ -1,0 +1,256 @@
+{
+  "date": "2026-10-08",
+  "baseline_revision": "98a029d",
+  "scope": "XLayer-only P0; synthetic/fault fixtures and isolated real SQL/PromQL; no physical Agent RL/3FS workload",
+  "upstream": {
+    "threefs_main": "22fca04564c7cc230fd8b9523b8b92864e1dad47",
+    "mooncake_main": "b7595de3fab45a580e4ee8819c2a2940d43183cd",
+    "external_source_modified": false
+  },
+  "cpu": {
+    "passed": 1451,
+    "skipped": 0,
+    "seconds": 193.78,
+    "real_promtool": true,
+    "isolated_clickhouse_series_tests": 3
+  },
+  "frontend": {
+    "passed": 96,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "docs": {
+    "links_diagrams_passed": 10,
+    "strict_build": "passed",
+    "browser_passed": 9
+  },
+  "browser": {
+    "base_journey": {
+      "checks": [
+        "Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected",
+        "Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time",
+        "Selected measured worker \u2192 Compute dashboard \u2192 browser Back preserves exact resource and observer/Step context",
+        "Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence",
+        "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+        "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+        "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate"
+      ],
+      "browser_errors": [],
+      "data_origin": "live synthetic metrics + four explicit SDK rollout worker spans",
+      "grafana_version": "12.1.0",
+      "scenes_version": "6.20.0",
+      "browser_version": "145.0.7632.116",
+      "playwright_version": "1.63.0",
+      "browser_locale": "en-US",
+      "browser_timezone": "UTC",
+      "selected_context": {
+        "from": [
+          "2026-10-08T08:25:36.202Z"
+        ],
+        "to": [
+          "2026-10-08T08:26:24.203Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-3"
+        ],
+        "var-record_id": [
+          "1f7efdb504b7bf1479ec192a"
+        ],
+        "var-phase_worker": [
+          "[[\"cluster\",\"scenes-demo\"],[\"node\",\"gpu-node-3\"],[\"producer\",\"demo_distributed\"],[\"role\",\"rollout\"],[\"worker_id\",\"rollout-3\"],[\"rank\",null],[\"local_rank\",null],[\"gpu\",\"3\"]]"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "3"
+        ],
+        "var-engine": [
+          "$__all"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      },
+      "multi_worker": true,
+      "worker_rows": 4,
+      "native_dashboard_back_entries": 1,
+      "context_transition_count": 24,
+      "datasource_fixtures": "Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement"
+    },
+    "storage_points": {
+      "browser_errors": [],
+      "plot_finite_saved_points": true,
+      "no_phase_attribution_notice": true,
+      "reset_report_amount_units": "bytes, not B/s",
+      "clock_unverified_delta": true,
+      "widths": [
+        1440,
+        1280,
+        900,
+        390
+      ],
+      "context": {
+        "from": [
+          "2026-10-08T08:50:08.466Z"
+        ],
+        "to": [
+          "2026-10-08T08:50:56.467Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-0"
+        ],
+        "var-record_id": [
+          "b7f0e902809a502c8723b789"
+        ],
+        "var-candidate_id": [
+          "device_limited_storage"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "0"
+        ],
+        "var-engine": [
+          "synthetic-vllm-0"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-storage_metric": [
+          "storage_client.data_payload_bytes"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      }
+    },
+    "visual_inspection": [
+      "original timestamp p99 spike with sparse gaps",
+      "reset amount 64KiB, not B/s",
+      "clock-unverified delta withheld",
+      "1440/1280/900/390 page containment"
+    ]
+  },
+  "processing_cost": {
+    "scope": "actual Python processing of 2000 synthetic reports; no collection/network/backend cost",
+    "points": 2000,
+    "window_seconds": 1000,
+    "repeats": 7,
+    "wall_median_ms": 6.621519103646278,
+    "cpu_median_ms": 6.622339999999998,
+    "peak_incremental_python_bytes": 3888492,
+    "serialized_projection_bytes": 2077607,
+    "backend_calls_per_run": 2,
+    "collector_changes": 0,
+    "default_extra_queries": 0
+  },
+  "query_bounds": {
+    "max_source_window_seconds": 3600,
+    "max_total_retained_points": 2000,
+    "source_response_bytes": 8388608,
+    "default_extra_queries": 0,
+    "enabled_series_extra_requests_max": 4
+  },
+  "limits": [
+    "source collection interval unknown",
+    "zero suppression versus loss unknown",
+    "counter registry revision is contract reference, not observed deployment revision",
+    "source clock aliases require explicit config",
+    "no replica choice, operation tracing, E2E context or Run attribution implemented"
+  ],
+  "cleanup": {
+    "owned_live_stack_stopped": true,
+    "owned_clickhouse_removed": true,
+    "fixture_databases_removed": true,
+    "existing_user_stack_untouched": true
+  }
+}

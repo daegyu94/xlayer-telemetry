@@ -123,3 +123,19 @@ def test_baseline_delta_requires_explicit_source_clock_coverage():
     after=collect_storage_series(source,window,base,settings=settings(host_clock_nodes={"storage-a":"storage-monitor"}),clock_quality=clock,queried_at=200)
     assert after["comparison"]["rows"][0]["delta"] == 10
     assert after["current"]["quality"]["phase_attribution"] == "not_established"
+
+
+def test_series_point_budget_is_global_across_current_and_baseline():
+    source=Source([distribution(81,10),distribution(101,20),distribution(102,30)])
+    result=collect_storage_series(source,{"start":100,"end":105},{"start":80,"end":85},
+        settings=settings(max_points=2),clock_quality={},queried_at=200)
+    assert len(result["current"]["distributions"])==2
+    assert result["baseline"]["distribution_status"]=='budget_exhausted'
+    assert len(source.calls)==1
+
+
+def test_cli_explicit_window_requires_both_bounds_and_does_not_reset_user_state():
+    from xlayer_telemetry.subsystems import inspect_threefs
+    for args in ({'start':100},{'end':105},{'start':105,'end':100},{'start':100,'end':4000}):
+        with pytest.raises(ValueError):inspect_threefs({},**args)
+    assert inspect_threefs({},start=100,end=105,series=True)=={'status':'not_configured'}

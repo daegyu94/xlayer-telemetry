@@ -33,3 +33,4 @@ export const DEEP_DIVE_SPECS:Array<{label:string;dashboard?:Destination;panel?:n
  {label:'Ray',dashboard:'stage',panel:22,note:'Shared session task states; not attributed to this update.'},
  {label:'Sandbox',dashboard:'stage',panel:12,note:'Worker/cgroup I/O pressure; not a physical SSD latency.'},
 ];
+export function detailTabIndex(label?:string):number{return Math.max(0,DEEP_DIVE_SPECS.findIndex(spec=>spec.label===label));}

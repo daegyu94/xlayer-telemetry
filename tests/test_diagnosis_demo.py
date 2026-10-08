@@ -41,6 +41,17 @@ def test_synthetic_run_is_discoverable_and_inspectable(tmp_path):
     assert "storage_queue_saturation" in summarize(root)
 
 
+def test_optional_storage_reports_use_original_source_time_and_unknown_collection_coverage(tmp_path):
+    report=generate(tmp_path/'storage-series',run_id='practice',clock=lambda:200,storage_series=True)
+    assert report['storage_series']['data_origin']=='synthetic'
+    rows=[json.loads(line) for line in next((tmp_path/'storage-series/diagnostics/investigation').glob('*.jsonl')).read_text().splitlines()]
+    points=[row for row in rows if row['row_kind']=='storage_sample']
+    assert points and {row['window_role'] for row in points}=={'current','baseline'}
+    assert all(row['observed_at']==report['analysis_window']['end'] for row in points)
+    assert all(row['phase_attribution']=='not_established' for row in points)
+    assert all(row['counter_kind']!='gauge' for row in points if row['source_table']=='counters')
+
+
 def test_cli_existing_output_is_actionable_and_preserves_artifacts(tmp_path):
     import subprocess
     import sys

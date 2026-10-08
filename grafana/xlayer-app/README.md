@@ -105,6 +105,8 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 `--multi-worker`를 추가하면 네 worker의 exact rollout span·명시 `weights.applied` event와 느린 peer 하나를 생성합니다. Analyze의 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 선택한 identity는 URL에 보존하며 observer와 resource node를 구분합니다. 기본 demo는 단일 execution path를 유지합니다.
 
+`--storage-series`는 명시 synthetic 3FS collection point·sparse gap·reset-report amount를 추가합니다. 실제 ClickHouse가 아니라 controlled fixture입니다. Deep Dive → 3FS evidence에서 metric을 선택하면 source timestamp·unit·Current/Baseline·clock/collection coverage를 확인합니다. No interpolation/zero fill·phase ownership·exact throughput/IOPS 추론은 하지 않습니다. Production 설정은 [Storage Correlation](../../docs/storage-correlation.md)을 따릅니다.
+
 ## 문제 해결
 
 | 상태 | 확인할 것 |

@@ -103,6 +103,11 @@ def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = N
                           user_env=settings.get('user_env', 'THREEFS_CLICKHOUSE_USER'),
                           password_env=settings.get('password_env', 'THREEFS_CLICKHOUSE_PASSWORD'),
                           _environment=environment)
+    budget = None
+    if series:
+        from .analysis.query_budget import QueryBudget
+        budget = QueryBudget(config.get('query_budget_seconds', 30))
+        client = budget.wrap(client, 'threefs', configurable_timeout=True)
     rows = client.query_window(start, end)
     counters, missing = [], []
     try:
@@ -125,6 +130,7 @@ def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = N
         from .analysis.storage_series import collect_storage_series
         extra['storage_series'] = collect_storage_series(client, {'start':start, 'end':end}, None,
             settings={**settings.get('time_series', {}), 'enabled':True}, clock_quality={}, queried_at=queried_at)
+        extra['query_execution'] = budget.summary()
     return {'status': 'observed' if rows or counters else 'no_data', 'scope': 'shared-service',
             'start': start, 'end': end, 'queried_at': queried_at, 'settle_seconds': settle,
             'filters': settings.get('filters', {}),

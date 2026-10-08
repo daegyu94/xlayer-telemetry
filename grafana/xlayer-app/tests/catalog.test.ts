@@ -64,7 +64,8 @@ test("provisioned canonical panel/reference contracts exist in Loki and metrics-
         assert.equal(plot.fieldConfig.defaults.custom.drawStyle, 'points');
         assert.equal(plot.fieldConfig.defaults.custom.lineWidth, 0);
         assert.equal(plot.fieldConfig.defaults.custom.spanNulls, false);
-        assert.match(plot.targets[0].expr, /metric_name=\$\{storage_metric:json\}/);
+        assert.ok(!plot.targets[0].expr.includes('storage_metric'));
+        assert.ok(plot.transformations.some((t: any) => t.id === 'filterByValue' && t.options.filters[0].fieldName === 'metric_name'));
         assert.match(plot.targets[0].expr, /window_role="current"/);
         assert.ok(plot.targets[0].maxLines <= 2500);
         assert.ok(plot.transformations.some((t: any) => t.id === 'convertFieldType' && t.options.conversions.some((c: any) => c.targetField === 'sample_timestamp_ms' && c.destinationType === 'time')));

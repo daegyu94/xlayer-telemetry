@@ -34,3 +34,11 @@ test('one chart does not merge samples from different owner observations',()=>{
  assert.equal(storagePlotSelection([point(),point({record_id:'other'})],'read_latency').state,'multiple-owner');
  assert.deepEqual(storageMetrics([point(),point({window_role:'baseline'}),point({metric_name:'write_latency'})]),['read_latency','write_latency']);
 });
+test('known reset-report sums can be plotted without inventing same-second report order',()=>{
+ const reset=point({source_table:'counters',metric_name:'storage_client.data_payload_bytes',counter_kind:'reset_on_collect',statistic:'sum returned reset reports',sample_value:12,unit:'bytes',ambiguous_sample:true});
+ assert.equal(storagePlotSelection([reset],reset.metric_name).state,'ready');
+ assert.equal(storagePlotSelection([{...reset,counter_kind:'gauge',statistic:'raw gauge/unknown report'}],reset.metric_name).state,'no-data');
+});
+test('unsupported literal metric characters stay in records and cannot become LogQL syntax',()=>{
+ assert.equal(storagePlotSelection([point({metric_name:'read"|json'})],'read"|json').state,'select-metric');
+});

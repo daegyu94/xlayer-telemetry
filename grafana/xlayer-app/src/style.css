@@ -348,6 +348,7 @@ body.theme-dark .xlt {
   color: #667085;
 }
 .xlt-pressure-value .xlt-entity,.xlt-storage-evidence .xlt-entity{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.xlt-storage-metric{appearance:auto!important;display:block;width:100%;max-width:100%;min-height:30px;height:30px;padding:3px!important;font-size:11px!important;line-height:20px!important;color:var(--xl-text)!important;background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:3px;margin:5px 0 10px}
 .xlt {
   padding-top: 0;
 }

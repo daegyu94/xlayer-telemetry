@@ -109,6 +109,7 @@ Phase alias는 canonical을 우선해 중복 사용하지 않고, vLLM은 같은
 | `vllm` | 6 | per-entity TTFT/TPOT/queue/E2E p95, prompt/generated tokens/s |
 | `kv_offload` | 5 | load/store bytes/s, allocation failures/s, sync/async lookup p95 |
 | `mooncake` | 6 | Canonical connector RPC p95, DFS read/write/staging p95, read bytes/s, read failed keys/s |
+| `mooncake_storage` | 5 + 선택적 Master 3 | Write bytes·성공 key ops·write error/skips. Master allocation/capacity/admission은 명시 node가 있을 때만 |
 | `ray` | 5 | spilled bytes, disk-backed mmap bytes, pending spill/restore bytes, worker eviction rate |
 | `dcgm` | 7 | GPU utilization, tensor/DRAM activity, PCIe RX/TX bytes/s, PCIe replays/s, last XID code |
 
@@ -123,7 +124,7 @@ Phase alias는 canonical을 우선해 중복 사용하지 않고, vLLM은 같은
 Mooncake connector/client도 `node={rollout_node}`의 실제 native endpoint를 사용합니다. `mooncake`를 선택할 때만 packaged canonical dashboard의 고정 panel/ref를 읽고 단위·매크로 계약을 검사합니다. RPC·client DFS·D2H staging은 별도의 관측이며 새 strong rule이나 계층 간 dependency를 추론하지 않습니다.
 
 - `prometheus.queries`의 동일 signal override가 profile보다 우선합니다.
-- Unknown/중복 profile은 오류로 거절합니다. 전체 profile은 고정 56개 추가 query입니다.
+- Unknown/중복 profile은 오류로 거절합니다. 전체 profile은 최대 64개 추가 query이며 Master node가 없으면 3개를 조회하지 않습니다.
   예제의 3개 profile은 총 31개이며 baseline이 있으면 최대 62개 metric request가
   필요합니다. Clock/freshness query는 별도입니다. 전체 profile을 무조건 켜지 말고
   `query_execution`/`missing_sources`를 확인합니다. 기존 30초 query budget과
@@ -252,6 +253,7 @@ Baseline 창의 Prometheus·3FS를 조회해 `comparison.signals`에 current·ba
 Step·rollout·actor/critic·checkpoint의 application duration은 기존 seconds 계약을 `unit=s`와 reported-duration statistic으로 projection에 보존합니다. Communication은 보고된 stage 합계입니다. 이 metadata로 approximate boundary를 exact span으로 바꾸거나 raw 3FS latency의 단위를 추정하지 않습니다.
 3FS는 같은 `metricName`과 전체 producer identity, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다. 3FS의 `host`·`tag`·`mount_name`·`instance`·`io`·`uid`·`method`·`pod`·`thread`·`statusCode`를 evidence의 `labels`와 comparison의 entity에 보존합니다.
 3FS `max_observed_p99`는 한 entity의 유효 표본이 있는 보고 구간별 p99 중 최대값입니다. 여러 client/node/operation의 p99를 합친 global p99가 아니며, `count=0` 행은 extrema·weighted mean·freshness에 기여하지 않습니다. Query 결과는 기존 8 MiB·1,000 entity 상한을 유지하므로 필요하면 source filter를 좁힙니다.
+선택적 [Storage collection series](storage-correlation.md)는 같은 entity의 정수 collection timestamp별 값을 보존합니다. Report의 Loki index time과 실제 sample timestamp를 분리하며 reset/gauge·누락·clock coverage를 projection에 함께 저장합니다. 실제 collection interval과 complete I/O coverage가 없으면 storage strong 승격을 제한합니다.
 Legacy metric-only artifact는 다른 legacy artifact와만 비교합니다. 명시된 identity와 섞거나 partial/duplicate identity에서 첫 행·마지막 행을 임의 선택하지 않습니다. Latency와 request-size를 함께 사용할 때도 metric 이름을 제외한 producer identity가 같아야 합니다.
 GPU 짝이 없으면 node aggregate로 scope를 낮추고, 비교 표는 utilization 감소가 가장 큰 GPU를 선택합니다.
 이는 run별 장치 귀속이나 node 평균이 아닙니다.

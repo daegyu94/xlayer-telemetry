@@ -9,9 +9,11 @@ export function storagePlotSelection(rows: RecordRow[], metric?: string): {
   state: PlotState; points: RecordRow[]; unit?: string;
 } {
   const reject = (state: PlotState) => ({state,points:[]});
-  if (!metric) return reject('select-metric');
+  if (!metric || !/^[A-Za-z0-9_.:-]{1,256}$/.test(metric)) return reject('select-metric');
   const selected = rows.filter(row => row.row_kind === 'storage_sample' && row.window_role === 'current' && row.metric_name === metric);
-  const points = selected.filter(row => !row.identity_conflict && row.ambiguous_sample !== true && row.ambiguous_sample !== 'true' &&
+  const points = selected.filter(row => !row.identity_conflict &&
+    ((row.ambiguous_sample !== true && row.ambiguous_sample !== 'true') ||
+     (row.source_table==='counters'&&row.counter_kind==='reset_on_collect'&&row.statistic==='sum returned reset reports')) &&
     numeric(row.sample_timestamp_ms) !== undefined && numeric(row.sample_value) !== undefined && typeof row.series_key === 'string' && !!row.series_key);
   if (!points.length) return reject('no-data');
   if (new Set(points.map(row => row.source_table)).size !== 1) return reject('mixed-source');

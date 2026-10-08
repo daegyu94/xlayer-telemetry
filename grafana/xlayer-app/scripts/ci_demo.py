@@ -71,7 +71,7 @@ def run(args):
     try:
         with launcher_log.open('w') as dest:
             demo_command = [sys.executable, str(SCRIPTS / 'live_demo.py'), '--tools', str(args.tools.resolve()),
-                            '--output', str(args.state), '--grafana-port', str(port)]
+                            '--output', str(args.state), '--grafana-port', str(port), '--storage-series']
             if args.multi_worker:
                 demo_command.append('--multi-worker')
             process = subprocess.Popen(demo_command,
@@ -87,7 +87,11 @@ def run(args):
                          '--url', connection['grafana'], '--output', str(args.output / 'metric-contracts')]
             if args.browser:
                 contracts.extend(['--browser', args.browser])
-            for validation_command in (command, contracts):
+            series = [sys.executable, str(SCRIPTS / 'storage_series_validate.py'),
+                      '--url', connection['grafana'], '--output', str(args.output / 'storage-series')]
+            if args.browser:
+                series.extend(['--browser', args.browser])
+            for validation_command in (command, contracts, series):
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:
                     code = validator.wait(timeout=args.browser_timeout)

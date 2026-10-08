@@ -88,7 +88,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
         assert {item["name"] for item in payload["templating"]["list"]} >= {"cluster", "node"}
         assert all(
             panel.get("datasource", {}).get("uid") in (
-                {"telemetry-prometheus", "telemetry-loki"} if payload["uid"] == "telemetry-overview"
+                {"telemetry-prometheus", "telemetry-loki"} if payload["uid"] == "telemetry-overview" or (payload["uid"] == "xlayer-data-storage" and panel["id"] in {101,102,103,104})
                 else {"telemetry-prometheus"})
             for panel in _panels(payload)
             if panel["type"] not in {"text", "row"}

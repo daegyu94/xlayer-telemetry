@@ -102,6 +102,7 @@ Worker selection은 `phase_worker` URL state로 보존하며 observer `source_no
 - GPU 낮은 utilization은 자동 fault가 아닙니다. Pressure 카드의 entity 순위와 **Inspect entity** 링크는 조사 우선순위이며 causal verdict가 아닙니다.
 - **Diagnosis / Query Coverage**는 현재 provider의 error·empty·optional unavailable·native target 수·Grafana가 보고한 마지막 query elapsed를 보여줍니다. Coverage 표시 때문에 추가 query를 활성화하지 않습니다.
 - GPU/Ray detail은 동일 target의 Pressure provider를 Scenes proxy로 공유합니다. Parent/time/variable scope를 유지하며 다른 native panel은 필요할 때 활성화합니다. Coverage의 custom-provider 수에 모든 native panel의 비용이 포함되는 것은 아닙니다.
+- **3FS evidence**는 configured saved collection points·원본 Current/Baseline records·comparison·coverage를 기존 Loki stream에서 읽습니다. Plot은 한 literal metric의 current points만 보여주며 source unit/table·owner가 섞이면 유보합니다. `storage_metric`·`detail_tab`은 URL에 보존합니다. Collection timestamp를 exact I/O 시각이나 phase 사용량으로 표시하지 않습니다. 설정과 P1/P2 한계는 [Storage Correlation](storage-correlation.md)을 따릅니다.
 
 MFU·policy version·wrapper 상태의 producer와 missing 조건은 [UI Telemetry Reference](ui-telemetry-coverage.md)에서 관리합니다. Trainer version을 rollout applied version으로, wrapper command 상태를 전체 async Run 완료로 바꾸지 않습니다.
 

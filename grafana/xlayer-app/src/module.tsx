@@ -17,6 +17,8 @@ import {
   SceneObjectState,
   SceneComponentProps,
   SceneQueryRunner,
+  TextBoxVariable,
+  SceneDataTransformer,
   VizPanel,
   useSceneApp,
 } from "@grafana/scenes";
@@ -61,7 +63,7 @@ import {
   PhaseWindow,
 } from "./semantics";
 import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
-import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS} from './presentation';
+import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS,detailTabIndex} from './presentation';
 import { storageMetrics, storagePlotSelection } from './storage-series';
 import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
@@ -1756,7 +1758,7 @@ function TopChanges({rows}:{rows:RecordRow[]}) {
   return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">Saved comparison window, not a phase resource attribution. Workload comparability remains source-defined.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
 function DeepWorkspace({model,candidate,evidence,panels,context,catalog}:{model:Shell;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
- const[tab,setTab]=useState(0),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
+ const[tab,setTab]=useState(()=>detailTabIndex(context.variables.detail_tab?.[0])),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div>
   <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
@@ -1772,14 +1774,26 @@ function DeepWorkspace({model,candidate,evidence,panels,context,catalog}:{model:
 
 function StorageCollectionView({model,context}:{model:Shell;context:Context}) {
   const state=model.useState(), sampleData=useData(state.storageSamples), statusData=useData(state.storageStatus);
-  const rows=records(sampleData), statuses=records(statusData), metric=context.variables.storage_metric?.[0];
+  const variable=sceneGraph.lookupVariable('storage_metric',model) as TextBoxVariable, variableState=variable.useState();
+  const selectedValue=variableState?.value;
+  const metric=typeof selectedValue==='string'&&selectedValue?selectedValue:context.variables.storage_metric?.[0];
+  const rows=records(sampleData), statuses=records(statusData);
   const options=storageMetrics(rows), selection=storagePlotSelection(rows,metric);
   useEffect(()=>{
     if(!state.storagePlot)return;
     const unit=selection.unit==='operations'?'short':selection.unit||'none';
     const config=state.storagePlot.state.fieldConfig;
     if(config?.defaults?.unit!==unit)state.storagePlot.setState({fieldConfig:{...config,defaults:{...config.defaults,unit}}});
-  },[state.storagePlot,selection.unit]);
+    const transformer=state.storagePlot.state.$data;
+    if(transformer instanceof SceneDataTransformer){
+      const transforms=transformer.state.transformations as any[];
+      const filter=transforms.find(t=>t.id==='filterByValue');
+      if(filter?.options?.filters?.[0]?.config?.options?.value!==metric){
+        transformer.setState({transformations:transforms.map(t=>t.id==='filterByValue'?{...t,options:{...t.options,filters:[{fieldName:'metric_name',config:{id:'equal',options:{value:metric||''}}}]}}:t)});
+        transformer.reprocessTransformations();
+      }
+    }
+  },[state.storagePlot,selection.unit,metric]);
   const messages:Record<string,string>={
     'select-metric':'Choose one literal metric for the current collection-point plot.',
     'no-data':'No finite unambiguous current collection points for this metric. Missing values are not measured zero.',
@@ -1790,7 +1804,7 @@ function StorageCollectionView({model,context}:{model:Shell;context:Context}) {
     <h4>3FS collection context</h4>
     <p className="xlt-notice">Shared-service reports, not phase or Run usage. Source DateTime resolution is 1 second. Collection interval and per-host clock coverage remain source-reported; no interpolation or phase attribution is inferred.</p>
     <DataStatus provider={state.storageSamples}/>
-    <label>Storage metric <select aria-label="Storage metric" value={metric||''} onChange={event=>locationService.push(appLink('deep-dive',{...context,variables:{...context.variables,storage_metric:event.target.value?[event.target.value]:[]}}))}>
+    <label>Storage metric <select className="xlt-storage-metric" aria-label="Storage metric" value={metric||''} onChange={event=>{variable.setState({value:event.target.value});(sceneGraph.lookupVariable('detail_tab',model) as TextBoxVariable).setState({value:'3FS evidence'});}}>
       <option value="">Choose metric</option>
       {metric&&!options.includes(metric)&&<option value={metric}>Selected metric outside returned records</option>}
       {options.map(name=><option key={name} value={name}>{name}</option>)}

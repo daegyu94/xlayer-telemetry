@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS} from '../src/presentation';
+import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS,detailTabIndex} from '../src/presentation';
 test('async trainer update is explicit and never presented as an inclusive rollout step',()=>{
  const update=boundaryPresentation({boundary_scope:'trainer_update',execution_mode:'async'});
  assert.equal(update.label,'Trainer update');assert.equal(update.timeLabel,'Update time');assert.match(update.note,/rollout\/tool/);
@@ -22,4 +22,7 @@ test('storage investigation reuses source-qualified canonical panels and saved 3
  assert.equal(DEEP_DIVE_SPECS.find(s=>s.label==='DFS bytes')?.panel,64);
  assert.equal(DEEP_DIVE_SPECS.find(s=>s.label==='3FS evidence')?.panel,undefined);
  assert.equal(DEEP_DIVE_SPECS.find(s=>s.label==='Local I/O mean')?.panel,30);
+});
+test('storage metric navigation can retain the active evidence tab without choosing an unsupported tab',()=>{
+ assert.equal(detailTabIndex('3FS evidence'),4);assert.equal(detailTabIndex('unknown'),0);
 });

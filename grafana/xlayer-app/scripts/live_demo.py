@@ -36,6 +36,7 @@ def main():
                         help='Explicit synthetic comparison: real scrapes precede completed SDK spans/report')
     parser.add_argument('--multi-worker', action='store_true',
                         help='Opt-in controlled rollout spans on four workers with one explicit synthetic outlier')
+    parser.add_argument('--storage-series',action='store_true',help='Explicit synthetic 3FS collection points, sparse report coverage and no clock attribution')
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.tools = args.tools.resolve()
@@ -168,7 +169,7 @@ datasources:
             if stopping.is_set():
                 break
             directory=args.output/f'fixture-{cycle}'
-            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,
+            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,storage_series=args.storage_series,
                             rollout_workers=[CorrelationContext(run_id='verl-agent-demo', producer='demo_distributed', role='rollout',
                                 worker_id=f'rollout-{index}', node=demo.gpu['gpu_nodes'][index % len(demo.gpu['gpu_nodes'])],
                                 gpu=str(index % demo.gpu['gpus_per_node'])) for index in range(4)] if args.multi_worker else None)

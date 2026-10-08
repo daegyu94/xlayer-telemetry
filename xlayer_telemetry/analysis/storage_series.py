@@ -157,6 +157,7 @@ def project_storage_series(series, common):
                     "statistic": "maximum reported p99" if table == "distributions" else "sum returned reset reports" if reset else "raw gauge/unknown report",
                     "report_count": point.get("report_count", point.get("sample_count")),
                     "ambiguous_sample": point.get("ambiguous_sample", False)})
+                rows[-1]["plot_eligible"] = value is not None and (reset or not point.get("ambiguous_sample", False))
     return rows
 
 
@@ -174,6 +175,7 @@ def project_storage_summary(series, common):
             "clock_status": quality.get("clock_status", "unknown"),
             "host_clock_coverage": quality.get("host_clock_coverage", "unknown"),
             "collection_interval": "unknown", "coverage": "returned_reports_only",
+            "collection_interval_seconds": None,
             "quality_issues": ", ".join(quality.get("issues", [])+entry.get("errors", [])),
             "phase_attribution": "not_established"})
     for row in series.get("comparison", {}).get("rows", []):
@@ -181,6 +183,9 @@ def project_storage_summary(series, common):
             "source_table": row["table"], "current": row["current"], "baseline": row["baseline"],
             "delta_percent": row["delta_percent"], "unit": row["unit"], "statistic": row["statistic"],
             "comparison_status": row["comparison_status"],
+            "clock_status": "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown",
+            "host_clock_coverage": "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown",
+            "quality_issues": "collection_interval_unknown, returned_reports_only",
             "entity": ",".join(f"{key}={value}" for key, value in sorted(row["labels"].items())),
             "observation_scope": "shared-service", "phase_attribution": "not_established"})
     return rows

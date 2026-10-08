@@ -94,4 +94,5 @@ Profile은 기존 canonical panel query를 재사용하며 새로운 원인 rule
 
 ## 다음
 
+[Step / Phase의 Storage collection 조사](storage-correlation.md) ·
 [느린 Step 조사](dashboards.md) · [Storage interpretation](dashboard-reference.md#follow-the-storage-path) · [SMART 운영](monitoring-reference.md#ssd-health)
