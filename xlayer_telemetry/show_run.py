@@ -195,6 +195,13 @@ def summarize(output_dir: Path) -> str:
             lines.extend(f"    {source}" for source in missing)
         if diagnosis.get("clock_quality"):
             lines.append(f"  clock_quality={diagnosis['clock_quality'].get('status', 'unknown')}")
+        storage_series = diagnosis.get("storage_series", {})
+        if storage_series.get("enabled"):
+            lines.append("  storage_collection_series: shared reports, resolution=1s, collection_interval=unknown")
+            for role in ("current", "baseline"):
+                entry=storage_series.get(role, {})
+                count=len(entry.get("distributions", []))+len(entry.get("counters", []))
+                lines.append(f"    {role}: {count} points distributions={entry.get('distribution_status')} counters={entry.get('counter_status')} host_clock={entry.get('quality', {}).get('host_clock_coverage', 'unknown')}")
         lines.append("  full_report=diagnostics/latest.json")
 
     for pattern in ("artifacts/**/*.pt.trace.json", "artifacts/**/*.nsys-rep", "artifacts/nccl-baseline/manifest.env", "artifacts/nccl-baseline/all-reduce.log"):

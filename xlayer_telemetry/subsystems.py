@@ -79,9 +79,14 @@ def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
 
 
 def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = None,
-                    environment: Mapping[str, str] | None = None) -> dict:
+                    environment: Mapping[str, str] | None = None, series: bool = False,
+                    start: float | None = None, end: float | None = None) -> dict:
     if not math.isfinite(seconds) or not 0 < seconds <= 86400:
         raise ValueError('window must be between 0 and 86400 seconds')
+    from .measurements import finite_number
+    if ((start is None) != (end is None) or (start is not None and
+            (finite_number(start) is None or finite_number(end) is None or start >= end or end-start > 3600))):
+        raise ValueError('explicit start/end must form an increasing window of at most one hour')
     from .analysis.diagnostics import _DeadlineThreeFSClient as ThreeFSClient
     settings = config.get('threefs')
     if settings is not None and not isinstance(settings, dict):
@@ -90,17 +95,18 @@ def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = N
         return {'status': 'not_configured'}
     queried_at = time.time() if now is None else now
     settle = settings.get('settle_seconds', 30)
-    end = queried_at - settle
+    end = queried_at - settle if end is None else end
+    start = end - seconds if start is None else start
     client = ThreeFSClient(settings.get('url'), database=settings.get('database', '3fs'),
                           filters=settings.get('filters'),
                           timeout=float(settings.get('timeout_seconds', 5)),
                           user_env=settings.get('user_env', 'THREEFS_CLICKHOUSE_USER'),
                           password_env=settings.get('password_env', 'THREEFS_CLICKHOUSE_PASSWORD'),
                           _environment=environment)
-    rows = client.query_window(end - seconds, end)
+    rows = client.query_window(start, end)
     counters, missing = [], []
     try:
-        counters = client.query_counters(end - seconds, end)
+        counters = client.query_counters(start, end)
         counter_status = 'observed' if counters else 'no_data'
     except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
         # Optional table/schema failures must not discard available latency
@@ -114,14 +120,19 @@ def inspect_threefs(config: dict, *, seconds: float = 300, now: float | None = N
         return {'last_observed_at': latest,
                 'source_age_seconds': queried_at - latest if latest is not None else None}
 
+    extra = {}
+    if series:
+        from .analysis.storage_series import collect_storage_series
+        extra['storage_series'] = collect_storage_series(client, {'start':start, 'end':end}, None,
+            settings={**settings.get('time_series', {}), 'enabled':True}, clock_quality={}, queried_at=queried_at)
     return {'status': 'observed' if rows or counters else 'no_data', 'scope': 'shared-service',
-            'start': end - seconds, 'end': end, 'queried_at': queried_at, 'settle_seconds': settle,
+            'start': start, 'end': end, 'queried_at': queried_at, 'settle_seconds': settle,
             'filters': settings.get('filters', {}),
             'note': 'max_observed_p99 is not global p99; units are producer-defined.',
             'metrics': rows, 'counters': counters, 'counter_status': counter_status,
             'counter_note': 'Raw sampled values with producer-defined units and reset/gauge semantics; no rate, delta or operation total is inferred. Equal-second samples have no finer last-value ordering.',
             'freshness': {'distributions': freshness(rows), 'counters': freshness(counters)},
-            'missing_sources': missing}
+            'missing_sources': missing, **extra}
 
 
 def main() -> None:

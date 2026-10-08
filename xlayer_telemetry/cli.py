@@ -58,6 +58,9 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("refresh", help="Reload registered endpoints into initialized file discovery")
     threefs = sub.add_parser("threefs", help="Query optional ClickHouse distributions and raw counters")
     threefs.add_argument("--window-seconds", type=float, default=300)
+    threefs.add_argument("--series", action="store_true", help="Read bounded collection reports from threefs.time_series settings")
+    threefs.add_argument("--start", type=float, help="Explicit source-clock epoch seconds; requires --end")
+    threefs.add_argument("--end", type=float, help="Exclusive source-clock epoch seconds; requires --start")
     cfg = commands.add_parser("config", help="Locate, show or validate resolved configuration")
     cfg_sub = cfg.add_subparsers(dest="config_action", required=True)
     cfg_sub.add_parser("path", help="Print selected config path")
@@ -258,7 +261,8 @@ def execute(args) -> int:
             from .analysis.diagnostics import load_config as load_diagnosis
             from .subsystems import inspect_threefs
             result = inspect_threefs(load_diagnosis(Path(config["DIAGNOSTICS_CONFIG"])),
-                                     seconds=args.window_seconds, environment=os.environ | config)
+                                     seconds=args.window_seconds, environment=os.environ | config,
+                                     series=args.series, start=args.start, end=args.end)
         else:
             result = sources(config)
         if args.json or args.source_action == "threefs":

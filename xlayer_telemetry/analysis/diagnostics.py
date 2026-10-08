@@ -32,6 +32,7 @@ from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
+from .storage_series import collect_storage_series, project_storage_series, project_storage_summary, validate_series_settings
 
 # Keep the existing local opener hook while bounding credential redirects.
 urlopen = build_opener(_CredentialSafeRedirectHandler()).open
@@ -323,6 +324,7 @@ def load_config(path: Path) -> dict[str, Any]:
     if threefs is not None:
         if not isinstance(threefs, dict):
             raise ValueError("threefs must be an object")
+        validate_series_settings(threefs.get("time_series", {}))
         settle = threefs.get("settle_seconds", 30)
         if type(settle) not in (int, float) or not math.isfinite(settle) or settle < 0:
             raise ValueError("threefs.settle_seconds must be finite and nonnegative")
@@ -1030,6 +1032,19 @@ class DiagnosticEngine:
         ) if current else []
         unsafe_timing = (clock_quality["status"] not in {"aligned", "unchecked"}
                          or clock_quality.get("baseline", {}).get("status", "aligned") != "aligned")
+        storage_series = None
+        series_settings = self.config.get("threefs", {}).get("time_series", {})
+        if series_settings.get("enabled", False):
+            storage_series = collect_storage_series(threefs, window, baseline_window if baseline_record else None,
+                settings=series_settings, clock_quality=clock_quality, queried_at=now)
+            for role in ("current", "baseline"):
+                for issue in storage_series.get(role, {}).get("errors", []):
+                    missing.append(f"threefs:series:{role}:{issue}")
+            for candidate in candidates:
+                if any(str(item.get("signal", "")).startswith("threefs_") for item in candidate.get("evidence", [])):
+                    candidate["missing_evidence"].append("threefs_collection_interval_and_complete_operation_coverage")
+                    if candidate["state"] == "strong_signal":
+                        candidate["state"] = "supporting_signal"
         if unsafe_timing:
             # Keep raw evidence inspectable; do not use an unaligned resource
             # window as a bottleneck hypothesis for this workload interval.
@@ -1144,6 +1159,7 @@ class DiagnosticEngine:
             "sampling_quality": sampling_quality,
             "metric_profiles": profiles,
             "query_execution": budget.summary(),
+            **({"storage_series": storage_series} if storage_series is not None else {}),
             "sandbox_device_mapping": sandbox_device_mapping,
             "diagnosis_method": "rule",
             "missing_sources": missing,
@@ -1427,6 +1443,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "query": signal.get("query"),
                      "sampling_quality": json.dumps(signal.get("sampling_quality"), separators=(",", ":")),
                      **quality_fields(signal.get("sampling_quality"))})
+    rows.extend(project_storage_series(report.get("storage_series", {}), common))
+    rows.extend(project_storage_summary(report.get("storage_series", {}), common))
     return rows
 
 
