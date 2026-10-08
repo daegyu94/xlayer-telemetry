@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Mapping
+from ..prometheus import escape_label
 
 
 @dataclass(frozen=True)
@@ -125,6 +126,16 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
         "mooncake_dfs_read_bytes_per_second": MetricQuery("", "shared-service", "bytes/s", "mean"),
         "mooncake_dfs_read_errors_per_second": MetricQuery("", "shared-service", "keys/s"),
     },
+    "mooncake_storage": {
+        "mooncake_dfs_write_bytes_per_second": MetricQuery("", "shared-service", "bytes/s", "mean"),
+        "mooncake_dfs_read_keys_per_second": MetricQuery("", "shared-service", "keys/s", "mean"),
+        "mooncake_dfs_write_keys_per_second": MetricQuery("", "shared-service", "keys/s", "mean"),
+        "mooncake_dfs_write_errors_per_second": MetricQuery("", "shared-service", "keys/s"),
+        "mooncake_dfs_skipped_keys_per_second": MetricQuery("", "shared-service", "keys/s"),
+        "mooncake_master_allocated_bytes": MetricQuery("", "shared-service", "bytes", "last"),
+        "mooncake_master_capacity_bytes": MetricQuery("", "shared-service", "bytes", "last"),
+        "mooncake_master_admission_failures_per_second": MetricQuery("", "shared-service", "requests/s"),
+    },
     "ray": {
         # These are current bytes, not spill/restore throughput counters.
         "ray_spilled_bytes": MetricQuery('sum without (Location, ObjectState) (ray_object_store_memory' + RAY[:-1] + ',Location="SPILLED"})', "service", "bytes"),
@@ -157,10 +168,22 @@ _MOONCAKE_REFERENCES = {
     "mooncake_dfs_read_bytes_per_second": (64, "A"),
     "mooncake_dfs_read_errors_per_second": (67, "A"),
 }
+_MOONCAKE_STORAGE_REFERENCES = {
+    "mooncake_dfs_write_bytes_per_second": (64, "B"),
+    "mooncake_dfs_read_keys_per_second": (65, "A"),
+    "mooncake_dfs_write_keys_per_second": (65, "B"),
+    "mooncake_dfs_write_errors_per_second": (67, "B"),
+    "mooncake_dfs_skipped_keys_per_second": (67, "C"),
+    "mooncake_master_allocated_bytes": (62, "A"),
+    "mooncake_master_capacity_bytes": (62, "B"),
+    "mooncake_master_admission_failures_per_second": (67, "F"),
+}
 
 
 def validate_metric_profiles(settings: Mapping) -> list[str]:
     profiles = settings.get("metric_profiles", [])
+    if "mooncake_master_node" in settings and (not isinstance(settings["mooncake_master_node"], str) or not settings["mooncake_master_node"]):
+        raise ValueError("prometheus.mooncake_master_node must be an explicit node identity")
     if (not isinstance(profiles, list) or len(profiles) > len(METRIC_PROFILES)
             or any(not isinstance(name, str) or name not in METRIC_PROFILES for name in profiles)
             or len(set(profiles)) != len(profiles)):
@@ -171,11 +194,17 @@ def validate_metric_profiles(settings: Mapping) -> list[str]:
 def profile_queries(settings: Mapping, cluster: str) -> dict[str, str]:
     queries = {}
     for profile in validate_metric_profiles(settings):
-        if profile == "mooncake":
+        if profile in {"mooncake", "mooncake_storage"}:
             from .canonical_queries import borrow_mooncake_queries
+            selected = _MOONCAKE_REFERENCES if profile == "mooncake" else _MOONCAKE_STORAGE_REFERENCES
             references = {name: (*reference, METRIC_PROFILES[profile][name].unit)
-                          for name, reference in _MOONCAKE_REFERENCES.items()}
-            queries.update(borrow_mooncake_queries(references, cluster=bool(cluster)))
+                          for name, reference in selected.items()
+                          if not name.startswith("mooncake_master_") or settings.get("mooncake_master_node")}
+            borrowed = borrow_mooncake_queries(references, cluster=bool(cluster))
+            for name, expression in borrowed.items():
+                if name.startswith("mooncake_master_"):
+                    expression = expression.replace("{rollout_node}", escape_label(settings["mooncake_master_node"]))
+                queries[name] = expression
             continue
         for name, spec in METRIC_PROFILES[profile].items():
             job = "native" if profile in {"vllm", "kv_offload", "ray", "dcgm"} else "telemetry"

@@ -11,7 +11,7 @@ from typing import Mapping
 
 
 MAX_DASHBOARD_BYTES = 2 * 1024 * 1024
-_UNITS = {"s": "seconds", "Bps": "bytes/s", "ops": "keys/s"}
+_UNITS = {"s": {"seconds"}, "Bps": {"bytes/s"}, "ops": {"keys/s", "requests/s"}, "bytes": {"bytes"}}
 _MACROS = re.compile(r"\$(?:\{[^}]*\}|[A-Za-z_][A-Za-z0-9_]*)")
 
 
@@ -56,7 +56,7 @@ def borrow_mooncake_queries(references: Mapping[str, tuple[int, str, str]], *, c
         fields = row.get("fieldConfig", {})
         defaults = fields.get("defaults", {}) if isinstance(fields, dict) else {}
         native_unit = defaults.get("unit") if isinstance(defaults, dict) else None
-        if _UNITS.get(native_unit) != expected_unit:
+        if expected_unit not in _UNITS.get(native_unit, set()):
             raise ValueError(f"Canonical Mooncake unit contract changed for {signal}")
         targets = row.get("targets", [])
         if not isinstance(targets, list) or any(not isinstance(t, dict) for t in targets):

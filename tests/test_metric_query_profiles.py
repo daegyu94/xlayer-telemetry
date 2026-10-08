@@ -33,7 +33,7 @@ def test_profiles_are_opt_in_and_queries_can_override_them():
     for name, query in rendered().items():
         if name in PROFILE_SIGNALS:
             assert 'cluster="lab"' in query
-            native = name.startswith(("vllm_", "ray_", "gpu_")) or name in METRIC_PROFILES["mooncake"]
+            native = name.startswith(("vllm_", "ray_", "gpu_", "mooncake_"))
             assert 'job="native"' in query if native else 'job="telemetry"' in query
     assert 'telemetry_source="dcgm"' in rendered()["gpu_last_xid_code"]
 

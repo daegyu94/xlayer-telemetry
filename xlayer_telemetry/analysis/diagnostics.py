@@ -621,6 +621,9 @@ class DiagnosticEngine:
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
+        if ("mooncake_storage" in self.config["prometheus"].get("metric_profiles", [])
+                and not self.config["prometheus"].get("mooncake_master_node")):
+            missing.append("mooncake:master:not_configured")
         sandbox_config = self.config.get("sandbox", {})
         sandbox_node = str((current or {}).get("sandbox_node") or sandbox_config.get("node") or node)
         sandbox_device = str(sandbox_config.get("device", ""))
