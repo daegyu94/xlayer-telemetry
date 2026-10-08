@@ -198,6 +198,28 @@ def test_incomplete_reference_cannot_be_a_complete_baseline(budget):
     assert candidates(current, result)[0]["state"] == "supported_candidate"
 
 
+def test_legacy_duration_without_specific_accuracy_remains_inspectable():
+    before, now = boundary(step=0), boundary(step=1)
+    old = summarize(before, [span(before)])
+    old["events"][0].pop("duration_accuracy_counts")
+    current = summarize(now, [span(now, duration=.4)], [observation("host_cpu_pressure_ratio", .4)])
+    result = compare(current, [old])
+    assert result["events"][0]["baseline_mean"] == .1
+    assert candidates(current, result)[0]["state"] == "supporting_signal"
+
+
+def test_peer_policy_identity_and_history_extra_context_are_not_substituted():
+    now = summarize(boundary(step=2), [])
+    peer = summarize(boundary(step=2, worker="1"), [])
+    peer["boundary"]["context"]["policy_version"] = 127
+    now["boundary"]["context"]["policy_version"] = 128
+    assert compare(now, [peer], peer=True)["reference_count"] == 0
+    now["boundary"]["context"].pop("policy_version")
+    old = summarize(boundary(step=1), [])
+    old["boundary"]["context"]["policy_version"] = 127
+    assert compare(now, [old])["reference_count"] == 0
+
+
 def test_optional_hook_delivery_cooldown_duplicate_and_budget(tmp_path):
     output = tmp_path / "request.json"
     code = "import sys,pathlib; pathlib.Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())"

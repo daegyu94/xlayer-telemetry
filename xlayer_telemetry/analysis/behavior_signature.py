@@ -274,8 +274,10 @@ def summarize(boundary: Boundary, events: Iterable[Mapping[str, Any]],
 
 def _compatible(current: Mapping, other: Mapping, *, peer: bool) -> bool:
     a, b = current["boundary"], other["boundary"]
-    identity = ("run_id", "producer", "role") if peer else tuple(a["context"])
-    return (all(a["context"].get(key) == b["context"].get(key) for key in identity)
+    same_context = (all(a["context"].get(key) == b["context"].get(key)
+                        for key in ("run_id", "producer", "role", "policy_version")) if peer
+                    else a["context"] == b["context"])
+    return (same_context
             and a["scope"] == b["scope"] and a["phase"] == b["phase"]
             and a["workload"] == b["workload"] and bool(a["workload"])
             and (b["step"] == a["step"] and b["context"] != a["context"] if peer
