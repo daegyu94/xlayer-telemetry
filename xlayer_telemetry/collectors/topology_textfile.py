@@ -34,7 +34,7 @@ def build_gauges(directory: Path) -> list[GaugeSample]:
         for component in components if isinstance(components, list) else []:
             if isinstance(component, dict) and isinstance(component.get('id'), str):
                 mappings.setdefault(component['id'], set()).add(tuple(str(component.get(key, ''))
-                    for key in ('resource_node', 'device', 'gpu', 'storage_system')))
+                    for key in ('resource_node', 'device', 'storage_system')))
         for component in components if isinstance(components, list) else []:
             if (not isinstance(component, dict) or not isinstance(component.get("id"), str)
                     or not component["id"] or not isinstance(component.get("role", ""), str)):
@@ -43,8 +43,8 @@ def build_gauges(directory: Path) -> list[GaugeSample]:
             # This is an operator declaration, not discovery or a dependency.
             # Keep the publisher's scrape identity separate from the resource
             # owner. Conflicting/invalid mappings remain unclassified inventory.
-            fields = {key: component[key] for key in ('resource_node', 'device', 'gpu', 'storage_system') if key in component}
-            if (len(mappings.get(component['id'], [])) == 1
+            fields = {key: component[key] for key in ('resource_node', 'device', 'storage_system') if key in component}
+            if (kind == 'storage' and len(mappings.get(component['id'], [])) == 1
                     and all(isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}', value) for value in fields.values())):
                 labels.update(fields)
             add("telemetry_topology_component_info", "Supplied topology component; resource mapping is declared, not observed.", labels)

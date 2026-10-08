@@ -495,21 +495,6 @@ Alloy는 `<run>/telemetry-events/`와 `<run>/telemetry/telemetry-events/`의 ste
 연결 관계는 사용자가 제공해야 하며 topology 그림만으로 link bandwidth나 서비스 latency를 측정하지 않습니다.
 Native service 연결은 [상세 가이드](native-sources.md)를 따릅니다.
 
-Compute topology도 owner를 명시할 수 있습니다. `gpu`는 숫자 index를 포함한 문자열이며 exporter와 같은 node/device 이름을 사용합니다. 다음은 `compute-topology.json`의 선언 예입니다.
-
-```json
-{
-  "components": [
-    {"id":"gpu-host","role":"gpu-node","resource_node":"gpu-a"},
-    {"id":"gpu-host/0","role":"gpu","resource_node":"gpu-a","gpu":"0"},
-    {"id":"fabric","role":"network"}
-  ],
-  "edges": [{"source":"gpu-host","destination":"fabric","relation":"configured-network"}]
-}
-```
-
-**정상 결과:** collector restart 후 App의 **Infrastructure** inventory에 선언한 component가 보입니다. Owner가 없는 fabric은 Unknown이며 연결 정상 상태를 표시하지 않습니다. V1/V2는 [동일한 Infrastructure model](grafana-scenes-reference.md#infrastructure-관측-계약)을 사용합니다.
-
 ## Storage Cluster Inventory
 
 **목적:** 선언된 DS/MDS node와 실제 exporter의 host/device 성능을 같은 cluster에서 조사합니다. Topology publisher의 node를 resource owner로 사용하지 않습니다.

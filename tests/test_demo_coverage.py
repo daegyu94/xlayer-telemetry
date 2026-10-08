@@ -21,12 +21,6 @@ def test_query_interpolation_preserves_log_templates_and_escapes_literals():
         coverage.render_query('$unrecognized', cluster="c", run_id="r", observer_node="n")
 
 
-def test_log_literal_filters_and_prometheus_label_replacement_are_not_variables():
-    query=coverage.render_query('logs |= ${log_search:doublequote} |= ${log_severity:doublequote}',cluster='c',run_id='r',observer_node='n')
-    assert query=='logs |= "" |= ""'
-    assert coverage.render_query('label_replace(metric{},"node","$1","resource","(.+)")',cluster='c',run_id='r',observer_node='n').endswith('"$1","resource","(.+)")')
-
-
 @pytest.mark.parametrize("finite,with_loki,expected", [(True, True, 0), (False, True, 1), (True, False, 1)])
 def test_coverage_never_reports_nan_or_skipped_loki_as_full_success(tmp_path, monkeypatch, finite, with_loki, expected):
     dashboards = tmp_path / "dashboards"

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType,ThemeContext,createTheme,PageLayoutType } from "@grafana/data";
+import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
 import {Sparkline,useTheme2} from '@grafana/ui';
@@ -17,7 +17,6 @@ import {
   SceneObjectState,
   SceneComponentProps,
   SceneQueryRunner,
-  SceneDataProvider,
   TextBoxVariable,
   SceneDataTransformer,
   VizPanel,
@@ -74,11 +73,6 @@ import { executionChoices, executionKey, selectExecution, observedPhases, measur
 import { ComparisonWindow } from "./comparison-window";
 import { baselineBounds, matrixEntities, matrixEntityKey, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSYSTEM_COLORS } from "./matrix-presentation";
 import { MATRIX_SPECS } from "./matrix-contract";
-import {Page,UiVersion,PAGES,PAGE_LABELS,sceneRoutes,versionFromPath,switchVersion,INFRASTRUCTURE_PANELS,LOGS_PANELS} from './pages';
-import {infrastructureModel,selectInfrastructure,ResourceNode} from './infrastructure';
-import {timelineCalls} from "./workspace-model";
-import {WorkspaceIcon,WorkspaceMark,WORKSPACE_COPY,signalTitle} from "./workspace-design";
-import {TopologyView} from './topology-view';
 import {
   eventTime,
   latestEntitySamples,
@@ -87,12 +81,10 @@ import {
   workerPeers,
 } from "./mockup";
 import "./style.css";
-import './workspace.css';
-import './mockup.css';
 
+type Page = "overview" | "analyze" | "investigate" | "timeline" | "deep-dive";
 type ShellState = SceneObjectState & {
   page: Page;
-  uiVersion:UiVersion;
   catalog: Catalog;
   steps?: SceneQueryRunner;
   spans?: SceneQueryRunner;
@@ -127,15 +119,6 @@ type ShellState = SceneObjectState & {
   storagePlot?: VizPanel;
   storageComparison?: VizPanel;
   storageCluster?: VizPanel[];
-  components?:SceneQueryRunner;
-  relationships?:SceneQueryRunner;
-  availability?:SceneQueryRunner;
-  resourceGpus?:SceneQueryRunner;
-  resourceDevices?:SceneQueryRunner;
-  infraPanels?:(VizPanel|undefined)[];
-  referencePanels?:(VizPanel|undefined)[];
-  analysisRelated?:(VizPanel|undefined)[];
-  logPanels?:Array<VizPanel|undefined>;
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -277,8 +260,8 @@ const PRESSURE_SPECS: {
     scope: "Node/device · sampled",
   },
 ];
-function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
-  const context = readContext(window.location.search,uiVersion);
+function makeScene(page: Page, catalog: Catalog) {
+  const context = readContext(window.location.search);
   const queryCache = new Map<string, SceneQueryRunner>();
   const query = (key: Destination, id: number, refs?: string[]) => {
     const panel = findPanel(catalog[key], id);
@@ -294,12 +277,10 @@ function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
     if(!panel)return undefined;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
-    const display=uiVersion==='workspace'&&panel.type==='timeseries'?{...panel,options:{...panel.options,legend:{...panel.options?.legend,displayMode:'list',placement:'bottom'},tooltip:{...panel.options?.tooltip,mode:'multi'}},fieldConfig:{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,lineWidth:1,fillOpacity:8,showPoints:'never',axisBorderShow:false}}}}:panel;
-    return viz(display,page==='infrastructure'&&(key==='storage'&&id===1||key==='compute'&&id===2)?query(key,id):pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
+    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
   };
   const body = new Shell({
     page,
-    uiVersion,
     catalog,
     kpis: [],
     matrix: [],
@@ -310,7 +291,7 @@ function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
   });
   body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
   body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
-  if (!['infrastructure','logs'].includes(page)&&(page !== "deep-dive"||context.variables.candidate_id?.[0]))
+  if (page !== "deep-dive"||context.variables.candidate_id?.[0])
     body.setState({
       steps: query("overview", 20),
       summary: query("summary", 2),
@@ -343,15 +324,6 @@ function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
         Boolean,
       ) as VizPanel[],
     });
-  if(page==='overview'||page==='infrastructure')body.setState({components:query('compute',70),relationships:query('compute',71),availability:query('compute',72)});
-  if(page==='infrastructure')body.setState({referencePanels:[native('compute',2),native('compute',8),native('storage',1),native('compute',42)],resourceGpus:query('compute',2),resourceDevices:query('storage',1),infraPanels:INFRASTRUCTURE_PANELS.map(s=>native(s.dashboard,s.panel))});
-  if(page==='logs'){
-    const logSource=findPanel(catalog.logs,1);
-    // The canonical log page calls its directory run_id. Scene Run context
-    // retains telemetry ownership, so alias only this template variable.
-    const logPanel=logSource?{...logSource,targets:logSource.targets?.map(target=>({...target,expr:target.expr?.replace(/\$run_id\b/g,'$log_run_id')}))}:undefined;
-    body.setState({events:query('timeline',10),logPanels:[logPanel?viz(logPanel):undefined,...LOGS_PANELS.slice(1).map(s=>native(s.dashboard,s.panel))]});
-  }
   // Scene objects must be direct state properties / array elements. A plain
   // dictionary is not parented by Scenes and silently loses variable/time scope.
   if (page === "analyze")
@@ -361,14 +333,12 @@ function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
         return query(spec.dashboard, spec.panel, spec.refs);
       }),
     });
-  if (page === "analyze")body.setState({analysisRelated:[native("stage",2),native("overview",30),native("overview",31),native("stage",4)]});
   if (page === "analyze")
     body.setState({
       workerDurations: query("stage", 4, ["A"]),
       workerSteps: query("overview", 44, ["A"]),
       workerAge: query("stage", 3, ["A"]),
     });
-  if(page==='investigate')body.setState({related:[native('signals',5),native('stage',60),native('compute',9)].filter(Boolean) as VizPanel[]});
   if (page === "analyze" || page === "investigate" || page === "deep-dive") {
     body.setState({
       pressure: PRESSURE_SPECS.map((s) => query(s.dashboard, s.panel, s.refs)),
@@ -391,30 +361,37 @@ function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
     }),
     $variables: variables(catalog, context),
     body,
-    controls: uiVersion==='workspace'?undefined:[],
+    controls: [],
   });
 }
 let loadedCatalog: Catalog;
 function createApp() {
-  const pages = sceneRoutes().map(
-    ({page,version,path}) =>
+  const pages = (
+    ["overview", "analyze", "investigate", "timeline", "deep-dive"] as Page[]
+  ).map(
+    (page) =>
       new SceneAppPage({
-        title: PAGE_LABELS[page],
-        layout: version==='workspace'?PageLayoutType.Custom:PageLayoutType.Standard,
-        renderTitle: (title) => version==='workspace'?null:(
+        title: {
+          overview: "Run Overview",
+          analyze: "Analyze · Phase × Subsystem",
+          investigate: "Investigation",
+          timeline: "Agent RL Timeline",
+          "deep-dive": "Deep Dive",
+        }[page],
+        renderTitle: (title) => (
           <h1 className="xlt-page-title">
             XLayer Telemetry <span> / {title}</span>
           </h1>
         ),
-        url: path,
-        routePath: path,
+        url: `${APP_BASE}/${page}`,
+        routePath: `${APP_BASE}/${page}`,
         preserveUrlKeys: [
           "from",
           "to",
-          "timezone", "kiosk",
+          "timezone",
           ...VARIABLE_NAMES.map((n) => `var-${n}`),
         ],
-        getScene: () => makeScene(page, loadedCatalog,version),
+        getScene: () => makeScene(page, loadedCatalog),
       }),
   );
   return new SceneApp({
@@ -441,19 +418,16 @@ function Ready() {
 function Root() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
-  const [uiVersion,setUiVersion]=useState(versionFromPath(window.location.pathname));
-  useEffect(()=>locationService.getHistory().listen(()=>setUiVersion(versionFromPath(window.location.pathname))),[]);
   useEffect(() => {
     let active = true;
     if (
       window.location.pathname === APP_BASE ||
-      window.location.pathname === `${APP_BASE}/`||window.location.pathname===`${APP_BASE}/v2`||window.location.pathname===`${APP_BASE}/v2/`
+      window.location.pathname === `${APP_BASE}/`
     ) {
       locationService.replace(
-        appLink("overview", readContext(window.location.search,versionFromPath(window.location.pathname))),
+        appLink("overview", readContext(window.location.search)),
       );
     }
-    if(versionFromPath(window.location.pathname)==='workspace'&&!new URLSearchParams(window.location.search).has('kiosk'))window.location.replace(appLink(window.location.pathname.split('/').pop()||'overview',readContext(window.location.search,'workspace')));
     loadCatalog()
       .then((c) => {
         loadedCatalog = c;
@@ -469,22 +443,21 @@ function Root() {
       active = false;
     };
   }, []);
-  const theme=React.useMemo(()=>createTheme({colors:{mode:uiVersion==='workspace'?'dark':'light',...(uiVersion==='workspace'?{background:{canvas:'#00111c',primary:'#041b2b',secondary:'#082438',elevated:'#0b2c40'},text:{primary:'#edf5fd',secondary:'#a9c7df',link:'#00c8ef'},border:{weak:'#123c53',medium:'#19516c',strong:'#0084b4'}}:{})}}),[uiVersion]);
-  return <ThemeContext.Provider value={theme}><div className="xlt-frame" data-ui={uiVersion}>{status === "ready" ? (
+  return status === "ready" ? (
     <Ready />
   ) : (
-    <div className="xlt" >
+    <div className="xlt">
       <p>
         {status === "loading"
           ? "Loading provisioned XLayer dashboards…"
           : error}
       </p>
     </div>
-  )}</div></ThemeContext.Provider>;
+  );
 }
 export const plugin = new AppPlugin().setRootPage(Root);
 
-function useData(provider: SceneDataProvider | undefined) {
+function useData(provider: SceneQueryRunner | undefined) {
   const [snapshot, setSnapshot] = useState({provider,data:provider?.state.data});
   useEffect(() => {
     setSnapshot({provider,data:provider?.state.data});
@@ -593,8 +566,6 @@ function Link({
 }
 function ShellView({ model }: { model: Shell }) {
   const state = model.useState();
-  const [location, setLocation] = useState(locationService.getLocation());
-  useEffect(() => locationService.getHistory().listen(() => setLocation(locationService.getLocation())), []);
   const stepData = useData(state.steps),
     summaryData = useData(state.summary),
     compareData = useData(state.comparison),
@@ -615,7 +586,7 @@ function ShellView({ model }: { model: Shell }) {
     evidence = records(evidenceData),
     spans = records(spanData),
     events = records(eventData);
-  const context = readContext(location.search,state.uiVersion),
+  const context = readContext(window.location.search),
     record = context.variables.record_id?.[0];
   const contextKey = investigationKey(context);
   useEffect(() => {
@@ -670,9 +641,8 @@ function ShellView({ model }: { model: Shell }) {
   const baselineSpans=records(baselineSpanData);
   const workspaceCandidate=diagnosis.find(c=>c.candidate_id===context.variables.candidate_id?.[0]);
   return (
-    <div className="xlt-app-layout" data-ui={state.uiVersion} data-page={state.page}>
-    {state.uiVersion==='workspace'&&<WorkspaceNavigation page={state.page} context={context}/>}
-    <div className="xlt" data-page={state.page}>
+    <div className="xlt-app-layout">
+    <div className="xlt">
       <header className="xlt-header">
         <div>
           <span className="xlt-eyebrow">
@@ -680,7 +650,7 @@ function ShellView({ model }: { model: Shell }) {
             {synthetic && <span className="xlt-badge">Synthetic demo</span>}
           </span>
           <h2>
-            {state.uiVersion==='workspace'?WORKSPACE_COPY[state.page].title:state.page === "overview"
+            {state.page === "overview"
               ? "Run Overview"
               : state.page === "analyze"
                 ? "Phase × Subsystem Analysis"
@@ -688,10 +658,9 @@ function ShellView({ model }: { model: Shell }) {
                   ? `${boundary.label} Investigation`
                   : state.page === "timeline"
                     ? "Follow the same interval"
-                  : state.page==='infrastructure'?'Cluster Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
+                  : workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
-          {state.uiVersion==='workspace'&&<p className="xlt-reference-subtitle">{WORKSPACE_COPY[state.page].description}</p>}
-          <p className="xlt-header-context">
+          <p>
             <b>
               {scalar(
                 selected?.run_id,
@@ -713,7 +682,6 @@ function ShellView({ model }: { model: Shell }) {
           )}
         </div>
         <div className="xlt-header-actions">
-          <a className="xlt-version-switch" href={appLink(state.page,switchVersion(context,state.uiVersion==='classic'?'workspace':'classic'))}>{state.uiVersion==='classic'?'V2 Workspace':'V1 Classic'}</a>
           {selected && (
             <button
               onClick={() => navigate("analyze", selectStep(selected, context))}
@@ -726,9 +694,9 @@ function ShellView({ model }: { model: Shell }) {
           </Link>
         </div>
       </header>
-      <nav className="xlt-nav xlt-reference-tabs" aria-label="XLayer investigation">
+      <nav className="xlt-nav" aria-label="XLayer investigation">
         <>
-          {PAGES.filter(p=>state.uiVersion!=='workspace'||p!=='logs').map(
+          {(["overview", "analyze", "investigate", "deep-dive"] as Page[]).map(
             (p) => (
               <a
                 key={p}
@@ -739,24 +707,22 @@ function ShellView({ model }: { model: Shell }) {
                   navigate(p);
                 }}
               >
-                {state.uiVersion==='workspace'&&<WorkspaceIcon name={WORKSPACE_COPY[p].icon}/>}
-                <span>{
+                {
                   {
                     overview: "Overview",
                     analyze: "Analyze",
                     investigate: "Investigate",
                     timeline: "Timeline",
                     "deep-dive": "Deep Dive",
-                    infrastructure:'Infrastructure',logs:'Logs & Events',
                   }[p]
-                }{state.uiVersion==='workspace'&&<small>{({overview:'전체 현황',analyze:'성능 분석',investigate:'상세 분석','deep-dive':'스토리지 심층 분석',infrastructure:'인프라 현황',logs:'로그 검색'} as Record<string,string>)[p]}</small>}</span>
+                }
               </a>
             ),
           )}
         </>
       </nav>
       <RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>
-      {selected&&!['infrastructure','logs'].includes(state.page)&&<p className="xlt-muted xlt-clock-quality" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
+      {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
 
       <details className="xlt-filters">
         <summary>Trace, GPU, engine and evidence filters</summary>
@@ -785,8 +751,7 @@ function ShellView({ model }: { model: Shell }) {
       {state.page === "overview" && (
         <>
           {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">No completed Step in this interval. Select a Run/time range; missing history is not a healthy verdict.</p>}
-          {state.uiVersion==='workspace'&&<ReferenceOverview model={model} context={context} selected={selected} events={events} steps={steps} spans={spans}/>}
-          <details className="xlt-reference-additional" open={state.uiVersion!=='workspace'}><summary>Agent RL KPIs · all shared Classic / Workspace values</summary><div className="xlt-kpis">
+          <div className="xlt-kpis">
             {KPI_SPECS.map((spec, index) => (
               <Kpi
                 key={spec.name}
@@ -823,9 +788,9 @@ function ShellView({ model }: { model: Shell }) {
               />
             ))}
             <ErrorKpi spans={spans} data={spanData} />
-          </div></details>
+          </div>
           {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework-reported MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · completed logger observation</p>}
-          <section className="xlt-overview-top xlt-classic-overview"><div>
+          <section className="xlt-overview-top"><div>
             <div className="xlt-section">
               <h3>Agent RL Timeline</h3>
               <button onClick={() => navigate("timeline")}>
@@ -848,7 +813,7 @@ function ShellView({ model }: { model: Shell }) {
                 catalog={state.catalog}
               />
             </div></section>
-          <section className="xlt-observe-grid xlt-classic-overview">
+          <section className="xlt-observe-grid">
             <div>
               <h3>Related Metrics</h3>
               <p className="xlt-muted">
@@ -860,7 +825,6 @@ function ShellView({ model }: { model: Shell }) {
             <div>
               <h3>System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">Saved diagnosis signals, not collector-UP health.</p></div>
           </section>
-          <div className="xlt-classic-overview"><ClusterSummary model={model} context={context}/></div>
           <PolicyLifecycle events={events} context={context} catalog={state.catalog}/>
           <details className="xlt-completed-detail">
             <summary>Completed Steps · choose another investigation</summary>{" "}
@@ -882,7 +846,7 @@ function ShellView({ model }: { model: Shell }) {
         </>
       )}
       {state.page === "analyze" && (
-        <div className="xlt-analyze-layout">
+        <>
           {!selected && (
             <section>
               <h3>Select a completed Step</h3>
@@ -895,7 +859,7 @@ function ShellView({ model }: { model: Shell }) {
             </section>
           )}
           {selected && (
-            <section className="xlt-phase-matrix-section">
+            <section>
               <div className="xlt-section">
                 <h3>Phase × Subsystem</h3>
                 <button onClick={() => navigate("investigate")}>
@@ -920,10 +884,9 @@ function ShellView({ model }: { model: Shell }) {
               />
             </section>
           )}
-          {state.uiVersion==='workspace'&&<ReferenceStepContext selected={selected} context={context} clock={correlationClock}/>}
           <Pressure model={model} selected={selected} spans={spans} spanData={spanData} />
-          <section className="xlt-analysis-signals"><h3>Subsystem Signals</h3><HealthSummary candidates={diagnosis}/></section><div className="xlt-analysis-extra"><TopChanges rows={current}/></div><div className="xlt-analysis-extra"><WorkerOutliers model={model} selected={selected}/></div>{state.uiVersion==='workspace'&&selected&&<div className="xlt-reference-workers"><WorkerComparison model={model} selected={selected} spans={spans}/></div>}<section className="xlt-analysis-related"><h3>Related Metrics</h3>{state.uiVersion==='workspace'?<div className="xlt-four-charts">{state.analysisRelated?.map((panel,i)=><Native key={i} panel={panel}/>)}</div>:<RelatedTabs panels={state.analysisRelated?.filter(Boolean) as VizPanel[]||[]}/>}</section>
-        </div>
+          <section><h3>Subsystem Signals</h3><HealthSummary candidates={diagnosis}/></section><TopChanges rows={current}/><WorkerOutliers model={model} selected={selected} />
+        </>
       )}
       {state.page === "investigate" && (
         <>
@@ -939,7 +902,7 @@ function ShellView({ model }: { model: Shell }) {
             </section>
           )}
           {selected && (
-            <div className="xlt-investigation-grid">
+            <>
               <section className="xlt-investigation-section">
                 <div className="xlt-section">
                   <h3>What changed?</h3>
@@ -977,9 +940,9 @@ function ShellView({ model }: { model: Shell }) {
                         )
                         .map((r, i) => (
                           <tr key={i}>
-                            <td title={scalar(r.signal)}>{r.signal==='step_duration_seconds'?boundary.timeLabel:state.uiVersion==='workspace'?signalTitle(scalar(r.signal)):scalar(r.signal)}</td>
-                            <td data-label="Current">{format(r.current, scalar(r.unit, ""))}</td>
-                            <td data-label="Baseline">{format(r.baseline, scalar(r.unit, ""))}</td>
+                            <td title={scalar(r.signal)}>{r.signal==='step_duration_seconds'?boundary.timeLabel:scalar(r.signal)}</td>
+                            <td>{format(r.current, scalar(r.unit, ""))}</td>
+                            <td>{format(r.baseline, scalar(r.unit, ""))}</td>
                             <td>
                               <Delta row={r} />
                             </td>
@@ -999,7 +962,7 @@ function ShellView({ model }: { model: Shell }) {
                   </p>
                 )}
               </section>
-              <p className="xlt-investigation-actions">
+              <p>
                 <button onClick={() => navigate("analyze")}>
                   Open Phase × Subsystem →
                 </button>{" "}
@@ -1007,7 +970,7 @@ function ShellView({ model }: { model: Shell }) {
                   Inspect measured timeline →
                 </button>
               </p>
-              <section className="xlt-investigation-candidates">
+              <section>
                 <h3>Bottleneck Candidates</h3>
                 <DataStatus provider={state.candidates} />
                 <div className="xlt-candidates">
@@ -1125,9 +1088,7 @@ function ShellView({ model }: { model: Shell }) {
                   </p>
                 )}
               </section>
-              <section className="xlt-investigation-timeline"><h3>Related Cross-Layer Timeline</h3>{state.uiVersion==='workspace'?<ReferenceTimeline selected={selected} spans={spans} context={context}/>:<Native panel={state.timeline}/>}<p className="xlt-muted">Measured spans / approximate Step boundaries; overlap is not resource ownership.</p>{state.uiVersion==='workspace'&&<div className="xlt-investigation-related"><h4>Related Metrics · same interval</h4>{state.related.slice(0,3).map((panel,i)=><Native key={i} panel={panel}/>)}</div>}</section>
-              <section className="xlt-investigation-proof"><h3>Evidence Summary</h3>{(['supporting','counter','missing'] as const).map(type=><details key={type} open={state.uiVersion!=='workspace'&&type==='supporting'}><summary>{type==='counter'?'Counter':type==='missing'?'Missing':'Supporting'} ({proofs.filter(row=>row.evidence_type===type).length})</summary>{proofs.filter(row=>row.evidence_type===type).map((row,index)=><p key={index}><b>{scalar(row.signal)}</b><small>{scalar(row.observation_scope)} · {scalar(row.reason,row.detail?scalar(row.detail):'See candidate evidence')}</small></p>)}</details>)}{!proofs.length&&<p className="xlt-empty">No saved evidence. No causal conclusion is inferred.</p>}</section>
-            </div>
+            </>
           )}
         </>
       )}
@@ -1180,10 +1141,8 @@ function ShellView({ model }: { model: Shell }) {
         </details>
       )}
       {state.page === "deep-dive" && (
-        <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section className="xlt-phase-correlation"><h3>Phase Correlation · measured intervals</h3>{state.uiVersion==='workspace'?<ReferenceTimeline selected={selected} spans={spans} context={context}/>:<Native panel={state.timeline}/>}<p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section className="xlt-related-dashboards"><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
+        <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}
-      {state.page==='infrastructure'&&<Infrastructure model={model} context={context}/>}
-      {state.page==='logs'&&<LogsWorkspace model={model} context={context} events={events} steps={steps} spans={spans}/>}
       {state.selectedCell && (
         <div className="xlt-evidence-layout">
           <div>
@@ -1209,82 +1168,6 @@ function ShellView({ model }: { model: Shell }) {
     </div>
   );
 }
-function WorkspaceNavigation({page,context}:{page:Page;context:Context}){
- const labels={overview:'Run Overview',analyze:'Analyze',investigate:'Investigate','deep-dive':'Deep Dive',infrastructure:'Infrastructure',logs:'Logs'};
- const descriptions={overview:'실행 현황 및 인프라',analyze:'성능 분석',investigate:'상세 분석','deep-dive':'스토리지 심층 분석',infrastructure:'클러스터 인프라',logs:'로그 검색'};
- return <aside className="xlt-workspace-nav"><a className="xlt-workspace-brand" href={appLink('overview',context)}><WorkspaceMark/><span><em>XLayer</em> Telemetry<small>Observe · Understand · Scale Agent RL</small></span></a><nav aria-label="Workspace pages">{PAGES.map(p=><a key={p} href={appLink(p,context)} aria-current={page===p?'page':undefined}><WorkspaceIcon name={WORKSPACE_COPY[p].icon}/><span>{labels[p]}<small>{descriptions[p]}</small></span></a>)}</nav><div className="xlt-workspace-version"><b>Better Agents<br/>Through Better Data</b><span>XLayer Telemetry</span><a href={appLink(page,switchVersion(context,'classic'))}>V1 Classic</a></div></aside>;
-}
-function ReferenceMetric({panel}:{panel?:VizPanel}){
- const data=useData(panel?.state.$data),values=latestEntitySamples(samples(data));
- const state=data?.state===LoadingState.Error?'Query error':data?.state===LoadingState.Loading?'Loading…':!values.length?'No data':values.length>1?`${values.length} series`:format(values[0].value,panel?.state.fieldConfig?.defaults?.unit||values[0].unit||'');
- return <><div className="xlt-reference-metric-value"><strong>{state}</strong><small>{values.length===1?'Range-end query · sampled / rolling':'Multiple source series · no aggregation'}</small></div><Native panel={panel}/></>;
-}
-function ReferenceTimeline({selected,spans,context,compact=false}:{selected?:RecordRow;spans:RecordRow[];context:Context;compact?:boolean}){
- const start=numeric(selected?.window_start_ms),end=numeric(selected?.window_end_ms);
- if(!selected||start===undefined||end===undefined||end<=start)return <p className="xlt-empty">Select a completed observation for an execution-linked timeline.</p>;
- const mapped=timelineCalls(spans,selected);
- const phases=[...new Set(mapped.map(row=>String(row.span.phase)))].slice(0,10);
- if(!phases.length)return <p className="xlt-empty">No clock-qualified measured intervals. Native detailed Timeline retains raw/approximate observations.</p>;
- const width=compact?1000:650,left=compact?0:110,rows=compact?1:phases.length,height=compact?48:rows*24+25;
- return <div className="xlt-reference-timeline"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Clock-qualified measured call intervals; workers remain distinct">
- {!compact&&phases.map((phase,index)=><g key={phase}><text x="0" y={index*24+16}>{phase.replace(/_/g,' ')}</text><path className="xlt-timeline-grid" d={`M${left} ${index*24+23}H${width}`}/></g>)}
- {mapped.map(({span,window},index)=>{const phase=String(span.phase),row=phases.indexOf(phase);if(row<0||window.start===undefined||window.end===undefined)return null;const peers=mapped.filter(item=>item.span.phase===phase),lane=peers.indexOf(mapped[index]);const x=left+(window.start-start)/(end-start)*(width-left),right=left+(window.end-start)/(end-start)*(width-left),y=compact?3+index*2:row*24+3+lane*Math.min(4,16/peers.length);return <a key={index} href={appLink('timeline',{...context,variables:{...context.variables,trace_id:span.trace_id?[String(span.trace_id)]:context.variables.trace_id}})}><rect x={x} y={y} width={Math.max(2,right-x)} height={compact?1.5:Math.max(2,Math.min(9,16/peers.length))} rx="1.5" fill={PHASE_COLORS[phase as keyof typeof PHASE_COLORS]||'#00c8ef'}/><title>{scalar(span.name)} · {scalar(span.node)} / {scalar(span.worker_id)} · {window.accuracy} · {format((window.end-window.start)/1000,'s')} · uncertainty {format(window.uncertainty,'s')}</title></a>;})}
- <text x={left} y={height-3}>{new Date(start).toLocaleTimeString()}</text><text textAnchor="end" x={width-2} y={height-3}>{new Date(end).toLocaleTimeString()}</text>
- </svg><small>{mapped.length} linked calls · separate worker tracks · exact/calibrated boundaries, not phase resource ownership</small></div>;
-}
-
-function ReferenceNodeFacts({node,catalog,context}:{node?:ResourceNode;catalog:Catalog;context:Context}){
- return <section className="xlt-reference-resource"><div className="xlt-section"><h3><WorkspaceIcon name="user"/>Selected Resource</h3><a href={appLink('infrastructure',context)}>상세 정보 →</a></div>{node?<><h4><WorkspaceIcon name={node.kind==='compute'?'cpu':'database'}/>{node.component}<span className="xlt-badge">{node.status.replace(/_/g,' ')}</span></h4><dl><dt>Cluster / kind</dt><dd>{node.cluster} · {node.kind}</dd><dt>Role</dt><dd>{node.role} · configured</dd><dt>Resource owner</dt><dd>{node.resourceNode||'Unknown mapping'}</dd><dt>Device / GPU</dt><dd>{node.device||node.gpu||'Not reported'}</dd><dt>Exporter</dt><dd>{node.targets.join(', ')||'Not registered'}</dd></dl>{node.resourceNode&&<Link to={node.kind==='storage'?'storage':'compute'} context={selectInfrastructure(context,node)} catalog={catalog}>Resource metrics →</Link>}</>:<p className="xlt-empty">Topology에서 resource를 선택하세요. Owner·hardware 정보는 추정하지 않습니다.</p>}<small>Configured identity / exporter observation, not health.</small></section>;
-}
-function ReferenceOverview({model,context,selected,events,steps,spans}:{model:Shell;context:Context;selected?:RecordRow;events:RecordRow[];steps:RecordRow[];spans:RecordRow[]}){
- const state=model.useState(),components=useData(state.components),edges=useData(state.relationships),availability=useData(state.availability),range=sceneGraph.getTimeRange(model).useState();
- const topology=infrastructureModel(samples(components),samples(edges),samples(availability),range.value.to.valueOf());
- const hosts=topology.nodes.filter(node=>!node.device&&node.gpu===undefined),compute=hosts.filter(node=>node.kind==='compute'&&!/network|fabric/i.test(node.role)),storage=hosts.filter(node=>node.kind==='storage'&&!/network|fabric/i.test(node.role)),network=hosts.filter(node=>/network|fabric/i.test(node.role));
- const resource=topology.nodes.find(node=>node.key===context.variables.infra_component?.[0]);
- const tiles=[{label:'GPU / Compute Cluster',icon:'cpu',rows:compute},{label:'Storage Cluster',icon:'database',rows:storage},{label:'Network Inventory',icon:'topology',rows:network}];
- return <div className="xlt-reference-overview"><div className="xlt-overview-clusters">{tiles.map(tile=>{const observed=tile.rows.filter(row=>row.status==='observed').length;return <section key={tile.label}><WorkspaceIcon name={tile.icon} size={34}/><div><h4>{tile.label}</h4><strong>{components?.state===LoadingState.Error||availability?.state===LoadingState.Error?'Query error':tile.rows.length?`${observed} / ${tile.rows.length}`:'No inventory'}</strong><small>Exporter observed / configured</small><div className="xlt-coverage-meter"><i style={{width:`${tile.rows.length?observed/tile.rows.length*100:0}%`}}/></div></div></section>;})}<section><WorkspaceIcon name="pulse" size={34}/><div><h4>Completed observations</h4><strong>{steps.length||'No data'}</strong><small>Returned Step history · not active runs</small><a href={appLink('analyze',context)}>Analyze {selected?`Step ${scalar(selected.step)}`:'a Step'} →</a></div></section></div>
- <section className="xlt-overview-topology"><div className="xlt-section"><h3><WorkspaceIcon name="topology"/>Cluster Topology</h3><a href={appLink('infrastructure',context)}>클러스터 구성 →</a></div><DataStatus provider={state.components}/><DataStatus provider={state.availability}/><TopologyView variant="workspace" nodes={topology.nodes} edges={topology.edges} selected={resource?.key} onSelect={node=>locationService.push(appLink('overview',selectInfrastructure(context,node)))}/></section>
- <div className="xlt-overview-inspector"><ReferenceNodeFacts node={resource} catalog={state.catalog} context={context}/><section><h3><WorkspaceIcon name="logs"/>Recent Events</h3><DataStatus provider={state.events}/><RecentEvents rows={events} steps={steps} spans={spans} context={context} catalog={state.catalog}/></section><section className="xlt-next-actions"><h3><WorkspaceIcon name="arrow"/>Next Investigation</h3>{(['analyze','investigate','deep-dive','logs'] as const).map((page,i)=><a key={page} href={appLink(page,context)}><b>{i+1}</b><span>{WORKSPACE_COPY[page].title}<small>{WORKSPACE_COPY[page].description}</small></span><WorkspaceIcon name="arrow" size={16}/></a>)}</section></div>
- <section className="xlt-overview-run-timeline"><div className="xlt-section"><h3><WorkspaceIcon name="topology"/>Run Timeline</h3><a href={appLink('timeline',context)}>정밀 timeline →</a></div><ReferenceTimeline selected={selected} spans={spans} context={context} compact/><small>Exact / calibrated spans. Approximate Step and unlinked events remain separate.</small></section>
- <div className="xlt-overview-metric-strip">{state.related.slice(0,4).map((panel,index)=><section key={index}><h3><WorkspaceIcon name={['cpu','database','database','topology'][index]}/>{['GPU observations','vLLM queue','KV hit / reuse','Storage connector'][index]}</h3><ReferenceMetric panel={panel}/></section>)}</div>
- </div>;
-}
-function ReferenceStepContext({selected,context,clock}:{selected?:RecordRow;context:Context;clock:string}){
- return <section className="xlt-selected-step-context"><h3><WorkspaceIcon name="logs"/>Selected Step Context</h3><dl><dt>Run / Step</dt><dd>{scalar(selected?.run_id,context.variables.run_id?.join(', '))} / {scalar(selected?.step)}</dd><dt>Boundary</dt><dd>{boundaryPresentation(selected).label} · {scalar(selected?.boundary_scope)}</dd><dt>Node / worker</dt><dd>{scalar(selected?.node)} / {scalar(selected?.worker_id)}</dd><dt>Record</dt><dd title={scalar(selected?.record_id)}>{scalar(selected?.record_id)}</dd><dt>Policy</dt><dd>{scalar(selected?.policy_version,'Not reported')} · trainer report</dd><dt>Clock quality</dt><dd>{clock.replace(/_/g,' ')}</dd></dl><small>Explicit execution identity; overlap does not establish resource ownership.</small></section>;
-}
-
-function ClusterSummary({model,context}:{model:Shell;context:Context}){
- const state=model.useState(),components=useData(state.components),relationships=useData(state.relationships),availability=useData(state.availability);
- const range=sceneGraph.getTimeRange(model).useState();
- const topology=infrastructureModel(samples(components),samples(relationships),samples(availability),range.value.to.valueOf());
- return <section className="xlt-cluster-summary"><div className="xlt-section"><h3>Cluster Summary</h3><a href={appLink('infrastructure',context)}>Open Infrastructure →</a></div><div className="xlt-health-grid">{[['Configured components',topology.configuredNodes],['Exporter-observed resources',topology.observedNodes],['Unknown mapping / source',topology.unknownNodes]].map(([label,count])=><article className="xlt-card" key={String(label)}><small>{label}</small><b>{components?.state===LoadingState.Error||availability?.state===LoadingState.Error?'Query failed':components?.state===LoadingState.Loading||availability?.state===LoadingState.Loading?'Loading':topology.nodes.length?count:'No data'}</b></article>)}</div><p className="xlt-muted">Configured inventory and sampled exporter reachability · no cluster-health verdict or observed path.</p></section>;
-}
-function Infrastructure({model,context}:{model:Shell;context:Context}){
- const state=model.useState(),componentData=useData(state.components),edgeData=useData(state.relationships),availabilityData=useData(state.availability);
- const gpuData=useData(state.resourceGpus),diskData=useData(state.resourceDevices);
- const range=sceneGraph.getTimeRange(model).useState(),topology=infrastructureModel(samples(componentData),samples(edgeData),samples(availabilityData),range.value.to.valueOf(),30000,[...samples(gpuData),...samples(diskData)]);
- const [search,setSearch]=useState(''),[tab,setTab]=useState('compute'),[inventoryMode,setInventoryMode]=useState('hosts'),[limit,setLimit]=useState(12),[detailOpen,setDetailOpen]=useState(false);
- const selected=topology.nodes.find(node=>node.key===context.variables.infra_component?.[0]);
- useEffect(()=>{if(selected)setTab(selected.kind==='storage'?'storage':/network|fabric/i.test(selected.role)?'network':'compute');},[selected?.key]);
- const select=(node:ResourceNode)=>locationService.push(appLink('infrastructure',selectInfrastructure(context,node)));
- const nodes=topology.nodes.filter(node=>(inventoryMode==='all'||!node.device&&node.gpu===undefined)&&`${node.component} ${node.role} ${node.resourceNode||''}`.toLowerCase().includes(search.toLowerCase()));
- const visible=INFRASTRUCTURE_PANELS.map((spec,index)=>({spec,panel:state.infraPanels?.[index]})).filter(({spec})=>tab==='storage'?spec.dashboard==='storage':tab==='network'?spec.dashboard==='compute'&&[8,9,42].includes(spec.panel):spec.dashboard==='compute'&&![8,9,42].includes(spec.panel));
- return <><div className="xlt-infrastructure-top"><section><div className="xlt-section"><h3>Cluster Topology</h3><span className="xlt-badge">Configured / Observed / Unknown</span></div><DataStatus provider={state.components}/><DataStatus provider={state.availability}/><TopologyView variant={state.uiVersion==='workspace'?'workspace':undefined} nodes={topology.nodes} edges={topology.edges} selected={selected?.key} onSelect={select}/></section><section className="xlt-resource-detail"><h3>Selected Resource</h3>{selected?<><h4>{selected.component}</h4><dl><dt>Role</dt><dd>{selected.role} · configured</dd><dt>Resource node</dt><dd>{selected.resourceNode||'Unknown mapping'}</dd><dt>Observation</dt><dd>{selected.status.replace(/_/g,' ')} · exporter, not health</dd><dt>Device / GPU</dt><dd>{selected.device||selected.gpu||'Not reported'}</dd><dt>Targets</dt><dd>{selected.targets.join(', ')||'Not registered'}</dd></dl>{selected.issues.map(issue=><p className="xlt-notice" key={issue}>{issue}</p>)}{selected.resourceNode?<Link to={selected.kind==='storage'?'storage':'compute'} context={context} catalog={state.catalog}>Detailed resource dashboard</Link>:<p className="xlt-notice">Resource metrics require an explicit owner mapping. No node is inferred.</p>}<p><a href={appLink('investigate',context)}>Open Step investigation →</a></p></>:<p className="xlt-empty">Choose a configured component or an observed exporter. Owner mapping is required for resource drill-down.</p>}</section></div>
- <section className="xlt-resource-metrics-section"><div className="xlt-section"><h3>Resource Metrics</h3><div className="xlt-chips">{['compute','network','storage'].map(kind=><button key={kind} aria-pressed={tab===kind} onClick={()=>{setTab(kind);if(state.uiVersion==='workspace')setDetailOpen(true);}}>{kind}</button>)}</div></div><div className="xlt-infrastructure-metrics">{selected&&!selected.resourceNode?<p className="xlt-empty">Resource metrics withheld: selected component has no unique owner mapping. Current Run context remains available.</p>:state.uiVersion==='workspace'?state.referencePanels?.map((panel,i)=><Native key={i} panel={panel}/>):visible.map(({spec,panel})=><Native key={`${spec.dashboard}/${spec.panel}`} panel={panel}/>)}</div>{state.uiVersion==='workspace'&&<details className="xlt-resource-full-panels" open={detailOpen} onToggle={event=>setDetailOpen(event.currentTarget.open)}><summary>All resource panels · {tab}</summary>{detailOpen&&(!selected||selected.resourceNode)&&<div className="xlt-infrastructure-metrics">{visible.map(({spec,panel})=><Native key={`${spec.dashboard}/${spec.panel}`} panel={panel}/>)}</div>}</details>}<p className="xlt-notice">Storage DS/MDS inventory is separate from GPU-host sandbox local I/O. Device means, service distributions and connector RPC p95 are distinct statistics. 3FS evidence is implemented in Deep Dive; pNFS is TBD.</p></section>
- <section className="xlt-component-inventory"><div className="xlt-section"><h3>Component Inventory</h3><select aria-label="Inventory resource kind" value={inventoryMode} onChange={e=>{setInventoryMode(e.target.value);setLimit(12);}}><option value="hosts">Hosts / services</option><option value="all">All devices / components</option></select><input aria-label="Search component inventory" placeholder="Node, role or device" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="xlt-scroll"><table><thead><tr><th>Component</th><th>Role</th><th>Resource owner</th><th>Source / scope</th><th>Observation</th><th>Next</th></tr></thead><tbody>{nodes.slice(0,limit).map(node=><tr key={node.key}><td>{node.component}<small>{node.cluster} · {node.kind}</small></td><td>{node.role}</td><td>{node.resourceNode||'Unknown'}<small>{node.device?`Device ${node.device}`:node.gpu!==undefined?`GPU ${node.gpu}`:''}</small></td><td>{node.configured?'Configured inventory':'Registered exporter'}<small>Node/device · shared resources</small></td><td>{node.status.replace(/_/g,' ')}</td><td><button onClick={()=>select(node)}>Inspect resource</button></td></tr>)}</tbody></table></div>{!nodes.length&&<p className="xlt-empty">No matching configured or observed resources. Missing is not measured zero.</p>}<p className="xlt-muted">{nodes.length} matching resources · {Math.min(limit,nodes.length)} shown. No observed service/resource edges are currently instrumented.</p>{nodes.length>limit&&<button onClick={()=>setLimit(Math.min(limit+20,200))}>Show more resources</button>}</section>
- <details><summary>Configured relationship inventory · {topology.edges.length} edges</summary><DataStatus provider={state.relationships}/><div className="xlt-scroll"><table><thead><tr><th>Source</th><th>Destination</th><th>Relation</th><th>Evidence</th></tr></thead><tbody>{topology.edges.slice(0,200).map(edge=><tr key={edge.key}><td>{edge.source}</td><td>{edge.destination}</td><td>{edge.relation}</td><td>Configured · operation relationship not observed</td></tr>)}</tbody></table></div></details></>;
-}
-function LogsWorkspace({model,context,events,steps,spans}:{model:Shell;context:Context;events:RecordRow[];steps:RecordRow[];spans:RecordRow[]}){
- const state=model.useState(),[selected,setSelected]=useState<RecordRow>(),[approximateOpen,setApproximateOpen]=useState(false);
- useEffect(()=>setSelected(undefined),[investigationKey(context)]);
- const search=(sceneGraph.lookupVariable('event_search',model) as TextBoxVariable),searchState=search.useState();
- const needle=String(searchState.value||'').toLowerCase(),filtered=events.filter(event=>`${event.name||''} ${event.phase||''} ${JSON.stringify(event.attributes||{})}`.toLowerCase().includes(needle));
- const step=selected?resolveEventStep(selected,steps,spans):undefined;
- return <>{state.uiVersion==='workspace'&&<section className="xlt-logs-context-ribbon"><WorkspaceIcon name="topology"/><span>Cluster<b>{context.variables.cluster?.join(', ')||'Not selected'}</b></span><WorkspaceIcon name="pulse"/><span>Run<b>{context.variables.run_id?.join(', ')||'Not selected'}</b></span><WorkspaceIcon name="database"/><span>Step<b>{scalar(steps.find(row=>row.record_id===context.variables.record_id?.[0])?.step,'Not selected')}</b></span><WorkspaceIcon name="cpu"/><span>Resource<b>{context.variables.node?.join(', ')||'Not selected'}</b></span><small>Same native context · no independent filters</small></section>}<div className="xlt-logs-workspace"><section className="xlt-log-filter-rail"><h3>Log / Event Filters</h3><div className="xlt-log-filters">{['workload','log_run_id','node','log_search','log_severity','event_search'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><p className="xlt-muted">Log directory and telemetry Run are independent. Text severity is a literal raw-log filter, not inferred structured severity. Event search filters returned records only.</p></section>
- <div className="xlt-logs-grid"><section><div className="xlt-section"><h3>Raw Logs</h3><Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logPanels?.[0]?<Native panel={state.logPanels[0]}/>:<p className="xlt-empty">Loki / Run Logs not provisioned. No log data is not an error count of zero.</p>}</section><section className="xlt-event-detail"><h3>Event Details</h3>{selected?<><b>{scalar(selected.name)}</b>{state.uiVersion==='workspace'?<><dl>{[['Event',selected.name],['Producer',selected.producer],['Node / worker',`${scalar(selected.node)} / ${scalar(selected.worker_id)}`],['Run / Step',`${scalar(selected.run_id)} / ${scalar(selected.step)}`],['Boundary',selected.boundary_accuracy],['Clock reference',selected.clock_reference],['Trace',selected.trace_id],['Event time',eventTime(selected)!==undefined?new Date(eventTime(selected)!).toISOString():'Unknown']].map(([label,value])=><React.Fragment key={String(label)}><dt>{String(label)}</dt><dd>{scalar(value,'Not reported')}</dd></React.Fragment>)}</dl><details open><summary>Original record / attributes</summary><pre>{JSON.stringify(selected,null,2)}</pre></details></>:<pre>{JSON.stringify(selected,null,2)}</pre>}{step?.state==='matched'?<a href={appLink('investigate',selectStep(step.step!,context))}>Investigate matching Step →</a>:<p className="xlt-notice">No unique execution-linked Step. Timestamp coincidence does not establish ownership.</p>}</>:<p className="xlt-empty">Select an actual returned event to inspect its source, Run/Step and trace fields.</p>}</section></div>
- <section className="xlt-event-list"><h3>Events · returned records</h3><DataStatus provider={state.events}/><div className="xlt-scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Phase</th><th>Node / worker</th><th>Run / Step</th><th>Next</th></tr></thead><tbody>{filtered.slice(-100).reverse().map((event,i)=><tr key={i}><td>{eventTime(event)!==undefined?new Date(eventTime(event)!).toLocaleTimeString():'Unknown source time'}</td><td>{scalar(event.name)}</td><td>{scalar(event.phase)}</td><td>{scalar(event.node)} / {scalar(event.worker_id)}</td><td>{scalar(event.run_id)} / {scalar(event.step)}</td><td><button onClick={()=>setSelected(event)}>Inspect event</button></td></tr>)}</tbody></table></div>{!filtered.length&&<p className="xlt-empty">No matching event records in the selected range. Uncollected events are not invented.</p>}<p className="xlt-muted">First/last returned query records only · no global severity total or synthetic event-volume histogram.</p></section><section className="xlt-log-timeline"><h3>Related Agent RL Timeline</h3>{state.uiVersion==='workspace'?<ReferenceTimeline selected={steps.find(step=>step.record_id===context.variables.record_id?.[0])} spans={spans} context={context}/>:<Native panel={state.logPanels?.[2]}/>}<details onToggle={event=>setApproximateOpen(event.currentTarget.open)}><summary>Approximate Step intervals</summary>{approximateOpen&&<Native panel={state.logPanels?.[3]}/>}</details><p className="xlt-muted">Exact/calibrated spans and approximate Step intervals retain their precision and ownership boundaries.</p><a href={appLink('timeline',context)}>Detailed Timeline →</a></section></div></>;
-}
-
 function Steps({
   rows,
   selected,
@@ -1429,7 +1312,7 @@ function Kpi({
       {(projected||selection.state==='observed')&&trend.length>1&&<div className="xlt-spark" title={projected?'Saved Step observations, not a causal model':'Sampled trend for the displayed entity'}>
         <Sparkline theme={theme} width={110} height={25} sparkline={{
           x:{name:'Time',type:FieldType.time,values:trend.map(p=>p.time),config:{}},
-          y:{name:spec.name,type:FieldType.number,values:trend.map(p=>p.value),config:{color:{mode:'fixed',fixedColor:theme.isDark?'#00c8ef':'#4566d5'}},state:{range:{min:Math.min(...trend.map(p=>p.value)),max:Math.max(...trend.map(p=>p.value)),delta:Math.max(...trend.map(p=>p.value))-Math.min(...trend.map(p=>p.value))}}}
+          y:{name:spec.name,type:FieldType.number,values:trend.map(p=>p.value),config:{color:{mode:'fixed',fixedColor:'#4566d5'}},state:{range:{min:Math.min(...trend.map(p=>p.value)),max:Math.max(...trend.map(p=>p.value)),delta:Math.max(...trend.map(p=>p.value))-Math.min(...trend.map(p=>p.value))}}}
         }}/>
       </div>}
       {ages && !projected && reported===undefined && age!==undefined && (
@@ -1476,10 +1359,10 @@ function Kpi({
 }
 
 function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
- const ctx=readContext(window.location.search,versionFromPath(window.location.pathname)),workerKey=ctx.variables.phase_worker?.[0];
+ const ctx=readContext(window.location.search),workerKey=ctx.variables.phase_worker?.[0];
  const choices=executionChoices(spans,selected),ownSpans=selectExecution(spans,workerKey),ownBaseline=selectExecution(baselineSpans,workerKey),phases=observedPhases(spans,selected,workerKey);
  const phaseName=(name:string)=>({actor_update:'Training · actor',weight_sync:'Weight Sync',checkpoint_save:'Checkpoint',critic_update:'Training · critic',reference_log_prob:'Reference log prob',reference:'Reference',checkpoint_load:'Checkpoint load',rollout:'Rollout',reward:'Reward'}[name]||name);
- return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · choose worker if ambiguous</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>Selected worker outside range</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{(model.state.uiVersion==='workspace'?(['gpu','vllm','kv','storage','network','sandbox','ray'] as Array<typeof SUBSYSTEMS[number]>):SUBSYSTEMS).map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
+ return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · choose worker if ambiguous</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>Selected worker outside range</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
                 baselineClockProof={baselineClockProof}/>)}</tbody></table></div>}{!phases.length&&<p className="xlt-empty">No comparable phase window for this worker. Check Step/span clock reference and uncertainty; call duration remains available in Worker Comparison.</p>}<div className="xlt-matrix-legend"><span>Sampled = query observations</span><span>Shared / Session = context, not ownership</span><span>Rolling = lookback beyond phase</span><span>— = no linked observation</span></div><p className="xlt-muted">Delta compares gauge window means only when declared workload fields, instrumented phase and entity match. Rolling/session values have no phase delta. Actor and critic updates remain separate.</p></>;
 }
 function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{subsystem:string;phases:string[];model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
@@ -1487,7 +1370,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
  const data=useData(model.state.matrix[index]),baseData=useData(model.state.baselineMatrix?.[index]),spec=MATRIX_SPECS[s];
  const panel=findPanel(model.state.catalog[spec.dashboard],spec.panel),unit=panel?.fieldConfig?.defaults?.unit||spec.unit;
  const values=samples(data).map(p=>({...p,unit})),baseValues=samples(baseData).map(p=>({...p,unit}));
- const context=readContext(window.location.search,versionFromPath(window.location.pathname)),variable=`matrix_${s}_entity` as typeof VARIABLE_NAMES[number],selectedKey=context.variables[variable]?.[0];
+ const context=readContext(window.location.search),variable=`matrix_${s}_entity` as typeof VARIABLE_NAMES[number],selectedKey=context.variables[variable]?.[0];
  const entities=matrixEntities(values);const activeKey=selectedKey|| (entities.length===1?entities[0].key:undefined);
  const chosen=filterMatrixEntity(values,activeKey),baselineChosen=filterMatrixEntity(baseValues,activeKey),stepCell=stepEvidenceCell(evidence,s);
  const title=({gpu:'GPU',vllm:'vLLM',kv:'KV Cache',ray:'Ray',network:'Network',storage:'Storage',sandbox:'Sandbox'} as Record<string,string>)[s];
@@ -1509,7 +1392,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
   const observed=cell.value!==undefined;
   const label=data?.state===LoadingState.Error?'Query error':cell.sample&&cell.value===undefined&&cell.explanation.startsWith('Clock quality is')?'Clock unverified':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
   const quality=s==='ray'?'Session context':cell.binding==='rolling-context'?`Rolling${typeof lookback==='number'?` ${lookback/1000}s`:''} · ${cell.scope==='shared-service'?'Shared':'Node'}`:cell.scope==='shared-service'?'Sampled · Shared':cell.scope==='worker/cgroup'?'Sampled · Worker':'Sampled · Node';
-  return <td key={phase}><button className="xlt-cell" disabled={data?.state===LoadingState.Loading} aria-busy={data?.state===LoadingState.Loading} aria-label={`${phase} × ${s} evidence`} title={cell.explanation} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={comparison.reason}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?(model.state.uiVersion==='workspace'?'Δ 0%':'No change vs baseline'):`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}%${model.state.uiVersion==='workspace'?'':' vs baseline'}`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
+  return <td key={phase}><button className="xlt-cell" disabled={data?.state===LoadingState.Loading} aria-busy={data?.state===LoadingState.Loading} aria-label={`${phase} × ${s} evidence`} title={cell.explanation} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={comparison.reason}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?'No change vs baseline':`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}% vs baseline`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
  })}</tr>;
 }
 
@@ -1741,7 +1624,7 @@ function Pressure({
             key={spec.name}
             spec={spec}
             provider={model.state.pressure[index]}
-            context={readContext(window.location.search,versionFromPath(window.location.pathname))}
+            context={readContext(window.location.search)}
             catalog={model.state.catalog}
             evidence={pressureEvidence}
           />
@@ -1784,7 +1667,7 @@ function PressureCard({
       ) : !entities.length ? (
         <p className="xlt-muted">No data</p>
       ) : (
-        ranked.slice(0,context.uiVersion==='workspace'?1:2).map((row, i) => {const s=row.sample;return (
+        ranked.slice(0, 2).map((row, i) => {const s=row.sample;return (
           <div className="xlt-pressure-value" key={i}>
             <strong>{format(s.value * (spec.scale || 1), spec.unit)}</strong>
             <small className="xlt-entity" title={JSON.stringify(s.labels)}>{compactEntity(s.labels)}</small>
@@ -1793,8 +1676,8 @@ function PressureCard({
           </div>
         );})
       )}
-      {entities.length > (context.uiVersion==='workspace'?1:2) && (
-        <small>+{entities.length - (context.uiVersion==='workspace'?1:2)} other entities · open details</small>
+      {entities.length > 2 && (
+        <small>+{entities.length - 2} other entities · open details</small>
       )}
       <p className="xlt-muted">{spec.scope}</p>
       <Link to={spec.dashboard} context={context} catalog={catalog}>
@@ -1819,7 +1702,7 @@ function WorkerOutliers({
     samples(step),
     samples(age),
     Number(
-      readContext(window.location.search,versionFromPath(window.location.pathname)).variables.training_max_age?.[0] ||
+      readContext(window.location.search).variables.training_max_age?.[0] ||
         300,
     ),
   );
@@ -1908,12 +1791,12 @@ function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}
  const[clusterOpen,setClusterOpen]=useState(false),state=model.useState();
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  const groups=storageDetailGroups(DEEP_DIVE_SPECS);
- return <section className="xlt-workspace"><details className="xlt-storage-overview-disclosure" open={state.uiVersion!=='workspace'}><summary>Common Storage · source / backend coverage</summary><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/></details><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">Explicit resource-node mappings only. Exporter availability is not node health or an observed service-to-device path. GPU-host sandbox local I/O remains separate from backend DS/MDS resources.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div className="xlt-key-findings">
+ return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">Explicit resource-node mappings only. Exporter availability is not node health or an observed service-to-device path. GPU-host sandbox local I/O remains separate from backend DS/MDS resources.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div>
   <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
   {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
-  <details className="xlt-key-missing" open={state.uiVersion!=='workspace'}><summary>Against / Missing evidence</summary>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</details></>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
+  <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
   <p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
- </div>{state.uiVersion==='workspace'&&<><section className="xlt-diagnosis-target"><h3><WorkspaceIcon name="user"/>진단 대상</h3><dl><dt>Candidate</dt><dd>{scalar(candidate?.component,'Not selected')}</dd><dt>Scope</dt><dd>{scalar(candidate?.observation_scope,'Unknown')}</dd><dt>Run / record</dt><dd title={scalar(summary?.record_id)}>{scalar(summary?.run_id)} / {scalar(summary?.record_id)}</dd><dt>Resource node</dt><dd>{context.variables.node?.join(', ')||'Not selected'}</dd></dl><small>No hardware / IP / uptime is inferred.</small></section><section className="xlt-diagnosis-summary"><h3><WorkspaceIcon name="logs"/>진단 요약</h3><b>{scalar(candidate?.state,'No saved candidate').replace(/_/g,' ')}</b><p>{scalar(candidate?.summary,'Choose an actual saved candidate')}</p><div className="xlt-evidence-counts">{['supporting','counter','missing'].map(type=><span key={type}>{type} <b>{proofs.filter(row=>row.evidence_type===type).length}</b></span>)}</div><small>Supporting evidence is not causal proof.</small></section></>}<div className="xlt-detailed-metrics"><h3>Detailed Metrics</h3>{([['Common storage',groups.common],['Backend-specific · implemented',groups.backend],['Related subsystem context',groups.context]] as const).map(([title,items])=><div className="xlt-detail-tab-group" key={title}><h4>{title}</h4><div className="xlt-chips">{items.map(s=>{const index=detailTabIndex(s.label);return <button key={s.label} aria-pressed={tab===index} onClick={()=>setTab(index)}>{s.label}</button>;})}</div></div>)}
+ </div><div><h3>Detailed Metrics</h3>{([['Common storage',groups.common],['Backend-specific · implemented',groups.backend],['Related subsystem context',groups.context]] as const).map(([title,items])=><div key={title}><h4>{title}</h4><div className="xlt-chips">{items.map(s=>{const index=detailTabIndex(s.label);return <button key={s.label} aria-pressed={tab===index} onClick={()=>setTab(index)}>{s.label}</button>;})}</div></div>)}
   {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
   <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector / DFS client observations are backend independent. 3FS service evidence is an optional separate source; node-device observations remain context without a verified path.</p>
   <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
@@ -1975,10 +1858,9 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
       <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed observation</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
-      {model.state.uiVersion==='workspace'&&<div className="xlt-context-variable">{control('node')}</div>}
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
     </div>
-    <div className="xlt-context-meta"><span title="Producer-reported trainer version, not worker-applied policy">Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer report</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
+    <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer report</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
   </section>;
 }
 
@@ -1986,9 +1868,9 @@ function compactMatrixValue(value:number,unit:string):string{const formatted=get
 
 function WorkerComparison({model,selected,spans}:{model:Shell;selected:RecordRow;spans:RecordRow[]}){
  const data=useData(model.state.matrix[0]),values=samples(data);const rows=measuredWorkers(spans,selected);
- return <section className="xlt-worker-comparison"><h3>Measured Worker Comparison</h3><p className="xlt-muted">One declared execution identity per row. Peer duration requires matching operation, scope and workload fingerprint. GPU is a linked sampled device, not worker consumption.</p><div className="xlt-scroll"><table><thead><tr><th>Worker / node</th><th>Phase coverage</th><th>Rollout call</th><th>Peer median / delta</th><th>GPU</th><th>Next</th></tr></thead><tbody>{rows.map(row=>{
+ return <section><h3>Measured Worker Comparison</h3><p className="xlt-muted">One declared execution identity per row. Peer duration requires matching operation, scope and workload fingerprint. GPU is a linked sampled device, not worker consumption.</p><div className="xlt-scroll"><table><thead><tr><th>Worker / node</th><th>Phase coverage</th><th>Rollout call</th><th>Peer median / delta</th><th>GPU</th><th>Next</th></tr></thead><tbody>{rows.map(row=>{
   const gpu=row.window.span?.gpu;const device=gpu===undefined?undefined:gaugeSummary(values.filter(value=>value.labels.gpu===String(gpu)),row.window).sample;
-  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity / sample unavailable'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search,versionFromPath(window.location.pathname));locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
+  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity / sample unavailable'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search);locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
  })}</tbody></table></div></section>;
 }
 function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Context;catalog:Catalog}){
@@ -1998,11 +1880,10 @@ function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Co
 function Coverage({model}:{model:Shell}) {
   const state=model.useState();
   const providers=React.useMemo(()=>[state.steps,state.spans,state.events,state.comparison,state.evidence,
-    ...(state.page==='infrastructure'||state.page==='overview'?[state.components,state.relationships,state.availability]:[]),
     ...(state.page==='deep-dive'?[state.storageSamples,state.storageStatus]:[]),
     ...state.kpis,...state.matrix,...(state.baselineMatrix||[]),...state.pressure]
     .filter((provider,index,all)=>!provider||all.indexOf(provider)===index),
-    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure,state.page,state.storageSamples,state.storageStatus,state.components,state.relationships,state.availability]);
+    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure,state.page,state.storageSamples,state.storageStatus]);
   const [data,setData]=useState(providers.map(provider=>provider?.state.data));
   useEffect(()=>{
     const refresh=()=>setData(providers.map(provider=>provider?.state.data));

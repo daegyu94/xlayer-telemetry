@@ -1,6 +1,6 @@
 # Grafana App / Scenes (PoC)
 
-**목표:** 한 Grafana App에서 V1 Classic(Light) 또는 V2 Workspace(Dark)를 선택하고 Run·Step·baseline·evidence를 같은 데이터로 조사합니다.
+**목표:** XLayer App에서 Run을 선택하고 느린 Step의 baseline·candidate·evidence를 기존 dashboard까지 이어서 조사합니다.
 
 ## 얻는 것
 
@@ -10,8 +10,6 @@
 | Analyze | Phase × Subsystem·System Pressure·worker 차이 |
 | Investigate | Current / Baseline / Delta·candidate·supporting/counter/missing evidence |
 | Deep Dive | 선택한 candidate의 상세 metric·기존 subsystem dashboard |
-| Infrastructure | 선언된 Compute / Network / DS·MDS topology·리소스 선택·native resource metric |
-| Logs & Events | Loki log text 검색·반환 event 필터·record detail·Step 연결 |
 
 ```{admonition} 선택 사항
 :class: note
@@ -55,18 +53,7 @@ apps:
 
 설정한 Grafana를 기존 배포 절차로 재시작하고 **More apps → XLayer Telemetry → Overview**를 엽니다.
 
-**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 공통 Run Context와 여섯 화면의 navigation이 보입니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
-
-## Classic / Workspace 선택
-
-| 항목 | V1 Classic | V2 Workspace |
-| --- | --- | --- |
-| 기본 URL | `/a/xlayer-telemetry-app/overview` | `/a/xlayer-telemetry-app/v2/overview` |
-| 표현 | 기존 Light card·상단 navigation | `mockup.html` 기준 Dark card·아이콘 navigation·상단 context bar |
-| Investigate | 비교 → candidate → timeline·evidence | Current/Baseline → timeline/metric → candidate/evidence의 3열 배치 |
-| 데이터 / 기능 | 같은 여섯 화면·canonical panel·diagnosis | 같은 여섯 화면·canonical panel·diagnosis |
-
-상단 **V2 Workspace / V1 Classic**으로 전환합니다. 현재 화면·Run·record·observer/resource·worker·시간 구간을 유지합니다. V2는 Grafana의 native `kiosk=true`로 원본처럼 App 전체 폭을 사용합니다. **V1 Classic** 또는 기존 상세 dashboard로 이동하면 Grafana chrome을 복원하며 auth·datasource·사용자 theme은 변경하지 않습니다. `Esc`로 native kiosk를 해제할 수 있습니다.
+**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 공통 Run Context와 네 화면의 navigation이 보입니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
 
 ## 3. Verify
 
@@ -76,9 +63,6 @@ apps:
 | 완료 Step 선택 | URL의 record·observer·시간 구간 변경 |
 | Analyze cell 선택 | 값·scope·observation 상태와 evidence 표시 |
 | 기존 Storage dashboard 열기 → Back | Run·Step·resource·시간 구간 유지 |
-| V1 ↔ V2 전환 | 현재 화면·같은 query/data·선택 context 유지 |
-| Infrastructure resource 선택 | 선언된 resource owner로 metric과 dashboard 연결. Unknown은 owner 추론 금지 |
-| Logs의 Log text 검색 | Loki native query에 literal text filter 적용. No data와 Query error 구분 |
 
 ```{admonition} Scope / Precision
 :class: important
@@ -95,16 +79,6 @@ Measured span 경계와 sampled resource 관측을 구분합니다. Shared resou
 5. **Full Storage / Timeline / Logs:** 기존 dashboard로 이동합니다. Browser Back으로 App에 돌아옵니다.
 
 Gauge의 phase delta는 명시된 baseline span·workload fingerprint·동일 entity·query 관측 수가 맞을 때만 표시합니다. `Step evidence`의 delta는 선택한 전체 Step 구간의 비교이며 phase cell로 복사하지 않습니다. [Cell 상태 해석](grafana-scenes-reference.md#phase--subsystem)을 함께 확인합니다.
-
-## 리소스와 로그 조사
-
-1. **Infrastructure:** Compute / Network / Storage topology에서 component를 선택합니다. 관계의 dashed line은 configured 선언이며 관측된 operation 경로가 아닙니다.
-2. **Resource Metrics:** 선택한 node의 Compute / Network / Storage 탭을 확인합니다. DS/MDS는 `storage_node`, 일반 resource는 `node`로 선택하며 Step observer는 유지합니다.
-3. **Component Inventory:** 기본은 host/service입니다. **All devices / components**로 GPU·disk를 찾습니다. `up=1`은 exporter reachability이며 device 관측이나 건강 상태를 보장하지 않습니다.
-4. **Logs & Events:** Log directory와 telemetry Run을 구분합니다. Log text·Log text severity는 literal 문자열 검색이며 structured severity schema를 추정하지 않습니다.
-5. **Inspect event:** 실제 반환 record의 속성을 확인합니다. 유일한 execution identity로 연결되는 경우에만 **Investigate matching Step**을 제공합니다.
-
-Topology 설정과 metric scope는 [App Reference](grafana-scenes-reference.md#infrastructure-관측-계약)를 확인합니다. 3FS Deep Dive는 기존 구현을 사용하며 pNFS는 TBD입니다.
 
 ## GPU 없이 확인
 

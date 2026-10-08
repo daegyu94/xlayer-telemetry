@@ -29,15 +29,12 @@ def render_query(expr, *, cluster, run_id, observer_node):
     values.update(cluster=literal(cluster), run_id=literal(run_id), source_node=literal(observer_node),
                   log_run_id=literal(run_id), telemetry_run_id=literal(run_id), training_max_age="300",
                   __rate_interval="1m", __interval="2s")
-    values.update(log_search='',log_severity='')
 
     def substitute(match):
         name = match[1] or match[2]
-        if name.isdigit():
-            return match[0]  # Prometheus label_replace capture, not a variable.
         if name not in values:
             raise ValueError("Unknown dashboard query variable: " + name)
-        return json.dumps(values[name]) if ':doublequote}' in match[0] else values[name]
+        return values[name]
     return re.sub(r"\$\{(\w+)(?::\w+)?\}|\$(\w+)", substitute, expr)
 
 

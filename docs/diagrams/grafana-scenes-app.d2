@@ -1,9 +1,9 @@
-# Title: XLayer Classic and Workspace over shared Grafana Scenes
+# Title: XLayer Grafana App and Scenes PoC
 # Description: Scenes reuses Grafana query runtime and canonical dashboards. Existing diagnosis queries ClickHouse and projects evidence into Loki; the App does not query ClickHouse directly.
 ...@_style
 direction: right
 grafana: "Existing Grafana" {
-  app: "XLayer App + Scenes\nV1 Classic / V2 Workspace" {class: evidence}
+  app: "XLayer App + Scenes\nOverview / Matrix / Evidence" {class: evidence}
   query: "Grafana runtime\ndatasource / variables / time" {class: process}
   dashboards: "Existing dashboards\nTimeline / Compute / Storage" {class: source}
   app -> query: "native query" {style.stroke: "#6366f1"}

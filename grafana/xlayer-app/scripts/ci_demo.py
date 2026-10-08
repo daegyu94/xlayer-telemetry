@@ -95,15 +95,7 @@ def run(args):
                       '--url', connection['grafana'], '--output', str(args.output / 'clock-quality')]
             if args.browser:
                 clocks.extend(['--browser', args.browser])
-            versions = [sys.executable, str(SCRIPTS / 'versions_validate.py'),
-                        '--url', connection['grafana'], '--output', str(args.output / 'versions')]
-            if args.browser:
-                versions.extend(['--browser', args.browser])
-            design = [sys.executable, str(SCRIPTS / 'workspace_design_validate.py'),
-                      '--url', connection['grafana'], '--output', str(args.output / 'workspace-design')]
-            if args.browser:
-                design.extend(['--browser', args.browser])
-            for validation_command in (command, contracts, series, clocks, versions, design):
+            for validation_command in (command, contracts, series, clocks):
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:
                     code = validator.wait(timeout=args.browser_timeout)

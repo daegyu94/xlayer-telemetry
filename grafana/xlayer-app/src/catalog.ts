@@ -129,12 +129,11 @@ export function variables(
       if (!definitions.has(v.name)) definitions.set(v.name, v);
   return new SceneVariableSet({
     variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker").map((name) => {
-      const definition = name==='log_run_id'?{type:'textbox',name,query:'.*',label:'Log directory',description:'실제 log directory 식별자이며 telemetry Run과 별개입니다.'}:definitions.get(name);
+      const definition = definitions.get(name);
       const selected = context.variables[name];
       const visible = ["cluster", "run_id", "source_node", "node"].includes(
         name,
       );
-      if (!definition && ['log_search','log_severity','event_search'].includes(name))return new TextBoxVariable({name,label:name==='event_search'?'Event text':name,value:selected?.[0]||'',hide:2});
       if (!definition)
         return new ConstantVariable({
           name,
