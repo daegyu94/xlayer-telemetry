@@ -21,7 +21,7 @@ from urllib.request import Request, build_opener
 
 from .._http_redirects import _CredentialSafeRedirectHandler
 
-from .diagnosis_analysis import compare_signals, evaluate_rules, finite, select_baseline, validate_baseline_policy, workload_matches
+from .diagnosis_analysis import compare_signals, evaluate_rules, finite, recent_baseline_history, select_baseline, validate_baseline_policy
 from .clock_quality import assess_interval
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling
@@ -559,14 +559,7 @@ class DiagnosticEngine:
         execution_mode = str((current or {}).get("execution_mode") or self.config.get("execution_mode", "sync"))
         baseline_policy = self.config.get("baseline", {})
         validate_baseline_policy(baseline_policy)
-        comparable_history = [
-            item for item in history
-            if current and item.get("run_id") == current.get("run_id")
-            and item.get("node") == current.get("node")
-            and item.get("worker_id") == current.get("worker_id")
-            and item.get("boundary_scope") == current.get("boundary_scope")
-            and workload_matches(current, item, baseline_policy)
-        ]
+        comparable_history = recent_baseline_history(current, history, policy=baseline_policy) if current else []
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
@@ -581,7 +574,7 @@ class DiagnosticEngine:
             "sandbox_node": sandbox_node, "sandbox_device": sandbox_device,
         }
         step = max(1.0, float(self.config["prometheus"].get("query_step_seconds", 2)))
-        baseline_record = select_baseline(current, history, policy=baseline_policy) if current else None
+        baseline_record = select_baseline(current, comparable_history, policy=baseline_policy) if current else None
         baseline_window = (baseline_record or {}).get("analysis_window", {})
         baseline_window_valid = (finite(baseline_window.get("start")) is not None
                                  and finite(baseline_window.get("end")) is not None

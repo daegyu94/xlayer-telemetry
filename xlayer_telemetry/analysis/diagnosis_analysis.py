@@ -10,7 +10,7 @@ from ..time_alignment import observation_time
 
 import heapq
 import statistics
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from ..measurements import finite_number as finite
 from .metric_queries import PROFILE_SIGNALS
@@ -53,6 +53,11 @@ BASELINE_REQUIRED = {
     "threefs_throughput_bytes_per_second",
     "tool_duration_seconds",
 }
+BASELINE_IDENTITY = (
+    "run_id", "node", "worker_id", "boundary_scope", "execution_mode",
+    "cluster", "producer", "role", "rank", "local_rank", "gpu",
+)
+_POLICY_IDENTIFIERS = {"policy_version", "fully_async/count/current_param_version"}
 
 
 def validate_baseline_policy(policy: Mapping[str, Any]) -> None:
@@ -75,6 +80,11 @@ def workload_matches(current: Mapping[str, Any], prior: Mapping[str, Any], polic
         now, before = current.get("workload", {}).get(key), prior.get("workload", {}).get(key)
         if now is None or before is None:
             return False
+        if key in _POLICY_IDENTIFIERS:
+            # A version is an identity, not a continuous workload magnitude.
+            if type(now) is bool or type(before) is bool or finite(now) is None or finite(before) is None or now != before:
+                return False
+            continue
         a, b = finite(now), finite(before)
         if a is not None and b is not None:
             if abs(a-b) > abs(b) * policy.get("relative_tolerance", 0):
@@ -84,31 +94,41 @@ def workload_matches(current: Mapping[str, Any], prior: Mapping[str, Any], polic
     return True
 
 
-def select_baseline(current: Mapping[str, Any], history: list[Mapping[str, Any]], *, policy: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
-    """Use a recent, same-run peer nearest to the prior step-duration median."""
+def recent_baseline_history(current: Mapping[str, Any], history: Iterable[Mapping[str, Any]], *, policy: Mapping[str, Any] | None = None) -> list[Mapping[str, Any]]:
+    """Keep five comparable prior observations in one bounded-memory scan.
+
+    Old artifacts with absent identity fields remain compatible with each other;
+    an absent field never substitutes for an explicitly observed identity.
+    Step and stage comparisons must consume this same cohort.
+    """
     policy = policy or {}
     validate_baseline_policy(policy)
     observed = observation_time(current)
     if observed is None:
-        return None
-    eligible = (
-        item for item in history
-        if workload_matches(current, item, policy)
-        and item.get("run_id") == current.get("run_id")
-        and item.get("node") == current.get("node")
-        and item.get("worker_id") == current.get("worker_id")
-        and item.get("boundary_scope") == current.get("boundary_scope")
-        and finite(item.get("step_duration_seconds")) is not None
-        and item["step_duration_seconds"] >= 0
-        and isinstance(item.get("analysis_window"), Mapping)
-        and finite(item.get("analysis_window", {}).get("start")) is not None
-        and finite(item.get("analysis_window", {}).get("end")) is not None
-        and item["analysis_window"]["start"] < item["analysis_window"]["end"]
-        and item["analysis_window"].get("accuracy") not in {"unknown", "clock_discontinuity"}
-        and observation_time(item) is not None
-        and observation_time(item) < observed
-    )
-    eligible = heapq.nlargest(5, eligible, key=observation_time)
+        return []
+
+    def eligible():
+        for item in history:
+            if (any(item.get(key) != current.get(key) for key in BASELINE_IDENTITY)
+                    or not workload_matches(current, item, policy)):
+                continue
+            duration = finite(item.get("step_duration_seconds"))
+            window = item.get("analysis_window")
+            if duration is None or duration < 0 or not isinstance(window, Mapping):
+                continue
+            start, end = finite(window.get("start")), finite(window.get("end"))
+            if start is None or end is None or start >= end or window.get("accuracy") in {"unknown", "clock_discontinuity"}:
+                continue
+            stamp = observation_time(item)
+            if stamp is not None and stamp < observed:
+                yield stamp, item
+
+    return [item for _, item in heapq.nlargest(5, eligible(), key=lambda pair: pair[0])]
+
+
+def select_baseline(current: Mapping[str, Any], history: Iterable[Mapping[str, Any]], *, policy: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
+    """Use a recent, same-run peer nearest to the prior step-duration median."""
+    eligible = recent_baseline_history(current, history, policy=policy)
     if not eligible:
         return None
     median = statistics.median(float(item["step_duration_seconds"]) for item in eligible)
