@@ -77,3 +77,6 @@ export function selectTargets(
     .filter((t) => !t.hide && (!refs || refs.includes(String(t.refId))))
     .map((t) => ({ ...t }));
 }
+export function canonicalRefs(targets:RecordRow[],refs?:string[]):string[]{
+ return selectTargets(targets,refs).map(target=>String(target.refId));
+}

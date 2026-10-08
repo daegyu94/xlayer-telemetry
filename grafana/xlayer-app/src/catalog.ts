@@ -11,6 +11,7 @@ import {
   CustomVariable,
   TextBoxVariable,
   ConstantVariable,
+  DataProviderProxy,
 } from "@grafana/scenes";
 import { selectTargets } from "./data";
 export { records, samples } from "./data";
@@ -91,8 +92,10 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
     minInterval: "2s",
   });
 }
-export function viz(panel: Panel): VizPanel {
-  const data = runner(panel);
+export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
+  // A proxy preserves the owner's parent/time/variable scope. Reparenting a
+  // shared runner under this panel would break the pressure consumer.
+  const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
   return new VizPanel({
     pluginId: panel.type,
     title: panel.title,

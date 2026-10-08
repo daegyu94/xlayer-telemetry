@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { records, samples, selectTargets } from "../src/data";
+import { records, samples, selectTargets, canonicalRefs } from "../src/data";
 import { selectPhaseSample, phaseWindow } from "../src/semantics";
 test("query reference selection preserves canonical datasource, labels and lookback", () => {
   const targets = [
@@ -13,6 +13,13 @@ test("query reference selection preserves canonical datasource, labels and lookb
   selected[0].expr = "changed";
   assert.equal(targets[1].expr, "canonical rate[1m]");
   assert.equal(selectTargets(targets).length, 2);
+});
+test('native all-target and pressure single-target requests share only identical canonical refs',()=>{
+ const one=[{refId:'A',expr:'same'},{refId:'B',hide:true}];
+ assert.deepEqual(canonicalRefs(one),canonicalRefs(one,['A']));
+ const two=[{refId:'A',expr:'same'},{refId:'B',expr:'other'}];
+ assert.notDeepEqual(canonicalRefs(two),canonicalRefs(two,['A']));
+ assert.deepEqual(canonicalRefs(two,['B','A']),['A','B']);
 });
 test("logs preserve zero, malformed/missing/duplicate rows remain distinct from measurement", () => {
   const line = JSON.stringify({

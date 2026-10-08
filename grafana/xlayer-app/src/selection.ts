@@ -138,6 +138,9 @@ export type KpiSelectionOptions = {
   evaluationTime?: number;
   ageIdentityKeys?: string[];
 };
+// Training snapshot publication identity; phase/verl_stage/reported_key are
+// metric dimensions, not labels on training_sample_timestamp_seconds.
+export const APPLICATION_AGE_IDENTITY_KEYS = ['cluster','instance','run_id','producer','role','worker_id','node','nodename','local_rank','rank'];
 export type KpiEntityResolution = {
   state: "observed" | "multiple" | "no-data" | "freshness-unknown" | "stale" | "invalid";
   sample?: Sample;

@@ -117,3 +117,14 @@ def test_investigation_navigation_windows_include_fractional_end_timestamp():
     row = _investigation_rows(report)[0]
     assert (row['window_start_ms'], row['window_end_ms']) == (100000, 120001)
     assert (row['baseline_start_ms'], row['baseline_end_ms']) == (80000, 90001)
+
+
+def test_investigation_projection_keeps_explicit_async_boundary():
+    report = {"run_id": "r", "node": "n", "worker_id": "trainer-0", "step": 3,
+              "trigger_record_id": "update", "boundary_scope": "trainer_update", "execution_mode": "async",
+              "analysis_window": {"start": 10, "end": 20, "accuracy": "approximate"},
+              "comparison": {"signals": []}, "candidates": []}
+    row = _investigation_rows(report)[0]
+    assert row["boundary_scope"] == "trainer_update"
+    assert row["execution_mode"] == "async"
+    assert row["worker_id"] == "trainer-0"

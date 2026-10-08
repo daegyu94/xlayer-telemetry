@@ -337,16 +337,17 @@ body.theme-dark .xlt {
 /* Shared visual target: compact technical cards, pale section headers, no shadow. */
 .xlt-page-title {
   font:
-    600 22px/1.35 Inter,
+    500 12px/1.35 Inter,
     system-ui,
     sans-serif;
   margin: 0;
 }
 .xlt-page-title span {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 450;
   color: #667085;
 }
+.xlt-pressure-value .xlt-entity,.xlt-storage-evidence .xlt-entity{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .xlt {
   padding-top: 0;
 }

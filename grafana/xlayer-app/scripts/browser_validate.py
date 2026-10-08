@@ -89,7 +89,7 @@ def enter_app(page, url, diagnostics):
     """Preserve the original first-entry assertion; capture before rethrowing."""
     try:
         page.goto(url)
-        page.get_by_role('button',name=re.compile('Analyze Step')).first.wait_for(timeout=30000)
+        page.get_by_role('button',name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=30000)
     except Exception as error:
         try:
             diagnostics.fail(error)
@@ -141,7 +141,7 @@ def datasource_boundary_checks(page, url, checks, capture):
     try:
         page.goto(url)
         page.get_by_role('heading', name='Run Overview', exact=True).wait_for(timeout=30000)
-        page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=15000)
+        page.get_by_role('button', name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=15000)
         page.wait_for_timeout(1500)
         assert delays and min(delays) >= 1.1
         assert page.get_by_role('combobox', name='Completed Step').locator('option').count() >= 3
@@ -157,7 +157,7 @@ def datasource_boundary_checks(page, url, checks, capture):
 def loading_context_check(page, url, checks, capture):
     """Exercise a native Run-variable transition after the old Run has data."""
     page.goto(url)
-    page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=15000)
+    page.get_by_role('button', name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=15000)
     page.wait_for_timeout(500)
     snapshots = []
     reserved = []
@@ -241,7 +241,7 @@ def multi_worker_journey(args):
         assert slow, 'Multi-worker fixture must include a completed regression frame'
         selector.select_option(slow)
         page.wait_for_timeout(700)
-        page.get_by_role('button', name=re.compile('Analyze Step')).first.click()
+        page.get_by_role('button', name=re.compile('Analyze (Step|Trainer update|Observation)')).first.click()
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         gpu_cell = page.get_by_role('button', name='rollout × gpu evidence', exact=True)
         page.wait_for_function('''document.querySelector('[aria-label="rollout × gpu evidence"]')?.innerText.includes('Ambiguous span')''', timeout=15000)
@@ -375,7 +375,7 @@ def main():
         if slow:
             selector.select_option(slow);page.wait_for_timeout(1200)
         queries.clear()
-        page.get_by_role('button',name=re.compile('Analyze Step')).first.click()
+        page.get_by_role('button',name=re.compile('Analyze (Step|Trainer update|Observation)')).first.click()
         page.get_by_role('heading',name='Phase × Subsystem',exact=True).wait_for()
         page.get_by_role('button',name='rollout × storage evidence',exact=True).wait_for()
         page.wait_for_function("document.querySelector('[aria-label=\"rollout × storage evidence\"]')?.innerText.includes('Step evidence')")

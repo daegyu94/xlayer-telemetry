@@ -60,7 +60,9 @@ import {
   Cell,
   PhaseWindow,
 } from "./semantics";
-import { resolveEventStep, resolveKpiEntity } from "./selection";
+import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
+import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS} from './presentation';
+import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
 import { ComparisonWindow } from "./comparison-window";
 import { baselineBounds, matrixEntities, matrixEntityKey, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSYSTEM_COLORS } from "./matrix-presentation";
@@ -103,7 +105,7 @@ type ShellState = SceneObjectState & {
   timeline?: VizPanel;
   approximate?: VizPanel;
   related: VizPanel[];
-  detailPanels:VizPanel[];
+  detailPanels:(VizPanel|undefined)[];
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -179,10 +181,10 @@ const KPI_SPECS: KpiSpec[] = [
     description: "Local prefix TOKEN hit · rolling / shared engine",
   },
   {
-    name: "Storage latency",
+    name: "3FS latency",
     key: "threefs_p99_latency",
     unit: "ms",
-    description: "Diagnosis evidence · shared-service",
+    description: "Maximum reported per-entity p99 · shared-service diagnosis evidence; not RPC p95 or disk mean",
   },
 ];
 const PRESSURE_SPECS: {
@@ -249,17 +251,20 @@ function makeScene(page: Page, catalog: Catalog) {
   const context = readContext(window.location.search);
   const queryCache = new Map<string, SceneQueryRunner>();
   const query = (key: Destination, id: number, refs?: string[]) => {
-    const cacheKey = JSON.stringify([key, id, refs || []]);
-    if (queryCache.has(cacheKey)) return queryCache.get(cacheKey);
     const panel = findPanel(catalog[key], id);
     if (!panel) return undefined;
+    const cacheKey = JSON.stringify([key, id, canonicalRefs(panel.targets||[],refs)]);
+    if (queryCache.has(cacheKey)) return queryCache.get(cacheKey);
     const provider = runner(panel, refs);
     queryCache.set(cacheKey, provider);
     return provider;
   };
   const native = (key: Destination, id: number) => {
     const panel = findPanel(catalog[key], id);
-    return panel ? viz(panel) : undefined;
+    if(!panel)return undefined;
+    const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
+      JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
+    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
   };
   const body = new Shell({
     page,
@@ -282,7 +287,7 @@ function makeScene(page: Page, catalog: Catalog) {
       evidence: query("summary", 6),
       spans: query("timeline", 9),
     });
-  if(page==='deep-dive')body.setState({detailPanels:[native('storage',30),native('stage',60),native('compute',2),native('stage',9),native('stage',22),native('stage',12)].filter(Boolean) as VizPanel[]});
+  if(page==='deep-dive')body.setState({detailPanels:DEEP_DIVE_SPECS.map(s=>s.dashboard&&s.panel!==undefined?native(s.dashboard,s.panel):undefined)});
   if (page === "overview")
     body.setState({
       kpis: KPI_SPECS.map((s) =>
@@ -577,6 +582,7 @@ function ShellView({ model }: { model: Shell }) {
     state.page==='overview'&&!record?.match(/[^.*]/)&&summaryEntities.size===1?
       [...summaries].filter(row=>!row.identity_conflict).sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms))[0]:undefined;
   const matching = (rows: RecordRow[]) => stepProjection(rows,selected);
+  const boundary=boundaryPresentation(selected);
   const current = matching(comparisons),
     diagnosis = matching(candidates),
     proofs = matching(evidence);
@@ -622,7 +628,7 @@ function ShellView({ model }: { model: Shell }) {
               : state.page === "analyze"
                 ? "Phase × Subsystem Analysis"
                 : state.page === "investigate"
-                  ? "Slow Step Investigation"
+                  ? `${boundary.label} Investigation`
                   : state.page === "timeline"
                     ? "Follow the same interval"
                   : workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
@@ -634,12 +640,13 @@ function ShellView({ model }: { model: Shell }) {
                 context.variables.run_id?.join(", ") || "Select a Run",
               )}
             </b>{" "}
-            · {state.page === "overview" ? "Latest diagnosed " : ""}Step{" "}
+            · {state.page === "overview" ? "Latest diagnosed " : ""}{boundary.label}{" "}
             {scalar(selected?.step, "not selected")} · Policy{" "}
             {scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):policySamples.length>1?'multiple sources':'not reported')} · Wrapped command{" "}
             {activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):activeWorkloads.length>1?'multiple reports':'not reported'}
           </p>
           {(policySamples.length||activeWorkloads.length)>0&&<p className="xlt-muted">Policy: producer-reported trainer version · Status: latest wrapper node-clock report, not full async Run completion.</p>}
+          {selected&&boundary.note&&<p className="xlt-muted">{boundary.note}</p>}
           {selected && (context.variables.run_id?.length!==1||context.variables.run_id[0]!==selected.run_id) && (
             <p className="xlt-muted">
               Run filter: {context.variables.run_id?.join(", ") || "All"} · this
@@ -652,7 +659,7 @@ function ShellView({ model }: { model: Shell }) {
             <button
               onClick={() => navigate("analyze", selectStep(selected, context))}
             >
-              Analyze Step {scalar(selected.step)} →
+              Analyze {boundary.label} {scalar(selected.step)} →
             </button>
           )}
           <Link to="overview" context={context} catalog={state.catalog}>
@@ -723,6 +730,7 @@ function ShellView({ model }: { model: Shell }) {
                 spec={spec}
                 provider={state.kpis[index]}
                 context={context}
+                boundary={boundary}
                 history={spec.key?comparisons.filter(r=>r.signal===spec.key&&r.run_id===selected?.run_id&&r.observation_scope===current.find(c=>c.signal===spec.key)?.observation_scope&&r.entity===current.find(c=>c.signal===spec.key)?.entity).map(r=>({value:numeric(r.current),time:numeric(r.window_end_ms)})).filter(r=>r.value!==undefined&&r.time!==undefined) as {value:number;time:number}[]:undefined}
                 ages={
                   ["Reward","Worker throughput","Step time","Reported rollout"].includes(spec.name) ? samples(rewardAgeData) : undefined
@@ -871,7 +879,7 @@ function ShellView({ model }: { model: Shell }) {
                   </Link>
                 </div>
                 <p className="xlt-muted">
-                  Saved Step window · workload comparability:{" "}
+                  Saved {boundary.label} window · workload comparability:{" "}
                   {scalar(
                     matching(summaries)[0]?.workload_comparability,
                     "unverified",
@@ -900,7 +908,7 @@ function ShellView({ model }: { model: Shell }) {
                         )
                         .map((r, i) => (
                           <tr key={i}>
-                            <td>{scalar(r.signal)}</td>
+                            <td title={scalar(r.signal)}>{r.signal==='step_duration_seconds'?boundary.timeLabel:scalar(r.signal)}</td>
                             <td>{format(r.current, scalar(r.unit, ""))}</td>
                             <td>{format(r.baseline, scalar(r.unit, ""))}</td>
                             <td>
@@ -1203,10 +1211,12 @@ function Kpi({
   maxAge,
   reported,
   context,
+  boundary,
 }: {
   spec: (typeof KPI_SPECS)[number];
   provider?: SceneQueryRunner;
   context:Context;
+  boundary:ReturnType<typeof boundaryPresentation>;
   comparison?: RecordRow;
   evidence?: RecordRow;
   history?:{value:number;time:number}[];
@@ -1218,7 +1228,7 @@ function Kpi({
   const data = useData(provider),
     values = samples(data);
   const application=["Reward","Step time","Worker throughput","Reported rollout"].includes(spec.name);
-  const selection=resolveKpiEntity(values,{scope:application?'application':'resource',selectedRuns:context.variables.run_id,worker:application?context.variables.worker:undefined,phase:spec.phase,ages:application?ages:undefined,requireFreshness:application,maxAgeSeconds:maxAge??300});
+  const selection=resolveKpiEntity(values,{scope:application?'application':'resource',selectedRuns:context.variables.run_id,worker:application?context.variables.worker:undefined,phase:spec.phase,ages:application?ages:undefined,requireFreshness:application,maxAgeSeconds:maxAge??300,ageIdentityKeys:application?APPLICATION_AGE_IDENTITY_KEYS:undefined,evaluationTime:data?.timeRange?.to.valueOf()});
   const latest=selection.sample,age=selection.age,stale=selection.state==='stale';
   const projected = comparison || evidence;
   const trend=(reported!==undefined?[]:projected?[...(history||[])]:values.filter(v=>JSON.stringify(v.labels)===JSON.stringify(latest?.labels))).sort((a,b)=>a.time-b.time);
@@ -1248,11 +1258,11 @@ function Kpi({
     value = Number(value) * spec.scale;
   return (
     <article className="xlt-card xlt-kpi">
-      <span className="xlt-eyebrow">{spec.name}</span>
+      <span className="xlt-eyebrow">{spec.key==='step_duration_seconds'?boundary.timeLabel:spec.name}</span>
       <strong className={!projected&&reported===undefined&&selection.state!=='observed'?"xlt-kpi-state":undefined}>
-        {!projected && data?.state === LoadingState.Error ? (
+        {!projected && reported===undefined && data?.state === LoadingState.Error ? (
           "Query error"
-        ) : !projected && !data && provider ? (
+        ) : !projected && reported===undefined && !data && provider ? (
           "Loading…"
         ) : !projected&&reported===undefined&&selection.state!=='observed'?(
           selection.state==='multiple'?'Multiple entities':selection.state==='freshness-unknown'?'Freshness unknown':selection.state==='stale'?'Stale':selection.state==='invalid'?'Invalid data':'No data'
@@ -1282,24 +1292,24 @@ function Kpi({
               : `Sample age ${format(age, "s")}`}
         </small>
       )}
-      {!projected&&reported===undefined&&selection.state!=='observed'&&<small title={selection.reason}>{selection.state==='multiple'?`${selection.entities.length} entities · choose Worker`:selection.state==='freshness-unknown'?'Matching age unavailable':selection.state==='stale'?'Producer age exceeds limit':selection.state==='invalid'?'Conflicting source data':'No matching observation'}</small>}
+      {!projected&&reported===undefined&&selection.state!=='observed'&&<small title={selection.reason}>{selection.state==='multiple'?`${selection.entities.length} entities · ${entitySelectionHint(selection.entities.map(s=>s.labels))}`:selection.state==='freshness-unknown'?'Matching age unavailable':selection.state==='stale'?'Producer age exceeds limit':selection.state==='invalid'?'Conflicting source data':'No matching observation'}</small>}
       {reported !== undefined && (
-        <small>Selected completed Step · reported duration</small>
+        <small>Selected {boundary.label} · reported duration</small>
       )}
       {projected && !unit && <small>Unit not reported</small>}
       <small title={spec.description} className="xlt-kpi-scope">
         {comparison || evidence
-          ? `Step · ${scalar(comparison?.observation_scope || evidence?.observation_scope)}`
+          ? `${boundary.label} · ${scalar(comparison?.observation_scope || evidence?.observation_scope)}`
           : reported !== undefined
-            ? "Completed Step"
+            ? `Reported · ${boundary.label}`
             : spec.name === "KV token hit"
               ? "Rolling · shared engine"
               : spec.name === "GPU utilization"
                 ? "Sampled · device"
-                : "Sampled · worker"}
+                : spec.key==='threefs_p99_latency'?'Missing · shared-service':application?'Reported · worker':'Sampled · worker'}
       </small>
       {comparison || evidence ? (
-        <small>
+        <small className="xlt-entity" title={scalar(comparison?.entity || evidence?.entity,'Entity not reported')}>
           {scalar(
             comparison?.entity || evidence?.entity,
             "Entity not reported",
@@ -1308,21 +1318,7 @@ function Kpi({
       ) : (
         latest && (
           <small className="xlt-entity" title={JSON.stringify(latest.labels)}>
-            {Object.entries(latest.labels)
-              .filter(([k]) =>
-                [
-                  "node",
-                  "nodename",
-                  "gpu",
-                  "engine",
-                  "instance",
-                  "worker_id",
-                  "run_id",
-                ].includes(k),
-              )
-              .filter(([k, v]) => k !== "nodename" || v !== latest.labels.node)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" · ")}
+            {compactEntity(latest.labels)}
           </small>
         )
       )}
@@ -1640,24 +1636,7 @@ function PressureCard({
         ranked.slice(0, 2).map((row, i) => {const s=row.sample;return (
           <div className="xlt-pressure-value" key={i}>
             <strong>{format(s.value * (spec.scale || 1), spec.unit)}</strong>
-            <small title={JSON.stringify(s.labels)}>
-              {Object.entries(s.labels)
-                .filter(([k]) =>
-                  [
-                    "node",
-                    "nodename",
-                    "gpu",
-                    "instance",
-                    "State",
-                    "SessionName",
-                    "device",
-                    "port",
-                    "worker_id",
-                  ].includes(k),
-                )
-                .map(([k, v]) => `${k}=${v}`)
-                .join(" · ")}
-            </small>
+            <small className="xlt-entity" title={JSON.stringify(s.labels)}>{compactEntity(s.labels)}</small>
             <small>{row.supporting?'Explicit Step evidence match':spec.name==='GPU utilization'?'Utilization range · no fault verdict':spec.name==='Ray task states'?'State priority · no aggregation':'Highest observed signal · not cause'}</small>
             <Link to={spec.dashboard} context={resourceContext(context,{...s.labels,...(spec.name==='vLLM waiting'&&s.labels.instance?{engine:s.labels.instance}:{})})} catalog={catalog}>Inspect entity →</Link>
           </div>
@@ -1761,9 +1740,19 @@ function HealthSummary({candidates}:{candidates:RecordRow[]}) {
 function TopChanges({rows}:{rows:RecordRow[]}) {
   return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">Saved comparison window, not a phase resource attribution. Workload comparability remains source-defined.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
-function DeepWorkspace({candidate,evidence,panels,context,catalog}:{candidate?:RecordRow;evidence:RecordRow[];panels:VizPanel[];context:Context;catalog:Catalog}) {
- const[tab,setTab]=useState(0);const proofs=candidate?evidence.filter(e=>e.candidate_id===candidate.candidate_id):[];
- return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div><h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>{proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}<h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}<p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link></div><div><h3>Detailed Metrics</h3><div className="xlt-chips">{['Local I/O mean','KV RPC p95','GPU','vLLM','Ray','Sandbox'].map((name,i)=><button key={name} aria-pressed={tab===i} onClick={()=>setTab(i)}>{name}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}<p className="xlt-muted">Native canonical panel · independent units/scopes. Local mean I/O and connector RPC p95 are not 3FS service p99.</p><div className="xlt-actions"><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link></div></div></div></section>;
+function DeepWorkspace({candidate,evidence,panels,context,catalog}:{candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
+ const[tab,setTab]=useState(0),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
+ const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
+ return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div>
+  <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
+  {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
+  <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
+  <p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
+ </div><div><h3>Detailed Metrics</h3><div className="xlt-chips">{DEEP_DIVE_SPECS.map((s,i)=><button key={s.label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{s.label}</button>)}</div>
+  {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
+  <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector → DFS client → 3FS service → local device are investigation layers; an instrumented dependency or Run ownership is not inferred.</p>
+  <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
+ </div></div></section>;
 }
 
 function RelatedTabs({panels}:{panels:VizPanel[]}){const[tab,setTab]=useState(0);return <><div className="xlt-chips">{['GPU','vLLM','KV Cache','Storage','Network'].slice(0,panels.length).map((label,i)=><button key={label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{label}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}</>;}
@@ -1775,7 +1764,7 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
   return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
-      <label className="xlt-context-step">Step<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed Step</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
+      <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed observation</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer report</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
@@ -1819,7 +1808,7 @@ function Coverage({model}:{model:Shell}) {
       const elapsed=request?.endTime!==undefined&&request.startTime!==undefined&&request.endTime>=request.startTime?request.endTime-request.startTime:undefined;
       return <tr key={index}><td>{provider!.state.key||`Provider ${index+1}`}</td><td>{value?.state||'Not active'}{value?.state===LoadingState.Error&&<small>{value.errors?.map(error=>error.message).join(' · ')||value.error?.message||'Native datasource error'}</small>}</td><td>{provider!.state.queries.length}</td><td>{elapsed===undefined?'Not reported':format(elapsed,'ms')}</td></tr>;
     })}</tbody></table></div>
-    <p className="xlt-muted">Latest Grafana request timing, not backend CPU cost or a cumulative request count. Canonical query runners share identical panel targets; hidden metric tabs activate on demand. Matrix queries use at most 600 points; baseline intervals stay bounded to one hour.</p>
+    <p className="xlt-muted">Latest Grafana request timing, not backend CPU cost or a cumulative request count. Identical GPU/Ray detail targets share their pressure provider. Additional native panels activate on demand and are not counted in this custom-provider list. Matrix queries use at most 600 points; baseline intervals stay bounded to one hour.</p>
     <p className="xlt-muted">Ambiguous phases and worker links stay explicit in Matrix. Stale/unknown application age withholds KPI values; measured zero remains a value. Inspect and Explore remain Grafana features.</p>
   </details>;
 }

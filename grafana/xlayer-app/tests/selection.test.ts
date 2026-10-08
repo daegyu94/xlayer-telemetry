@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveEventStep, resolveKpiEntity } from "../src/selection";
+import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "../src/selection";
 import type { RecordRow } from "../src/context";
 import type { Sample } from "../src/semantics";
 
@@ -163,4 +163,19 @@ test('canonical observer selection does not change an application sample executi
  const value=sample({labels:{...sample().labels,node:'rollout-node',nodename:'observer-node'}});
  const result=resolveKpiEntity([value],{scope:'application',selectedRuns:['r'],ages:[age({labels:value.labels})]});
  assert.equal(result.state,'observed');assert.equal(result.sample?.labels.node,'rollout-node');assert.equal(result.sample?.labels.nodename,'observer-node');
+});
+
+test('VERL stage dimensions do not become training timestamp ownership labels',()=>{
+ const value=sample({labels:{...sample().labels,phase:'rollout',verl_stage:'gen',reported_key:'timing_s/gen'}});
+ const result=resolveKpiEntity([value],{scope:'application',ages:[age()],ageIdentityKeys:APPLICATION_AGE_IDENTITY_KEYS});
+ assert.equal(result.state,'observed');
+ for(const key of ['worker_id','producer','node','local_rank']){
+  assert.equal(resolveKpiEntity([value],{scope:'application',ages:[age({labels:{...sample().labels,[key]:'other'}})],ageIdentityKeys:APPLICATION_AGE_IDENTITY_KEYS}).state,'freshness-unknown');
+ }
+});
+
+test('range and instant evaluation alignment remains explicit, never wall-clock inferred',()=>{
+ const value=sample({time:9500});
+ assert.equal(resolveKpiEntity([value],{scope:'application',ages:[age({time:10000})],ageIdentityKeys:APPLICATION_AGE_IDENTITY_KEYS}).state,'freshness-unknown');
+ assert.equal(resolveKpiEntity([value],{scope:'application',ages:[age({time:10000})],evaluationTime:10000,ageIdentityKeys:APPLICATION_AGE_IDENTITY_KEYS}).state,'observed');
 });
