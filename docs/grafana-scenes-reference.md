@@ -13,7 +13,7 @@
 - `VizPanel` / `SceneDataTransformer`는 기존 timeline과 관련 graph를 렌더링합니다.
 - XLayer component는 KPI·Matrix·comparison·candidate·evidence·navigation만 담당합니다.
 
-Classic과 Workspace는 같은 `makeScene(page, catalog, uiVersion)`과 KPI·Matrix·evidence·native panel component를 사용합니다. `context.ts`가 version prefix와 URL state를 전달하고 `workspace.css`의 scoped selector와 App 내부 `ThemeContext`만 레이아웃·색을 바꿉니다. 별도 datasource·저장소·diagnosis engine은 없습니다.
+Classic과 Workspace는 같은 `makeScene(page, catalog, uiVersion)`과 KPI·Matrix·evidence·native panel component를 사용합니다. `context.ts`가 version prefix와 URL state를 전달하고 `workspace.css` / `mockup.css`의 scoped selector와 App 내부 `ThemeContext`만 레이아웃·색을 바꿉니다. 별도 datasource·저장소·diagnosis engine은 없습니다.
 
 Query contract는 dashboard에 한 번만 정의합니다. App에는 panel ID/ref ID를 선택하는 얇은 catalogue만 있으며, datasource remapping 이후의 JSON을 읽습니다.
 
@@ -175,7 +175,7 @@ Source 연결·N/A의 의미는 [UI Telemetry Coverage](ui-telemetry-coverage.md
 | Delta의 amber/teal 방향 | 관측된 증가/감소를 구분. 장애·개선 판정을 뜻하지 않음 |
 | Candidate의 attention 색 | 저장된 evidence state를 표시. 원인 확정과 구분 |
 
-AGENTS.md가 dashboard 색 수를 제한하는 것은 아닙니다. 현재 배색은 category·관측 방향·evidence를 구분하기 위한 UI 선택이며 기본 card·missing 상태는 V1의 Light 또는 V2의 scoped Dark design system을 사용합니다. Grafana 자체 chrome의 사용자 theme은 바꾸지 않습니다.
+AGENTS.md가 dashboard 색 수를 제한하는 것은 아닙니다. 현재 배색은 category·관측 방향·evidence를 구분하기 위한 UI 선택이며 기본 card·missing 상태는 V1의 Light 또는 V2의 scoped Dark design system을 사용합니다. Grafana 사용자 theme·auth는 바꾸지 않습니다. V2의 native `kiosk=true`는 chrome을 숨기며 V1·기존 dashboard 링크에서 복원합니다.
 
 현재 Matrix는 checkpoint·critic·reference 등 실제 measured span이 있을 때 해당 column을 추가합니다. Sandbox는 같은 trace의 실제 parent chain으로 연결된 execution span과 worker/cgroup identity를 확인하며, 관계가 없으면 값을 넣지 않습니다. Storage operation과 Ray state는 명시 selector로 선택합니다.
 
@@ -208,7 +208,7 @@ Topology 선택은 owner·scope를 보존해 resource metric으로 이어집니�
 
 | 검증 | 결과 / 경계 |
 | --- | --- |
-| 여섯 화면의 기능·데이터 | 같은 Scene factory·primary KPI/Matrix/candidate·native query target 집합 6/6 동일 |
+| 여섯 화면의 기능·데이터 | 같은 Scene factory·canonical query/metric/diagnosis 계약. Layout별 visible panel 활성화와 Matrix 순서는 다르지만 shared KPI·context·query 정의 유지 |
 | Desktop / narrow | 1440/390px에서 document overflow 없음·browser error 0 |
 | Version / resource context | 같은 화면·Run·record·observer·resource·worker·시간 보존. Storage 선택에 `storage_node` 전달 |
 | Missing / empty / error / stale | Optional Loki catalog 부재와 datasource boundary fixture. 실제 backend outage와 구분 |
@@ -217,9 +217,34 @@ Topology 선택은 owner·scope를 보존해 resource metric으로 이어집니�
 
 {download}`검증 기록<validation/classic-workspace-20261009.json>`에는 세 번의 사용성 개선, 테스트 범위와 한계를 남겼습니다. 물리 GPU·멀티노드·실제 Agent RL·3FS cluster 실행은 이번 검증 범위가 아닙니다.
 
+## V2 원본 디자인 비교
+
+V2의 시각적 기준은 사용자 제공 `mockup.html`의 여섯 화면입니다. 1672×941에서 원본 HTML을 브라우저로 열고 실제 Grafana와 반복 비교했습니다. V1은 기존 Light presentation을 유지하며 새 layout·kiosk·chart style은 V2에만 적용합니다.
+
+| 화면 | 반영한 구조 | 남는 차이와 이유 |
+| --- | --- | --- |
+| Overview | 좌측 네 cluster/run card → 중앙 topology와 Run Timeline → 우측 resource·event·next action → 하단 네 metric card | Healthy 대신 declared inventory/exporter 관측. Active Runs/가짜 progress 대신 반환 completed observation. 여러 series는 aggregate 숫자로 꾸미지 않음 |
+| Analyze | Matrix·worker 비교·related metrics 좌측, selected Step·pressure 우측 | 실제 계측 phase·scope·entity를 사용. Ambiguous/Shared/Rolling/N/A 유지. Worker history가 없으면 sparkline을 생성하지 않음 |
+| Investigate | Current/Baseline card·가운데 call timeline/관련 metric·우측 candidate/evidence | AI 원인 단정 대신 기존 rule의 supporting/counter/missing. 실제 baseline curve가 없으면 dashed trace를 생성하지 않음 |
+| Deep Dive | Key Findings·진단 대상·진단 요약 → native metric tab/넓은 chart → phase/pressure·dashboard links | Connector RPC p95·3FS max reported p99·local I/O mean을 구분. 없는 p50/p99·IP·uptime·hardware 수치를 채우지 않음 |
+| Infrastructure | 가로 compute/fabric/storage topology → resource inspector → 네 resource plot → inventory | 실제 node 수에 맞춰 compact preview와 전체 inventory 제공. 네트워크 alias를 임의 병합하지 않으며 모든 edge는 configured 관계 |
+| Logs & Events | context ribbon·왼쪽 filter rail·가운데 timeline/list/raw logs·오른쪽 event detail | Global volume/severity histogram 대신 실제 clock-qualified calls와 반환 event. Severity는 원본 log text filter. 원본 JSON과 연결 근거 유지 |
+
+Compact timeline은 기존 `phaseWindow`가 확인한 개별 call만 표시하며 overlapping worker를 union/aggregate하지 않습니다. 여러 clock이 정렬되지 않았거나 Step 관계가 없으면 bar를 만들지 않습니다. Native detailed Timeline에서 raw·approximate 관측을 계속 볼 수 있습니다.
+
+```{admonition} Design과 실제 관측의 경계
+:class: important
+
+원본의 System Healthy·추천 원인·가상 percentile·worker resource attribution·Reports 같은 미구현 기능은 복제하지 않습니다. 색·아이콘·공간 배치는 시각적 참고이며 configured edge와 exporter observation은 operation path나 health/causality를 증명하지 않습니다.
+```
+
+네 graph를 동시에 표시하는 Workspace는 Classic의 lazy tab과 기본 활성 query 수가 다릅니다. 같은 canonical panel/target을 재사용하고 단위·lookback·transform·datasource·diagnosis 계약은 바꾸지 않습니다. Source·단위·scope 문구는 실제 관측 차이를 설명하기 위해 원본보다 많습니다.
+
+{download}`원본 대비 여섯 화면 검증<validation/workspace-design-20261009.json>`은 browser geometry·viewport·반복 개선·미검증 범위를 기록합니다. 새 raster reference나 가상 데이터는 runtime asset으로 포함하지 않았습니다.
+
 ## 실제 화면
 
-아래 기존 figure와 수치는 2026-10-08 검증 당시 기록입니다. 현재 Classic / Workspace 화면은 위의 최신 screenshot 표를 확인합니다.
+아래 기존 figure와 수치는 2026-10-08 검증 당시 기록입니다. 현재 Classic / Workspace 화면은 위의 최신 screenshot 표와 아래 원본 비교 결과를 확인합니다.
 
 다음 화면은 같은 clock의 live synthetic metric·SDK span·저장 report로 재현했습니다. 실제 GPU/VERL 성능 검증과 구분합니다.
 

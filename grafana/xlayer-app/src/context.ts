@@ -69,7 +69,10 @@ export function writeContext(context: Context): URLSearchParams {
   return params;
 }
 export function appLink(page: string, context: Context): string {
-  return `${APP_BASE}${context.uiVersion==='workspace'?'/v2':''}/${page}?${writeContext(context)}`;
+  const params=writeContext(context);
+  // Grafana's native kiosk hides chrome only in the Workspace; no global CSS.
+  if(context.uiVersion==='workspace')params.set('kiosk','true');
+  return `${APP_BASE}${context.uiVersion==='workspace'?'/v2':''}/${page}?${params}`;
 }
 export function sceneTime(value: string): string {
   // SceneTimeRange constructor accepts date math / ISO, not numeric URL epochs.

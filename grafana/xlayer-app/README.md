@@ -15,7 +15,7 @@
 
 Timeline helper route와 기존 detailed dashboard는 유지합니다. Detailed Metrics는 canonical native panel을 사용하며 자체 graph/query engine을 만들지 않습니다.
 
-V1 URL은 유지합니다. V2는 `/a/xlayer-telemetry-app/v2/overview`에서 시작합니다. 상단 버전 전환은 현재 화면·Run/Step/worker/resource/time을 보존합니다. Dark palette는 App 안에만 적용하며 Grafana 사용자 theme을 변경하지 않습니다.
+V1 URL은 유지합니다. V2는 `/a/xlayer-telemetry-app/v2/overview`에서 시작합니다. 상단 버전 전환은 현재 화면·Run/Step/worker/resource/time을 보존합니다. Dark palette는 App 안에만 적용합니다. V2는 native `kiosk=true`를 사용하며 V1·기존 dashboard에서는 Grafana chrome을 복원합니다. 사용자 theme·auth는 변경하지 않습니다.
 
 ## 준비
 
@@ -103,7 +103,9 @@ python grafana/xlayer-app/scripts/browser_validate.py \
 
 Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합니다. 설치된 Chromium을 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 결과는 desktop·900px·390px capture와 validation JSON입니다. Test는 실제 Grafana query request의 Step interval도 확인합니다.
 
-`versions_validate.py --url <owned-loopback-demo> --output <new-directory>`는 여섯 화면의 V1/V2 값·Matrix·candidate·native query target 동등성, version/resource context, 1440/390px, empty/error/stale response fixture를 확인합니다.
+`workspace_design_validate.py --url <owned-loopback-demo> --output <new-directory>`는 원본의 1672×941, 1280, 390px에서 여섯 화면의 geometry·chart rendering·overflow를 검사합니다. `--reference /path/to/mockup.html`은 local reference의 여섯 화면도 브라우저로 열며 CI에는 필요하지 않습니다.
+
+`versions_validate.py --url <owned-loopback-demo> --output <new-directory>`는 여섯 화면의 shared KPI·canonical target·context 동등성, version/resource context, 1440/390px, empty/error/stale response fixture를 확인합니다.
 
 `metric_contract_validate.py --url <owned-loopback-demo> --output <new-directory>`는 metrics-only veRL label·async presentation의 browser response fixture와 Storage layer context·GPU/Ray query 재사용을 검사합니다. `ci_demo.py`도 기본 journey 뒤에 이 검사를 실행합니다. Async fixture는 실제 veRL 실행이나 backend 장애 실험이 아닙니다.
 
@@ -137,7 +139,8 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 - `src/pages.ts`: 공통 화면·route·primary panel reference 목록.
 - `src/infrastructure.ts`, `topology-view.tsx`: 명시 owner와 exporter observation을 구분하는 공통 topology model·resource 선택.
 - `src/module.tsx`: 버전별로 복제하지 않는 Scene factory와 shared component.
-- `src/workspace.css`: V2 scoped palette·layout; 기존 V1 `style.css` 유지.
+- `src/workspace.css`, `src/mockup.css`: 기존 공통 style과 첨부 여섯 화면의 scoped V2 layout·색·간격. V1 `style.css` 유지.
+- `src/workspace-model.ts`, `workspace-design.tsx`: clock-qualified call track과 디자인용 label·icon. Dataset·진단을 생성하지 않습니다.
 - `scripts/`: 선택적 live demo와 browser validation.
 
 설치·조사 흐름은 [App guide](../../docs/grafana-scenes-poc.md), query·scope·운영 한계는 [App Reference](../../docs/grafana-scenes-reference.md), 당시 화면·결과는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.

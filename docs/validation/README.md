@@ -10,6 +10,7 @@
 | [3FS·subsystem](subsystem-telemetry-20261003.json), [Mooncake](mooncake-telemetry-20261003.json) | 실제 3FS I/O·ClickHouse·native endpoint 경로와 수집하지 못한 signal. |
 | [VM 검증](multinode/xltel-vm-validation-20261002.json), [시간 보정](userspace-time-alignment-20261004.json) | 독립 guest clock·collector와 userspace reference 보정. VM과 process 기반 검증은 다른 실행입니다. |
 | [Metric coverage audit](metric-coverage-audit-20261003.md) | Contract별 producer·미수집 영역·cardinality·overhead 대조. |
+| [V2 원본 디자인 비교](workspace-design-20261009.json) | 원본 HTML 여섯 화면과 실제 Grafana의 반복 비교·kiosk·compact call track·1672/1280/390px 검증. |
 | [Classic / Workspace](classic-workspace-20261009.json) | 2026-10-09의 V1/V2 여섯 화면·query/data 동등성·Infrastructure·Logs·failure boundary와 실제 synthetic browser 검증. |
 | [Grafana App · Scenes](grafana-scenes-20261008.md) | 2026-10-08의 live synthetic UI·context 검증과 당시 화면 캡처. |
 | [Live dashboard UX](dashboards/live-ui-20261003.md), [Fresh User Experience](e2e-user-experience.md) | 당시 browser navigation·filter·가독성의 before/after. |

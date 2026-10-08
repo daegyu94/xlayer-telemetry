@@ -62,11 +62,11 @@ apps:
 | 항목 | V1 Classic | V2 Workspace |
 | --- | --- | --- |
 | 기본 URL | `/a/xlayer-telemetry-app/overview` | `/a/xlayer-telemetry-app/v2/overview` |
-| 표현 | 기존 Light card·상단 navigation | 차분한 Dark card·왼쪽 workspace navigation |
-| Investigate | 비교 → candidate → timeline·evidence | 비교·evidence와 candidate를 병렬 배치 |
+| 표현 | 기존 Light card·상단 navigation | `mockup.html` 기준 Dark card·아이콘 navigation·상단 context bar |
+| Investigate | 비교 → candidate → timeline·evidence | Current/Baseline → timeline/metric → candidate/evidence의 3열 배치 |
 | 데이터 / 기능 | 같은 여섯 화면·canonical panel·diagnosis | 같은 여섯 화면·canonical panel·diagnosis |
 
-상단 **V2 Workspace / V1 Classic**으로 전환합니다. 현재 화면·Run·record·observer/resource·worker·시간 구간을 유지합니다. Grafana 자체 sidebar·header는 사용자의 Grafana theme을 따르며 App의 Light/Dark 설정은 다른 dashboard에 적용하지 않습니다.
+상단 **V2 Workspace / V1 Classic**으로 전환합니다. 현재 화면·Run·record·observer/resource·worker·시간 구간을 유지합니다. V2는 Grafana의 native `kiosk=true`로 원본처럼 App 전체 폭을 사용합니다. **V1 Classic** 또는 기존 상세 dashboard로 이동하면 Grafana chrome을 복원하며 auth·datasource·사용자 theme은 변경하지 않습니다. `Esc`로 native kiosk를 해제할 수 있습니다.
 
 ## 3. Verify
 

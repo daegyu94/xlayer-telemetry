@@ -25,3 +25,9 @@ test('six product pages and legacy timeline share the same panel contracts in bo
  assert.ok(pagePanels('logs').some(p=>p.dashboard==='logs'&&p.panel===1));
  assert.ok(pagePanels('infrastructure').some(p=>p.dashboard==='storage'&&p.panel===113));
 });
+
+test('workspace uses native kiosk while Classic and existing dashboard URLs retain Grafana chrome',()=>{
+ const context=readContext('?var-cluster=c&var-record_id=s&from=1&to=2','workspace');
+ assert.equal(new URL(appLink('overview',context),'http://grafana').searchParams.get('kiosk'),'true');
+ assert.equal(new URL(appLink('overview',switchVersion(context,'classic')),'http://grafana').searchParams.has('kiosk'),false);
+});

@@ -46,7 +46,7 @@ Unsigned allowlist는 격리 개발 Grafana에서 `xlayer-telemetry-app` 하나�
 1. Node 22·Python 3.12에서 App test·typecheck·build·package.
 2. 공식 release의 고정 SHA256으로 Grafana 12.1.0·Prometheus 3.5.0·Loki 3.7.3 검증 후 설치.
 3. 실제 exporter scrape와 SDK span/diagnosis fixture를 생성하는 `live_demo.py` 실행.
-4. 단일 / 멀티worker CI job에서 baseline/current pair 두 개를 기다린 뒤 기존 journey·metric/storage/clock contract와 `versions_validate.py`를 실행. V1/V2 여섯 화면의 값·query·context·empty/error/stale 경계를 비교.
+4. 단일 / 멀티worker CI job에서 baseline/current pair 두 개를 기다린 뒤 기존 journey·metric/storage/clock contract와 `versions_validate.py`를 실행. V1/V2 여섯 화면의 shared KPI·canonical 계약·context·empty/error/stale을 비교하고 `workspace_design_validate.py`로 reference 크기·Laptop·Mobile geometry와 chart visibility를 확인.
 5. 자신이 시작한 process만 종료하고 JSON report·화면 capture·제한된 synthetic log·ZIP을 7일 artifact로 보존.
 
 Browser context는 `locale=en-US`·`timezone=UTC`를 명시합니다. POSIX host locale을 Chromium이 잘못 전달하면 Grafana의 `Intl.NumberFormat`이 App 진입 전에 실패할 수 있습니다. Entry 실패 artifact는 제한된 DOM·browser/console 오류·query status metadata를 기록하며 query expression·header·credential을 보존하지 않습니다.
