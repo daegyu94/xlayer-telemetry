@@ -2,10 +2,10 @@ name: Optional Grafana App PoC
 
 on:
   pull_request:
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   push:
     branches: [main]
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: grafana/xlayer-app
@@ -31,3 +32,41 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+      - name: Verify CI / packaging helpers
+        run: |
+          python -m pip install pytest
+          python -m pytest -q scripts/test_ci_helpers.py
+      - name: Package unsigned development App
+        run: python scripts/package_plugin.py --output ../../artifacts/grafana-app-package
+      - name: Install CPU demo / browser test dependencies
+        run: |
+          python -m pip install -e ../.. playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Cache pinned release archives
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/xlayer-grafana-tools/*.tar.gz
+            ${{ runner.temp }}/xlayer-grafana-tools/*.zip
+          key: xlayer-grafana-app-linux-amd64-grafana12.1.0-prometheus3.5.0-loki3.7.3-v1
+      - name: Install checksum-verified demo tools
+        run: python scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-grafana-tools"
+      - name: Actual Grafana / Scenes browser journey
+        run: |
+          python scripts/ci_demo.py \
+            --tools "$RUNNER_TEMP/xlayer-grafana-tools" \
+            --state "$RUNNER_TEMP/xlayer-grafana-state" \
+            --output ../../artifacts/grafana-app-browser
+      - name: Preserve bounded browser reports and unsigned package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlayer-grafana-app-poc
+          path: |
+            artifacts/grafana-app-browser/*.json
+            artifacts/grafana-app-browser/*.png
+            artifacts/grafana-app-browser/*.log
+            artifacts/grafana-app-package/*.zip
+            artifacts/grafana-app-package/*.sha256
+          retention-days: 7
+          if-no-files-found: warn

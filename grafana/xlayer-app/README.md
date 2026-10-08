@@ -46,7 +46,7 @@ apps:
     disabled: false
 ```
 
-정상 결과: sidebar의 **More apps → XLayer Telemetry**에서 Overview로 이동합니다. `/a/xlayer-telemetry-app/overview`도 사용할 수 있습니다. Production 배포에는 공식 Grafana plugin signing 절차를 따릅니다.
+정상 결과: sidebar의 **More apps → XLayer Telemetry**에서 Overview로 이동합니다. `/a/xlayer-telemetry-app/overview`도 사용할 수 있습니다. Production 배포에는 공식 Grafana plugin signing 절차를 따릅니다. 개발용 ZIP·browser CI·signing 준비 조건은 [배포 Reference](../../docs/app-deployment-reference.md)를 확인합니다.
 
 ## Source와 No data
 
