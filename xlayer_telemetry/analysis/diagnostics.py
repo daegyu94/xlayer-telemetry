@@ -77,6 +77,42 @@ _ALLOWED_3FS_FILTERS = {"host", "mount_name", "instance", "io", "uid", "pod", "m
 _DATABASE = re.compile(r"^[A-Za-z0-9_]+$")
 _ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _LATENCY_NAME = re.compile(r"latency|duration|elapsed|cost|time", re.IGNORECASE)
+_DISTRIBUTION_LABELS = ("host", "tag", "mount_name", "instance", "io", "uid",
+                        "method", "pod", "thread", "statusCode")
+
+
+def _distribution_identity(row: Mapping[str, Any]) -> tuple | None:
+    """Legacy unlabeled rows match only legacy rows, never explicit entities."""
+    name = row.get("metricName")
+    if not isinstance(name, str):
+        return None
+    if "labels" not in row:
+        if any(key in row for key in _DISTRIBUTION_LABELS):
+            # Do not turn a partially annotated custom/legacy row into the
+            # metric-only compatibility identity.
+            return None
+        return (("metricName", name),)
+    labels = row["labels"]
+    if (not isinstance(labels, Mapping) or set(labels) != set(_DISTRIBUTION_LABELS)
+            or any(not isinstance(value, str) for value in labels.values())):
+        return None
+    return (("metricName", name), *((key, labels[key]) for key in _DISTRIBUTION_LABELS))
+
+
+def _distribution_index(rows: list[dict[str, Any]]) -> dict[tuple, dict[str, Any]]:
+    """Reject duplicate identities rather than choosing a last response row."""
+    result, ambiguous = {}, set()
+    for row in rows:
+        key = _distribution_identity(row)
+        count = finite(row.get("count"))
+        if key is None or count is None or count <= 0:
+            continue
+        if key in result or key in ambiguous:
+            result.pop(key, None)
+            ambiguous.add(key)
+        else:
+            result[key] = row
+    return result
 
 
 @dataclass
@@ -167,19 +203,28 @@ class ThreeFSClient:
         return value
 
     def query_window(self, start: float, end: float) -> list[dict[str, Any]]:
+        identity = ", ".join(("metricName", *_DISTRIBUTION_LABELS))
         query = (
-            "SELECT metricName, sum(`count`) AS sample_count, "
+            f"SELECT {identity}, sum(`count`) AS sample_count, "
             "if(sum(`count`)=0,0,sum(mean*`count`)/sum(`count`)) AS weighted_mean, "
             "max(`max`) AS max_value, max(p99) AS max_observed_p99, "
             "toUnixTimestamp(min(TIMESTAMP)) AS first_observed_at, "
             "toUnixTimestamp(max(TIMESTAMP)) AS last_observed_at "
-            f"FROM {self.database}.distributions WHERE {self._where(start, end)} GROUP BY metricName ORDER BY metricName LIMIT 1001 "
+            f"FROM {self.database}.distributions WHERE {self._where(start, end)} AND `count` > 0 "
+            f"GROUP BY {identity} ORDER BY {identity} LIMIT 1001 "
             "FORMAT JSONEachRow"
         )
         rows = self._query_rows(query)
         if len(rows) > 1000:
-            raise ValueError("3FS distributions exceed 1000 metric limit; narrow source filters")
+            raise ValueError("3FS distributions exceed 1000 entity limit; narrow source filters")
         for row in rows:
+            # Flat upstream identity columns become additive evidence labels.
+            # Entirely unlabeled historical/test rows remain legacy; a partial
+            # explicit identity must not silently fall back to metricName.
+            if any(key in row for key in _DISTRIBUTION_LABELS):
+                if any(not isinstance(row.get(key), str) for key in _DISTRIBUTION_LABELS):
+                    raise ValueError("invalid ClickHouse distribution identity")
+                row["labels"] = {key: row.pop(key) for key in _DISTRIBUTION_LABELS}
             if "sample_count" in row:
                 row["count"] = row.pop("sample_count")
             if "max_value" in row:
@@ -881,44 +926,64 @@ class DiagnosticEngine:
             elif name in baseline_metrics:
                 missing.append(f"prometheus:{name}:baseline_entity_match")
         selected_3fs_metric = None
+        selected_3fs_identity = None
         if baseline_record:
-            def latencies(rows: list[dict[str, Any]]) -> dict[str, float]:
+            def latencies(rows: list[dict[str, Any]]) -> dict[tuple, float]:
                 result = {}
-                for row in rows:
-                    name = str(row.get("metricName", ""))
-                    count = finite(row.get("count"))
+                for identity, row in _distribution_index(rows).items():
                     value = finite(row.get("max_observed_p99"))
-                    if _LATENCY_NAME.search(name) and count is not None and count > 0 and value is not None:
-                        result[name] = value
+                    if _LATENCY_NAME.search(row["metricName"]) and value is not None:
+                        result[identity] = value
                 return result
 
             current_latency = latencies(threefs_rows)
             baseline_latency = latencies(threefs_baseline)
             comparable = [
-                (name, value, baseline_latency[name])
-                for name, value in current_latency.items()
-                if baseline_latency.get(name, 0) > 0
+                (identity, value, baseline_latency[identity])
+                for identity, value in current_latency.items()
+                if baseline_latency.get(identity, 0) > 0
             ]
             if comparable:
-                name, value, before = max(comparable, key=lambda item: item[1] / item[2])
-                selected_3fs_metric = name
+                identity, value, before = max(comparable, key=lambda item: item[1] / item[2])
+                selected_3fs_identity = identity
+                selected_3fs_metric = dict(identity)["metricName"]
                 current_signals["threefs_p99_latency"] = value
                 baseline_signals["threefs_p99_latency"] = before
-                signal_labels["threefs_p99_latency"] = {"metricName": name}
+                signal_labels["threefs_p99_latency"] = dict(identity)
             else:
                 current_signals.pop("threefs_p99_latency", None)
                 baseline_signals.pop("threefs_p99_latency", None)
+                if current_latency:
+                    missing.append("threefs:baseline_entity_match")
             request_metric = self.config.get("threefs", {}).get("request_size_metric")
             if isinstance(request_metric, str) and request_metric:
-                for signals, rows in ((current_signals, threefs_rows), (baseline_signals, threefs_baseline)):
-                    request = next((
-                        row for row in rows
-                        if row.get("metricName") == request_metric
-                        and finite(row.get("count")) is not None
-                        and float(row["count"]) > 0
-                    ), None)
-                    if request is not None and finite(request.get("weighted_mean")) is not None:
-                        signals["storage_request_bytes"] = float(request["weighted_mean"])
+                current_signals.pop("storage_request_bytes", None)
+                baseline_signals.pop("storage_request_bytes", None)
+                requests = _distribution_index(threefs_rows)
+                prior_requests = _distribution_index(threefs_baseline)
+                pairs = [identity for identity, row in requests.items()
+                         if row["metricName"] == request_metric
+                         and identity in prior_requests
+                         and finite(row.get("weighted_mean")) is not None
+                         and finite(prior_requests[identity].get("weighted_mean")) is not None
+                         and (selected_3fs_identity is None
+                              or identity[1:] == selected_3fs_identity[1:])]
+                # No implicit first/mean/max selection across request entities.
+                # When paired with latency evidence the producer labels must
+                # match as well; metricName necessarily differs across signals.
+                if len(pairs) == 1:
+                    identity = pairs[0]
+                    current_signals["storage_request_bytes"] = float(requests[identity]["weighted_mean"])
+                    baseline_signals["storage_request_bytes"] = float(prior_requests[identity]["weighted_mean"])
+                    signal_labels["storage_request_bytes"] = dict(identity)
+                elif any(row["metricName"] == request_metric for row in requests.values()):
+                    missing.append("threefs:request_size_entity_match")
+        elif "threefs_p99_latency" in current_signals:
+            rows = [item for item in _distribution_index(threefs_rows).items()
+                    if _LATENCY_NAME.search(item[1]["metricName"])
+                    and finite(item[1].get("max_observed_p99")) is not None]
+            if len(rows) == 1:
+                signal_labels["threefs_p99_latency"] = dict(rows[0][0])
         # An adjacent shared-service window remains useful in the legacy
         # findings, but is not presented as a same-run step baseline.
         # Preserve the expression actually sent to Prometheus, keyed by the
@@ -1147,10 +1212,11 @@ class DiagnosticEngine:
                 if value is not None:
                     target = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
                     signals[target] = value / 100 if name in {"vllm_kv_cache_usage", "gpu_memory_usage_ratio"} and value > 1 else value
-        latencies = [finite(row.get("max_observed_p99")) for row in threefs_rows if _LATENCY_NAME.search(str(row.get("metricName", ""))) and finite(row.get("count")) and float(row["count"]) > 0]
+        latencies = [finite(row.get("max_observed_p99")) for row in _distribution_index(threefs_rows).values()
+                     if _LATENCY_NAME.search(row["metricName"])]
         latencies = [value for value in latencies if value is not None]
-        if latencies:
-            signals["threefs_p99_latency"] = max(latencies)
+        if len(latencies) == 1:
+            signals["threefs_p99_latency"] = latencies[0]
         return signals
 
     def _findings(
@@ -1186,11 +1252,12 @@ class DiagnosticEngine:
         gpu = evidence.get("gpu_utilization_percent", {}).get("mean", 100)
         if memory <= self.thresholds["memory_available_ratio"] or disk >= self.thresholds["disk_busy_ratio"]:
             findings.append({"component": "host", "candidate": "memory_or_storage_pressure", "signals": {"memory_available_min_ratio": memory, "disk_busy_max_ratio": disk, "gpu_utilization_mean_percent": gpu}, "correlates_with_slow_stage": bool(slow_names)})
-        latency_rows = [row for row in threefs_rows if _LATENCY_NAME.search(str(row.get("metricName", "")))]
-        baseline_by_name = {str(row.get("metricName")): row for row in threefs_baseline}
+        latency_rows = {identity: row for identity, row in _distribution_index(threefs_rows).items()
+                        if _LATENCY_NAME.search(row["metricName"])}
+        baseline_by_identity = _distribution_index(threefs_baseline)
         elevated = []
-        for row in latency_rows:
-            baseline = baseline_by_name.get(str(row.get("metricName")), {})
+        for identity, row in latency_rows.items():
+            baseline = baseline_by_identity.get(identity, {})
             counts = [finite(item.get("count")) for item in (row, baseline)]
             current_p99 = finite(row.get("max_observed_p99"))
             baseline_p99 = finite(baseline.get("max_observed_p99"))
