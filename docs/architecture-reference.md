@@ -28,6 +28,10 @@ Grafana·Prometheus는 step·rollout·weight sync·worker·KV offload를 같은 
 GPU utilization 40%, 3FS p99 15 ms, RDMA 250 Gbps가 동시에 보여도 어느 run의 phase와 관련됐는지는 별도 조사해야 합니다.
 XLayer는 workload interval·scope로 연결해 가설을 만들며 공유 사용량을 자동 귀속하지 않습니다.
 
+## Limitations & Future Work
+
+현재 지원된 P0와 operation-level correlation의 차이, async/multiworker attribution 한계, Mooncake + 3FS/Local SSD/pNFS의 source별 coverage와 최소 계측 우선순위는 [Correlation Limitations & Future Work](correlation-limitations.md)에서 관리합니다. 기존 SDK relation·signature·triggered profiling을 다시 만드는 대신 실제 native request/replica/backend 경계의 missing evidence를 확장하는 계획입니다.
+
 OpenTelemetry의 metric·trace·log·event·profile 및 resource 개념은 interoperability의 기반입니다.
 XLayer의 기존 `trace_id`·`span_id`는 이를 고려해 유지하지만 OpenTelemetry 규격만으로 storage path가 병목이라는 판단이 자동으로 생기지는 않습니다.
 DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비할 수 있는 유용한 signal source이며, XLayer가 그 수집 stack을 다시 만들지는 않습니다.

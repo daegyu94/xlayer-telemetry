@@ -131,6 +131,8 @@ Point plot은 현재 source timestamp를 사용합니다. Baseline 원본 시각
 
 다음은 이번 P0에 구현하지 않습니다. 기존 memory/DFS/native I/O metric과 중복된 collector는 제안하지 않습니다.
 
+이 표는 Storage PoC의 후속 계측 경계를 보존합니다. 최신 upstream·3FS/Local SSD/pNFS 비교와 난이도·예상 overhead·PoC 방법의 기준은 [공통 Limitations & Future Work](correlation-limitations.md#future-work-tbd)에서 관리합니다. 이미 있는 native metric과 local relation/signature 기능은 재구현 대상으로 제안하지 않습니다.
+
 | 과제 | 필요성 / 효과 | 예상 계측 지점 | PoC 검증 |
 | --- | --- | --- | --- |
 | 실제 Memory/DFS replica 선택 | 요청한 tier와 실제 fallback·retry 구분 | Mooncake 선택 함수·Store worker의 requested/selected replica attribute | Forced memory/DFS/fallback에서 실제 선택과 대조 |
