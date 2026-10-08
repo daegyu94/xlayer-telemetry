@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { phaseWindow, stepEvidenceCell, metricCell, gaugeSummary, contextSample, relatedPhaseWindow, phaseComparison } from "../src/semantics";
 const selected = {
   run_id: "r",
+  node: "n",
   step: 127,
   record_id: "record",
   window_start_ms: 1000,
@@ -216,4 +217,15 @@ test("worker/cgroup samples require explicit worker and Run identity, unlike sha
     metricCell(sample, window, "shared-service", true).explanation,
     /actual window/,
   );
+});
+
+test('remote node clocks require an explicit shared calibration before phase query mapping',()=>{
+ const step={...selected,boundary_accuracy:'approximate'};
+ const remote={...span,node:'remote'};
+ assert.equal(phaseWindow([remote],step,'rollout').status,'missing');
+ const calibratedStep={...step,boundary_accuracy:'calibrated_approximate',time_reference:'monitor',time_uncertainty_seconds:.01};
+ const calibrated={...remote,boundary_accuracy:'calibrated',time_reference:'monitor',time_uncertainty_seconds:.01};
+ assert.equal(phaseWindow([calibrated],calibratedStep,'rollout').status,'observed');
+ for(const change of [{time_reference:'other'},{time_uncertainty_seconds:null},{start_time_ms:1005}])assert.equal(phaseWindow([{...calibrated,...change}],calibratedStep,'rollout').status,'missing');
+ assert.equal(phaseWindow([span],step,'rollout').status,'observed');
 });

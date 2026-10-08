@@ -7,7 +7,7 @@
 | 목적 | 화면 | 다음 행동 |
 | --- | --- | --- |
 | Run 요약 확인 | Overview: 8 KPI·실제 history sparkline·Timeline + Recent Events·Related Metrics + System Signals | 완료 Step → Analyze |
-| Phase와 subsystem 연결 | Analyze: Matrix·System Pressure·Top Changes·worker snapshots | Cell evidence → Investigate |
+| Phase와 subsystem 연결 | Analyze: Matrix·System Pressure·Top Changes·worker snapshots | Execution worker / Worker Comparison → Cell evidence → Investigate |
 | Baseline과 후보 확인 | Investigate: What changed·candidate·Supporting/Against/Missing | Open Evidence / Deep Dive |
 | 선택 후보 검증 | Deep Dive: `candidate_id` workspace·Key Findings·native metric tab·System Pressure | 기존 Timeline / Storage / Logs dashboard |
 
@@ -99,6 +99,8 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 최신 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 
+`--multi-worker`를 추가하면 네 worker의 exact rollout span·명시 `weights.applied` event와 느린 peer 하나를 생성합니다. Analyze의 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 선택한 identity는 URL에 보존하며 observer와 resource node를 구분합니다. 기본 demo는 단일 execution path를 유지합니다.
+
 ## 문제 해결
 
 | 상태 | 확인할 것 |
@@ -118,7 +120,7 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 ## 구조 / 한계
 
 - `src/catalog.ts`: 실제 provisioned dashboard metadata와 native Scenes query/variable/viz 연결.
-- `src/context.ts`, `semantics.ts`, `data.ts`: URL state, observation boundary, projection decoding.
+- `src/context.ts`, `semantics.ts`, `selection.ts`, `distributed.ts`, `data.ts`: URL state, observation boundary, projection decoding.
 - `src/matrix-contract.ts`: Canonical panel/ref 선택. PromQL/LogQL은 중복 정의하지 않습니다.
 - `src/module.tsx`: XLayer Scene 페이지와 custom component.
 - `scripts/`: 선택적 live demo와 browser validation.

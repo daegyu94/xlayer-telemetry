@@ -5,8 +5,233 @@ from datetime import datetime
 import json
 from pathlib import Path
 import re
+import threading
+import time
 from urllib.parse import urlparse, parse_qs
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
+from ci_demo import datasource_error_result
+
+
+def datasource_boundary_checks(page, url, checks, capture):
+    """Inject only the native datasource boundary; keep real Loki/other requests."""
+    errors = []
+    def gpu_request(route):
+        body = route.request.post_data_json or {}
+        queries = body.get('queries', [])
+        return queries if any(any(metric in str(q.get('expr', '')) for metric in ('telemetry_gpu_utilization_percent', 'DCGM_FI_DEV_GPU_UTIL')) for q in queries) else None
+    def error_fixture(route):
+        queries = gpu_request(route)
+        if queries is None:
+            route.continue_()
+        else:
+            errors.append(len(queries))
+            route.fulfill(status=200, json=datasource_error_result(queries))
+    page.route('**/api/ds/query*', error_fixture)
+    try:
+        page.goto(url)
+        page.get_by_role('heading', name='Run Overview', exact=True).wait_for(timeout=30000)
+        page.wait_for_function("Array.from(document.querySelectorAll('.xlt-completed-detail summary')).some(el => el.innerText.includes('Diagnosis / Query Coverage') && /[1-9][0-9]* errors/.test(el.innerText))", timeout=15000)
+        coverage = page.locator('details').filter(has=page.locator('summary').filter(has_text='Diagnosis / Query Coverage'))
+        coverage.locator('summary').click()
+        assert 'Synthetic browser boundary datasource error' in coverage.inner_text()
+        assert page.get_by_role('combobox', name='Completed Step').locator('option').count() >= 3
+        assert errors
+        capture('datasource-error-fixture')
+        checks.append('Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage')
+    finally:
+        page.unroute_all(behavior='wait')
+    delays = []
+    def delayed_fixture(route):
+        queries = gpu_request(route)
+        if queries is None:
+            route.continue_()
+        else:
+            response = route.fetch(timeout=10000)
+            started = time.monotonic()
+            threading.Event().wait(1.2)
+            delays.append(time.monotonic() - started)
+            route.fulfill(response=response)
+    page.route('**/api/ds/query*', delayed_fixture)
+    try:
+        page.goto(url)
+        page.get_by_role('heading', name='Run Overview', exact=True).wait_for(timeout=30000)
+        page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=15000)
+        page.wait_for_timeout(1500)
+        assert delays and min(delays) >= 1.1
+        assert page.get_by_role('combobox', name='Completed Step').locator('option').count() >= 3
+        assert 'Synthetic browser boundary datasource error' not in page.locator('.xlt').inner_text()
+        capture('datasource-delay-fixture')
+        checks.append('Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement')
+    finally:
+        page.unroute_all(behavior='wait')
+    loading_context_check(page, url, checks, capture)
+
+
+
+def loading_context_check(page, url, checks, capture):
+    """Exercise a native Run-variable transition after the old Run has data."""
+    page.goto(url)
+    page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=15000)
+    page.wait_for_timeout(500)
+    snapshots = []
+    reserved = []
+    cancelled = []
+    def delayed_unknown_run(route):
+        body = route.request.post_data_json or {}
+        queries = body.get('queries', [])
+        matches = any('not-a-real-run' in str(query.get('expr', '')) and 'verl_step' in str(query.get('expr', '')) and 'verl-agent-demo' not in str(query.get('expr', '')) for query in queries)
+        if not matches or reserved:
+            route.continue_()
+            return
+        reserved.append(True)
+        response = route.fetch(timeout=10000)
+        threading.Event().wait(.3)
+        snapshots.append(page.evaluate("""() => ({
+          runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
+          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
+          completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
+        })"""))
+        threading.Event().wait(.9)
+        try:
+            route.fulfill(response=response)
+        except PlaywrightError as error:
+            if 'Route is already handled!' not in str(error):
+                raise
+            cancelled.append('Native Scenes cancelled the superseded browser-delayed request')
+    page.route('**/api/ds/query*', delayed_unknown_run)
+    try:
+        run = page.locator('.xlt-context-variable').nth(1)
+        run.get_by_role('combobox').fill('not-a-real-run')
+        page.get_by_role('option').filter(has_text='Hit enter to add').click()
+        page.keyboard.press('Escape');page.keyboard.press('Tab')
+        # Grafana's multi-value editor commits on blur; remove only the old Run.
+        for button in run.get_by_role('button', name='Remove', exact=True).all():
+            if button.locator('..').inner_text().strip() == 'verl-agent-demo':
+                button.click()
+                break
+        page.keyboard.press('Escape');page.keyboard.press('Tab')
+        page.wait_for_function("new URLSearchParams(window.location.search).getAll('var-run_id').includes('not-a-real-run') && !new URLSearchParams(window.location.search).getAll('var-run_id').includes('verl-agent-demo')", timeout=15000)
+        page.get_by_text('No completed Step in this range. Select a Run/time range; Loki step history is optional.', exact=True).wait_for(state='attached', timeout=15000)
+        page.unroute_all(behavior='wait')
+        relevant = [snapshot for snapshot in snapshots if snapshot['runs']==['not-a-real-run']]
+        assert relevant, 'A native Run transition must issue delayed unknown-Run queries'
+        for snapshot in relevant:
+            assert not snapshot['completed'], 'Previous Run completed Steps were retained during Loading'
+            for value in snapshot['application']:
+                assert 'verl-agent-demo' not in value['entity'], value
+                assert not re.search(r'\d', value['value']), ('Old application KPI value during Loading', value)
+        capture('loading-run-context')
+        checks.append('Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate')
+    finally:
+        page.unroute_all(behavior='wait')
+
+
+def multi_worker_journey(args):
+    errors, checks, queries, transitions = [], [], [], []
+    with sync_playwright() as playwright:
+        options = {'headless': True}
+        if args.browser:
+            options.update(executable_path=args.browser, args=['--no-sandbox'])
+        browser = playwright.chromium.launch(**options)
+        page = browser.new_page(viewport={'width':1440,'height':1000})
+        page.add_init_script('''(() => { for (const name of ['pushState','replaceState']) { const original=history[name]; history[name]=function(...args) { const before=location.href,open=!!document.querySelector('.xlt-evidence'); const result=original.apply(this,args); if(before!==location.href)console.debug('XLAYER_CONTEXT '+JSON.stringify({before,after:location.href,evidence_open:open})); return result; }; } })();''')
+        def record_transition(message):
+            if not message.text.startswith('XLAYER_CONTEXT '):
+                return
+            raw=json.loads(message.text[len('XLAYER_CONTEXT '):]);before=parse_qs(urlparse(raw['before']).query);after=parse_qs(urlparse(raw['after']).query)
+            changed={key:{'before':before.get(key),'after':after.get(key)} for key in set(before)|set(after) if before.get(key)!=after.get(key)}
+            transitions.append({'changed':changed,'evidence_open':raw['evidence_open']})
+            (args.output / f'{args.label}-context-transitions.json').write_text(json.dumps(transitions[-200:],indent=2)+'\n')
+        page.on('console',record_transition)
+        page.on('pageerror', lambda error: errors.append(str(error)))
+        page.on('request', lambda request: queries.append(request.post_data_json) if '/api/ds/query' in request.url and request.method=='POST' else None)
+        def capture(name):
+            page.screenshot(path=str(args.output / f'{args.label}-{name}.png'), full_page=True)
+        url = args.url + '/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
+        page.goto(url)
+        page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=30000)
+        selector = page.get_by_role('combobox', name='Completed Step')
+        slow = next((option.get_attribute('value') for option in selector.locator('option').all() if '48.00' in option.inner_text()), None)
+        assert slow, 'Multi-worker fixture must include a completed regression frame'
+        selector.select_option(slow)
+        page.wait_for_timeout(700)
+        page.get_by_role('button', name=re.compile('Analyze Step')).first.click()
+        page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
+        gpu_cell = page.get_by_role('button', name='rollout × gpu evidence', exact=True)
+        page.wait_for_function('''document.querySelector('[aria-label="rollout × gpu evidence"]')?.innerText.includes('Ambiguous span')''', timeout=15000)
+        assert gpu_cell.locator('b').inner_text() == '—'
+        before = parse_qs(urlparse(page.url).query)
+        capture('multi-ambiguous')
+        checks.append('Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected')
+        page.get_by_role('button', name='Worker Comparison', exact=True).click()
+        page.get_by_role('heading', name='Measured Worker Comparison', exact=True).wait_for()
+        workers = page.get_by_role('heading', name='Measured Worker Comparison', exact=True).locator('..')
+        rows = workers.locator('tbody tr').filter(has_text='rollout-')
+        assert rows.count() == 4
+        outlier = rows.filter(has_text='rollout-3').first
+        assert 'No matched peer cohort' not in outlier.inner_text()
+        def peer_delta(row):
+            text = row.locator('td').nth(3).inner_text()
+            match = re.search(r'([-+]?\d[\d,]*(?:\.\d+)?)\s*%', text)
+            assert match, ('Comparable worker delta not rendered', text)
+            return float(match.group(1).replace(',', ''))
+        assert peer_delta(outlier)>100
+        assert all(abs(peer_delta(rows.filter(has_text=f'rollout-{index}').first))<20 for index in range(3))
+        assert 'sampled' in workers.inner_text() or 'sample unavailable' in workers.inner_text()
+        capture('multi-worker-comparison')
+        workers.screenshot(path=str(args.output / f'{args.label}-worker-comparison-section.png'))
+        outlier.get_by_role('button', name='Inspect worker →', exact=True).click()
+        page.wait_for_function("new URLSearchParams(window.location.search).has('var-phase_worker')")
+        selected = parse_qs(urlparse(page.url).query)
+        key = dict(json.loads(selected['var-phase_worker'][0]))
+        assert key['worker_id'] == 'rollout-3'
+        assert selected['var-node'] == [key['node']] and selected['var-gpu'] == [str(key['gpu'])]
+        for name in ('var-run_id','var-record_id','var-source_node','from','to'):
+            assert selected[name] == before[name], (name, selected, before)
+        page.wait_for_function('''document.querySelector('[aria-label="rollout × gpu evidence"]')?.innerText.includes('Sampled') && /[0-9]/.test(document.querySelector('[aria-label="rollout × gpu evidence"] b')?.innerText || '')''', timeout=15000)
+        assert 'Sampled' in gpu_cell.inner_text()
+        page.wait_for_timeout(600)
+        selected = parse_qs(urlparse(page.url).query)
+        capture('multi-selected-worker')
+        checks.append('Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time')
+        gpu_cell.click()
+        detail = page.get_by_role('complementary', name='Evidence detail')
+        detail.wait_for();page.wait_for_timeout(400)
+        detail.get_by_role('link', name='compute ↗', exact=True).click()
+        page.wait_for_url('**/d/xlayer-compute-communication?**')
+        deep = parse_qs(urlparse(page.url).query)
+        for name in ('var-phase_worker','var-node','var-gpu','var-run_id','var-record_id','var-source_node','from','to'):
+            assert deep[name] == selected[name], (name, deep, selected)
+        assert deep['var-phase'] == ['rollout']
+        page.go_back()
+        page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
+        assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
+        checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
+        page.get_by_role('link', name='Overview', exact=True).last.click()
+        page.wait_for_timeout(700)
+        lifecycle = page.locator('details').filter(has=page.locator('summary').filter(has_text='Policy / KV Lifecycle'))
+        lifecycle.locator('summary').click()
+        assert '4 workers with applied-version events' in lifecycle.inner_text()
+        assert lifecycle.locator('tbody tr').count() >= 4
+        assert 'producer reported' in lifecycle.inner_text() and 'causality' in lifecycle.inner_text()
+        capture('multi-policy-applied')
+        checks.append('Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence')
+        for width in (1280,390):
+            page.set_viewport_size({'width':width,'height':900})
+            page.wait_for_timeout(250)
+            assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1')
+            capture(f'multi-policy-{width}')
+        page.set_viewport_size({'width':1440,'height':1000})
+        datasource_boundary_checks(page, url, checks, capture)
+        assert not errors, errors
+        report = {'checks':checks, 'browser_errors':errors, 'data_origin':'live synthetic metrics + four explicit SDK rollout worker spans',
+                  'grafana_version':'12.1.0', 'scenes_version':'6.20.0', 'selected_context':selected,
+                  'multi_worker':True, 'worker_rows':4, 'context_transition_count':len(transitions),
+                  'datasource_fixtures':'Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement'}
+        (args.output / f'{args.label}-validation.json').write_text(json.dumps(report, indent=2)+'\n')
+        print(json.dumps(report, indent=2))
+        browser.close()
+
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -14,7 +239,11 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--browser',default=None,help='Optional Chromium executable')
     parser.add_argument('--label',default='final')
+    parser.add_argument('--multi-worker',action='store_true',help='Opt-in measured multi-worker comparison journey')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+    if args.multi_worker:
+        multi_worker_journey(args)
+        return
     errors=[];checks=[];queries=[]
     def epoch(value):
         return int(value) if value.isdigit() else round(datetime.fromisoformat(value.replace('Z','+00:00')).timestamp()*1000)
@@ -135,6 +364,7 @@ def main():
         page.goto(url.replace('verl-agent-demo','not-a-real-run'));page.wait_for_timeout(1800)
         assert 'No completed Step' in page.locator('.xlt').inner_text();capture('no-data')
         checks.append('Unknown Run stays selected and displays no-data rather than inferred healthy/zero values')
+        datasource_boundary_checks(page,url,checks,capture)
         # Optional dashboard availability is deliberately removed at Grafana's
         # metadata boundary. This tests absence handling, not a real Loki outage.
         page.route('**/api/dashboards/uid/xlayer-bottleneck-summary',lambda route:route.fulfill(status=404,json={'message':'Dashboard not found'}))

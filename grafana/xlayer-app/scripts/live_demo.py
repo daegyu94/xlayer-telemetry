@@ -24,6 +24,7 @@ from xlayer_telemetry.demos.diagnosis import generate
 from xlayer_telemetry.analysis.diagnostics import _investigation_rows
 from xlayer_telemetry.demos.scenario import make_scenario
 from xlayer_telemetry.fileio import atomic_write_text
+from xlayer_telemetry.events import CorrelationContext
 
 
 def main():
@@ -33,6 +34,8 @@ def main():
     parser.add_argument('--grafana-port', type=int, default=23400)
     parser.add_argument('--scenario', choices=('storage-regression', 'normal', 'alternating'), default='alternating',
                         help='Explicit synthetic comparison: real scrapes precede completed SDK spans/report')
+    parser.add_argument('--multi-worker', action='store_true',
+                        help='Opt-in controlled rollout spans on four workers with one explicit synthetic outlier')
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.tools = args.tools.resolve()
@@ -165,16 +168,20 @@ datasources:
             if stopping.is_set():
                 break
             directory=args.output/f'fixture-{cycle}'
-            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule)
+            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,
+                            rollout_workers=[CorrelationContext(run_id='verl-agent-demo', producer='demo_distributed', role='rollout',
+                                worker_id=f'rollout-{index}', node=demo.gpu['gpu_nodes'][index % len(demo.gpu['gpu_nodes'])],
+                                gpu=str(index % demo.gpu['gpus_per_node'])) for index in range(4)] if args.multi_worker else None)
             streams=[]
             files=[('verl_step',directory/'telemetry-events/verl-steps.jsonl')]+[('xlayer_event',p) for p in (directory/'telemetry-events').glob('*.jsonl') if p.name!='verl-steps.jsonl']
             for source, path in files:
                 if path is None: continue
-                values=[]
+                by_node={}
                 for i,line in enumerate(path.read_text().splitlines()):
                     row=json.loads(line); stamp=row.get('event_time_unix_nano',int(float(row.get('observed_at',time.time()))*1e9))
-                    values.append([str(int(stamp)+i),line])
-                if values:streams.append({'stream':{'signal':source,'cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':values})
+                    by_node.setdefault(row.get('node', demo.gpu['gpu_nodes'][0]), []).append([str(int(stamp)+i),line])
+                for node, values in by_node.items():
+                    if values:streams.append({'stream':{'signal':source,'cluster':'scenes-demo','node':node,'data_origin':'synthetic'},'values':values})
             rows=_investigation_rows(report)
             streams.append({'stream':{'signal':'xlayer_diagnosis','cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(row['window_end_ms'])*1_000_000-len(rows)+i),json.dumps(row)] for i,row in enumerate(rows)]})
             streams.append({'stream':{'cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(rows[0]['window_end_ms'])*1_000_000),json.dumps({'run_id':'verl-agent-demo','log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})

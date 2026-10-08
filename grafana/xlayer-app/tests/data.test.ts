@@ -94,6 +94,10 @@ test("resource frames keep entity labels and evaluation time; never flatten mult
 test("calibrated windows retain uncertainty and ambiguous traces cannot be silently combined", () => {
   const step = {
     run_id: "r",
+    node: "n",
+    boundary_accuracy: "calibrated_approximate",
+    time_reference: "monitoring",
+    time_uncertainty_seconds: 0.01,
     step: 1,
     window_start_ms: 1,
     window_end_ms: 10000,
@@ -137,4 +141,10 @@ test("explicit Loki provenance conflicts are preserved and flagged", () => {
   assert.equal(result[0].identity_conflict,true);
   assert.equal(result[1].cluster,"inner");
   assert.equal(result[1].identity_conflict,true);
+});
+
+test('Loading and Error retained frames never become current custom records or KPI samples',()=>{
+ const data={series:[{length:1,fields:[{name:'Line',values:[JSON.stringify({run_id:'previous',record_id:'old'})]},{name:'value',type:'number',values:[7],config:{},labels:{run_id:'previous'}}]}],timeRange:{to:{valueOf:()=>10000}}};
+ for(const state of ['Loading','Error','NotStarted']){assert.deepEqual(records({...data,state} as any),[]);assert.deepEqual(samples({...data,state} as any),[]);}
+ for(const state of ['Done','Streaming']){assert.equal(records({...data,state} as any)[0].run_id,'previous');assert.equal(samples({...data,state} as any)[0].value,7);}
 });

@@ -73,7 +73,7 @@ Measured span 경계와 sampled resource 관측을 구분합니다. Shared resou
 ## 느린 Step 조사
 
 1. **Overview:** KPI의 baseline 변화와 Timeline을 보고 완료 Step을 선택합니다.
-2. **Analyze:** Phase × Subsystem에서 숫자·상태를 확인하고 의심 cell을 엽니다.
+2. **Analyze:** Phase × Subsystem에서 숫자·상태를 확인합니다. 여러 rollout worker가 겹치면 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 의심 cell에서 evidence를 엽니다.
 3. **Investigate:** What changed와 supporting/counter/missing evidence를 비교합니다.
 4. **Deep Dive →:** 선택한 candidate와 같은 context에서 상세 metric을 확인합니다.
 5. **Full Storage / Timeline / Logs:** 기존 dashboard로 이동합니다. Browser Back으로 App에 돌아옵니다.
@@ -105,6 +105,8 @@ Live exporter와 저장된 Current/Baseline diagnosis는 별도 fixture입니다
 
 `Ctrl-C`는 demo가 만든 process만 종료합니다. Fixture·log·state는 output에 남으며, process 종료를 확인한 뒤 이번 demo directory만 정리합니다.
 
+멀티worker fixture가 필요하면 위 명령에 `--multi-worker`를 추가합니다. **정상 결과:** 네 worker의 명시 rollout span과 `weights.applied` event가 보입니다. Regression pair에는 같은 fingerprint의 느린 worker 하나가 있으며, 선택 전 phase는 ambiguous로 유지됩니다. GPU 값은 연결된 device의 sampled 관측입니다. 이 fixture는 명시적인 공통 injected clock/reference를 사용하며 물리 node의 calibration 검증이 아닙니다.
+
 ## Troubleshooting
 
 | 상태 | 확인할 것 |
@@ -115,12 +117,13 @@ Live exporter와 저장된 Current/Baseline diagnosis는 별도 fixture입니다
 | No completed Step | Run/time filter·Loki step history |
 | N/A / Rolling context | [Matrix의 observation 조건](grafana-scenes-reference.md#phase--subsystem) |
 | MFU / Policy / Status 누락 | [Producer·freshness·identity](ui-telemetry-coverage.md) |
+| Multiple entities / Freshness unknown | Worker를 명시적으로 선택하고 producer·age source 확인. 임의 평균이나 최신 entity로 대체하지 않음 |
 | Sparkline 없음 | 같은 entity의 실제 history가 두 관측 이상인지 |
 | Candidate workspace 비어 있음 | Investigate에서 candidate를 선택했는지 |
 
 ## 다음
 
-[Baseline / Evidence](diagnosis.md) · [UI telemetry 연결](ui-telemetry-coverage.md) · [App Reference](grafana-scenes-reference.md) · [실제 화면·검증 기록](validation/grafana-scenes-20261008.md)
+[Baseline / Evidence](diagnosis.md) · [UI telemetry 연결](ui-telemetry-coverage.md) · [App Reference](grafana-scenes-reference.md) · [배포 / Browser CI](app-deployment-reference.md) · [실제 화면·검증 기록](validation/grafana-scenes-20261008.md)
 
 :::{container} xlayer-legacy-links
 

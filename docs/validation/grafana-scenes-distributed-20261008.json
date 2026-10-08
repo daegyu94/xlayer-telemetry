@@ -1,0 +1,198 @@
+{
+  "scope": "CPU and actual Grafana 12.1.0 / Scenes 6.20.0 live synthetic validation; no physical multi-node/GPU/veRL/3FS or production signing",
+  "cpu_tests": 1329,
+  "frontend_tests": 81,
+  "ci_helper_tests": 17,
+  "docs_link_diagram_tests": 10,
+  "docs_browser_tests": 9,
+  "default": {
+    "checks": [
+      "Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data",
+      "Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states",
+      "Storage cell opens supporting / against / missing evidence without asserting phase attribution",
+      "Existing Data & Storage keeps Run/Step/observer/resource/GPU/phase/time; Browser Back restores investigation",
+      "900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable",
+      "Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs",
+      "Analyze \u2192 baseline / candidates \u2192 evidence \u2192 measured timeline keeps Step; Compute pivot and Escape restore focus",
+      "App Timeline / Deep Dive routing preserves investigation context",
+      "Unknown Run stays selected and displays no-data rather than inferred healthy/zero values",
+      "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+      "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+      "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate",
+      "Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation"
+    ],
+    "browser_errors": [],
+    "grafana_version": "12.1.0",
+    "scenes_version": "6.20.0",
+    "data_origin": "live synthetic metrics + SDK-generated step/span/diagnosis fixtures",
+    "native_requests_after_step_selection": 22,
+    "bounded_baseline_requests": 5,
+    "native_requests_matching_step_window": 22,
+    "selected_context": {
+      "from": [
+        "2026-10-08T02:14:40.752Z"
+      ],
+      "to": [
+        "2026-10-08T02:15:28.753Z"
+      ],
+      "timezone": [
+        "browser"
+      ],
+      "var-cluster": [
+        "scenes-demo"
+      ],
+      "var-run_id": [
+        "verl-agent-demo"
+      ],
+      "var-source_node": [
+        "gpu-node-0"
+      ],
+      "var-node": [
+        "gpu-node-0"
+      ],
+      "var-record_id": [
+        "1f7efdb504b7bf1479ec192a"
+      ],
+      "var-trace_id": [
+        ".*"
+      ],
+      "var-diagnosis_method": [
+        "rule"
+      ],
+      "var-log_run_id": [
+        ".*"
+      ],
+      "var-gpu": [
+        "0"
+      ],
+      "var-engine": [
+        "synthetic-vllm-0"
+      ],
+      "var-sandbox_node": [
+        ".*"
+      ],
+      "var-phase": [
+        ".*"
+      ],
+      "var-role": [
+        ".*"
+      ],
+      "var-worker": [
+        ".*"
+      ],
+      "var-device": [
+        "$__all"
+      ],
+      "var-mount": [
+        "$__all"
+      ],
+      "var-storage_system": [
+        "$__all"
+      ],
+      "var-storage_node": [
+        "$__all"
+      ],
+      "var-ssd": [
+        "$__all"
+      ],
+      "var-training_max_age": [
+        "300"
+      ]
+    }
+  },
+  "multi_worker": {
+    "checks": [
+      "Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected",
+      "Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time",
+      "Selected measured worker \u2192 Compute dashboard \u2192 browser Back preserves exact resource and observer/Step context",
+      "Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence",
+      "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+      "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+      "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate"
+    ],
+    "browser_errors": [],
+    "data_origin": "live synthetic metrics + four explicit SDK rollout worker spans",
+    "grafana_version": "12.1.0",
+    "scenes_version": "6.20.0",
+    "selected_context": {
+      "from": [
+        "2026-10-08T02:19:34.936Z"
+      ],
+      "to": [
+        "2026-10-08T02:20:22.937Z"
+      ],
+      "timezone": [
+        "browser"
+      ],
+      "var-cluster": [
+        "scenes-demo"
+      ],
+      "var-run_id": [
+        "verl-agent-demo"
+      ],
+      "var-source_node": [
+        "gpu-node-0"
+      ],
+      "var-node": [
+        "gpu-node-3"
+      ],
+      "var-record_id": [
+        "bee5bbce401500cc70978912"
+      ],
+      "var-phase_worker": [
+        "[[\"cluster\",\"scenes-demo\"],[\"node\",\"gpu-node-3\"],[\"producer\",\"demo_distributed\"],[\"role\",\"rollout\"],[\"worker_id\",\"rollout-3\"],[\"rank\",null],[\"local_rank\",null],[\"gpu\",\"3\"]]"
+      ],
+      "var-trace_id": [
+        ".*"
+      ],
+      "var-diagnosis_method": [
+        "rule"
+      ],
+      "var-log_run_id": [
+        ".*"
+      ],
+      "var-gpu": [
+        "3"
+      ],
+      "var-engine": [
+        "$__all"
+      ],
+      "var-sandbox_node": [
+        ".*"
+      ],
+      "var-phase": [
+        ".*"
+      ],
+      "var-role": [
+        ".*"
+      ],
+      "var-worker": [
+        ".*"
+      ],
+      "var-device": [
+        "$__all"
+      ],
+      "var-mount": [
+        "$__all"
+      ],
+      "var-storage_system": [
+        "$__all"
+      ],
+      "var-storage_node": [
+        "$__all"
+      ],
+      "var-ssd": [
+        "$__all"
+      ],
+      "var-training_max_age": [
+        "300"
+      ]
+    },
+    "multi_worker": true,
+    "worker_rows": 4,
+    "context_transition_count": 22,
+    "datasource_fixtures": "Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement"
+  },
+  "evidence_remount_regression": "A selection stores its investigation context; mounting native timeline preserves it; actual context changes invalidate it",
+  "backend_boundary_fixtures": "Actual Grafana browser API error/delay fixtures; not real backend outages or production latency measurements"
+}

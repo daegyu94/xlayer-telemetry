@@ -1,7 +1,3 @@
----
-orphan: true
----
-
 # Grafana App 배포 Reference
 
 **찾아보는 목적:** App build 산출물·개발용 package·실제 Grafana browser CI와 운영 서명의 경계를 확인합니다. 일반 설치와 조사 흐름은 [App guide](grafana-scenes-poc.md)를 따릅니다.
@@ -50,7 +46,7 @@ Unsigned allowlist는 격리 개발 Grafana에서 `xlayer-telemetry-app` 하나�
 1. Node 22·Python 3.12에서 App test·typecheck·build·package.
 2. 공식 release의 고정 SHA256으로 Grafana 12.1.0·Prometheus 3.5.0·Loki 3.7.3 검증 후 설치.
 3. 실제 exporter scrape와 SDK span/diagnosis fixture를 생성하는 `live_demo.py` 실행.
-4. 완료된 baseline/current pair 두 개를 기다린 뒤 `browser_validate.py` 실행.
+4. 단일 / 멀티worker를 분리한 CI job에서 baseline/current pair 두 개를 기다린 뒤 `browser_validate.py` 실행.
 5. 자신이 시작한 process만 종료하고 JSON report·화면 capture·제한된 synthetic log·ZIP을 7일 artifact로 보존.
 
 기본 readiness deadline은 240초, browser deadline은 180초, CI job 상한은 15분입니다. 서비스가 먼저 종료되면 실패하며 다른 monitoring process를 readiness 성공으로 취급하지 않습니다. Launcher state·database·원본 telemetry는 artifact에 올리지 않습니다.
@@ -63,6 +59,9 @@ Unsigned allowlist는 격리 개발 Grafana에서 `xlayer-telemetry-app` 하나�
 | Investigate → Deep Dive | Candidate identity·evidence·native metric tab |
 | Desktop / narrow | Page overflow·evidence 사용성 |
 | Unknown Run / optional dashboard 부재 | No data·부분 가용성. 실제 backend 장애와 구분 |
+| Native Run 변경 중 응답 지연 | 이전 Run KPI·Step을 현재 값으로 표시하지 않음 |
+| Structured error / 1.2초 delay fixture | Browser datasource boundary에서 오류·회복 확인. 실제 backend outage·성능 실험 아님 |
+| Multi-worker Matrix → Compute → Back | Ambiguous → 명시 worker 선택·peer cohort·resource/observer context |
 
 ### 로컬에서 같은 경로 실행
 

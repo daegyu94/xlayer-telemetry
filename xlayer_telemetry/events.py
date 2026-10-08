@@ -198,6 +198,32 @@ class EventRecorder:
             }
         )
 
+    def policy_applied(
+        self,
+        version: int,
+        *,
+        step: int | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+    ) -> None:
+        """Record a worker-confirmed application of an explicitly supplied version.
+
+        Call this only after the owning worker confirms its new weights. A trainer
+        announcement or the context's reported version does not imply application.
+        Recording failures use the existing bounded event writer failure boundary.
+        """
+        if type(version) is not int or version < 0:
+            raise ValueError("applied policy version must be a nonnegative integer")
+        if any(not isinstance(value, str) or not _IDENTIFIER.fullmatch(value)
+               for value in (self.context.node, self.context.worker_id)):
+            raise ValueError("policy_applied requires an explicit node and worker context")
+        self.event(
+            "weights.applied", phase="weight_sync", step=step,
+            policy_version=version, trace_id=trace_id, span_id=span_id,
+            attributes={**dict(attributes or {}), "policy_scope": "worker_applied"},
+        )
+
     @contextmanager
     def span(
         self,

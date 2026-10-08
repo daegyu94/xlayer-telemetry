@@ -2,10 +2,10 @@ name: Optional Grafana App PoC
 
 on:
   pull_request:
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "xlayer_telemetry/events.py", "xlayer_telemetry/step_history.py", "xlayer_telemetry/time_alignment.py", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   push:
     branches: [main]
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
+    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/demos/**", "xlayer_telemetry/events.py", "xlayer_telemetry/step_history.py", "xlayer_telemetry/time_alignment.py", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        demo: [single-worker, multi-worker]
     defaults:
       run:
         working-directory: grafana/xlayer-app
@@ -53,15 +57,19 @@ jobs:
         run: python scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-grafana-tools"
       - name: Actual Grafana / Scenes browser journey
         run: |
+          demo_args=()
+          if [[ "${{ matrix.demo }}" == "multi-worker" ]]; then
+            demo_args=(--multi-worker)
+          fi
           python scripts/ci_demo.py \
             --tools "$RUNNER_TEMP/xlayer-grafana-tools" \
             --state "$RUNNER_TEMP/xlayer-grafana-state" \
-            --output ../../artifacts/grafana-app-browser
+            --output ../../artifacts/grafana-app-browser "${demo_args[@]}"
       - name: Preserve bounded browser reports and unsigned package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xlayer-grafana-app-poc
+          name: xlayer-grafana-app-poc-${{ matrix.demo }}
           path: |
             artifacts/grafana-app-browser/*.json
             artifacts/grafana-app-browser/*.png

@@ -7,6 +7,7 @@ export const VARIABLE_NAMES = [
   "node",
   "record_id",
   "candidate_id",
+  "phase_worker",
   "matrix_gpu_entity",
   "matrix_vllm_entity",
   "matrix_kv_entity",
@@ -69,6 +70,16 @@ export function appLink(page: string, context: Context): string {
 export function sceneTime(value: string): string {
   // SceneTimeRange constructor accepts date math / ISO, not numeric URL epochs.
   return /^\d+$/.test(value) ? new Date(Number(value)).toISOString() : value;
+}
+/** URL ordering and native default filters do not change the investigation. */
+export function investigationKey(context: Context): string {
+  const normalizeTime = (value: string) => {
+    const parsed = /^\d+$/.test(value) ? Number(value) : /^\d{4}-/.test(value) ? Date.parse(value) : NaN;
+    return Number.isFinite(parsed) ? String(parsed) : value;
+  };
+  return JSON.stringify([normalizeTime(context.from), normalizeTime(context.to), context.timezone,
+    VARIABLE_NAMES.map(name => [name, (context.variables[name]?.length ? context.variables[name]! : ['.*'])
+      .map(value => value === '$__all' ? '.*' : value).sort()])]);
 }
 export const DASHBOARD_UIDS = {
   overview: "telemetry-overview",

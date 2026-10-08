@@ -32,6 +32,7 @@ function provenance(line: unknown, row: RecordRow, labels: unknown): RecordRow {
   return result;
 }
 export function records(data: PanelData | undefined): RecordRow[] {
+  if (data?.state && !["Done", "Streaming"].includes(data.state)) return [];
   const rows: RecordRow[] = [];
   for (const frame of data?.series || []) {
     const line = frame.fields.find(
@@ -47,6 +48,7 @@ export function records(data: PanelData | undefined): RecordRow[] {
   return [...new Map(rows.map((row) => [JSON.stringify(row), row])).values()];
 }
 export function samples(data: PanelData | undefined): Sample[] {
+  if (data?.state && !["Done", "Streaming"].includes(data.state)) return [];
   const result: Sample[] = [];
   for (const frame of data?.series || []) {
     const time = frame.fields.find((f) => f.type === "time");

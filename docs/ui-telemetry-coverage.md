@@ -64,26 +64,28 @@ vLLM의 [MFU 관련 native metric](https://docs.vllm.ai/en/stable/usage/metrics/
 
 ## Explicit Policy Version in Events
 
-`CorrelationContext(..., policy_version=...)` 또는 `EventRecorder.event()`·`span()`에 실제 적용 version을 전달합니다. 아래는 application에 넣는 integration fragment입니다.
+`CorrelationContext(..., policy_version=...)` 또는 `EventRecorder.policy_applied()`·`span()`에 실제 적용 version을 전달합니다. 아래는 application에 넣는 integration fragment입니다.
 
 ```python
 from xlayer_telemetry.events import EventRecorder
 
-events = EventRecorder.from_env(producer="my_rollout", role="rollout")
+events = EventRecorder.from_env(producer="my_rollout", role="rollout",
+                                 node="rollout-node-0", worker_id="rollout-0")
 # applied_version은 해당 worker가 실제 적용을 확인한 native version입니다.
 if events is not None:
-    events.event("weights.applied", phase="weight_sync",
-                 policy_version=applied_version)
+    events.policy_applied(applied_version, step=training_step)
     with events.span("rollout.generate", phase="rollout",
                      step=training_step, policy_version=applied_version):
         result = generate_sequences(batch)
 ```
 
-**정상 결과:** Event의 top-level `policy_version`과 `policy_version_source="producer_reported"`가 기록됩니다. Version 값은 Prometheus label에 추가되지 않습니다.
+**정상 결과:** `weights.applied` event에 top-level `policy_version`·`policy_version_source="producer_reported"`와 `attributes.policy_scope="worker_applied"`가 기록됩니다. Version 값은 Prometheus label에 추가되지 않습니다.
 
+- `policy_applied()`는 native callback이 적용을 확인한 뒤 호출합니다. 명시적인 node·worker와 0 이상의 integer version이 필요합니다.
 - Version이 바뀌면 매 호출에 실제 값을 전달합니다.
 - Context의 version은 고정 fallback입니다.
 - Step·lag·trainer snapshot으로 rollout applied version을 추론하지 않습니다.
+- Overview의 **Policy / KV Lifecycle**은 이 명시 event가 있는 worker만 나열합니다. Event가 없는 worker의 적용 coverage를 보충하지 않습니다.
 
 ## Wrapped Workload Status
 

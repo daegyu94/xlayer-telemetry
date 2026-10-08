@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+from dataclasses import replace
 from pathlib import Path
 import time
 import hashlib
@@ -18,9 +19,11 @@ from ..adapters.verl import measured_phase
 from ..manifest import make_agent_rl_manifest, write_manifest
 from ..metrics import Metric, MetricEmitter
 from ..step_history import StepHistoryWriter
+from ..time_alignment import CalibrationCache, estimate
+from ..fileio import atomic_write_text
 
 
-def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None) -> dict:
+def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=time.time, step: int = 127, scenario: dict | None = None, rollout_workers: list[CorrelationContext] | None = None) -> dict:
     if scenario is not None:
         validate_scenario(scenario)
         if scenario["run_id"] != run_id or scenario["node"] != node:
@@ -36,12 +39,21 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         start = end - 18.4
         baseline_end = start - 5
         baseline_start = baseline_end - 11.2
+    if rollout_workers is not None:
+        if (scenario is None or not isinstance(rollout_workers, list) or not 3 <= len(rollout_workers) <= 16
+                or any(not isinstance(worker, CorrelationContext) or worker.run_id != run_id
+                       or worker.role != "rollout" or worker.gpu is None for worker in rollout_workers)
+                or len({(worker.node, worker.worker_id) for worker in rollout_workers}) != len(rollout_workers)):
+            raise ValueError("rollout worker contexts must be 3..16 unique explicitly identified workers in this scenario")
     duration = end - start
     baseline_duration = baseline_end - baseline_start
     output.mkdir(parents=True, exist_ok=False)
+    calibrations = (_synthetic_calibrations(output, scenario, {node, *(worker.node for worker in rollout_workers)})
+                    if rollout_workers is not None else {})
     history = StepHistoryWriter(
         output / "telemetry-events/verl-steps.jsonl", run_id=run_id,
         node=node, worker_id="driver", clock=iter((baseline_end, end)).__next__,
+        time_calibration=calibrations.get(node),
     )
     def data_for(seconds, rollout, scenario_frame=None):
         data = {"perf/time_per_step": seconds, "timing_s/gen": rollout}
@@ -90,7 +102,7 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
                        rollout_duration_seconds="synthetic:scenario_sdk")
     candidates = evaluate_rules(
         current, baseline, thresholds={},
-        context={"window": window, "boundary_accuracy": "approximate",
+        context={"window": window, "boundary_accuracy": window["accuracy"],
                  "sources": sources, "node": node},
     )
     # Scenario values are explicit producer inputs, not backend statistics.
@@ -109,7 +121,9 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         row.update(unit=scenario_units.get(row["signal"]),
                    window_statistic=frame["signal_statistics"].get(row["signal"], "synthetic_scenario_value") if scenario is not None else "synthetic_scenario_value")
     if scenario is not None:
-        _record_scenario_spans(output, scenario)
+        _record_scenario_spans(output, scenario, calibrations)
+        if rollout_workers is not None:
+            _record_rollout_workers(output, scenario, rollout_workers, calibrations)
     else:
         event_clock = iter((int((start + 2) * 1e9), int((start + 10) * 1e9), int((start + 5) * 1e9)))
         recorder = EventRecorder(
@@ -179,7 +193,8 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
         "verdict": "bottleneck_suspected" if candidates else "no_anomaly_observed", "findings": [], "evidence": {},
         "data_origin": "synthetic",
         "missing_sources": [], "limitations": ["Synthetic values are illustrative, not host measurements.",
-            *(["Scenario summaries are explicit producer inputs, not Prometheus query statistics; shared storage p99 is illustrative, not an actual ClickHouse backend."] if scenario is not None else [])],
+            *(["Scenario summaries are explicit producer inputs, not Prometheus query statistics; shared storage p99 is illustrative, not an actual ClickHouse backend."] if scenario is not None else []),
+            *(["Distributed synthetic workers share an explicit ideal injected clock with zero offset/uncertainty; this is not measured physical host synchronization."] if calibrations else [])],
         "diagnosis_schema_version": 1,
         "symptom": {"step": step, "step_duration_seconds": duration, "slow_stages": [], "boundary_scope": "rl_step"},
         "comparison": {
@@ -208,7 +223,34 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
     return report
 
 
-def _record_scenario_spans(output: Path, scenario: dict) -> None:
+def _synthetic_calibrations(output: Path, scenario: dict, nodes: set[str]) -> dict[str, CalibrationCache]:
+    """Explicit ideal common-clock fixture; this never calibrates physical hosts.
+
+    The same injected clock drives every controlled synthetic worker. Zero
+    exchange delay/offset/drift describe that input, not an actual network probe.
+    """
+    start, end = scenario["frames"][0]["start"], scenario["frames"][-1]["end"]
+    session = hashlib.sha256(json.dumps([scenario["run_id"], start, end]).encode()).hexdigest()[:24]
+    reference = "synthetic-scenes-" + session[:16]
+    directory = output / "telemetry-clock-fixture"
+    directory.mkdir()
+    caches = {}
+    for node in sorted(nodes):
+        path = directory / ("node-" + node + ".json")
+        snapshot = {"schema_version": 1, "method": "four_timestamp", "node": node,
+                    "boot_id": "synthetic-injected-clock", "reference_id": reference,
+                    "reference_session": session, **estimate(start, start, start, start, elapsed=0),
+                    "local_anchor": start, "monotonic_anchor": 0., "valid_from": start,
+                    "valid_until": end + 1, "drift_ppm": 0., "data_origin": "synthetic",
+                    "source": "controlled_common_injected_clock"}
+        atomic_write_text(path, json.dumps(snapshot))
+        caches[node] = CalibrationCache(path, node=node, wall_clock=lambda: start,
+                                       monotonic=lambda: 0., boot_id=lambda: "synthetic-injected-clock")
+    return caches
+
+
+def _record_scenario_spans(output: Path, scenario: dict, calibrations: dict[str, CalibrationCache] | None = None) -> None:
+    calibrations = calibrations or {}
     fingerprint = hashlib.sha256(json.dumps(scenario["workload"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     attrs = {"data_origin": "synthetic", "workload_fingerprint": fingerprint,
              "boundary_scope": "rl_step", "measurement_source": "synthetic_scenario_sdk"}
@@ -217,7 +259,8 @@ def _record_scenario_spans(output: Path, scenario: dict) -> None:
             clock = iter((int(phase["start"] * 1e9), int(phase["end"] * 1e9)))
             context = CorrelationContext(run_id=scenario["run_id"], node=scenario["node"], producer="demo_phase",
                                          role=phase["role"], worker_id=phase["worker_id"], policy_version=frame["policy_version"])
-            recorder = EventRecorder(output / "telemetry-events", context, clock_ns=clock.__next__)
+            recorder = EventRecorder(output / "telemetry-events", context, clock_ns=clock.__next__,
+                                     time_calibration=calibrations.get(context.node))
             attributes = {**attrs, "scenario_phase": True, "scenario": frame["scenario"]}
             if phase["phase"] == "rollout":
                 with recorder.span("rollout.generate", phase="rollout", step=frame["step"], attributes=attributes) as parent:
@@ -226,7 +269,8 @@ def _record_scenario_spans(output: Path, scenario: dict) -> None:
                     child_context = CorrelationContext(run_id=scenario["run_id"], node=scenario["node"], producer="demo_phase",
                                                        role="sandbox", worker_id="pool-0", policy_version=frame["policy_version"])
                     child = EventRecorder(output / "telemetry-events", child_context,
-                                          clock_ns=lambda: int(next(offsets) * 1e9))
+                                          clock_ns=lambda: int(next(offsets) * 1e9),
+                                          time_calibration=calibrations.get(child_context.node))
                     with child.span("tool.call", phase="environment", step=frame["step"], trace_id=parent.trace_id,
                                     parent_span_id=parent.span_id, attributes={**attrs, "tool": "pytest"}) as tool:
                         with child.span("sandbox.exec", phase="environment", step=frame["step"], trace_id=tool.trace_id,
@@ -242,8 +286,38 @@ def _record_scenario_spans(output: Path, scenario: dict) -> None:
             event = EventRecorder(output / "telemetry-events",
                 CorrelationContext(run_id=scenario["run_id"], node=scenario["node"], producer="demo_phase",
                                    role="trainer", worker_id="driver", policy_version=frame["policy_version"]),
-                clock_ns=lambda stamp=stamp: int(stamp * 1e9))
+                clock_ns=lambda stamp=stamp: int(stamp * 1e9),
+                time_calibration=calibrations.get(scenario["node"]))
             event.event(name, phase=label, step=frame["step"], attributes=attrs)
+
+
+def _record_rollout_workers(output: Path, scenario: dict, workers: list[CorrelationContext], calibrations: dict[str, CalibrationCache]) -> None:
+    """Opt-in synthetic participants within the actual replay rollout interval."""
+    fingerprint = hashlib.sha256(json.dumps(scenario["workload"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    common = {"data_origin": "synthetic", "workload_fingerprint": fingerprint,
+              "boundary_scope": "instrumented_call", "measurement_source": "synthetic_worker_sdk",
+              "scenario_participant": True}
+    for frame in scenario["frames"]:
+        phase = next(p for p in frame["phases"] if p["phase"] == "rollout")
+        for index, worker in enumerate(workers):
+            # Every controlled worker has the same workload dimensions. One
+            # participant is deliberately slow only in the regression frame.
+            start = phase["start"] + 1
+            finish = (phase["end"] - 1 if frame["scenario"] == "storage-regression" and index == len(workers) - 1
+                      else start + 5 + (index % 3) * .1)
+            context = replace(worker, policy_version=frame["policy_version"])
+            clock = iter((int(start * 1e9), int(finish * 1e9)))
+            recorder = EventRecorder(output / "telemetry-events", context, clock_ns=clock.__next__,
+                                     time_calibration=calibrations[context.node])
+            with recorder.span("rollout.generate", phase="rollout", step=frame["step"],
+                               attributes={**common, "scenario": frame["scenario"]}) as span:
+                applied = EventRecorder(output / "telemetry-events", context,
+                                        clock_ns=lambda: int((phase["start"] + .25) * 1e9),
+                                        time_calibration=calibrations[context.node])
+                # This scheduled callback explicitly represents worker acceptance;
+                # it is never inferred from the trainer policy scalar.
+                applied.policy_applied(frame["policy_version"], step=frame["step"], trace_id=span.trace_id,
+                    attributes={**common, "confirmation_source": "synthetic_worker_callback"})
 
 
 def main() -> None:

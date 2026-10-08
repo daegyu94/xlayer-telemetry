@@ -55,6 +55,7 @@ export function phaseWindow(
   const matches = spans.filter(
     (s) =>
       matchesStep(s, step) &&
+      comparableStepClock(s, step) &&
       s.step !== undefined &&
       String(s.step) === String(step.step) &&
       s.phase === phase &&
@@ -86,6 +87,24 @@ export function phaseWindow(
   };
 }
 
+function comparableStepClock(span: RecordRow, step: RecordRow): boolean {
+  if (!span.node || !step.node) return false;
+  if (["unknown", "clock_discontinuity"].includes(String(step.boundary_accuracy)) ||
+      (step.time_alignment as RecordRow | undefined)?.status === "unknown") return false;
+  if (numeric(step.window_start_ms) === undefined || numeric(step.window_end_ms) === undefined) return false;
+  const spanCalibrated = span.boundary_accuracy === "calibrated";
+  const stepCalibrated = String(step.boundary_accuracy).startsWith("calibrated");
+  if (!spanCalibrated && !stepCalibrated) return span.node === step.node;
+  if (!spanCalibrated || !stepCalibrated || !span.time_reference ||
+      span.time_reference !== step.time_reference) return false;
+  const a = numeric(span.time_uncertainty_seconds), b = numeric(step.time_uncertainty_seconds);
+  const start = numeric(step.window_start_ms), end = numeric(step.window_end_ms);
+  return a !== undefined && b !== undefined && a >= 0 && b >= 0 &&
+    start !== undefined && end !== undefined &&
+    Number(span.start_time_ms) - (a + b) * 1000 >= start &&
+    Number(span.end_time_ms) + (a + b) * 1000 <= end;
+}
+
 function matchesStep(span: RecordRow, step: RecordRow): boolean {
   return !span.identity_conflict && !step.identity_conflict &&
     span.run_id === step.run_id && span.step !== undefined &&
@@ -94,10 +113,13 @@ function matchesStep(span: RecordRow, step: RecordRow): boolean {
 }
 function spanIdentity(span: RecordRow): string {
   // A conflicting duplicate ID is ambiguous, rather than last-write-wins.
+  const attributes = span.attributes as RecordRow | undefined;
   return JSON.stringify([span.cluster, span.observer_node, span.trace_id,
     span.span_id, span.parent_span_id, span.name, span.node, span.worker_id, span.producer, span.phase,
     span.start_time_ms, span.end_time_ms, span.boundary_accuracy,
-    span.time_reference, span.time_uncertainty_seconds]);
+    span.time_reference, span.time_uncertainty_seconds, span.role, span.rank, span.local_rank, span.gpu,
+    span.duration_seconds, span.duration_source, span.policy_version, span.policy_version_source,
+    attributes?.workload_fingerprint, attributes?.boundary_scope, attributes?.measurement_source]);
 }
 function clockComparable(window: PhaseWindow): boolean {
   return numeric(window.start) !== undefined && numeric(window.end) !== undefined && window.end!>window.start! &&

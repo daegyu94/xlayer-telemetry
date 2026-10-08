@@ -125,7 +125,7 @@ export function variables(
     for (const v of catalog[key]?.templating.list || [])
       if (!definitions.has(v.name)) definitions.set(v.name, v);
   return new SceneVariableSet({
-    variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")).map((name) => {
+    variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker").map((name) => {
       const definition = definitions.get(name);
       const selected = context.variables[name];
       const visible = ["cluster", "run_id", "source_node", "node"].includes(

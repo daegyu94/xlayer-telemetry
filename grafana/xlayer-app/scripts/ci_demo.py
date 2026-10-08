@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = Path(__file__).resolve().parent
 
 
+def datasource_error_result(queries, message='Synthetic browser boundary datasource error'):
+    """Grafana query-result error fixture; not a real backend outage."""
+    return {'results': {str(query.get('refId', 'A')): {
+        'status': 503, 'error': message, 'errorSource': 'downstream', 'frames': []
+    } for query in queries}}
+
+
 def bounded_tail(path, max_bytes=65536):
     with path.open('rb') as source:
         source.seek(0, 2)
@@ -21,18 +28,18 @@ def bounded_tail(path, max_bytes=65536):
         return source.read(max_bytes).decode('utf-8', errors='replace')
 
 
-def wait_for_fixtures(process, log, state, deadline):
+def wait_for_fixtures(process, log, state, deadline, comparisons=2):
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise RuntimeError('Owned live demo exited before completing fixtures')
-        if (state / 'connection.json').is_file() and bounded_tail(log).count('COMPLETED Step ') >= 2:
+        if (state / 'connection.json').is_file() and bounded_tail(log).count('COMPLETED Step ') >= comparisons:
             return json.loads((state / 'connection.json').read_text())
         # Bounded process wait, rather than a busy-poll or fixed sleep loop.
         try:
             process.wait(timeout=min(1, max(.01, deadline - time.monotonic())))
         except subprocess.TimeoutExpired:
             pass
-    raise TimeoutError('Live demo did not produce two completed comparisons before deadline')
+    raise TimeoutError('Live demo did not produce the requested completed comparisons before deadline')
 
 
 def stop_owned(process, whole_group=False):
@@ -63,12 +70,17 @@ def run(args):
     process = None
     try:
         with launcher_log.open('w') as dest:
-            process = subprocess.Popen([sys.executable, str(SCRIPTS / 'live_demo.py'), '--tools', str(args.tools.resolve()),
-                                        '--output', str(args.state), '--grafana-port', str(port)],
+            demo_command = [sys.executable, str(SCRIPTS / 'live_demo.py'), '--tools', str(args.tools.resolve()),
+                            '--output', str(args.state), '--grafana-port', str(port)]
+            if args.multi_worker:
+                demo_command.append('--multi-worker')
+            process = subprocess.Popen(demo_command,
                                        cwd=ROOT, stdout=dest, stderr=subprocess.STDOUT, start_new_session=True)
-            connection = wait_for_fixtures(process, launcher_log, args.state, time.monotonic() + args.ready_timeout)
+            connection = wait_for_fixtures(process, launcher_log, args.state, time.monotonic() + args.ready_timeout, args.completed_comparisons)
             command = [sys.executable, str(SCRIPTS / 'browser_validate.py'), '--url', connection['grafana'],
-                       '--output', str(args.output), '--label', 'ci']
+                       '--output', str(args.output), '--label', 'ci-multi' if args.multi_worker else 'ci']
+            if args.multi_worker:
+                command.append('--multi-worker')
             if args.browser:
                 command.extend(['--browser', args.browser])
             validator = subprocess.Popen(command, cwd=ROOT, start_new_session=True)
@@ -96,6 +108,8 @@ def main():
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--browser', default=None)
+    parser.add_argument('--multi-worker', action='store_true', help='Explicit opt-in four-worker SDK/demo browser journey')
+    parser.add_argument('--completed-comparisons', type=int, choices=(1,2), default=2, help='Actual completed baseline/current pairs to await; default validates both scenarios')
     parser.add_argument('--ready-timeout', type=int, default=240)
     parser.add_argument('--browser-timeout', type=int, default=180)
     args = parser.parse_args()

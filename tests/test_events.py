@@ -109,3 +109,42 @@ def test_span_navigation_window_encloses_exact_nanosecond_boundary(tmp_path):
     assert record['end_time_ms'] == 2001
     assert record['start_time_unix_nano'] == 1000000200
     assert record['end_time_unix_nano'] == 2000000800
+
+
+def test_worker_policy_applied_is_explicit_and_cannot_be_relabelled(tmp_path):
+    context = CorrelationContext(run_id="r", producer="native", role="rollout", worker_id="worker-3", node="gpu-b", policy_version=999)
+    recorder = EventRecorder(tmp_path, context, clock_ns=lambda: 1230000000)
+    recorder.policy_applied(7, step=5, trace_id="worker-trace", attributes={"policy_scope": "trainer_produced", "source": "worker_callback"})
+    record = json.loads(recorder.path.read_text())
+    assert record["name"] == "weights.applied" and record["phase"] == "weight_sync"
+    assert record["policy_version"] == 7 and record["policy_version_source"] == "producer_reported"
+    assert record["node"] == "gpu-b" and record["worker_id"] == "worker-3"
+    assert record["attributes"] == {"policy_scope": "worker_applied", "source": "worker_callback"}
+    assert record["step"] == 5 and record["trace_id"] == "worker-trace"
+
+
+@pytest.mark.parametrize("version", [None, -1, True, 3.0, "3"])
+def test_policy_applied_rejects_missing_or_inferred_version(tmp_path, version):
+    recorder = EventRecorder(tmp_path, CorrelationContext(run_id="r", producer="native", role="rollout", worker_id="0", node="gpu-a", policy_version=999))
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        recorder.policy_applied(version)
+    assert not recorder.path.exists()
+
+
+def test_policy_applied_reuses_existing_bounded_sdk_failure_behavior(tmp_path, capsys):
+    recorder = EventRecorder(tmp_path, CorrelationContext(run_id="r", producer="native", role="rollout", worker_id="0", node="gpu-a"))
+    recorder.policy_applied(0, attributes={"bad": object()})
+    recorder.policy_applied(1)
+    assert recorder.disabled and not recorder.path.exists()
+    assert capsys.readouterr().err.count("export disabled") == 1
+
+
+@pytest.mark.parametrize("field", ["node", "worker_id"])
+def test_policy_applied_requires_explicit_worker_and_node_context(tmp_path, field):
+    context = CorrelationContext(run_id="r", producer="native", role="rollout", worker_id="0", node="gpu-a")
+    # A malformed external context must not bypass the helper's identity contract.
+    object.__setattr__(context, field, "")
+    recorder = EventRecorder(tmp_path, context)
+    with pytest.raises(ValueError, match="explicit node and worker"):
+        recorder.policy_applied(7)
+    assert not recorder.path.exists()

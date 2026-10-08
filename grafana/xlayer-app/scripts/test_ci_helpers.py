@@ -158,3 +158,19 @@ def test_browser_deadline_cleanup_signals_only_its_owned_session(monkeypatch):
         def terminate(self): pytest.fail('Browser cleanup must include owned child group')
     CI.stop_owned(Browser(), whole_group=True)
     assert signals == [(12345, CI.signal.SIGTERM)]
+
+
+def test_structured_grafana_datasource_error_is_per_refid_and_has_no_fake_frames():
+    payload = CI.datasource_error_result([{'refId':'A'}, {'refId':'B'}])
+    assert set(payload['results']) == {'A', 'B'}
+    assert all(row['status']==503 and row['frames']==[] and row['errorSource']=='downstream' for row in payload['results'].values())
+    assert all('Synthetic browser boundary' in row['error'] for row in payload['results'].values())
+
+
+def test_opt_in_single_completed_comparison_still_requires_real_completion(tmp_path):
+    class Live:
+        def poll(self): return None
+        def wait(self, timeout): raise subprocess.TimeoutExpired('owned demo', timeout)
+    log = tmp_path / 'log';log.write_text('COMPLETED Step 128\n')
+    (tmp_path / 'connection.json').write_text('{"grafana":"http://127.0.0.1:12345"}')
+    assert CI.wait_for_fixtures(Live(),log,tmp_path,time.monotonic()+1,comparisons=1)['grafana'].endswith('12345')

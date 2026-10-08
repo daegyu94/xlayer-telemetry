@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   readContext,
+  investigationKey,
   writeContext,
   dashboardLink,
   selectStep,
@@ -101,4 +102,12 @@ test("compute candidates and network cells pivot to Compute, not serving detail"
   );
   assert.equal(subsystemDestination("network"), "compute");
   assert.equal(subsystemDestination("kv"), "stage");
+});
+
+
+test('native URL defaults/order/epoch formatting keep evidence open; real context changes do not',()=>{
+  const a=readContext('?var-node=n2&var-node=n1&from=1000&to=2000');
+  const b=readContext('?var-node=n1&var-node=n2&var-worker=$__all&from=1970-01-01T00:00:01.000Z&to=2000');
+  assert.equal(investigationKey(a),investigationKey(b));
+  for(const query of ['?var-node=n1&from=1000&to=2000','?var-node=n2&var-node=n1&var-phase_worker=other&from=1000&to=2000','?var-node=n2&var-node=n1&from=1001&to=2000'])assert.notEqual(investigationKey(a),investigationKey(readContext(query)));
 });
