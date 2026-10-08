@@ -1,5 +1,9 @@
 # xltel CLI
 
+:::{container} xlayer-page-meta
+**Reference** 명령·옵션·exit / artifact 계약
+:::
+
 `xltel`은 monitoring lifecycle, workload wrapper와 결과 조회를 위한 공식 CLI입니다.
 `up`은 server·node collector를 시작하고, `run`은 기존 VERL 명령에 telemetry를 붙입니다.
 `down`은 이 config로 시작한 monitoring process만 종료하며 VERL·Ray·vLLM workload를 종료하지 않습니다.

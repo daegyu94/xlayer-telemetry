@@ -2,6 +2,24 @@
 
 > **Reference** · 기본 작업은 [dashboards guide](dashboards.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| Dashboard·panel의 역할을 찾으려면 | [확인 →](#dashboard-inventory) |
+| Run / observer / resource filter를 정하려면 | [확인 →](#select-the-context) |
+| 완료 Step의 시간·precision을 읽으려면 | [확인 →](#read-a-step) |
+| Storage의 I/O layer를 따라가려면 | [확인 →](#follow-the-storage-path) |
+| 짧은 profiler trace가 필요하면 | [확인 →](#capture-a-short-trace) |
+| No data / clock / backfill 의미를 확인하려면 | [확인 →](#read-clock-evidence-in-the-timeline) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 Run Overview에서 Run과 관측 KPI를 확인하고 완료 step → candidate → evidence → Timeline·subsystem으로 조사합니다.
 Source를 처음 연결하거나 missing·stale 상태라면 Start Here에서 수집 상태를 먼저 확인합니다.
 실행은 [Monitoring](monitoring-reference.md#open-the-dashboards), 실제 화면은 [Real VERL Demo](real-verl-demo.md), 데이터 경로는 [Architecture](architecture.md)를 참고합니다.
@@ -16,6 +34,8 @@ Unknown unit은 `Unknown`으로 표시하고 원본 query·metadata는 Inspect�
 Signal 링크에서 각 interval을 열며 Baseline 이동은 현재 step의 Trace ID를 초기화합니다.
 Sample quality와 comparability는 비교 표의 오른쪽 필드에서 확인합니다.
 Rule summary는 한국어, ID·state·원본 데이터는 유지하며 사용자 summary는 원문으로 표시됩니다.
+
+</details>
 
 ## Choose a View
 
@@ -294,7 +314,7 @@ Origin의 `synthetic`, candidate state와 missing evidence를 함께 확인합�
 ![Synthetic step의 symptom·candidate·baseline 변화로 이어지는 Bottleneck Summary](figures/bottleneck-summary-synthetic.png)
 
 Bottleneck Summary의 `Method`는 기본 `rule`이고, 선택한 record에 대한 수동 LLM 실행 결과가 있을 때 `llm`을 선택합니다.
-실행 방법은 [선택한 step 진단](local-llm.md#diagnose-a-selected-grafana-step)을 참고합니다.
+실행 방법은 [선택한 step 진단](local-llm-reference.md#diagnose-a-selected-grafana-step)을 참고합니다.
 Comparison과 evidence의 `workload_comparability`, `range_window_seconds`, `evaluation_count`, `source_age_seconds`, `quality_warnings`를 함께 확인합니다.
 Evaluation count는 scrape 횟수가 아니며 source age가 비어 있으면 freshness가 확인되지 않은 것입니다.
 

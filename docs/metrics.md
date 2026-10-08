@@ -1,5 +1,9 @@
 # Metrics · Source와 Scope부터 읽기
 
+:::{container} xlayer-page-meta
+**Reference** 필요한 metric의 source·unit·scope·해석 경계
+:::
+
 **찾는 순서:** Scope → producer → 실제 이름 → unit → 관측 window → 비교 조건.
 
 ```{admonition} Contract와 관측

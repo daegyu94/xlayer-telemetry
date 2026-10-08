@@ -1,5 +1,9 @@
 # Demo 실행 · GPU 없이 조사 흐름 익히기
 
+:::{container} xlayer-page-meta
+**Tutorial** GPU 없이 수집 → Step → Evidence → Grafana 확인
+:::
+
 **목표:** 별도 synthetic stack에서 Run → Step → Baseline → Evidence → Timeline을 따라갑니다.
 
 ## 얻는 것

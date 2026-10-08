@@ -1,5 +1,9 @@
 # KV / Storage 관측
 
+:::{container} xlayer-page-meta
+**Task** Mooncake / storage source 연결·scope 확인
+:::
+
 **목표:** KV cache, Mooncake Store, local disk와 shared 3FS의 값을 구분해 연결합니다.
 
 Backend 선택에 따른 실제 path·native telemetry·미관측 영역과 향후 계측은 [Limitations & Future Work](correlation-limitations.md#storage-backend-coverage)를 참고합니다. POSIX/pNFS·FileStorage와 descriptor DFS를 같은 source로 취급하지 않습니다.

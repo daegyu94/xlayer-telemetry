@@ -13,6 +13,7 @@
 | Package·file path·failure boundary | [Architecture reference](architecture-reference.md) |
 | Time correlation 한계·backend별 coverage·후속 계측 | [Limitations & Future Work](correlation-limitations.md) |
 | Metric schema·labels·collector budgets | [Metrics contract](metrics-reference.md) |
+| LLM 입력·검토·timeout·모델/clock 계약 | [Local LLM Reference](local-llm-reference.md) |
 | Logger mode·exit code·completeness | [VERL wrapper reference](verl-reference.md) |
 
 ```{toctree}
@@ -28,4 +29,5 @@ Architecture detail <architecture-reference>
 Correlation limitations / TBD <correlation-limitations>
 Metrics contract <metrics-reference>
 VERL wrapper contract <verl-reference>
+Local LLM contract <local-llm-reference>
 ```

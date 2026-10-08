@@ -1,5 +1,9 @@
 # Quickstart · 설치
 
+:::{container} xlayer-page-meta
+**Tutorial** CLI 설치 → config 확인 → 다음 연결 경로
+:::
+
 **목표:** `xltel` CLI를 설치하고 자신의 workload에 맞는 다음 경로를 고릅니다.
 
 ## 얻는 것

@@ -1,5 +1,9 @@
 # GPU & Host 연결
 
+:::{container} xlayer-page-meta
+**Task** 한 host의 source 연결·정상 결과 확인
+:::
+
 **목표:** 한 host의 GPU·CPU·memory·network·local disk metric을 Prometheus와 Grafana에 연결합니다.
 
 ## 얻는 것

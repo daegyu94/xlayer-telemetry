@@ -1,5 +1,9 @@
 # Baseline, Candidate, Evidence
 
+:::{container} xlayer-page-meta
+**Task** Rule diagnosis 연결·결과 해석·evidence 확인
+:::
+
 **목표:** 같은 실행 조건의 baseline과 current를 비교하고 판정의 근거·누락·한계를 읽습니다.
 
 ## 준비 조건

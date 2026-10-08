@@ -2,9 +2,28 @@
 
 > **Reference** · 기본 작업은 [metrics guide](metrics.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| 실제로 수집하는 source를 찾으려면 | [확인 →](#what-is-actually-collected) |
+| Name / unit / type / scope를 읽으려면 | [확인 →](#understand-a-metric) |
+| Label identity와 cardinality를 정하려면 | [확인 →](#choose-labels-carefully) |
+| Collector age·health·zero를 구분하려면 | [확인 →](#collector-health) |
+| 수집 비용과 pressure evidence를 점검하려면 | [확인 →](#bounded-collection-and-pressure-evidence) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 계층 간 비교에는 이름·단위·scope가 함께 필요합니다.
 이 문서는 collector·adapter·query를 추가할 때의 기준이며, 기본 사용은 [Monitoring](monitoring.md)·[VERL Quickstart](verl-quickstart.md)를 따릅니다.
 Scope를 분리하는 이유는 [설계 원칙](architecture-reference.md#design-principles)에 있습니다.
+
+</details>
 
 ## What Is Actually Collected
 
@@ -105,9 +124,12 @@ Metric은 시간에 따라 기록하는 수치입니다.
 | Gauge | 현재 값 | Loss, queue 길이 |
 | Counter | 시작 이후 누적값 | 전송 bytes, error 횟수 |
 
-Counter의 현재 값 자체는 초당 처리량이 아닙니다.
-시간 구간의 증가량으로 rate를 계산하고 process 재시작에 따른 reset도 고려해야 합니다.
-SDK counter를 기록할 때는 application이 누적값을 관리합니다.
+| Counter 해석 | 확인할 것 |
+| --- | --- |
+| 현재 누적값 | 초당 처리량이 아님 |
+| Rate | 관측 구간 증가량과 process reset을 고려 |
+| SDK 기록 | Application이 누적값을 관리 |
+| 3FS report | Reset-after-report amount와 gauge를 별도 구분 → [Storage 계약](storage-correlation.md#counter와-p99-계약) |
 
 ## Read the Contract File
 

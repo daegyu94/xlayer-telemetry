@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [문서 Runbook / Reference](documentation-ux-20261009.json) | Public Pages·독자 경로·전용 CLI/synthetic smoke·6 viewport·기존 code block/anchor 보존 검증. |
 | [Training·sandbox](sandbox/validation-20260930.json), [async follow-up](async-followup-20261001.json) | 실제 단일 host VERL·vLLM·Docker 실행 범위와 tool/cgroup 연결. 물리 multi-node 학습과 구분합니다. |
 | [3FS·subsystem](subsystem-telemetry-20261003.json), [Mooncake](mooncake-telemetry-20261003.json) | 실제 3FS I/O·ClickHouse·native endpoint 경로와 수집하지 못한 signal. |
 | [VM 검증](multinode/xltel-vm-validation-20261002.json), [시간 보정](userspace-time-alignment-20261004.json) | 독립 guest clock·collector와 userspace reference 보정. VM과 process 기반 검증은 다른 실행입니다. |

@@ -1,5 +1,9 @@
 # Logs & Events 연결
 
+:::{container} xlayer-page-meta
+**Task** Log / event 전달과 조회를 확인
+:::
+
 **목표:** 완료 step·기록한 span/event·진단 projection을 Loki에 보내 같은 시간으로 조사합니다.
 
 ## 얻는 것

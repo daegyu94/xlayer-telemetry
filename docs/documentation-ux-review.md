@@ -59,3 +59,23 @@ Version별 native metric 이름·private VERL lab recipe·대형 exporter catalo
 ![변경 후: 짧은 요약·compact overview·핵심 bullet·runtime detail 순서로 읽는다](validation/documentation-ux-20261007/architecture-after.png)
 
 ![세 가지 작업 card와 목적별 sidebar로 시작하는 현재 documentation 홈](validation/documentation-ux-20261007/home-after.png)
+
+
+## 2026-10-09 · Runbook / Reference 보강
+
+기존 Task/Concept 구조는 유지하고 README의 중복 설명·오래된 SSD 표현을 정리했습니다. 긴 Reference는 질문별 entry index를 먼저 제공하며, baseline/retry·async·time/identity 계약을 표로 바꿨습니다.
+
+| 독자 문제 | 변경 |
+| --- | --- |
+| Source 연결 문제에서 다음 문서를 찾기 어려움 | [증상별 Runbook](runbooks.md): 상태 → 확인 → 다음 guide |
+| Optional LLM의 설치·해석·검증 세부가 한 페이지에 혼합 | [실행 Task](local-llm.md)와 [보존한 계약 Reference](local-llm-reference.md) 분리 |
+| 긴 문서를 읽기 전 페이지 역할을 알기 어려움 | Tutorial / Task / Concept / Reference badge, 질문별 바로가기 |
+| 설치 성공 여부 / 다음 단계가 불명확함 | README·landing의 완료 확인, guide의 expected result와 다음 링크 |
+
+Public Pages와 토스·Kubernetes·Microsoft Learn 페이지를 실제 browser로 읽었습니다. NAVER Cloud browser 요청은 403이어서 공식 문서 index의 목적별 구조만 참고했습니다. 문구·branding·무거운 framework는 가져오지 않았습니다.
+
+[검증 기록](validation/documentation-ux-20261009.json)은 public-site 확인, 세 독자 경로, CLI/synthetic smoke, browser/viewport와 미검증 범위를 구분합니다. Runtime·V1 UI는 변경하지 않았습니다.
+
+![빠른 작업 card와 설치·연결·관측·조사의 성공 기준을 제공하는 현재 문서 홈](validation/documentation-ux-20261009/home-after.png)
+
+![긴 진단 Reference에서 질문별 절과 범위 설명으로 먼저 진입하는 화면](validation/documentation-ux-20261009/reference-after.png)

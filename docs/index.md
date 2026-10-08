@@ -6,7 +6,7 @@
 
 VERL의 느린 step을 GPU·vLLM·network·storage·sandbox 관측과 함께 조사합니다.
 
-[설치 시작](quickstart.md) · [GPU 없이 Demo 실행](demo.md) · [느린 Run 조사](dashboards.md)
+[설치 시작](quickstart.md) · [GPU 없이 Demo 실행](demo.md) · [문제 해결](runbooks.md)
 
 :::
 
@@ -37,12 +37,23 @@ VERL의 느린 step을 GPU·vLLM·network·storage·sandbox 관측과 함께 조
 같은 시간의 shared resource 변화는 correlation입니다. 특정 Run의 사용량이나 원인으로 자동 귀속하지 않습니다.
 ```
 
+## 읽는 순서와 성공 기준
+
+| 지금 단계 | 최소 경로 | 여기까지 확인하면 다음으로 |
+| --- | --- | --- |
+| 설치 | [Quickstart](quickstart.md) | CLI help·config validation 성공 |
+| 연결 | [Demo](demo.md) 또는 [VERL](verl-quickstart.md) → [Source 선택](agent-rl.md) | 실제 metric 또는 완료 step artifact |
+| 관측 | [GPU & Host](monitoring.md) → [Logs](logs-events.md) | Source age·Run/observer·시간 범위 확인 |
+| 조사 | [Slow Step](dashboards.md) → [Evidence](diagnosis.md) | 비교 가능성·지지/반대/누락 근거 구분 |
+| 검증 | [Deep Dive](deep-dive.md) | 같은 구간의 subsystem·log·span으로 후보 검토 |
+
 ## 문서를 찾는 방법
 
 | 읽으려는 것 | 경로 |
 | --- | --- |
 | 처음부터 따라 하기 | Get Started의 [Quickstart](quickstart.md)·[Demo](demo.md)·[VERL 연결](verl-quickstart.md) |
 | 특정 subsystem 연결 | Observe의 [Source 선택](agent-rl.md) |
+| 연결 / No data 해결 | [문제 해결 Runbook](runbooks.md) |
 | 성능 문제 해결 | Investigate의 [증상별 시작점](dashboards.md#증상으로-시작하기) |
 | 결과 해석 | Diagnose와 [Concepts](concepts.md) |
 | 설정·단위·구현 조회 | Reference의 [Metrics](metrics.md)·[CLI](cli.md)·[Configuration](configuration.md)·[Architecture](architecture.md) |
@@ -62,11 +73,10 @@ GPU 없이 Demo <demo>
 :hidden:
 :caption: Observe
 
-GPU & Host <monitoring>
-Source 선택 <agent-rl>
+필요한 Source 고르기 <agent-rl>
+GPU & Host 연결 <monitoring>
 vLLM / Ray <native-sources>
 KV / Storage <kv-storage>
-Storage time correlation <storage-correlation>
 Sandbox <sandbox>
 Logs & Events <logs-events>
 Application SDK <application-metrics>
@@ -77,6 +87,7 @@ Multi-node <multi-node>
 :hidden:
 :caption: Investigate
 
+문제 해결 / No data <runbooks>
 Slow Step Investigation <dashboards>
 Subsystem / Deep Dive <deep-dive>
 선택적 Grafana App <grafana-scenes-poc>
@@ -95,7 +106,7 @@ Optional Local LLM <local-llm>
 :caption: Concepts
 
 Context / Scope / Precision <concepts>
-Optional Time Alignment <time-alignment>
+Clock / Time Alignment <time-alignment>
 ```
 
 ```{toctree}
@@ -107,6 +118,7 @@ CLI <cli>
 Configuration <configuration>
 Architecture <architecture>
 UI Telemetry / MFU·Policy·Status <ui-telemetry-coverage>
+Storage correlation 계약 <storage-correlation>
 상세 Reference <reference>
 ```
 

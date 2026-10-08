@@ -1,5 +1,9 @@
 # Connect VERL · 기존 명령 연결
 
+:::{container} xlayer-page-meta
+**Tutorial** 동작하는 기존 명령 연결 → 첫 완료 step 확인
+:::
+
 **목표:** 동작하는 VERL command·Python 환경을 유지하고 첫 완료 step을 관측합니다.
 
 ## 얻는 것

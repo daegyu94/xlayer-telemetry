@@ -85,7 +85,7 @@ test("documentation uses D2 SVGs without a style selector", async () => {
 });
 
 test("built documentation has full D2 figures and captions at every breakpoint", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
-  const documents = ["index", "quickstart", "demo", "verl-quickstart", "monitoring", "agent-rl",
+  const documents = ["index", "runbooks", "local-llm-reference", "quickstart", "demo", "verl-quickstart", "monitoring", "agent-rl",
     "native-sources", "kv-storage", "sandbox", "logs-events", "multi-node", "application-metrics",
     "dashboards", "deep-dive", "diagnosis", "concepts", "architecture", "metrics", "configuration",
     "cli", "local-llm", "time-alignment", "maintainers", "reference", "documentation-ux-review",
@@ -258,5 +258,36 @@ test("task entry cards and legacy bookmarks reach canonical guides", { skip: !pr
   assert.ok(box.width <= 601);
   const image = figure.locator("img");
   assert.ok((await image.boundingBox()).width <= await image.evaluate((i) => i.naturalWidth) + 1);
+  await page.close();
+});
+
+test("task journeys reach expected results and detailed contracts without losing legacy links", { skip: !process.env.XLAYER_DOCS_SITE }, async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.goto(`${address}/site/index.html`);
+  await page.locator('.xlayer-card-grid a').first().click();
+  assert.ok((await page.locator('h1').textContent()).includes('Demo'));
+  assert.ok((await page.locator('article').textContent()).includes('정상 결과'));
+  assert.ok((await page.locator('article').textContent()).includes('Synthetic'));
+  await page.goto(`${address}/site/index.html`);
+  await page.locator('.xlayer-card-grid a').nth(1).click();
+  assert.ok((await page.locator('h1').textContent()).includes('VERL'));
+  assert.equal(await page.locator('.xlayer-page-meta strong').textContent(), 'Tutorial');
+  assert.ok((await page.locator('article').textContent()).includes('첫 step 완료'));
+  await page.goto(`${address}/site/index.html`);
+  await page.locator('.xlayer-card-grid a').nth(2).click();
+  assert.ok((await page.locator('h1').textContent()).includes('Slow Step'));
+  assert.ok((await page.locator('article').textContent()).includes('missing'));
+  await page.goto(`${address}/site/diagnosis-reference.html`);
+  await page.locator('.xlayer-question-index a[href="#read-sampling-quality"]').click();
+  assert.equal(new URL(page.url()).hash, '#read-sampling-quality');
+  assert.ok(await page.locator('#read-sampling-quality').isVisible());
+  await page.goto(`${address}/site/local-llm.html#diagnose-a-selected-grafana-step`);
+  await page.waitForURL(/local-llm-reference\.html#diagnose-a-selected-grafana-step$/);
+  assert.ok((await page.locator('article').textContent()).includes('semantic_review'));
+  for (const doc of ['runbooks', 'local-llm', 'local-llm-reference']) {
+    await page.setViewportSize({width:390,height:844});
+    await page.goto(`${address}/site/${doc}.html`);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, doc);
+  }
   await page.close();
 });

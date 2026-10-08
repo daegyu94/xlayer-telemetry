@@ -1,5 +1,9 @@
 # Concepts · Context, Scope, Precision
 
+:::{container} xlayer-page-meta
+**Concept** Run·boundary·scope·precision을 구분
+:::
+
 **읽는 목적:** 서로 다른 계층의 숫자를 같은 Run의 원인처럼 읽지 않도록 관측 의미를 구분합니다.
 
 ## Collect → Correlate → Diagnose

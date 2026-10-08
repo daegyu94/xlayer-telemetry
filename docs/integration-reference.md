@@ -2,8 +2,27 @@
 
 > **Reference** · 기본 작업은 [agent-rl guide](agent-rl.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| Source가 어떤 경로로 들어오는가? | [확인 →](#how-the-signals-flow) |
+| Native endpoint를 등록하려면 | [확인 →](#register-native-endpoints) |
+| Sync / async trainer 경계를 구분하려면 | [확인 →](#understand-asynchronous-runs) |
+| Tool span을 실제로 기록하려면 | [확인 →](#record-a-custom-tool-span) |
+| Sandbox cgroup·device scope를 정하려면 | [확인 →](#sample-the-sandbox-worker-cgroup) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 [VERL Quickstart](verl-quickstart.md)에서 trainer·GPU 연결을 확인한 뒤 vLLM·Ray·multi-node·3FS·tool event를 추가합니다.
 조사에 필요한 source부터 하나씩 연결하며 공통 데이터 경로는 [Architecture](architecture.md)에 있습니다.
+
+</details>
 
 ## How the Signals Flow
 
@@ -233,7 +252,7 @@ Client에 DFS metric이 없으면 다른 storage metric으로 채우지 않으�
 
 Selected step의 Timeline 시간 범위를 유지해 Stage Correlation으로 이동한 뒤 connector·client·3FS service 신호를 비교합니다.
 공유 master/client 신호는 해당 run의 소유량이나 3FS가 원인이라는 증명이 아닙니다.
-Optional LLM은 [Mooncake query 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/mooncake/prometheus.json)의 cluster·node·component와 시간 구간을 실제 조사 대상에 맞춰 [직접 수집](local-llm.md#diagnose-collected-metrics-directly)할 수 있습니다.
+Optional LLM은 [Mooncake query 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/mooncake/prometheus.json)의 cluster·node·component와 시간 구간을 실제 조사 대상에 맞춰 [직접 수집](local-llm-reference.md#diagnose-collected-metrics-directly)할 수 있습니다.
 `--collect-only`로 metric·label·missing source를 먼저 확인하고 필요할 때만 모델에 전달합니다.
 새 rule을 자동 활성화하거나 training 중 LLM을 호출하지 않습니다.
 
@@ -342,16 +361,21 @@ Grafana는 ClickHouse를 직접 query하지 않고 Loki에 전달된 diagnosis p
 
 ## Understand Asynchronous Runs
 
-`actor_rollout_ref.rollout.mode`는 vLLM rollout server 방식이고 `trainer.v1.trainer_mode`는 training step의 scheduling 방식입니다.
-현재 VERL의 vLLM rollout은 `async` server를 쓰지만 `trainer.v1.trainer_mode=sync`인 학습도 가능합니다.
-이 환경의 VERL `0.10.0.dev`에서는 `actor_rollout_ref.rollout.mode=sync`가 제거됐으므로 synchronous trainer를 원해도 rollout mode는 `async`로 둡니다.
-XLayer wrapper는 직접 전달된 `trainer.v1.trainer_mode=colocate_async`·`separate_async` 또는 fully async entrypoint를 비동기 trainer로 감지하며, 기본 trainer mode는 `sync`로 처리합니다.
-별도 Bash launcher나 YAML config가 실제 trainer mode를 감추면 wrapper에 `--execution-mode sync` 또는 `--execution-mode async`를 명시합니다.
-동기 trainer는 `rl_step`, 비동기 trainer는 `trainer_update` 완료 경계를 기록합니다.
+두 mode는 서로 다른 scheduling 설정입니다.
 
-비동기 rollout·Ray·storage activity는 trainer update와 별도로 계속될 수 있습니다.
-진단은 주기적인 시간 창을 비교하며 같은 창의 activity 전체를 특정 update에 귀속하지 않습니다.
-직접 수집한 policy version lag나 event가 있을 때 연결 근거로 함께 읽습니다.
+| 설정 / 경계 | 의미 | XLayer 동작 |
+| --- | --- | --- |
+| `actor_rollout_ref.rollout.mode` | vLLM rollout server 방식 | Rollout `async`만으로 trainer boundary를 결정하지 않음 |
+| `trainer.v1.trainer_mode` | Training step scheduling | 기본 `sync`는 `rl_step` 완료 경계 |
+| `colocate_async` / `separate_async`, fully async entrypoint | 비동기 trainer | 직접 전달된 설정을 감지해 `trainer_update` 완료 경계 |
+| Bash launcher / YAML이 mode를 숨김 | Wrapper가 실제 trainer mode를 알 수 없음 | `--execution-mode sync` / `--execution-mode async` 명시 |
+| 비동기 rollout·Ray·storage | Update와 별도로 계속 실행 가능 | 같은 시간 창의 activity를 특정 update에 귀속하지 않음 |
+
+```{admonition} 버전 / 실행 관계
+:class: important
+
+기존 검증의 VERL `0.10.0.dev`는 rollout `mode=sync`가 제거된 환경입니다. Synchronous trainer여도 rollout server는 async일 수 있습니다. 실제 배포의 설정을 확인하고, 직접 기록한 policy lag/event만 추가 연결 근거로 사용합니다.
+```
 
 ## Record a Custom Tool Span
 

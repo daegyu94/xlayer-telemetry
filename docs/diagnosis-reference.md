@@ -2,6 +2,24 @@
 
 > **Reference** · 기본 작업은 [diagnosis guide](diagnosis.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| 진단 결과가 비어 있다면 | [확인 →](#investigation-workflow) |
+| 비교 가능한 baseline을 고르려면 | [확인 →](#select-a-comparable-workload) |
+| 짧은 Step / sampling / stale 영향을 보려면 | [확인 →](#read-sampling-quality) |
+| Source·node·clock 조건을 확인하려면 | [확인 →](#clock-and-node-selection) |
+| Query 비용과 timeout을 정하려면 | [확인 →](#backend-query-budget) |
+| Stored artifact / Loki projection을 확인하려면 | [확인 →](#follow-the-data-path) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 Diagnosis는 XLayer의 **Collect → Correlate → Diagnose** 흐름에서 VERL 실행의 느린 구간을 조사하는 단계입니다.
 Trainer·vLLM·Ray·sandbox·GPU·host·storage 등 연결한 source의 관측치를 run·step·phase 문맥과 측정 범위로 해석해 검토 가능한 bottleneck candidate를 만듭니다.
 수집 경로와 correlation 원리는 [구현 구조](concepts.md)에 설명합니다.
@@ -10,14 +28,17 @@ Trainer·vLLM·Ray·sandbox·GPU·host·storage 등 연결한 source의 관측�
 수집된 메트릭을 local open-weight 모델이 직접 읽고 진단하도록 하려면 [Optional Local LLM Diagnosis](local-llm.md)를 사용합니다.
 LLM 경로는 rule catalog와 기존 판정을 입력에 넣지 않는 별도 선택 기능입니다.
 
+</details>
+
 ## Investigation Workflow
 
 ![Run·step·candidate·evidence·Timeline과 targeted profile의 조사 흐름](figures/diagrams/investigation-flow.svg)
 
-`ENABLE_LOGS=1`인 monitoring server에 `03 · Bottleneck Summary`와 `04 · Cross-Layer Timeline`이 provision됩니다.
-Node collector의 Alloy가 run root의 `diagnostics/investigation/*.jsonl`과 `telemetry-events/*.jsonl`을 Loki에 보내야 후보와 span 행이 채워집니다.
-Loki 없이도 완전한 진단은 `diagnostics/latest.json`과 `python -m xlayer_telemetry.show_run "$RUN_ROOT"`에서 읽을 수 있습니다.
-[진단 설정](diagnosis.md#1-진단-연결)을 붙이지 않았다면 새 화면의 후보 표는 비어 있습니다.
+| 읽으려는 결과 | 필요한 경로 | 비어 있으면 |
+| --- | --- | --- |
+| Grafana candidate / span | Server `ENABLE_LOGS=1`, Bottleneck Summary·Cross-Layer Timeline provisioning | [진단 설정](diagnosis.md#1-진단-연결) 확인 |
+| Loki projection | Node Alloy가 `diagnostics/investigation/*.jsonl`·`telemetry-events/*.jsonl`을 Loki로 전송 | Source path·label·query window 확인 |
+| 완전한 저장 diagnosis | `diagnostics/latest.json`, `python -m xlayer_telemetry.show_run "$RUN_ROOT"` | Loki 없어도 조회 가능 |
 
 ### Practice with a Synthetic Candidate
 
@@ -230,41 +251,60 @@ Local filesystem 측정이며 전체 collector latency나 학습 throughput 개�
 
 ## Baseline and Rule State
 
-Retry 기간은 batch 시작이 아닌 각 step의 첫 분석 시작 시각부터 계산합니다.
-다음 시도는 해당 분석이 끝난 뒤 `retry_interval_seconds`를 두되, 원래 retry deadline을 넘기지 않습니다.
-분석 자체가 retry 기간을 모두 사용하면 결과를 final로 남겨 즉시 재시도가 반복되지 않게 합니다.
+### Baseline / 이력 선택
 
-기본 baseline은 같은 run·node·worker·boundary scope·execution mode의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다. 명시된 cluster·producer·role·rank·local rank·GPU도 같아야 하며, 한쪽의 identity 누락을 다른 쪽의 실제 값으로 대신하지 않습니다.
-파일 기록 순서가 아닌 관측 시각을 사용합니다. Future·unknown·clock-discontinuity 이력은 제외하며, stage slowdown도 같은 유효 이력 5개를 사용합니다. 전체 history를 별도의 comparable list로 복사하지 않습니다.
+| 항목 | 계약 |
+| --- | --- |
+| 후보 구간 | 같은 Run·node·worker·boundary scope·execution mode의 최근 이전 유효 Step 5개 |
+| 대표 baseline | Duration median에 가장 가까운 실제 interval. 별도 comparable history 전체를 복사하지 않음 |
+| 명시 identity | Cluster·producer·role·rank·local rank·GPU도 같아야 함. 한쪽 누락을 다른 쪽 값으로 대신하지 않음 |
+| 순서 / 제외 | 파일 기록 순서가 아닌 관측 시각. Future·unknown·clock-discontinuity 제외 |
+| Stage slowdown | 같은 유효 history 5개 사용. Canonical phase alias 우선, 중복 사용 금지 |
 
-3FS는 ingest 지연을 고려해 기본 30초(`threefs.settle_seconds`) 후 조회하며 wrapper도 마지막 step을 기다립니다.
-표본 부재·backend 오류는 `analysis_status=provisional`로 남기고 기본 10초 간격·최대 60초 재시도합니다(`retry_interval_seconds`, `retry_seconds`).
-일부 source만 먼저 도착하거나 baseline 표본이 없을 때도 누락된 query 결과를 같은 제한 시간 안에서 재조회합니다.
-Baseline 조회 실패로 이미 수집한 current evidence를 버리지는 않습니다.
-영구적으로 비어 있는 optional source도 deadline까지 기다리므로 `provisional` 자체가 backend 장애를 뜻하지는 않습니다.
-종료 시 wrapper는 한 번 더 조회해 `final`로 확정합니다.
-`diagnostics.jsonl`은 같은 `trigger_record_id`의 revision을 보존하고 Loki projection은 final 결과만 생성합니다.
-Report 저장 후 `latest.json`이나 investigation 파일 쓰기가 실패하면, 다음 분석 실행에서 저장된 report로 해당 파일을 복구합니다.
-Backend를 다시 조회하거나 revision을 추가하지 않으며, 이미 존재하는 immutable investigation 파일도 다시 쓰지 않습니다.
-빈 후보 표는 `diagnostics/latest.json`의 `analysis_status`·`missing_sources`부터 확인합니다.
-영구 누락도 제한 시간에 끝나며 `step_event_time` 없는 replay는 재시도하지 않습니다.
+### Retry / revision / 저장 복구
 
-Baseline 창의 Prometheus·3FS를 조회해 `comparison.signals`에 current·baseline·delta·delta percent를 기록합니다.
-Step·rollout·actor/critic·checkpoint의 application duration은 기존 seconds 계약을 `unit=s`와 reported-duration statistic으로 projection에 보존합니다. Communication은 보고된 stage 합계입니다. 이 metadata로 approximate boundary를 exact span으로 바꾸거나 raw 3FS latency의 단위를 추정하지 않습니다.
-3FS는 같은 `metricName`과 전체 producer identity, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다. 3FS의 `host`·`tag`·`mount_name`·`instance`·`io`·`uid`·`method`·`pod`·`thread`·`statusCode`를 evidence의 `labels`와 comparison의 entity에 보존합니다.
-3FS `max_observed_p99`는 한 entity의 유효 표본이 있는 보고 구간별 p99 중 최대값입니다. 여러 client/node/operation의 p99를 합친 global p99가 아니며, `count=0` 행은 extrema·weighted mean·freshness에 기여하지 않습니다. Query 결과는 기존 8 MiB·1,000 entity 상한을 유지하므로 필요하면 source filter를 좁힙니다.
-선택적 [Storage collection series](storage-correlation.md)는 같은 entity의 정수 collection timestamp별 값을 보존합니다. Report의 Loki index time과 실제 sample timestamp를 분리하며 reset/gauge·누락·clock coverage를 projection에 함께 저장합니다. 실제 collection interval과 complete I/O coverage가 없으면 storage strong 승격을 제한합니다.
-Legacy metric-only artifact는 다른 legacy artifact와만 비교합니다. 명시된 identity와 섞거나 partial/duplicate identity에서 첫 행·마지막 행을 임의 선택하지 않습니다. Latency와 request-size를 함께 사용할 때도 metric 이름을 제외한 producer identity가 같아야 합니다.
-GPU 짝이 없으면 node aggregate로 scope를 낮추고, 비교 표는 utilization 감소가 가장 큰 GPU를 선택합니다.
-이는 run별 장치 귀속이나 node 평균이 아닙니다.
+| 상황 | 동작 / 확인할 field |
+| --- | --- |
+| Retry 시작 | Batch 시작이 아닌 각 Step의 첫 분석 시작 시각 기준 |
+| 다음 시도 | 분석 종료 후 `retry_interval_seconds`, 원래 retry deadline 이내. 분석이 기간을 소진하면 final로 남겨 즉시 반복 방지 |
+| 3FS ingest 지연 | 기본 30초 `threefs.settle_seconds` 후 조회. Wrapper도 마지막 Step을 기다림 |
+| 표본 부재 / backend 오류 | `analysis_status=provisional`, 기본 10초 간격·최대 60초 재시도 (`retry_interval_seconds`, `retry_seconds`) |
+| 일부 source / baseline만 누락 | 같은 제한 시간 안에서 누락 query 재조회. 이미 수집한 current evidence는 버리지 않음 |
+| 영구적으로 빈 optional source | Deadline까지 대기 후 종료. Provisional만으로 backend 장애라고 판단하지 않음 |
+| Wrapper 종료 | 한 번 더 조회해 final 확정. `step_event_time` 없는 replay는 재시도하지 않음 |
+| Revision / UI | `diagnostics.jsonl`은 같은 `trigger_record_id`의 revision 보존. Loki projection은 final만 생성 |
+| Report 이후 파생 파일 쓰기 실패 | 다음 분석에서 저장 report로 `latest.json` / investigation 복구. Backend 재조회·revision 추가·기존 immutable investigation 재작성 없음 |
+| 후보 표가 비어 있음 | 먼저 `diagnostics/latest.json`의 `analysis_status` / `missing_sources` 확인 |
 
-여러 engine의 공통 identity가 없으면 `vllm:shared_engine_identity`를 missing evidence로 남기고 강한 후보로 합치지 않습니다.
-표본·baseline은 만들어내지 않으며 큰 delta도 원인 증명이 아닙니다.
+### Current / Baseline 비교의 단위와 scope
 
-`weak_signal`은 rule의 주요 증상만 관측한 상태, `supporting_signal`은 둘 이상의 독립 조건을 관측했지만 필수 조건이 없거나 반대 근거가 있는 상태, `strong_signal`은 모든 필수 조건이 실제 측정으로 충족된 상태입니다.
-Storage rule의 필수 조건이 모두 있어도 run별 3FS client bytes가 없으면 attribution에 필요한 자료를 별도 `missing_evidence`로 남깁니다.
-수치 confidence를 계산하지 않습니다.
-강한 상태도 시간적 상관을 뜻하며 실행별 사용량이나 인과관계를 뜻하지 않습니다.
+| Source / 조건 | 비교 계약 | 해석 금지 |
+| --- | --- | --- |
+| Prometheus / 3FS window | `comparison.signals`에 current·baseline·delta·delta percent 기록 | 표본·baseline 생성 또는 큰 delta를 원인 증명으로 해석 |
+| Step·rollout·actor/critic·checkpoint duration | 기존 seconds, `unit=s`, reported-duration statistic 유지. Communication은 보고된 stage 합계 | Approximate boundary를 exact span으로 변환·3FS raw latency의 단위 추정 |
+| 3FS identity | 같은 `metricName` + 전체 producer identity. `host`·`tag`·`mount_name`·`instance`·`io`·`uid`·`method`·`pod`·`thread`·`statusCode`를 labels/entity에 보존 | 여러 client/node/operation을 하나로 결합 |
+| `max_observed_p99` | 한 entity의 유효 report 구간별 p99 중 최대. `count=0`은 extrema·weighted mean·freshness에 기여하지 않음 | Global p99, p99의 재집계 |
+| 3FS 조회 비용 | 기존 8 MiB·1,000 entity 상한. 초과 시 source filter 좁히기 | 조용한 truncation을 complete coverage로 취급 |
+| Collection series | 정수 source timestamp별 값. Loki index time과 sample time 분리, reset/gauge·gap·clock coverage 보존 | 실제 interval / complete I/O coverage 없이 storage strong 승격 |
+| Legacy artifact | 다른 legacy metric-only artifact끼리 비교. Latency/request-size도 metric 이름 외 producer identity 일치 필요 | 명시 identity와 혼합·partial/duplicate에서 첫/마지막 행 임의 선택 |
+| GPU | 같은 device끼리 비교. 짝이 없으면 node aggregate scope로 낮춤. 표는 utilization 감소가 가장 큰 GPU 선택 | Run별 장치 사용량·node 평균으로 해석 |
+| vLLM | 같은 engine signal 비교. 공통 identity가 없으면 `vllm:shared_engine_identity` missing | 다른 engine 조건을 합친 strong evidence |
+
+Collection point와 reset-after-report counter의 상세는 [Storage correlation 계약](storage-correlation.md)을 따릅니다.
+
+### Candidate 상태
+
+| 상태 | 실제 근거 | 보류하는 해석 |
+| --- | --- | --- |
+| `weak_signal` | 주요 증상 관측 | 나머지 필수 조건을 관측했다고 가정 |
+| `supporting_signal` | 둘 이상 독립 조건, 필수 조건 누락 또는 counter evidence | Scope/quality가 부족한 상태의 strong 승격 |
+| `strong_signal` | Rule 필수 조건이 실제 측정으로 충족 | Resource attribution / causality 확정 |
+
+```{admonition} 판정의 경계
+:class: important
+
+수치 confidence를 계산하지 않습니다. Storage 필수 조건을 충족해도 Run별 3FS client bytes가 없으면 attribution 자료를 별도 missing evidence로 남깁니다. Strong도 시간적 상관이며 실행별 사용량·원인은 아닙니다.
+```
 
 | Rule | 주요 evidence | 판정 범위·주의 |
 | --- | --- | --- |

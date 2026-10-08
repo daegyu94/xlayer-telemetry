@@ -2,8 +2,27 @@
 
 > **Reference** · 기본 작업은 [monitoring guide](monitoring.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| Role / 실행 위치를 정하려면 | [확인 →](#know-the-roles) |
+| Retain / historical Run 조회가 안 되면 | [확인 →](#retain-data-for-completed-runs) |
+| 원격에서 Grafana를 보려면 | [확인 →](#open-the-dashboards) |
+| DS/MDS node와 device를 선언하려면 | [확인 →](#storage-cluster-inventory) |
+| Target·source·종료를 점검하려면 | [확인 →](#check-and-stop) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 Demo → 실제 node → multi-node·log·storage 순서로 자원 수집을 연결합니다.
 Trainer는 [VERL Quickstart](verl-quickstart.md), 데이터 경로는 [Architecture](concepts.md#collect--correlate--diagnose)를 참고합니다.
+
+</details>
 
 ## Know the Roles
 

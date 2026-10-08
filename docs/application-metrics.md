@@ -1,5 +1,9 @@
 # Application Metrics Guide
 
+:::{container} xlayer-page-meta
+**Task** 공개 SDK로 실제 application 관측을 기록
+:::
+
 VERL의 기본 trainer 연결은 [file logger wrapper](verl-quickstart.md)를 사용합니다.
 이 가이드는 custom worker·tool·다른 application에 metric을 직접 추가하는 SDK 경로입니다.
 Run·worker snapshot을 collector가 읽으므로 application이 Prometheus와 직접 통신하지 않습니다.

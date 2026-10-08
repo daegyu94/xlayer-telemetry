@@ -1,5 +1,9 @@
 # Configuration
 
+:::{container} xlayer-page-meta
+**Reference** 설정 우선순위·경로·restart 조건
+:::
+
 **목적:** 같은 config로 시작·조회·종료하고, 실행 환경과 보관 artifact를 분리합니다.
 
 ## 설정 파일 선택

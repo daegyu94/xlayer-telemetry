@@ -1,5 +1,9 @@
 # Slow Step Investigation
 
+:::{container} xlayer-page-meta
+**Tutorial** 느린 Step → baseline → candidate → 같은 구간 조사
+:::
+
 **목표:** 느린 완료 step을 고르고 baseline·candidate·evidence에서 다음 조사 지점을 정합니다.
 
 ## 준비 조건

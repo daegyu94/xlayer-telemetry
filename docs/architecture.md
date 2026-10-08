@@ -1,5 +1,9 @@
 # Architecture · 먼저 전체 흐름 이해하기
 
+:::{container} xlayer-page-meta
+**Concept** 사용자 관점의 data path → 구현 Reference
+:::
+
 XLayer는 기존 관측 backend 위에서 workload context·baseline·evidence를 연결하는 분석 계층입니다. 실행 방법은 [Quickstart](quickstart.md)에서 시작합니다.
 
 ## Mental model

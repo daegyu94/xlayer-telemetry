@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-09",
+  "baseline": "5b63e69",
+  "scope": "Documentation/README/browser tests only; V1 dashboards and runtime untouched",
+  "public_site": {
+    "home": "HTTP 200, actual browser read",
+    "diagnosis_reference": "HTTP 200, actual browser read",
+    "note": "Public-document browser used an isolated context accepting the environment TLS interception certificate; no auth/session/config changes"
+  },
+  "references": {
+    "toss": "Task cards and short action guides; primary get-started page read",
+    "kubernetes": "Tutorial / Task / Concept / Reference separation; Korean docs browser read",
+    "ncloud": "Purpose hierarchy/lookup from official docs index; browser request 403",
+    "microsoft_learn": "Prerequisite / units / next learning flow; primary module browser read"
+  },
+  "changes": [
+    "Task-oriented source/nav order and No data runbook",
+    "Page-role metadata on guides/reference and fast question indexes in 6 long contracts",
+    "Local LLM Task separated from full preserved input/review/operation Reference",
+    "Baseline/retry/unit/entity/async/time-identity prose converted to contract tables",
+    "README entry paths, expected results, existing compact D2 investigation flow; obsolete SMART wording removed"
+  ],
+  "readme_lines": {
+    "before": 192,
+    "after": 106
+  },
+  "tests": {
+    "links_diagrams": 10,
+    "cli_wrapper_and_doc_regression": 43,
+    "browser": 10,
+    "sphinx": "strict build passed",
+    "viewports": [
+      320,
+      390,
+      430,
+      900,
+      1280,
+      1440
+    ]
+  },
+  "journeys": {
+    "A": "Homepage -> Demo -> expected results/synthetic boundary/browser; synthetic artifact CLI inspect Step127, not new Grafana stack deployment",
+    "B": "Homepage -> Connect VERL -> first-step expected result; wrapper regression with compatible logger, not real GPU/VERL training",
+    "C": "Slow Step -> baseline/sampling contract -> evidence/deep dive; actual browser links and legacy LLM bookmark relocation"
+  },
+  "preservation": {
+    "local_llm_original_code_blocks": "exactly preserved in local-llm-reference.md",
+    "legacy_urls": "retained and browser checked",
+    "runtime": "not modified"
+  },
+  "loops": [
+    "Public Pages/read-only baseline and local build",
+    "Home/runbook/reference desktop/narrow review; table/metadata spacing refined",
+    "Task journeys, detail bookmarks and 6 viewport regression; final captures"
+  ],
+  "remaining_debt": [
+    "Research/maintainer archives remain deep references intentionally",
+    "Physical GPU/VERL/3FS and LLM inference not rerun",
+    "Backend/version-specific telemetry must still be verified on deployment"
+  ]
+}

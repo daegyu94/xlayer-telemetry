@@ -1,5 +1,9 @@
 # vLLM / Ray 연결
 
+:::{container} xlayer-page-meta
+**Task** vLLM / Ray endpoint 등록·metric 확인
+:::
+
 **목표:** 기존 native metric endpoint를 Prometheus에 등록하고 serving/orchestration signal을 확인합니다.
 
 ## 얻는 것

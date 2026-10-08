@@ -1,5 +1,9 @@
 # Subsystem Deep Dive
 
+:::{container} xlayer-page-meta
+**Runbook** 선택한 후보를 subsystem / log / profiler로 검증
+:::
+
 **목표:** candidate를 지지하거나 반증할 추가 관측을 선택하고 한 조건씩 바꿔 확인합니다.
 
 ## 준비 조건

@@ -1,5 +1,9 @@
 # Sandbox 관측
 
+:::{container} xlayer-page-meta
+**Task** 실제 runtime·worker cgroup을 계측
+:::
+
 **목표:** 외부 sandbox lifecycle span과 안정적인 worker cgroup의 자원 관측을 연결합니다.
 
 ## 얻는 것

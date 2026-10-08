@@ -1,5 +1,9 @@
 # Multi-node 연결
 
+:::{container} xlayer-page-meta
+**Task** Target inventory·clock 사전 조건을 확인
+:::
+
 **목표:** 같은 cluster의 observer·rollout·storage·sandbox node를 identity와 clock을 보존해 비교합니다.
 
 ## 얻는 것

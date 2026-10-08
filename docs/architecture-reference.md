@@ -2,8 +2,27 @@
 
 > **Reference** · 기본 작업은 [architecture guide](architecture.md)에서 시작합니다. 아래에는 기존 운영·구현·해석 세부 정보와 기록을 보존합니다.
 
+:::{container} xlayer-question-index
+
+**찾으려는 질문부터 선택하세요**
+
+| 질문 / 작업 | 바로 볼 절 |
+| --- | --- |
+| Runtime lifecycle·책임을 확인하려면 | [확인 →](#runtime-architecture) |
+| 한 완료 Step의 data path를 따라가려면 | [확인 →](#follow-one-completed-step) |
+| 실제 module path를 찾으려면 | [확인 →](#python-module-paths) |
+| 장애·보관·운영 경계를 확인하려면 | [확인 →](#failure-boundaries-and-operating-limits) |
+| Multi-node identity·clock 계약을 확인하려면 | [확인 →](#multi-node-correlation-boundary) |
+
+:::
+
+<details>
+<summary>이 Reference의 범위와 전제</summary>
+
 [Start Here](quickstart.md)의 연결 순서에 따라 process·파일·source의 역할을 설명합니다.
 실행 명령은 [VERL Quickstart](verl-quickstart.md), 추가 source 설정은 [Cross-Layer Integration](agent-rl.md)을 따릅니다.
+
+</details>
 
 ## Why XLayer Exists
 
@@ -253,18 +272,18 @@ Client의 descriptor DFS metric과 3FS ClickHouse service metric은 별도 scope
 
 ## Match Identity and Time
 
-Application snapshot에는 `run_id`·worker·node가 들어갑니다.
-같은 machine의 논리 node 이름을 source마다 동일하게 사용합니다.
-Node target은 `TELEMETRY_TARGETS` 왼쪽 이름, native source는 `labels.node`, Loki는 collector의 `NODE_NAME`을 사용합니다.
-Log의 Run은 directory 이름이므로 telemetry `run_id`와 다를 수 있습니다.
+| 관측 / 경로 | 연결 기준 | 해석 경계 |
+| --- | --- | --- |
+| Application snapshot | `run_id`·worker·node | System/shared metric에 VERL `run_id`를 자동 부여하지 않음 |
+| 논리 node 이름 | Node target의 `TELEMETRY_TARGETS` 왼쪽 이름, native source `labels.node`, Loki collector `NODE_NAME` 일치 | 같은 이름만으로 resource 사용량을 귀속하지 않음 |
+| Log Run | 실제 directory 이름 | Telemetry `run_id`와 다를 수 있음 |
+| System / vLLM / Ray / 3FS | 같은 시간·node·role·device와 scope 선택. Multi-node는 관측된 clock quality 확인 | Shared activity를 특정 Run의 소유량으로 취급하지 않음 |
+| VERL bridge | 관측한 완료 시각에서 보고된 duration을 빼 interval 추정 | File logger에는 원래 시작/종료 timestamp가 없으므로 approximate |
+| Bridge 이전 기록 / 종료 후 replay | 실행 시각 복원 불가 → interval unknown | 현재 resource metric과 연결하지 않음 |
+| `ingested_at` | 파일을 읽은 시각 | `source_event_time` 대체 금지 |
+| Async boundary | Trainer update 구간 | 동시 rollout / storage I/O가 해당 update에 속한다고 보장하지 않음 |
 
-System metric과 shared vLLM·Ray·3FS service metric에는 특정 VERL `run_id`가 자동으로 붙지 않습니다.
-같은 시간대와 node·role·device를 선택해 비교하고, 여러 node에서는 clock을 동기화합니다.
-VERL file logger에는 원본 step 시작·종료 timestamp가 없어서 Bridge는 관측한 완료 시각에서 보고된 step 시간을 빼 분석 구간을 추정합니다.
-Bridge 시작 전에 존재하던 기록이나 종료 후 재생한 기록은 원래 실행 시각을 복원할 수 없으므로 시간 구간을 `unknown`으로 남기고 외부 resource metric과 연결하지 않습니다.
-`ingested_at`은 파일을 읽은 시각이며 `source_event_time`을 대신하지 않습니다.
-Async mode에서는 이 구간이 trainer update를 나타내며, 동시에 실행된 rollout이나 storage I/O가 해당 update에 속한다고 보장하지 않습니다.
-구간 해석은 [완료 step 읽기](dashboard-reference.md#read-a-step)를 참고합니다.
+구간 읽기는 [완료 Step 해석](dashboard-reference.md#read-a-step)을 따릅니다.
 
 ### Multi-node Correlation Boundary
 
