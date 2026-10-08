@@ -320,6 +320,8 @@ class Demo:
             GaugeSample("node_procs_blocked", "Synthetic blocked process count.", 2 if value["busy"] > .5 else 0),
             GaugeSample("node_time_seconds", "Synthetic synchronized node clock.", time.time()),
             GaugeSample("node_timex_sync_status", "Synthetic clock synchronization status.", 1),
+            GaugeSample("node_timex_offset_seconds", "Synthetic NTP offset fixture, not host synchronization.", .001),
+            GaugeSample("node_timex_maxerror_seconds", "Synthetic kernel uncertainty fixture, not measured UTC accuracy.", .001),
         ]
         for cpu in range(4):
             for mode, rate in (("idle", .60), ("user", .25), ("system", .10), ("iowait", .04), ("steal", .01)):

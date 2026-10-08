@@ -41,6 +41,16 @@ def result_quality_issues(value: Mapping[str, Any]) -> list[str]:
             if result and result[key]]
 
 
+RESOLUTION_BLOCKERS = frozenset({'query_step_exceeds_interval','fewer_than_two_query_evaluations',
+    'source_timestamp_in_future','source_sample_before_interval','fewer_than_two_observed_source_samples'})
+
+
+def correlation_quality_issues(value: Mapping[str,Any]) -> list[str]:
+    """Sampling limits cap strong hypotheses even without backend annotations."""
+    return result_quality_issues(value)+[warning for warning in value.get('warnings',[])
+        if warning in RESOLUTION_BLOCKERS | {'range_window_exceeds_interval','range_window_unknown','source_freshness_unknown'}]
+
+
 def timestamp_query(query: str) -> str | None:
     """Only inspect a single explicit source; never timestamp a computed rate."""
     selectors = set(_SELECTOR.findall(query))
@@ -93,6 +103,11 @@ def quality(query: str, start: float, end: float, query_step: float,
         warnings.append("source_freshness_unknown")
     if future:
         warnings.append("source_timestamp_in_future")
+    if last is not None and last < start:
+        warnings.append("source_sample_before_interval")
+    observed = finite_number(source.get('observed_source_samples'))
+    if observed is not None and observed < 2:
+        warnings.append('fewer_than_two_observed_source_samples')
     warnings.extend(code for key, (code, _) in _RESULT_FIELDS.items() if result and result[key])
     return {"interval_seconds": duration, "query_step_seconds": query_step,
             "range_window_seconds": lookback, "evaluation_count": evaluations,
@@ -145,7 +160,8 @@ def validate_quality(value: Any) -> None:
                 raise ValueError("sampling quality measurements must be finite nonnegative numbers")
         allowed_warnings = {"range_window_exceeds_interval", "query_step_exceeds_interval",
                             "fewer_than_two_query_evaluations", "source_freshness_unknown", "range_window_unknown",
-                            "source_timestamp_in_future"} | {code for code, _ in _RESULT_FIELDS.values()}
+                            "source_timestamp_in_future", "source_sample_before_interval",
+                            "fewer_than_two_observed_source_samples"} | {code for code, _ in _RESULT_FIELDS.values()}
         warnings = item.get("warnings", [])
         if not isinstance(warnings, list) or any(not isinstance(warning, str) or warning not in allowed_warnings for warning in warnings):
             raise ValueError("invalid sampling quality warnings")

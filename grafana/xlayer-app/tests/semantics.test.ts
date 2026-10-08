@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { phaseWindow, stepEvidenceCell, metricCell, gaugeSummary, contextSample, relatedPhaseWindow, phaseComparison } from "../src/semantics";
+import { phaseWindow, stepEvidenceCell, metricCell, gaugeSummary, contextSample, relatedPhaseWindow, phaseComparison, clockQualifiedCell } from "../src/semantics";
 const selected = {
   run_id: "r",
   node: "n",
@@ -228,4 +228,34 @@ test('remote node clocks require an explicit shared calibration before phase que
  assert.equal(phaseWindow([calibrated],calibratedStep,'rollout').status,'observed');
  for(const change of [{time_reference:'other'},{time_uncertainty_seconds:null},{start_time_ms:1005}])assert.equal(phaseWindow([{...calibrated,...change}],calibratedStep,'rollout').status,'missing');
  assert.equal(phaseWindow([span],step,'rollout').status,'observed');
+});
+
+test('async trainer update does not own an overlapping rollout with the same step number',()=>{
+ const trainer={...selected,worker_id:'driver',execution_mode:'async',boundary_scope:'trainer_update'};
+ assert.equal(phaseWindow([span],trainer,'rollout').status,'missing');
+ assert.equal(phaseWindow([{...span,worker_id:'driver',phase:'actor_update'}],trainer,'actor_update').status,'observed');
+});
+
+test('same reference name cannot join different calibration sessions',()=>{
+ const step={...selected,boundary_accuracy:'calibrated_approximate',time_reference:'monitor',time_uncertainty_seconds:.01,
+  time_alignment:{reference_session:'one'}};
+ const remote={...span,node:'remote',boundary_accuracy:'calibrated',time_reference:'monitor',time_uncertainty_seconds:.01,
+  time_alignment:{reference_session:'two'}};
+ assert.equal(phaseWindow([remote],step,'rollout').status,'missing');
+ assert.equal(phaseWindow([{...remote,time_alignment:{reference_session:'one'}}],step,'rollout').status,'observed');
+});
+
+test('clock-quality gate preserves raw evidence while withholding precise matrix values',()=>{
+ const cell=metricCell({value:0,unit:'%',labels:{node:'n'},time:4000},phaseWindow([span],selected,'rollout'),'node',0);
+ assert.equal(clockQualifiedCell(cell,'aligned').value,0);
+ for(const status of ['unsafe','unknown','not_reported']){
+  const gated=clockQualifiedCell(cell,status);assert.equal(gated.value,undefined);assert.equal(gated.sample?.value,0);
+ }
+ assert.equal(clockQualifiedCell(cell,'unchecked').binding,'rolling-context');
+ assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['other']}).value,undefined);
+ assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n']}).value,0);
+ const window=phaseWindow([span],selected,'rollout');
+ assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n'],uncertainty:2,sampleAge:0},window).value,undefined);
+ assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n'],uncertainty:.01,sampleAge:9},window).value,undefined);
+ assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n'],uncertainty:.01,sampleAge:0},window).value,0);
 });

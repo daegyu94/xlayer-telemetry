@@ -22,9 +22,9 @@ from urllib.request import Request, build_opener
 from .._http_redirects import _CredentialSafeRedirectHandler
 
 from .diagnosis_analysis import compare_signals, evaluate_rules, finite, recent_baseline_history, select_baseline, validate_baseline_policy
-from .clock_quality import assess_interval
+from .clock_quality import assess_interval, clock_inventory
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
-from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling
+from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, correlation_quality_issues, RESOLUTION_BLOCKERS
 from ..sandbox import device_window
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
@@ -363,9 +363,14 @@ def load_config(path: Path) -> dict[str, Any]:
     for key in ("enabled", "require_sync"):
         if key in clocks and type(clocks[key]) is not bool:
             raise ValueError(f"clock.{key} must be boolean")
-    for key in ("max_skew_seconds", "max_sample_age_seconds"):
+    for key in ("max_skew_seconds", "max_sample_age_seconds", "max_uncertainty_seconds"):
         if key in clocks and (finite(clocks[key]) is None or clocks[key] <= 0):
             raise ValueError(f"clock.{key} must be finite and positive")
+    if "monitoring_node" in clocks and (not isinstance(clocks["monitoring_node"], str) or not clocks["monitoring_node"]):
+        raise ValueError("clock.monitoring_node must be a registered node identity")
+    if "nodes" in clocks and (not isinstance(clocks["nodes"], list) or len(clocks["nodes"]) > 32
+            or any(not isinstance(node,str) or not node for node in clocks["nodes"])):
+        raise ValueError("clock.nodes needs at most 32 explicit node identities")
     if clocks.get("enabled", False) and not config.get("cluster"):
         raise ValueError("clock checks require cluster")
     if "calibration_reference" in clocks and (not isinstance(clocks["calibration_reference"], str) or not clocks["calibration_reference"].strip()):
@@ -646,14 +651,17 @@ class DiagnosticEngine:
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
         clock_config = self.config.get("clock", {})
+        def clock_query(expression, start, end, query_step):
+            if hasattr(prometheus,'query_range'):
+                return prometheus.query_range(expression,start,end,query_step)
+            return prometheus.query_range_detail(expression,start,end,query_step)['aggregate']
         clock_quality = {"status": "unchecked", "nodes": {}}
-        if clock_config.get("enabled", bool(cluster)) or clock_config.get("calibration_reference") or "time_alignment" in window:
-            clock_nodes = {node, compute_node, rollout_node, storage_node}
-            if sandbox_config.get("enabled"):
-                clock_nodes.add(sandbox_node)
-            clock_nodes.update(self.config.get("threefs", {}).get("clock_nodes", []))
+        inventory = clock_inventory(self.config, node)
+        clock_nodes = set(inventory["nodes"])
+        cross_node = inventory["operating_scope"] == "cross-node"
+        if cross_node or clock_config.get("enabled", bool(cluster)) or clock_config.get("calibration_reference") or "time_alignment" in window:
             clock_quality = assess_interval(
-                prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                clock_query, cluster=cluster, nodes=clock_nodes,
                 window=window, producer_node=node, config=clock_config,
                 producer_clock_nodes=self.config.get("threefs", {}).get("clock_nodes", []),
             )
@@ -661,7 +669,7 @@ class DiagnosticEngine:
                 missing.extend(f"clock:{name}:{item['status']}" for name, item in clock_quality["nodes"].items() if item["status"] != "aligned")
             if baseline_window_valid:
                 clock_quality["baseline"] = assess_interval(
-                    prometheus.query_range, cluster=cluster, nodes=clock_nodes,
+                    clock_query, cluster=cluster, nodes=clock_nodes,
                     window=baseline_window, producer_node=str(baseline_record.get("node", node)), config=clock_config,
                     producer_clock_nodes=self.config.get("threefs", {}).get("clock_nodes", []),
                 )
@@ -670,6 +678,14 @@ class DiagnosticEngine:
                 if alignment_metadata(window).get("reference_session") != alignment_metadata(baseline_window).get("reference_session"):
                     clock_quality["baseline"]["status"] = "unknown"
                     missing.append("clock:baseline:reference_session_changed")
+            if inventory["issues"]:
+                missing.extend(inventory["issues"])
+                if clock_quality["status"] != "unsafe":
+                    clock_quality["status"] = "unknown"
+                if "baseline" in clock_quality and clock_quality["baseline"]["status"] != "unsafe":
+                    clock_quality["baseline"]["status"] = "unknown"
+        clock_quality["operating_scope"] = "cross-node" if cross_node else "single-resource-node"
+        clock_quality["required_nodes"] = sorted(clock_nodes)
 
         def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]], dict | None]:
             if hasattr(prometheus, "query_range_detail"):
@@ -727,6 +743,14 @@ class DiagnosticEngine:
                                          reference_session=alignment_metadata(window).get("reference_session"))
             if tool_event is not None:
                 evidence["tool_duration_seconds"] = tool_event
+                tool_node=tool_event.get('labels',{}).get('node')
+                if tool_node and tool_node != node and tool_node not in clock_nodes:
+                    missing.append(f'clock:{tool_node}:unregistered_observation_node')
+                    clock_quality['nodes'][tool_node]={'status':'unknown','issues':['unregistered_observation_node']}
+                    clock_quality['required_nodes']=sorted(set(clock_quality['required_nodes'])|{tool_node})
+                    clock_quality['operating_scope']='cross-node'
+                    if clock_quality['status']!='unsafe':
+                        clock_quality['status']='unknown'
                 tool_event_span = tool_event["related_span"]
                 executed_queries.pop("tool_duration_seconds", None)
                 # A completed event span is not a Prometheus query evaluation.
@@ -1097,7 +1121,7 @@ class DiagnosticEngine:
                 name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
                 item["sampling_quality"] = sampling_quality.get(name)
                 for window_name, window_quality in (item["sampling_quality"] or {}).items():
-                    issues = result_quality_issues(window_quality)
+                    issues = correlation_quality_issues(window_quality)
                     candidate["missing_evidence"].extend(f"{window_name}:{item['signal']}:{issue}" for issue in issues)
                     if issues and candidate["state"] == "strong_signal":
                         candidate["state"] = "supporting_signal"
@@ -1108,6 +1132,9 @@ class DiagnosticEngine:
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
+            if any(RESOLUTION_BLOCKERS.intersection(q.get('warnings',[]))
+                   for q in (row['sampling_quality'] or {}).values()):
+                row.update(delta=None,delta_percent=None,comparison_status='insufficient_sampling_coverage')
             if row["signal"] in PROFILE_SIGNALS:
                 row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
                 row["query"] = signal_queries.get(row["signal"])
@@ -1398,6 +1425,7 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         "worker_id": report.get("worker_id"),
         "observed_at": window.get("end"), "boundary_accuracy": window.get("accuracy"),
         "time_reference": alignment_metadata(window).get("reference_id"),
+        "time_reference_session": alignment_metadata(window).get("reference_session"),
         "time_uncertainty_seconds": alignment_metadata(window).get("uncertainty_seconds"),
         "window_start_ms": math.floor(window["start"] * 1000) if finite(window.get("start")) is not None else None,
         "window_end_ms": math.ceil(window["end"] * 1000) if finite(window.get("end")) is not None else None,
@@ -1406,8 +1434,32 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         "baseline_end_ms": math.ceil(baseline["end"] * 1000) if finite(baseline.get("end")) is not None else None,
     }
     symptom = report.get("symptom", {})
+    clock=report.get('clock_quality',{})
+    def clock_extents(quality):
+        bounds,ages=[],[]
+        for entry in quality.get('nodes',{}).values():
+            uncertainty=finite(entry.get('uncertainty_seconds'))
+            offsets=[finite((entry.get(field) or {}).get(key)) for field in ('offset_seconds','ntp_offset_seconds') for key in ('min','max')]
+            offsets=[abs(value) for value in offsets if value is not None]
+            if uncertainty is not None:
+                bounds.append(uncertainty+(max(offsets) if offsets else 0))
+            age=finite((entry.get('sample_age_seconds') or {}).get('max'))
+            if age is not None:
+                ages.append(age)
+        return max(bounds) if bounds else None,max(ages) if ages else None
+    clock_bound,clock_age=clock_extents(clock)
+    baseline_bound,baseline_age=clock_extents(clock.get('baseline',{}))
     strong = [item for item in report.get("candidates", []) if item.get("state") == "strong_signal"]
     rows = [{**common, "row_kind": "summary", "verdict": report.get("verdict"),
+             "correlation_clock_status": report.get('clock_quality',{}).get('status','not_reported'),
+             "baseline_clock_status": report.get('clock_quality',{}).get('baseline',{}).get('status','not_reported'),
+             "correlation_clock_scope": report.get('clock_quality',{}).get('operating_scope','not_reported'),
+             "correlation_clock_method": report.get('clock_quality',{}).get('method','node_exporter_screening'),
+             "clock_required_nodes": report.get('clock_quality',{}).get('required_nodes',[]),
+             "correlation_clock_uncertainty_seconds": clock_bound,
+             "correlation_clock_sample_age_seconds": clock_age,
+             "baseline_clock_uncertainty_seconds": baseline_bound,
+             "baseline_clock_sample_age_seconds": baseline_age,
              "step_duration_seconds": symptom.get("step_duration_seconds"),
              "candidate_count": len(report.get("candidates", [])),
              "strong_candidate_count": len(strong),

@@ -35,6 +35,7 @@ xltel down
 | --- | --- |
 | `init` | 기존 config를 보존하며 초기 설정 생성 |
 | `doctor`, `status` | `--json`, `--role all\|server\|node` |
+| `doctor --correlation` | `--diagnostics-config FILE.json` 또는 `DIAGNOSTICS_CONFIG`; [관측 대상·clock 사전 검사](time-alignment.md#correlation-preflight) |
 | `install-tools`, `up`, `down`, `restart` | `--role all\|server\|node` |
 | `run` | `--mode auto\|sync\|async`, `--run-id ID`, `--output DIR`, `--node NAME`, `-- COMMAND` |
 | `inspect` | `[RUN_ID \| RUN_DIR]` |

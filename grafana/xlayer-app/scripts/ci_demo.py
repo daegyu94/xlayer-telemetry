@@ -91,7 +91,11 @@ def run(args):
                       '--url', connection['grafana'], '--output', str(args.output / 'storage-series')]
             if args.browser:
                 series.extend(['--browser', args.browser])
-            for validation_command in (command, contracts, series):
+            clocks = [sys.executable, str(SCRIPTS / 'clock_quality_validate.py'),
+                      '--url', connection['grafana'], '--output', str(args.output / 'clock-quality')]
+            if args.browser:
+                clocks.extend(['--browser', args.browser])
+            for validation_command in (command, contracts, series, clocks):
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:
                     code = validator.wait(timeout=args.browser_timeout)

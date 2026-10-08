@@ -377,7 +377,7 @@ Manifest만으로 target이나 metric을 등록하지는 않습니다.
 지원 placeholder는 `{node}`, `{run_id}`, `{cluster}`, `{compute_node}`, `{rollout_node}`, `{storage_node}`, `{storage_device}`, `{sandbox_node}`, `{sandbox_device}`입니다.
 Host 전체 disk busy와 별도 storage node의 `storage_device_busy_ratio`는 다른 signal이며 shared 3FS latency와 동일한 사용량으로 합치지 않습니다.
 
-`clock_quality`는 current 구간의 node별 offset·sample age·kernel sync status를 보존하며 baseline이 있으면 그 구간도 검사합니다.
+`clock_quality`는 current 구간의 node별 scrape 상대 offset·kernel NTP offset·maxerror·sample age·sync status를 보존하며 baseline이 있으면 그 구간도 검사합니다. [Correlation preflight](time-alignment.md#correlation-preflight)는 같은 관측 대상 목록을 사용하는 읽기 전용 doctor 검사입니다.
 `aligned`는 설정한 screening 조건을 만족했다는 뜻이고, `unsafe`는 skew·staleness·unsynchronized 상태, `unknown`은 필요한 clock source 부족, `unchecked`는 기존 설정에서 검사하지 않았다는 뜻입니다.
 Current 또는 baseline이 `unsafe`/`unknown`이면 `verdict=insufficient_data`, 빈 `candidates`와 빈 resource comparison을 기록하고 `missing_sources`에 clock 상태를 남깁니다.
 Raw `evidence`와 workload duration은 inspect할 수 있으며 기존 bounded retry를 적용합니다.
@@ -385,10 +385,9 @@ Clock 상태를 나중에 고쳤다고 이미 끝난 step의 과거 timestamp가
 선택적으로 [userspace calibration](time-alignment.md)을 설정하면 생성 시점에 보존한 reference window와 uncertainty로 판단합니다.
 `clock.calibration_reference`가 맞고 uncertainty가 `min(max_skew_seconds, interval / 10)` 이내여야 하며 current·baseline 어느 쪽이든 부족하면 보류합니다.
 
-기본 `clock.require_sync=true`, `max_skew_seconds=1`, `max_sample_age_seconds=30`입니다.
-`clock.require_sync=false`는 offset/freshness만 확인하는 제한된 조사 모드이고 `clock.enabled=false`는 검사 자체를 제외합니다.
-두 경우 모두 물리 node 동기화의 증거로 사용하지 않습니다.
-기존 cluster 없는 config는 호환을 위해 `unchecked`로 실행되므로 multi-node 운영 전 cluster를 추가해야 합니다.
+기본 `clock.require_sync=true`, `max_skew_seconds=1`, `max_sample_age_seconds=30`입니다. Kernel uncertainty와 NTP offset의 허용 예산은 `min(max_uncertainty_seconds 또는 max_skew_seconds, interval / 10)`입니다. Clock sample이 조사 구간보다 오래되거나 충분한 query evaluation이 없으면 정밀 correlation을 보류합니다. Evaluation 수는 실제 scrape 수나 continuous clock coverage가 아닙니다.
+
+멀티노드는 `clock.monitoring_node`와 `cluster`가 필요합니다. `clock.nodes`에는 별도 service/tool host를 추가하며, 실제 관측한 remote tool host가 목록 밖이면 `unknown`으로 보류합니다. 멀티노드에서는 `clock.enabled=false`나 `require_sync=false`가 검사를 우회하지 않습니다. Cluster·별도 resource mapping이 없는 기존 단일 노드 config는 `unchecked`로 raw context를 유지합니다. Userspace calibration은 raw 3FS clock이나 remote OS synchronization을 인증하지 않습니다.
 
 ClickHouse endpoint의 server clock만 확인해서 3FS distribution timestamp를 검증할 수는 없습니다.
 `threefs.clock_nodes`에 timestamp를 만드는 실제 3FS producer node 목록을 넣고 해당 node의 host collector를 `TELEMETRY_TARGETS`에 등록합니다.

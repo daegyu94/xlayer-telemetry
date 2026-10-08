@@ -5,10 +5,13 @@
   "rollout_node": "gpu-b",
   "storage_node": "storage-a",
   "storage_device": "nvme0n1",
+  "sampling": {"check_source_freshness": true},
   "clock": {
     "enabled": true,
     "require_sync": true,
+    "monitoring_node": "monitor-a",
     "max_skew_seconds": 1,
+    "max_uncertainty_seconds": 1,
     "max_sample_age_seconds": 30
   },
   "prometheus": {

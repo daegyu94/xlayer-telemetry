@@ -48,6 +48,8 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
   원래 시각을 모르는 replay를 현재 step으로 취급하지 않고, clock 보정 시 원본 시각·reference·uncertainty를 남깁니다.
 - Async trainer update가 모든 rollout·tool span을 포함한다고 가정하지 않습니다.
   Current/baseline은 비교 가능한 workload·boundary scope에서 선택합니다.
+- 멀티노드 correlation은 monitoring·resource·producer host의 관측한 clock 품질을 전제합니다.
+  `doctor --correlation`과 diagnosis는 같은 설정 inventory를 사용하며 calibration·검사 비활성화로 remote clock 검증을 우회하지 않습니다. Preflight는 시스템 시간을 변경하지 않는 sampled 검사이고 precision·coverage·실제 dependency를 보장하지 않습니다.
 - 미설정·query 실패·no data·stale·unknown과 실제 값 `0`을 구분합니다.
   필수 evidence가 없으면 `missing_evidence` 또는 제한된 supporting signal로 남깁니다.
 - Optional LLM은 수집된 metric·baseline을 직접 분석하는 경로입니다.

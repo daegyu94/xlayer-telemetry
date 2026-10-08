@@ -1,8 +1,95 @@
-# Optional Userspace Time Alignment
+# Time Alignment
+
+**목표:** 필요한 관측 노드를 명시하고 clock 품질이 충분한 시간 구간만 correlation에 사용합니다. XLayer는 시스템 시간이나 NTP 서비스를 설정하지 않습니다.
+
+(correlation-preflight)=
+## Correlation Preflight
+
+### 준비 조건
+
+| 관측 대상 | 등록할 clock host |
+| --- | --- |
+| Trainer / observer | Diagnostics의 `node` 또는 `NODE_NAME` |
+| GPU / CPU / memory | `compute_node`와 실제 host 관측 node |
+| Rollout / vLLM / Ray / Mooncake client | `rollout_node`; 별도 host이면 `clock.nodes` |
+| Mooncake Master | Companion profile의 `prometheus.mooncake_master_node` |
+| 3FS | ClickHouse server뿐 아니라 실제 timestamp producer의 `threefs.clock_nodes` |
+| Monitoring / Prometheus | `clock.monitoring_node` |
+| Dedicated tool / sandbox | `sandbox.node`와 별도 실행 host의 `clock.nodes` |
+
+같은 물리 host의 여러 역할은 같은 논리 node 이름으로 등록합니다. 모든 해당 host의 Node Exporter가 `TELEMETRY_TARGETS`에 등록되어야 합니다. 이 목록은 설정한 observation inventory이며 자동 발견한 topology·dependency나 Run의 resource 소유 관계가 아닙니다.
+
+Monitoring host에도 clock metric을 제공하는 node collector가 필요합니다. Server만 실행했다면 GPU가 없는 host의 config에 `ENABLE_GPU_METRICS=0`을 설정하고 `xltel up --role node`를 추가합니다.
+
+### 1. 시스템 동기화 확인
+
+멀티노드는 운영자가 NTP/chrony 또는 system clock을 동기화하는 PTP를 구성합니다. Chrony 환경에서는 각 host에서 다음 읽기 전용 명령을 확인합니다.
+
+```bash
+chronyc -n tracking
+chronyc -n sources -v
+chronyc waitsync 10 0.01 0 1
+```
+
+**정상 결과:** 선택한 reference가 있으며 `Leap status`가 `Normal`이고 `waitsync`는 exit 0입니다. `0.01`은 예시 remaining-correction 허용값입니다. 실제 조사 구간에 맞춰 정합니다. `timedatectl`의 NTP enabled flag만으로 통과시키지 않습니다. Chrony의 `rtcsync`와 Node Exporter timex 수집도 확인합니다. PTP는 NIC의 PHC뿐 아니라 실제 timestamp에 쓰는 `CLOCK_REALTIME`을 확인해야 합니다.
+
+### 2. Observation inventory 설정
+
+[Multi-node diagnosis 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/multinode/diagnostics.json)의 node mapping과 기존 diagnostics 설정을 사용합니다. `clock.monitoring_node`에는 실제 Prometheus host를, `clock.nodes`에는 다른 설정에서 빠진 service/tool host를 추가합니다.
+
+```json
+"clock": {
+  "monitoring_node": "monitor-a",
+  "nodes": ["tool-a"],
+  "require_sync": true,
+  "max_skew_seconds": 1,
+  "max_uncertainty_seconds": 1,
+  "max_sample_age_seconds": 30
+}
+```
+
+`clock.nodes`는 실제 별도 관측 host가 있을 때만 지정합니다. 최대 32개 host를 검사하며 query는 기존 30초 budget을 공유합니다. Monitoring과 collector를 시작한 뒤 사전 검사를 실행합니다. 설치 전에 쓰는 기본 doctor는 바뀌지 않습니다.
+
+### 3. Doctor로 검증
+
+```bash
+xltel doctor --correlation --diagnostics-config ./diagnostics.json --json
+# DIAGNOSTICS_CONFIG를 이미 설정했다면:
+xltel doctor --correlation
+```
+
+| Preflight 결과 | 의미 / 행동 |
+| --- | --- |
+| `pass` | 선언된 host의 sampled clock screening 통과; 이후 각 Step/Phase는 다시 검사 |
+| `needs_attention` | Target·clock metric·monitor identity·evaluation 부족 확인 |
+| `blocked` | Unsynchronized·큰 offset/uncertainty·stale/clock variation 해결 후 재검사 |
+| `not_configured` | `DIAGNOSTICS_CONFIG` 또는 명시한 JSON 설정 필요 |
+
+**정상 결과:** `correlation_preflight.status=pass`와 필요한 host별 `aligned`가 표시됩니다. 기본 installation check도 통과한 doctor의 exit code는 0, 부족한 조건이 있으면 1입니다. Raw metric이나 workload 실행을 삭제·종료하지 않습니다.
+
+```{admonition} Correlation 허용 범위
+:class: important
+
+Kernel sync flag·NTP offset·maxerror·scrape 상대 offset·sample age를 함께 검사합니다. Uncertainty/offset variation의 예산은 `min(max_uncertainty_seconds 또는 max_skew_seconds, interval / 10)`이며, 조사 구간보다 오래된 clock sample은 보류합니다. Kernel maxerror는 보고된 보수적 오차이며 UTC confidence가 아닙니다. PTP/daemon에서 이 증거를 제공하지 못하면 자동 pass로 바꾸지 않습니다.
+```
+
+단일 node의 monotonic span duration은 NTP와 별개로 보존합니다. 멀티노드에서는 `enabled=false`·`require_sync=false`·application calibration으로 OS clock 검사를 우회하지 않습니다. 과거 clock 상태, raw 3FS timestamp, producer collection 시각은 현재 preflight 결과로 복원하거나 재작성하지 않습니다.
+
+### 조사 화면에서 확인
+
+- Scenes는 저장된 clock status·검사된 resource node·uncertainty·age를 재사용합니다. Step에서 통과했어도 더 짧은 Phase 예산이 부족하면 `Clock unverified`이며 값·phase delta를 보류합니다.
+- Async trainer update에 같은 Run/Step 번호의 다른 worker rollout을 소유 관계로 연결하지 않습니다. 기존 explicit parent span 관계와 raw call duration은 유지합니다.
+- Query evaluation 수는 scrape 수가 아닙니다. Rolling lookback·source freshness unknown·누락된 sample은 supporting/missing으로 남기며, 알려진 resolution 부족의 baseline delta를 보류합니다.
+- 실제 source timestamp 확인에는 기존 `sampling.check_source_freshness=true`를 사용합니다. 단일 source를 추출할 수 없는 computed query의 freshness는 계속 unknown입니다. NTP pass가 metric의 collection time이나 scrape coverage를 보장하지 않습니다.
+- Related Metrics·기존 상세 dashboard의 raw data는 계속 읽을 수 있습니다. Correlation ≠ Attribution ≠ Causality입니다.
+
+검사의 source 계약은 [Node Exporter timex](https://github.com/prometheus/node_exporter/blob/v1.9.1/collector/timex.go)와 [time-sync 문서](https://github.com/prometheus/node_exporter/blob/v1.9.1/docs/TIME.md), 운영 확인은 [chronyc](https://chrony-project.org/doc/4.8/chronyc.html)를 기준으로 합니다. Sampled screening은 scrape 사이의 모든 clock jump를 증명하지 않습니다.
+
+## Optional Userspace Time Alignment
 
 OS clock을 바꿀 권한이 없어도 XLayer의 Step·Span을 monitoring host의 공통 시간축에 표시할 수 있습니다.
 각 node가 monitoring host와 timestamp를 교환하여 offset과 uncertainty를 계산하며, `sudo`나 추가 package는 필요하지 않습니다.
-이 기능은 선택 사항이고 기존 NTP/chrony 기반 clock check와 기본 실행 방식은 유지됩니다.
+이 기능은 선택 사항이며 timestamp mapping을 추가합니다. 멀티노드 NTP/clock 사전 조건을 대신하지 않습니다.
 
 ## Configure a Common Reference
 
@@ -142,5 +229,19 @@ Listener는 연결을 받은 뒤 2초의 absolute deadline을 적용하고, requ
 같은 시간대의 GPU·NIC·NVMe·shared-service 변화는 여전히 supporting correlation입니다.
 Logical clock은 이벤트 순서·parent 연결을 표현할 수 있지만 resource metric의 Unix time과 맞추는 기능을 대신하지 않습니다.
 가능하면 NTP/chrony를 기본으로 사용하고, 이 기능은 시스템 clock을 바꾸기 어려운 환경에서 활용합니다.
+
+## Correlation Limits / TBD
+
+| 현재 가능한 것 | 남은 경계 |
+| --- | --- |
+| 선언한 node/entity의 sampled time-window 조회 | 실제 물리 multi-node·GPU·Agent RL에서 아직 검증하지 않음 |
+| Exact/calibrated span과 approximate Step 구분 | Async overlap·같은 Step 번호만으로 execution 소유 관계를 만들지 않음 |
+| Source freshness·rolling window·clock budget의 제한 표시 | Query evaluation은 actual collection 시각·연속 coverage가 아님 |
+| 기존 explicit parent/span 관계 조회 | Upstream을 통과하는 operation-level tracing과 end-to-end propagation은 TBD |
+| Shared/node/worker/cgroup 관측 범위 보존 | 정확한 Resource/Run attribution은 TBD; [Storage 계측 과제](storage-correlation.md) 참고 |
+
+새 request/trace ID를 Prometheus label로 추가하거나 upstream 프레임워크를 수정하지 않습니다. 이번 기능은 운영 전제 조건과 기존 관측의 시간적 연관을 검증하는 PoC입니다.
+
+2026-10-08 검증에서는 CPU 1,474개·frontend 99개·CI helper 17개, 실제 Grafana의 clock 보류/복귀와 multiworker·Storage 여정, 문서 browser 9개가 통과했습니다. 실제 Prometheus API의 synthetic 4-node preflight는 20개 요청·약 0.75초였습니다. 물리 NTP 또는 production query 성능 검증은 아닙니다. {download}`검증 기록<validation/cross-layer-correlation-20261008.json>`에서 환경과 한계를 확인합니다.
 
 계산의 기준은 [NTP four-timestamp model (RFC 5905)](https://www.rfc-editor.org/rfc/rfc5905.html#section-8)이며, NTP daemon이나 protocol 자체를 구현하는 것은 아닙니다.

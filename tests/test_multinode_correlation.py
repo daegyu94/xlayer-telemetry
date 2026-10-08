@@ -38,7 +38,7 @@ def test_clock_screening(offset, sync, age, expected):
 
 def test_one_missing_node_is_not_hidden_by_another_and_sync_is_optional():
     def query(expression, *args):
-        if 'storage-a' in expression or 'timex' in expression:
+        if 'storage-a' in expression or 'timex_sync_status' in expression:
             return None
         return stats(0.1)
     report = assess_clocks(query, cluster='lab', nodes=['gpu-a', 'storage-a'], start=10, end=20, require_sync=False)
@@ -109,7 +109,8 @@ def test_split_gpu_rollout_storage_queries_and_clock_guard(offset, state):
     backend = Backend(offset)
     engine = DiagnosticEngine({'prometheus': {'url': 'unused'}, 'cluster': 'lab',
                                'compute_node': 'gpu-b', 'rollout_node': 'rollout-a',
-                               'storage_node': 'storage-a', 'storage_device': 'nvme1n1'}, prometheus=backend)
+                               'storage_node': 'storage-a', 'storage_device': 'nvme1n1',
+                               'clock':{'monitoring_node':'monitor'}}, prometheus=backend)
     report = engine.analyze({'node': 'trainer-a', 'run_id': 'r', 'worker_id': '0',
                             'analysis_window': {'start': 10, 'end': 20}}, [])
     assert report['verdict'] == state

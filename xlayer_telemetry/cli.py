@@ -39,6 +39,9 @@ def parser() -> argparse.ArgumentParser:
         command = commands.add_parser(action, help=help_text)
         command.add_argument("--json", action="store_true", help="Machine-readable output")
         command.add_argument("--role", choices=("all", "server", "node"), default="all", help="Check this host's selected role")
+        if action == "doctor":
+            command.add_argument("--correlation", action="store_true", help="Read-only inventory and observed clock quality preflight")
+            command.add_argument("--diagnostics-config", type=Path, help="Diagnosis JSON for correlation preflight (otherwise DIAGNOSTICS_CONFIG)")
     run = commands.add_parser("run", help="Wrap an existing VERL command; preserve its exit code",
                               epilog="Example: xltel run --mode async -- python -m verl.trainer.main_ppo ...")
     run.add_argument("--mode", choices=("auto", "sync", "async"))
@@ -196,12 +199,22 @@ def execute(args) -> int:
             print(f"Valid config: {path}")
         return 0
     if args.action == "doctor":
-        result = doctor(config, role=args.role)
+        if args.diagnostics_config:
+            config={**config,"DIAGNOSTICS_CONFIG":str(args.diagnostics_config.expanduser().absolute())}
+        result = doctor(config, role=args.role, **({'correlation':True} if args.correlation else {}))
         if args.json:
             print(json.dumps(result, indent=2))
         else:
             for item in result["checks"]:
                 print(f"[{item['status']}] {item['component']}" + (f" -> {item['action']}" if item["action"] else ""))
+            preflight=result.get('correlation_preflight')
+            if preflight:
+                print('Correlation preflight: '+preflight['status'])
+                for node,roles in preflight.get('inventory',{}).get('nodes',{}).items():
+                    quality=preflight['clock_quality']['nodes'][node]
+                    print(f"[{quality['status']}] {node} · {', '.join(roles)} · uncertainty={quality.get('uncertainty_seconds')}s · {', '.join(quality['issues'])}")
+                for issue in preflight.get('inventory',{}).get('issues',preflight.get('issues',[])):
+                    print(issue)
         return 0 if result["status"] == "ready" else 1
     if args.action == "status":
         result = status(config, role=args.role)

@@ -197,6 +197,12 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
             *(["Scenario summaries are explicit producer inputs, not Prometheus query statistics; shared storage p99 is illustrative, not an actual ClickHouse backend."] if scenario is not None else []),
             *(["Distributed synthetic workers share an explicit ideal injected clock with zero offset/uncertainty; this is not measured physical host synchronization."] if calibrations else [])],
         "diagnosis_schema_version": 1,
+        "clock_quality": {"status":"aligned","nodes":{n:{"status":"aligned","data_origin":"synthetic",
+            "uncertainty_seconds":0,"offset_seconds":{"min":0,"max":0},"sample_age_seconds":{"max":0}}
+            for n in sorted({node,*[c.node for c in rollout_workers or []]})},
+            "baseline":{"status":"aligned","nodes":{node:{"uncertainty_seconds":0,"sample_age_seconds":{"max":0}}}},
+            "method":"controlled_synthetic_clock_fixture","data_origin":"synthetic",
+            "operating_scope":"synthetic_same_reference","required_nodes":sorted({node,*[c.node for c in rollout_workers or []]})},
         "symptom": {"step": step, "step_duration_seconds": duration, "slow_stages": [], "boundary_scope": "rl_step"},
         "comparison": {
             "current_interval": window, "baseline_interval": prior["analysis_window"],

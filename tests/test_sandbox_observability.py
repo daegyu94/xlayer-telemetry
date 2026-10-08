@@ -175,6 +175,9 @@ def test_dedicated_node_diagnosis_queries_the_sandbox_device():
 
         def query_range(self, query, start, end, step):
             self.queries.append(query)
+            if 'node_time_seconds' in query or 'node_timex' in query:
+                value=1 if 'node_timex_sync_status' in query else 0
+                return dict(min=value,max=value,mean=value,last=value,sample_count=3)
             if query.startswith("agent_tool_call_duration_seconds"):
                 return {"max": 9 if start == 20 else 4}
             if query.startswith("sandbox_io_pressure_ratio"):
@@ -186,6 +189,7 @@ def test_dedicated_node_diagnosis_queries_the_sandbox_device():
     prom = Prometheus()
     engine = DiagnosticEngine(
         {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+         "cluster":"lab","clock":{"monitoring_node":"monitor"},
          "sandbox": {"enabled": True, "node": "sandbox-2", "device": "nvme0n1"}},
         prometheus=prom, clock=lambda: 31,
     )
@@ -241,6 +245,9 @@ def test_exact_tool_spans_supply_duration_when_prometheus_tool_metric_is_missing
 
     class Prometheus:
         def query_range(self, query, start, end, step):
+            if 'node_time_seconds' in query or 'node_timex' in query:
+                value=1 if 'node_timex_sync_status' in query else 0
+                return dict(min=value,max=value,mean=value,last=value,sample_count=3)
             if query.startswith("sandbox_io_pressure_ratio"):
                 return {"max": 0.4}
             if query.startswith("rate(node_disk_io_time_seconds_total") and 'device="nvme0n1"' in query:
@@ -249,6 +256,7 @@ def test_exact_tool_spans_supply_duration_when_prometheus_tool_metric_is_missing
 
     engine = DiagnosticEngine(
         {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
+         "cluster":"lab","clock":{"monitoring_node":"monitor"},
          "sandbox": {"enabled": True, "events_dir": str(directory),
                      "node": "sandbox-2", "device": "nvme0n1"}},
         prometheus=Prometheus(), clock=lambda: 31,

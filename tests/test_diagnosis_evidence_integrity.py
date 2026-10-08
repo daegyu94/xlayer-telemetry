@@ -59,6 +59,9 @@ def tool_event(start, end, span, *, node="tool-a", worker="worker-a"):
 
 
 class ConflictingToolMetrics:
+    def query_range(self, query, start, end, step):
+        value=1 if 'node_timex_sync_status' in query else 0
+        return dict(min=value,max=value,mean=value,last=value,sample_count=3)
     def query_range_detail(self, query, start, end, step):
         if "agent_tool_call_duration_seconds" in query:
             value, labels = 999, {"run_id": "r", "node": "metric-b", "worker_id": "worker-b", "tool": "grep"}
@@ -77,6 +80,7 @@ def tool_report(tmp_path, events):
 
     (tmp_path / "events.jsonl").write_text("".join(json.dumps(event) + "\n" for event in events))
     engine = DiagnosticEngine({"prometheus": {"url": "http://unused"},
+                               "cluster":"lab","clock":{"monitoring_node":"monitor","nodes":["tool-a"]},
                                "sandbox": {"enabled": True, "events_dir": str(tmp_path),
                                            "node": "metric-b", "device": "nvme0n1"}},
                               prometheus=ConflictingToolMetrics(), clock=lambda: 101)

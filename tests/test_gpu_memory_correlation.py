@@ -64,7 +64,8 @@ def test_matching_gpu_pressure_is_preserved_and_uses_its_own_device():
                       "gpu_utilization_percent": [series(10), series(90, gpu="1", uuid="GPU-1")]},
                      {"gpu_utilization_percent": [series(90), series(90, gpu="1", uuid="GPU-1")]})
     candidate = pressure(report)
-    assert candidate["state"] == "strong_signal"
+    assert candidate["state"] == "supporting_signal"
+    assert any('source_freshness_unknown' in item for item in candidate['missing_evidence'])
     assert {item["labels"]["gpu"] for item in candidate["evidence"]} == {"1"}
     assert candidate["related_devices"] == ["1"]
 

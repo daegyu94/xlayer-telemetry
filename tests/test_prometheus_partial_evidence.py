@@ -207,7 +207,8 @@ def test_backend_annotation_caps_strong_rule_without_discarding_valid_measuremen
     report = DiagnosticEngine({"node": "n", "prometheus": {"url": "http://unused"}},
                               clock=lambda: 140).analyze(current, [previous])
     candidate = next(item for item in report["candidates"] if item["id"] == "rollout_queue_backlog")
-    assert candidate["state"] == ("supporting_signal" if annotated else "strong_signal")
+    assert candidate["state"] == "supporting_signal"
+    assert 'current:vllm_requests_waiting:source_freshness_unknown' in candidate['missing_evidence']
     assert ("current:vllm_requests_waiting:backend_infos:1" in candidate["missing_evidence"]) == annotated
     assert not any("discarded" in item for item in candidate["missing_evidence"])
 

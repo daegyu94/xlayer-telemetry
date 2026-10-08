@@ -118,6 +118,9 @@ class Series:
 
     def query_range_detail(self, query, start, end, step):
         self.calls.append((query, start, end))
+        if 'node_time_seconds' in query or 'node_timex' in query:
+            value=1 if 'node_timex_sync_status' in query else 0
+            return {'aggregate':dict(min=value,max=value,mean=value,last=value,sample_count=3),'series':[]}
         if "mooncake" not in query:
             return {"aggregate": None, "series": []}
         if self.failure and "mooncake_dfs_write_latency_us" in query:
@@ -139,7 +142,7 @@ class Series:
 
 def report(client):
     engine = DiagnosticEngine({"cluster": "lab.prod", "rollout_node": "rollout.prod",
-                               "clock": {"enabled": False},
+                               "clock": {"enabled": False,"monitoring_node":"trainer"},
                                "prometheus": {"url": "http://unused", "metric_profiles": ["mooncake"]}},
                               prometheus=client)
     before = {"run_id": "r", "node": "trainer", "worker_id": "driver", "record_id": "before",

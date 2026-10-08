@@ -187,7 +187,35 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
             "note": "Endpoint health is not process ownership. Stale completed-run data is not a workload failure."}
 
 
-def doctor(config: dict[str, str], *, role: str = "all") -> dict:
+def correlation_preflight(config: dict[str,str], *, client=None, now=None) -> dict:
+    """Read-only admission check; each diagnosis still checks its own window."""
+    from ..analysis.clock_quality import assess_clocks, clock_inventory
+    from ..analysis.diagnostics import load_config
+    from ..analysis.query_budget import QueryBudget
+    from ..prometheus import _DeadlinePrometheusClient
+    path=config.get('DIAGNOSTICS_CONFIG')
+    if not path:
+        return {'status':'not_configured','issues':['DIAGNOSTICS_CONFIG missing'],
+                'system_time_changed':False}
+    settings=load_config(Path(path))
+    inventory=clock_inventory(settings,settings.get('node') or config['NODE_NAME'])
+    policy=settings.get('clock',{})
+    end=time.time() if now is None else now
+    budget=QueryBudget(settings.get('query_budget_seconds',30))
+    backend=client or _DeadlinePrometheusClient(settings['prometheus']['url'])
+    backend=budget.wrap(backend,'prometheus',configurable_timeout=client is None)
+    quality=assess_clocks(backend.query_range,cluster=settings.get('cluster',''),nodes=inventory['nodes'],
+        start=end-60,end=end,max_skew_seconds=policy.get('max_skew_seconds',1),
+        max_sample_age_seconds=policy.get('max_sample_age_seconds',30),
+        max_uncertainty_seconds=policy.get('max_uncertainty_seconds',policy.get('max_skew_seconds',1)),
+        require_sync=True)
+    status='blocked' if quality['status']=='unsafe' else 'pass' if quality['status']=='aligned' and not inventory['issues'] else 'needs_attention'
+    return {'status':status,'inventory':inventory,'clock_quality':quality,
+            'query_execution':budget.summary(),'system_time_changed':False,
+            'interpretation':'sampled preflight; not continuous clock proof, topology discovery or resource attribution'}
+
+
+def doctor(config: dict[str, str], *, role: str = "all", correlation: bool = False) -> dict:
     checks = []
 
     def check(name, ok, action="", optional=False):
@@ -240,4 +268,8 @@ def doctor(config: dict[str, str], *, role: str = "all") -> dict:
         load_config(Path(config["DIAGNOSTICS_CONFIG"]))
         check("diagnosis config", True)
     check("config", True)
-    return {"status": "ready" if all(c["status"] != "missing" for c in checks) else "incomplete", "checks": checks}
+    preflight=correlation_preflight(config) if correlation else None
+    if preflight is not None:
+        check('correlation prerequisites',preflight['status']=='pass','Check correlation_preflight nodes, clocks and diagnostics config.')
+    return {"status": "ready" if all(c["status"] != "missing" for c in checks) else "incomplete", "checks": checks,
+            **({'correlation_preflight':preflight} if preflight is not None else {})}

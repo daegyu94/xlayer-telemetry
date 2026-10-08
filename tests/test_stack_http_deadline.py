@@ -117,7 +117,7 @@ def test_standalone_clock_quality_uses_deadlines_without_changing_rule_client(en
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == "unknown"
     assert "offset_seconds:TimeoutError" in report["nodes"]["fixture"]["issues"]
-    assert len(state["requests"]) == 3
+    assert len(state["requests"]) == 5
     # The rule engine remains under IsolatedAnalyzer's existing boundary.
     from xlayer_telemetry.analysis import diagnostics
     assert diagnostics.PrometheusClient is prometheus.PrometheusClient

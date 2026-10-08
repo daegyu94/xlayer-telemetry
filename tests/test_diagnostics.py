@@ -229,7 +229,8 @@ def test_vllm_evidence_does_not_join_different_engines() -> None:
     report = engine.analyze(current, [])
     pressure = next(candidate for candidate in report["candidates"]
                     if candidate["id"] == "kv_cache_pressure")
-    assert pressure["state"] == "strong_signal"
+    assert pressure["state"] == "supporting_signal"
+    assert any('source_freshness_unknown' in value for value in pressure['missing_evidence'])
     assert {item["labels"]["instance"] for item in pressure["evidence"]} == {"engine-b"}
 
 
@@ -378,7 +379,8 @@ def test_gpu_comparison_uses_the_same_labeled_device() -> None:
 
     report = engine.analyze(current, [prior])
     starvation = next(item for item in report["candidates"] if item["id"] == "gpu_starvation")
-    assert starvation["state"] == "strong_signal"
+    assert starvation["state"] == "supporting_signal"
+    assert any('source_freshness_unknown' in value for value in starvation['missing_evidence'])
     assert starvation["related_devices"] == ["0"]
     gpu = next(item for item in starvation["evidence"] if item["signal"] == "gpu_utilization_percent")
     assert gpu["value"] == 40
@@ -508,6 +510,9 @@ def test_candidate_provenance_uses_executed_queries_and_canonical_signal_names()
 
         def query_range(self, query, start, end, step):
             self.queries.append(query)
+            if 'node_time_seconds' in query or 'node_timex' in query:
+                value=1 if 'node_timex_sync_status' in query else 0
+                return dict(min=value,max=value,mean=value,last=value,sample_count=3)
             return super().query_range(query, start, end, step)
 
     prom = CapturingPrometheus()
@@ -517,7 +522,7 @@ def test_candidate_provenance_uses_executed_queries_and_canonical_signal_names()
             "queries": {"vllm_kv_cache_usage": 'custom_kv_usage{cluster="{cluster}",node="{rollout_node}"}'},
         },
         "cluster": "cluster-a", "rollout_node": "rollout-b",
-        "clock": {"enabled": False},
+        "clock": {"enabled": False,"monitoring_node":"monitor"},
     }
     engine = DiagnosticEngine(config, prometheus=prom, clock=lambda: 101)
     current = {"record_id": "one", "run_id": "run-1", "node": "trainer-a", "step": 1,
@@ -525,7 +530,7 @@ def test_candidate_provenance_uses_executed_queries_and_canonical_signal_names()
     report = engine.analyze(current, [])
     candidate = next(item for item in report["candidates"] if item["id"] == "kv_cache_pressure")
     evidence = {item["signal"]: item for item in candidate["evidence"]}
-    assert candidate["state"] == "strong_signal"
+    assert candidate["state"] == "supporting_signal"
     for item in evidence.values():
         assert item["source"] == "prometheus"
         assert item["query"] in prom.queries
@@ -574,9 +579,13 @@ def test_tool_span_evidence_uses_semantics_instead_of_producer_filename(tmp_path
     engine = DiagnosticEngine({
         "prometheus": {"url": "http://unused"},
         "jsonl_cache": {"enabled": cached},
+        "cluster":"lab","clock":{"monitoring_node":"monitor"},
         "sandbox": {"enabled": True, "events_dir": str(tmp_path),
                     "node": "sandbox-a", "device": "nvme0n1"},
     }, prometheus=FakePrometheus({
+        "node_timex_sync_status":dict(min=1,max=1,mean=1,last=1,sample_count=3),
+        "node_timex":dict(min=0,max=0,mean=0,last=0,sample_count=3),
+        "node_time_seconds":dict(min=0,max=0,mean=0,last=0,sample_count=3),
         "sandbox_io_pressure_ratio": {"max": 0.4, "sample_count": 6},
         'device="nvme0n1"': {"max": 0.95, "sample_count": 6},
         "agent_tool_call_duration_seconds": {"max": 100, "sample_count": 6},

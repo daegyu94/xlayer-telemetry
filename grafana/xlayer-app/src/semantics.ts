@@ -9,6 +9,7 @@ export type PhaseWindow = {
   observer?: string;
   accuracy?: string;
   reference?: string;
+  referenceSession?: string;
   uncertainty?: number;
   span?: RecordRow;
 };
@@ -45,6 +46,11 @@ export const SUBSYSTEMS = [
   "storage",
   "sandbox",
 ] as const;
+function clockSession(row: RecordRow): string | undefined {
+  const alignment=(row.time_alignment || (row.analysis_window as RecordRow | undefined)?.time_alignment) as RecordRow | undefined;
+  const session=row.time_reference_session || alignment?.reference_session;
+  return typeof session==='string'&&session?session:undefined;
+}
 export function phaseWindow(
   spans: RecordRow[],
   step: RecordRow,
@@ -55,6 +61,8 @@ export function phaseWindow(
   const matches = spans.filter(
     (s) =>
       matchesStep(s, step) &&
+      (!(step.execution_mode==='async' || step.boundary_scope==='trainer_update') ||
+       (!!step.worker_id && s.worker_id===step.worker_id && s.node===step.node)) &&
       comparableStepClock(s, step) &&
       s.step !== undefined &&
       String(s.step) === String(step.step) &&
@@ -82,6 +90,7 @@ export function phaseWindow(
     observer: scalar(s.observer_node || step.observer_node, "") || undefined,
     accuracy: String(s.boundary_accuracy),
     reference: scalar(s.time_reference, "node clock"),
+    referenceSession: clockSession(s),
     uncertainty: numeric(s.time_uncertainty_seconds),
     span: s,
   };
@@ -97,6 +106,8 @@ function comparableStepClock(span: RecordRow, step: RecordRow): boolean {
   if (!spanCalibrated && !stepCalibrated) return span.node === step.node;
   if (!spanCalibrated || !stepCalibrated || !span.time_reference ||
       span.time_reference !== step.time_reference) return false;
+  const spanSession=clockSession(span),stepSession=clockSession(step);
+  if ((spanSession!==undefined || stepSession!==undefined) && spanSession!==stepSession) return false;
   const a = numeric(span.time_uncertainty_seconds), b = numeric(step.time_uncertainty_seconds);
   const start = numeric(step.window_start_ms), end = numeric(step.window_end_ms);
   return a !== undefined && b !== undefined && a >= 0 && b >= 0 &&
@@ -110,6 +121,22 @@ function matchesStep(span: RecordRow, step: RecordRow): boolean {
     span.run_id === step.run_id && span.step !== undefined &&
     String(span.step) === String(step.step) &&
     (!step.cluster || span.cluster === step.cluster);
+}
+
+export type ClockProof = {nodes:string[];uncertainty?:number;sampleAge?:number};
+export function clockQualifiedCell(cell: Cell, status: string, proof?: ClockProof, window?: PhaseWindow): Cell {
+  if (!cell.sample) return cell;
+  const node=cell.sample.labels.node || cell.sample.labels.nodename;
+  if(status==='aligned' && proof && !proof.nodes.includes(node))status='source_node_not_screened';
+  if(status==='aligned' && proof && window){
+    const seconds=((window.end||0)-(window.start||0))/1000;
+    if(proof.uncertainty===undefined || proof.sampleAge===undefined)status='phase_clock_quality_unknown';
+    else if(proof.uncertainty>seconds/10 || proof.sampleAge>seconds)status='clock_resolution_exceeds_phase';
+  }
+  if(status==='aligned')return cell;
+  const explanation='Clock quality is '+status+'. Raw resource data remain available; precise phase correlation and deltas are withheld. '+cell.explanation;
+  if(status==='unchecked')return {...cell,binding:'rolling-context',explanation};
+  return {...cell,binding:'unmapped',state:'missing',value:undefined,explanation};
 }
 function spanIdentity(span: RecordRow): string {
   // A conflicting duplicate ID is ambiguous, rather than last-write-wins.
@@ -310,7 +337,8 @@ export function relatedPhaseWindow(
     a.boundary_accuracy==="exact" && b.boundary_accuracy==="exact"
       ? !!a.node && a.node===b.node && (!a.time_reference || !b.time_reference || a.time_reference===b.time_reference)
       : a.boundary_accuracy==="calibrated" && b.boundary_accuracy==="calibrated" &&
-        !!a.time_reference && a.time_reference===b.time_reference;
+        !!a.time_reference && a.time_reference===b.time_reference &&
+        clockSession(a)===clockSession(b);
   const contained = (s: RecordRow, container: RecordRow) =>
     ["exact", "calibrated"].includes(String(s.boundary_accuracy)) &&
     numeric(s.start_time_ms) !== undefined && numeric(s.end_time_ms) !== undefined &&
@@ -351,7 +379,8 @@ export function phaseComparison(
     current.state!=="observed" || baseline.state!=="observed") return reject("Only phase-window observations can be compared; rolling/session context is separate.");
   if (currentWindow.status!=="observed" || baselineWindow.status!=="observed" ||
     !clockComparable(currentWindow) || !clockComparable(baselineWindow)) return reject("Measured phase boundaries or clock quality are unavailable.");
-  if(currentWindow.accuracy!==baselineWindow.accuracy || currentWindow.reference!==baselineWindow.reference) return reject("Clock reference or boundary accuracy differs.");
+  if(currentWindow.accuracy!==baselineWindow.accuracy || currentWindow.reference!==baselineWindow.reference ||
+     currentWindow.referenceSession!==baselineWindow.referenceSession) return reject("Clock reference, session or boundary accuracy differs.");
   const a=currentWindow.span,b=baselineWindow.span;
   if (!a || !b || ["run_id","node","worker_id","producer","phase"].some(k=>!a[k] || a[k]!==b[k]) ||
     currentWindow.cluster!==baselineWindow.cluster || currentWindow.observer!==baselineWindow.observer)

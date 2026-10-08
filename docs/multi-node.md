@@ -50,7 +50,7 @@ xltel status
 ## 3. Verify
 
 1. Cluster·node 이름이 source·manifest·event에 일치하는지 확인합니다.
-2. Current/baseline clock evidence를 확인합니다.
+2. [Clock preflight](time-alignment.md#correlation-preflight)를 실행한 뒤 current/baseline clock evidence를 확인합니다. Monitoring host도 collector target에 등록합니다.
 3. 같은 shared artifact를 여러 collector가 읽지 않는지 확인합니다.
 4. Resource node를 바꿔도 observer/step context가 유지되는지 확인합니다.
 

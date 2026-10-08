@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-08",
+  "baseline_revision": "6ae33ae",
+  "scope": "XLayer-only; CPU fixtures, actual Prometheus/Grafana APIs with synthetic telemetry; physical multi-node/GPU/Agent RL not verified",
+  "implemented": [
+    "read-only doctor --correlation from shared configured node inventory",
+    "mandatory cross-node synchronization, offset, kernel maxerror, freshness and evaluation screening",
+    "remote tool hosts require explicit clock inventory",
+    "current/baseline sampling blockers withhold deltas and cap strong candidates",
+    "async trainer/foreign-worker and reference-session separation",
+    "Scenes consumes stored clock/node coverage and tighter phase uncertainty/age budgets"
+  ],
+  "cpu": {
+    "passed": 1474,
+    "skipped": 0,
+    "seconds": 193.42,
+    "real_promtool": true,
+    "isolated_clickhouse": "25.1.5.31"
+  },
+  "frontend": {
+    "passed": 99,
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "docs": {
+    "links_diagrams_passed": 10,
+    "strict_build": "passed",
+    "browser_passed": 9
+  },
+  "preflight": {
+    "scope": "real Prometheus API over four controlled synthetic clock targets; not physical NTP",
+    "status": "pass",
+    "nodes": {
+      "gpu-node-0": "aligned",
+      "gpu-node-1": "aligned",
+      "gpu-node-2": "aligned",
+      "gpu-node-3": "aligned"
+    },
+    "requests": 20,
+    "wall_ms": 748.5302733257413,
+    "query_budget_seconds": 10,
+    "system_time_changed": false
+  },
+  "cli": {
+    "doctor": "ready",
+    "correlation_preflight": "pass",
+    "exit_code": 0,
+    "system_time_changed": false
+  },
+  "browser": {
+    "clock_quality": {
+      "browser_errors": [],
+      "clock_pass": true,
+      "unsafe_precision_withheld": true,
+      "raw_queries_retained": true,
+      "recovery": true,
+      "widths": [
+        1440,
+        390
+      ],
+      "scope": "stored summary changed at browser datasource boundary; not OS synchronization or backend NTP failure"
+    },
+    "journey": {
+      "checks": [
+        "Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected",
+        "Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time",
+        "Selected measured worker \u2192 Compute dashboard \u2192 browser Back preserves exact resource and observer/Step context",
+        "Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence",
+        "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+        "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+        "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate"
+      ],
+      "browser_errors": [],
+      "data_origin": "live synthetic metrics + four explicit SDK rollout worker spans",
+      "grafana_version": "12.1.0",
+      "scenes_version": "6.20.0",
+      "browser_version": "145.0.7632.116",
+      "playwright_version": "1.63.0",
+      "browser_locale": "en-US",
+      "browser_timezone": "UTC",
+      "selected_context": {
+        "from": [
+          "2026-10-08T10:52:36.890Z"
+        ],
+        "to": [
+          "2026-10-08T10:53:24.891Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-3"
+        ],
+        "var-record_id": [
+          "f7fdafecdb4186fcdf25115c"
+        ],
+        "var-phase_worker": [
+          "[[\"cluster\",\"scenes-demo\"],[\"node\",\"gpu-node-3\"],[\"producer\",\"demo_distributed\"],[\"role\",\"rollout\"],[\"worker_id\",\"rollout-3\"],[\"rank\",null],[\"local_rank\",null],[\"gpu\",\"3\"]]"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "3"
+        ],
+        "var-engine": [
+          "$__all"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      },
+      "multi_worker": true,
+      "worker_rows": 4,
+      "native_dashboard_back_entries": 1,
+      "context_transition_count": 24,
+      "datasource_fixtures": "Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement"
+    },
+    "storage": {
+      "browser_errors": [],
+      "plot_finite_saved_points": true,
+      "no_phase_attribution_notice": true,
+      "reset_report_amount_units": "bytes, not B/s",
+      "clock_unverified_delta": true,
+      "widths": [
+        1440,
+        1280,
+        900,
+        390
+      ],
+      "context": {
+        "from": [
+          "2026-10-08T10:58:44.960Z"
+        ],
+        "to": [
+          "2026-10-08T10:59:32.961Z"
+        ],
+        "timezone": [
+          "browser"
+        ],
+        "var-cluster": [
+          "scenes-demo"
+        ],
+        "var-run_id": [
+          "verl-agent-demo"
+        ],
+        "var-source_node": [
+          "gpu-node-0"
+        ],
+        "var-node": [
+          "gpu-node-0"
+        ],
+        "var-record_id": [
+          "8060abe60d065b1ec4ce9046"
+        ],
+        "var-candidate_id": [
+          "device_limited_storage"
+        ],
+        "var-trace_id": [
+          ".*"
+        ],
+        "var-diagnosis_method": [
+          "rule"
+        ],
+        "var-log_run_id": [
+          ".*"
+        ],
+        "var-gpu": [
+          "0"
+        ],
+        "var-engine": [
+          "synthetic-vllm-0"
+        ],
+        "var-sandbox_node": [
+          ".*"
+        ],
+        "var-phase": [
+          ".*"
+        ],
+        "var-role": [
+          ".*"
+        ],
+        "var-worker": [
+          ".*"
+        ],
+        "var-device": [
+          "$__all"
+        ],
+        "var-mount": [
+          "$__all"
+        ],
+        "var-storage_system": [
+          "$__all"
+        ],
+        "var-storage_node": [
+          "$__all"
+        ],
+        "var-storage_metric": [
+          "storage_client.data_payload_bytes"
+        ],
+        "var-ssd": [
+          "$__all"
+        ],
+        "var-training_max_age": [
+          "300"
+        ]
+      }
+    }
+  },
+  "query_cost": {
+    "clock_metrics_per_node_per_window": 5,
+    "previous_clock_metrics": 3,
+    "max_nodes": 32,
+    "default_query_budget_seconds": 30,
+    "duplicate_producer_clock_screening_removed": true,
+    "extra_Scenes_clock_queries": 0,
+    "new_collectors": 0
+  },
+  "limits": [
+    "configured inventory is not discovered topology or dependency",
+    "clock screening is sampled; gaps and between-scrape jumps cannot be excluded",
+    "kernel maxerror is conservative reported uncertainty, not UTC confidence",
+    "source query evaluations are not raw collection timestamps or complete scrape coverage",
+    "physical multi-node/GPU/Agent RL workload unverified",
+    "operation tracing, exact resource attribution and end-to-end propagation remain TBD"
+  ],
+  "cleanup": {
+    "owned_live_stack_stopped": true,
+    "owned_clickhouse_removed": true,
+    "fixture_databases_removed": true,
+    "existing_user_services_untouched": true
+  },
+  "ci_helpers": {
+    "passed": 17,
+    "clock_browser_wired": true
+  }
+}

@@ -159,7 +159,8 @@ def test_rdma_baseline_requires_same_endpoint_and_device(previous_labels):
     assert row["labels"]["device"] == "mlx5_0"
     assert ("prometheus:rdma_bytes_per_second:baseline_entity_match" in report["missing_sources"]) is not matched
     candidate = next(item for item in report["candidates"] if item["id"] == "communication_bound")
-    assert (candidate["state"] == "strong_signal") is matched
+    assert candidate["state"] == "supporting_signal"
+    assert any('source_freshness_unknown' in value for value in candidate['missing_evidence'])
 
 
 def test_jsonl_concurrent_recovery_keeps_all_complete_records(tmp_path):
