@@ -4,12 +4,98 @@ import argparse
 from datetime import datetime
 import json
 from pathlib import Path
+from importlib.metadata import version
 import re
+import sys
 import threading
 import time
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 from ci_demo import datasource_error_result
+
+
+
+def diagnostic_text(value, limit=24000):
+    """Bound debug output and remove common credential forms before writing."""
+    text = str(value)
+    text = re.sub(r'(https?://)[^\s/@]+:[^\s/@]+@', r'\1[redacted]@', text)
+    text = re.sub(r'(?i)\bBearer\s+[^\s,;"\']+', 'Bearer [redacted]', text)
+    text = re.sub(r"""(?i)((?:password|token|secret|api[_-]?key|authorization)["']?\s*[:=]\s*)["']?[^\s,"'}]+""", r'\1[redacted]', text)
+    return text[:limit]
+
+
+def diagnostic_url(url):
+    parsed = urlparse(url)
+    host = parsed.hostname or ''
+    if parsed.port:
+        host += ':' + str(parsed.port)
+    allowed = {'from','to','timezone','var-cluster','var-run_id','var-record_id','var-node','var-source_node','var-gpu','var-engine','var-worker','var-phase','var-phase_worker'}
+    context = [(key, diagnostic_text(value, 1000)) for key, values in parse_qs(parsed.query).items() if key in allowed for value in values[:4]]
+    return urlunparse((parsed.scheme, host, parsed.path, '', urlencode(context), ''))
+
+
+class EntryDiagnostics:
+    """Observe safe metadata only; never retain datasource expressions or headers."""
+    def __init__(self, page, output, label, browser_errors):
+        self.page, self.output, self.label, self.browser_errors = page, output, label, browser_errors
+        self.query_responses, self.http_failures, self.console_errors = [], [], []
+        page.on('response', self.response)
+        page.on('console', self.console)
+
+    def console(self, message):
+        if message.type == 'error' and len(self.console_errors)<20:
+            self.console_errors.append(diagnostic_text(message.text, 1000))
+
+    def response(self, response):
+        parsed = urlparse(response.url)
+        if response.status>=400 and len(self.http_failures)<20:
+            self.http_failures.append({'path':parsed.path[:200], 'status':response.status})
+        if '/api/ds/query' not in parsed.path or len(self.query_responses)>=60:
+            return
+        request = response.request
+        try:
+            payload = request.post_data_json or {}
+        except (ValueError, TypeError, PlaywrightError):
+            payload = {}
+        queries = payload.get('queries', []) if isinstance(payload, dict) else []
+        if not isinstance(queries, list):
+            queries = []
+        self.query_responses.append({'http_status':response.status, 'query_count':len(queries),
+            'queries':[{'ref_id':diagnostic_text(query.get('refId',''),80),
+                        'datasource_uid':diagnostic_text((query.get('datasource') or {}).get('uid',''),80),
+                        'datasource_type':diagnostic_text((query.get('datasource') or {}).get('type',''),80)}
+                       for query in queries[:12] if isinstance(query,dict) and isinstance(query.get('datasource') or {},dict)]})
+
+    def fail(self, error):
+        record={'stage':'initial App entry / Analyze Step readiness', 'url':diagnostic_url(self.page.url),
+                'failure':diagnostic_text(error,2000), 'browser_errors':[diagnostic_text(value,1000) for value in self.browser_errors[:20]],
+                'console_errors':self.console_errors, 'initial_query_response_summaries':self.query_responses,
+                'http_failures':self.http_failures,
+                'limits':{'body_text':24000,'browser_errors':20,'query_responses':60,'queries_per_response':12},
+                'telemetry_note':'Browser entry diagnostics. HTTP status/DOM do not establish backend failure or workload health.'}
+        try:
+            record['body_text']=diagnostic_text(self.page.locator('body').inner_text(timeout=3000))
+            record['completed_step_option_count']=self.page.locator('[aria-label="Completed Step"] option').count()
+        except Exception as capture_error:
+            record['body_capture_error']=diagnostic_text(capture_error,500)
+        try:
+            self.page.screenshot(path=str(self.output/f'{self.label}-entry-failure.png'),full_page=False,timeout=5000)
+        except Exception as capture_error:
+            record['screenshot_capture_error']=diagnostic_text(capture_error,500)
+        (self.output/f'{self.label}-entry-failure.json').write_text(json.dumps(record,indent=2)+'\n')
+
+
+def enter_app(page, url, diagnostics):
+    """Preserve the original first-entry assertion; capture before rethrowing."""
+    try:
+        page.goto(url)
+        page.get_by_role('button',name=re.compile('Analyze Step')).first.wait_for(timeout=30000)
+    except Exception as error:
+        try:
+            diagnostics.fail(error)
+        except Exception as capture_error:
+            print('Entry diagnostics could not be written: '+diagnostic_text(capture_error,500),file=sys.stderr)
+        raise
 
 
 def datasource_boundary_checks(page, url, checks, capture):
@@ -133,7 +219,7 @@ def multi_worker_journey(args):
         if args.browser:
             options.update(executable_path=args.browser, args=['--no-sandbox'])
         browser = playwright.chromium.launch(**options)
-        page = browser.new_page(viewport={'width':1440,'height':1000})
+        page = browser.new_page(viewport={'width':1440,'height':1000}, locale='en-US', timezone_id='UTC')
         page.add_init_script('''(() => { for (const name of ['pushState','replaceState']) { const original=history[name]; history[name]=function(...args) { const before=location.href,open=!!document.querySelector('.xlt-evidence'); const result=original.apply(this,args); if(before!==location.href)console.debug('XLAYER_CONTEXT '+JSON.stringify({before,after:location.href,evidence_open:open})); return result; }; } })();''')
         def record_transition(message):
             if not message.text.startswith('XLAYER_CONTEXT '):
@@ -144,12 +230,12 @@ def multi_worker_journey(args):
             (args.output / f'{args.label}-context-transitions.json').write_text(json.dumps(transitions[-200:],indent=2)+'\n')
         page.on('console',record_transition)
         page.on('pageerror', lambda error: errors.append(str(error)))
+        entry_diagnostics = EntryDiagnostics(page,args.output,args.label,errors)
         page.on('request', lambda request: queries.append(request.post_data_json) if '/api/ds/query' in request.url and request.method=='POST' else None)
         def capture(name):
             page.screenshot(path=str(args.output / f'{args.label}-{name}.png'), full_page=True)
         url = args.url + '/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
-        page.goto(url)
-        page.get_by_role('button', name=re.compile('Analyze Step')).first.wait_for(timeout=30000)
+        enter_app(page,url,entry_diagnostics)
         selector = page.get_by_role('combobox', name='Completed Step')
         slow = next((option.get_attribute('value') for option in selector.locator('option').all() if '48.00' in option.inner_text()), None)
         assert slow, 'Multi-worker fixture must include a completed regression frame'
@@ -225,7 +311,7 @@ def multi_worker_journey(args):
         datasource_boundary_checks(page, url, checks, capture)
         assert not errors, errors
         report = {'checks':checks, 'browser_errors':errors, 'data_origin':'live synthetic metrics + four explicit SDK rollout worker spans',
-                  'grafana_version':'12.1.0', 'scenes_version':'6.20.0', 'selected_context':selected,
+                  'grafana_version':'12.1.0', 'scenes_version':'6.20.0', 'browser_version':browser.version, 'playwright_version':version('playwright'), 'browser_locale':'en-US', 'browser_timezone':'UTC', 'selected_context':selected,
                   'multi_worker':True, 'worker_rows':4, 'context_transition_count':len(transitions),
                   'datasource_fixtures':'Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement'}
         (args.output / f'{args.label}-validation.json').write_text(json.dumps(report, indent=2)+'\n')
@@ -251,12 +337,13 @@ def main():
         options={'headless':True}
         if args.browser:options.update(executable_path=args.browser,args=['--no-sandbox'])
         browser=p.chromium.launch(**options)
-        page=browser.new_page(viewport={'width':1440,'height':1000})
+        page=browser.new_page(viewport={'width':1440,'height':1000}, locale='en-US', timezone_id='UTC')
         page.on('pageerror',lambda e:errors.append(str(e)))
+        entry_diagnostics = EntryDiagnostics(page,args.output,args.label,errors)
         page.on('request',lambda r:queries.append(r.post_data_json) if '/api/ds/query' in r.url and r.method=='POST' else None)
         def capture(name):page.screenshot(path=str(args.output/f'{args.label}-{name}.png'),full_page=True)
         url=args.url+'/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
-        page.goto(url);page.get_by_role('button',name=re.compile('Analyze Step')).first.wait_for(timeout=30000);page.wait_for_timeout(1500)
+        enter_app(page,url,entry_diagnostics);page.wait_for_timeout(1500)
         assert 'Synthetic demo' in page.locator('.xlt').inner_text()
         assert 'vs baseline' in page.locator('.xlt-kpis').inner_text()
         assert page.locator('.xlt-kpis .xlt-card').count()==8
@@ -374,7 +461,7 @@ def main():
         assert 'Loki timeline unavailable' in page.locator('.xlt').inner_text();capture('optional-unavailable')
         checks.append('Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation')
         assert not errors,errors
-        report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}
+        report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','browser_version':browser.version,'playwright_version':version('playwright'),'browser_locale':'en-US','browser_timezone':'UTC','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}
         (args.output/f'{args.label}-validation.json').write_text(json.dumps(report,indent=2)+'\n')
         print(json.dumps(report,indent=2));browser.close()
 

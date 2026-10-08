@@ -49,6 +49,8 @@ Unsigned allowlist는 격리 개발 Grafana에서 `xlayer-telemetry-app` 하나�
 4. 단일 / 멀티worker를 분리한 CI job에서 baseline/current pair 두 개를 기다린 뒤 `browser_validate.py` 실행.
 5. 자신이 시작한 process만 종료하고 JSON report·화면 capture·제한된 synthetic log·ZIP을 7일 artifact로 보존.
 
+Browser context는 `locale=en-US`·`timezone=UTC`를 명시합니다. POSIX host locale을 Chromium이 잘못 전달하면 Grafana의 `Intl.NumberFormat`이 App 진입 전에 실패할 수 있습니다. Entry 실패 artifact는 제한된 DOM·browser/console 오류·query status metadata를 기록하며 query expression·header·credential을 보존하지 않습니다.
+
 기본 readiness deadline은 240초, browser deadline은 180초, CI job 상한은 15분입니다. 서비스가 먼저 종료되면 실패하며 다른 monitoring process를 readiness 성공으로 취급하지 않습니다. Launcher state·database·원본 telemetry는 artifact에 올리지 않습니다.
 
 | Browser 경로 | 확인 |
