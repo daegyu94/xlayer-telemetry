@@ -49,13 +49,14 @@ jobs:
           promtool="$RUNNER_TEMP/xlayer-cpu-tools/prometheus-3.5.0.linux-amd64/promtool"
           "$promtool" --version
           echo "PROMTOOL=$promtool" >> "$GITHUB_ENV"
+          # Official ClickHouse 25.1.5.31 release, pinned by registry manifest.
           docker run --detach --name xlayer-ci-clickhouse --network none \
             --memory 1g --cpus 2 --pids-limit 256 --ulimit nofile=65536:65536 \
             --tmpfs /var/lib/clickhouse:rw,size=256m \
             --log-opt max-size=1m --log-opt max-file=1 \
             --mount "type=bind,source=$GITHUB_WORKSPACE/.github/ci/clickhouse.xml,target=/etc/clickhouse-server/config.d/ci.xml,readonly" \
             --mount "type=bind,source=$GITHUB_WORKSPACE/.github/ci/clickhouse-users.xml,target=/etc/clickhouse-server/users.d/ci.xml,readonly" \
-            open3fs/clickhouse@sha256:dd59b719a03c920eff9e9396edfd5ea943db78df05c243145cfdc8b6dc5661c9
+            clickhouse/clickhouse-server@sha256:d8122c8e7e58874f5e8795011a06e369871e30ef59955643559dacc531ef7dfe
           timeout 60 docker exec xlayer-ci-clickhouse bash -c \
             'until clickhouse-client --query "SELECT 1" 2>/dev/null; do sleep 1; done'
           echo 'XLAYER_TEST_CLICKHOUSE_CONTAINER=xlayer-ci-clickhouse' >> "$GITHUB_ENV"
