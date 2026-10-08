@@ -230,8 +230,8 @@ Retry 기간은 batch 시작이 아닌 각 step의 첫 분석 시작 시각부�
 다음 시도는 해당 분석이 끝난 뒤 `retry_interval_seconds`를 두되, 원래 retry deadline을 넘기지 않습니다.
 분석 자체가 retry 기간을 모두 사용하면 결과를 final로 남겨 즉시 재시도가 반복되지 않게 합니다.
 
-기본 baseline은 같은 run·node·worker·boundary scope의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다.
-파일 기록 순서가 아닌 관측 시각을 사용합니다.
+기본 baseline은 같은 run·node·worker·boundary scope·execution mode의 이전 유효 step 중 최근 다섯 개를 고르고, duration median에 가장 가까운 구간을 비교합니다. 명시된 cluster·producer·role·rank·local rank·GPU도 같아야 하며, 한쪽의 identity 누락을 다른 쪽의 실제 값으로 대신하지 않습니다.
+파일 기록 순서가 아닌 관측 시각을 사용합니다. Future·unknown·clock-discontinuity 이력은 제외하며, stage slowdown도 같은 유효 이력 5개를 사용합니다. 전체 history를 별도의 comparable list로 복사하지 않습니다.
 
 3FS는 ingest 지연을 고려해 기본 30초(`threefs.settle_seconds`) 후 조회하며 wrapper도 마지막 step을 기다립니다.
 표본 부재·backend 오류는 `analysis_status=provisional`로 남기고 기본 10초 간격·최대 60초 재시도합니다(`retry_interval_seconds`, `retry_seconds`).
@@ -246,8 +246,9 @@ Backend를 다시 조회하거나 revision을 추가하지 않으며, 이미 존
 영구 누락도 제한 시간에 끝나며 `step_event_time` 없는 replay는 재시도하지 않습니다.
 
 Baseline 창의 Prometheus·3FS를 조회해 `comparison.signals`에 current·baseline·delta·delta percent를 기록합니다.
-3FS는 같은 `metricName`, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다.
-3FS 비교의 원본 `metricName`은 diagnosis가 나오지 않아도 comparison의 entity에 보존됩니다.
+3FS는 같은 `metricName`과 전체 producer identity, GPU는 같은 device, vLLM은 같은 engine으로 비교합니다. 3FS의 `host`·`tag`·`mount_name`·`instance`·`io`·`uid`·`method`·`pod`·`thread`·`statusCode`를 evidence의 `labels`와 comparison의 entity에 보존합니다.
+3FS `max_observed_p99`는 한 entity의 유효 표본이 있는 보고 구간별 p99 중 최대값입니다. 여러 client/node/operation의 p99를 합친 global p99가 아니며, `count=0` 행은 extrema·weighted mean·freshness에 기여하지 않습니다. Query 결과는 기존 8 MiB·1,000 entity 상한을 유지하므로 필요하면 source filter를 좁힙니다.
+Legacy metric-only artifact는 다른 legacy artifact와만 비교합니다. 명시된 identity와 섞거나 partial/duplicate identity에서 첫 행·마지막 행을 임의 선택하지 않습니다. Latency와 request-size를 함께 사용할 때도 metric 이름을 제외한 producer identity가 같아야 합니다.
 GPU 짝이 없으면 node aggregate로 scope를 낮추고, 비교 표는 utilization 감소가 가장 큰 GPU를 선택합니다.
 이는 run별 장치 귀속이나 node 평균이 아닙니다.
 
@@ -319,7 +320,7 @@ Token 수·evaluation·checkpoint 차이를 제외하려면 diagnostics config�
 Bridge는 logger에 존재하는 `perf/total_num_tokens`, `prompt_length/mean`, `response_length/mean`, `data/train_batch_size`, `train_batch_size`, `policy_version`을 history의 `workload`에 보존합니다.
 `has_evaluation`·`has_checkpoint`는 보고된 stage timing에서 계산합니다.
 Logger가 batch나 policy 값을 제공하지 않으면 만들어내지 않으며, 선택한 field가 어느 쪽에든 없으면 해당 baseline은 제외합니다.
-Numeric field는 이전 값 기준 tolerance로 비교하고 boolean field는 정확하게 일치해야 합니다.
+Numeric field는 이전 값 기준 tolerance로 비교하고 boolean field는 정확하게 일치해야 합니다. `policy_version`과 `fully_async/count/current_param_version`을 `match_fields`에 넣으면 tolerance와 관계없이 같은 version만 비교합니다. 이 두 값은 연속적인 workload 크기가 아니라 식별자입니다.
 조건을 만족하는 이전 step이 없으면 `baseline:comparable_workload`를 missing evidence로 남깁니다.
 
 Normalization은 양쪽에 유효한 양수 token 수가 있을 때만 `step_seconds_per_token`을 추가합니다.

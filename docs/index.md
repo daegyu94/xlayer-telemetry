@@ -117,6 +117,7 @@ Development / Docs <maintainers>
 실환경 기록 <real-verl-demo>
 Dashboard design <grafana-ui-ux-review>
 Behavior signature / Triggered profiling 연구 <behavior-signature-research>
+System / Diagnosis review <system-review>
 Documentation design <documentation-ux-review>
 검증 기록 <validation/README>
 ```

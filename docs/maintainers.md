@@ -57,4 +57,4 @@ python scripts/render_diagrams.py --check
 
 ## 기록과 디자인 근거
 
-[검증 기록](validation/README.md) · [Dashboard UI review](grafana-ui-ux-review.md) · [Documentation review](documentation-ux-review.md) · [실환경 기록](real-verl-demo.md)
+[검증 기록](validation/README.md) · [System / Diagnosis review](system-review.md) · [Dashboard UI review](grafana-ui-ux-review.md) · [Documentation review](documentation-ux-review.md) · [실환경 기록](real-verl-demo.md)

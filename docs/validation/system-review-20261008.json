@@ -1,0 +1,368 @@
+{
+  "review_date": "2026-10-08",
+  "baseline_revision": "c386d2abe80c64fa54c240d3858244548c2ad06e",
+  "validation_scope": "synthetic/fault fixtures, measured Python cost, isolated ClickHouse SQL; not real GPU/VERL/RDMA/Mooncake/3FS workload",
+  "baseline_benchmark": {
+    "baseline_revision": "c386d2abe80c64fa54c240d3858244548c2ad06e",
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39",
+    "measurement": "synthetic records and no-data backend fixture; Python costs only; input construction excluded",
+    "history_size": 100000,
+    "repeats": 7,
+    "quality_cases": {
+      "different_execution_mode": {
+        "before": {
+          "baseline": "80",
+          "slow_stages": 1,
+          "backend_requests": 24
+        },
+        "after": {
+          "baseline": null,
+          "slow_stages": 0,
+          "backend_requests": 12
+        }
+      },
+      "unknown_replay_window": {
+        "before": {
+          "baseline": null,
+          "slow_stages": 1,
+          "backend_requests": 12
+        },
+        "after": {
+          "baseline": null,
+          "slow_stages": 0,
+          "backend_requests": 12
+        }
+      },
+      "different_policy_with_tolerance": {
+        "before": {
+          "baseline": "80",
+          "backend_requests": 24
+        },
+        "after": {
+          "baseline": null,
+          "backend_requests": 12
+        }
+      },
+      "unknown_slow_span_with_unrelated_exact_span": {
+        "before": {
+          "state": "supported_candidate",
+          "missing": []
+        },
+        "after": {
+          "state": "supporting_signal",
+          "missing": [
+            {
+              "event": "slow",
+              "phase": "cpu",
+              "reason": "span_time_unknown_or_approximate"
+            },
+            {
+              "reason": "missing_matching_instrumented_resource_identity"
+            }
+          ]
+        }
+      },
+      "incomplete_reference": {
+        "before": {
+          "reference_count": 1,
+          "state": "supported_candidate"
+        },
+        "after": {
+          "reference_count": 0,
+          "state": "supporting_signal"
+        }
+      }
+    },
+    "normal_equivalence": {
+      "baseline_record_id": "2000000",
+      "backend_requests_before": 24,
+      "backend_requests_after": 24
+    },
+    "before": {
+      "wall_seconds": {
+        "median": 0.16209973581135273,
+        "samples": [
+          0.18295685946941376,
+          0.18607761804014444,
+          0.18654819391667843,
+          0.16209973581135273,
+          0.16084022540599108,
+          0.16001723241060972,
+          0.15863667149096727
+        ]
+      },
+      "cpu_seconds": {
+        "median": 0.16209171099999997,
+        "samples": [
+          0.18294471999999995,
+          0.1860789989999998,
+          0.18630822299999994,
+          0.16209171099999997,
+          0.16082873699999967,
+          0.16001813100000017,
+          0.1586365500000002
+        ]
+      },
+      "peak_incremental_python_bytes": 839885
+    },
+    "after": {
+      "wall_seconds": {
+        "median": 0.13646797090768814,
+        "samples": [
+          0.1446236688643694,
+          0.1454975800588727,
+          0.1463258219882846,
+          0.13646797090768814,
+          0.12578139640390873,
+          0.12535884231328964,
+          0.12594550289213657
+        ]
+      },
+      "cpu_seconds": {
+        "median": 0.13644329999999982,
+        "samples": [
+          0.14462402799999996,
+          0.1454972670000001,
+          0.14632611900000003,
+          0.13644329999999982,
+          0.12559616400000007,
+          0.12533056600000014,
+          0.12592527799999997
+        ]
+      },
+      "peak_incremental_python_bytes": 39117
+    }
+  },
+  "signature_experiment": {
+    "schema_version": 1,
+    "experiment": "synthetic_agent_rl_behavior_signature",
+    "seed": 20261007,
+    "python": "3.12.3",
+    "platform": "Linux",
+    "machine": "x86_64",
+    "classification": {
+      "cpu_contention": {
+        "cases": 8,
+        "correct_unique_candidate": 8,
+        "slow_detected": 8
+      },
+      "gpu_pressure": {
+        "cases": 8,
+        "correct_unique_candidate": 8,
+        "slow_detected": 8
+      },
+      "network_pressure": {
+        "cases": 8,
+        "correct_unique_candidate": 8,
+        "slow_detected": 8
+      },
+      "storage_pressure": {
+        "cases": 8,
+        "correct_unique_candidate": 8,
+        "slow_detected": 8
+      },
+      "normal": {
+        "cases": 8,
+        "correct_unique_candidate": 8,
+        "slow_detected": 0
+      }
+    },
+    "missing_source_preserved": {
+      "correct": 8,
+      "total": 8
+    },
+    "mixed_candidates_preserved": {
+      "correct": 8,
+      "total": 8
+    },
+    "changed_workload_rejected": {
+      "correct": 8,
+      "total": 8
+    },
+    "slow_rollout_normal_async_update": {
+      "correct": 8,
+      "total": 8
+    },
+    "peer_comparison": {
+      "reference_count": 1,
+      "slow": true,
+      "duration_ratio": 2.0031209095091898
+    },
+    "relation_delta": {
+      "higher_child_cost": {
+        "parent_phase": "rollout",
+        "parent_name": "rollout",
+        "child_phase": "cpu",
+        "child_name": "agent.cpu",
+        "parent_entity": {},
+        "child_entity": {},
+        "children_per_parent": 64.0,
+        "baseline_children_per_parent": 64.0,
+        "count_delta": 0.0,
+        "child_seconds_per_parent": 0.6416218560000001,
+        "baseline_child_seconds_per_parent": 0.12832437100000002,
+        "duration_delta": 0.513297485
+      },
+      "higher_fanout": {
+        "parent_phase": "rollout",
+        "parent_name": "rollout",
+        "child_phase": "cpu",
+        "child_name": "agent.cpu",
+        "parent_entity": {},
+        "child_entity": {},
+        "children_per_parent": 128.0,
+        "baseline_children_per_parent": 64.0,
+        "count_delta": 64.0,
+        "child_seconds_per_parent": 0.2566487420000001,
+        "baseline_child_seconds_per_parent": 0.12832437100000002,
+        "duration_delta": 0.12832437100000008
+      }
+    },
+    "volume": {
+      "boundaries": 40,
+      "raw_sdk_event_bytes": 7777936,
+      "signature_bytes": 184405,
+      "raw_synthetic_log_bytes": 862096,
+      "raw_events_plus_logs_bytes": 8640032,
+      "reduction_ratio": 42.178552642281936,
+      "reduction_percent": 97.62912680176335,
+      "events_plus_logs_reduction_ratio": 46.85356687725387
+    },
+    "cpu_overhead": {
+      "workload_only": {
+        "median_ms_per_boundary": 1.3485260000000001,
+        "min_ms": 1.3429718,
+        "max_ms": 1.3533654000000002,
+        "overhead_percent_vs_workload_only": 0.0
+      },
+      "signature": {
+        "median_ms_per_boundary": 2.8969809,
+        "min_ms": 2.8910331,
+        "max_ms": 2.9593174,
+        "overhead_percent_vs_workload_only": 114.82573565507819,
+        "instrumentation_only_median_ms": 1.526354,
+        "paired_cpu_work_median_ms": 1.3501395,
+        "paired_added_cost_percent": 113.02939318222138
+      },
+      "signature_compare_candidates": {
+        "median_ms_per_boundary": 2.9842909,
+        "min_ms": 2.9476239000000004,
+        "max_ms": 3.0036248000000003,
+        "overhead_percent_vs_workload_only": 121.30021223172558,
+        "instrumentation_only_median_ms": 1.598547,
+        "paired_cpu_work_median_ms": 1.3682414999999999,
+        "paired_added_cost_percent": 116.9719535025188
+      },
+      "raw_json_serialization": {
+        "median_ms_per_boundary": 2.2581990999999997,
+        "min_ms": 2.2442472,
+        "max_ms": 2.2871615,
+        "overhead_percent_vs_workload_only": 67.45684547424369,
+        "instrumentation_only_median_ms": 0.9021429999999999,
+        "paired_cpu_work_median_ms": 1.35393,
+        "paired_added_cost_percent": 66.61875640364687
+      },
+      "method": {
+        "warmup_batches": 1,
+        "repeated_batches": 3,
+        "boundaries_per_batch": 10,
+        "events_per_boundary": 257,
+        "fixture_generation_in_timed_region": false,
+        "disk_io_in_timed_region": false,
+        "sink_nonzero": true,
+        "cpu_work_iterations": 40000
+      }
+    },
+    "optional_capture": {
+      "state": "hook_delivered",
+      "exit_code": 0,
+      "attempts": 1,
+      "capture_verified": false,
+      "real_cpu_capture": true,
+      "artifact_verified": true,
+      "capture_bytes": 502,
+      "target": "separate synthetic CPU computation; not attached running workload"
+    },
+    "limits": [
+      "Event durations, resource evidence and fault labels are simulated with fixed seed; thresholds match fixture ranges.",
+      "Accuracy measures this controlled fixture, not causal root-cause accuracy on production or real GPU/VERL.",
+      "Overhead is actual Python CPU processing over prebuilt traces; no SDK collection, backend, disk I/O or native profiler overhead.",
+      "Raw SDK events and secondary synthetic human-readable log sizes are counted separately. Signatures lose original order, IDs and per-event detail.",
+      "Summary artifact size reduction does not change existing SDK raw event collection or backend ingestion.",
+      "Optional cProfile artifact is real CPU profiling of a separate synthetic process; no GPU capture or existing workload attachment."
+    ]
+  },
+  "clickhouse": {
+    "version": "25.1.5.31",
+    "transport": "docker exec clickhouse-client; no public ports",
+    "table_engine": "Memory",
+    "passed": 3,
+    "elapsed_seconds": 1.65,
+    "checks": [
+      "zero-count contributor and freshness exclusion",
+      "same producer/operation baseline and regression",
+      "1001 entity limit"
+    ],
+    "fixture_databases_removed": true
+  },
+  "regressions": {
+    "cpu": {
+      "passed": 1369,
+      "skipped": 0,
+      "elapsed_seconds": 189.65,
+      "real_promtool": true,
+      "isolated_clickhouse_tests_included": 3
+    },
+    "grafana_app": {
+      "passed": 81,
+      "skipped": 0,
+      "typecheck": "passed",
+      "build": "passed",
+      "browser": "not rerun; frontend sources unchanged"
+    },
+    "documentation": {
+      "links_and_diagrams_passed": 10,
+      "strict_sphinx_build": "passed",
+      "browser_passed": 9,
+      "browser_skipped": 0,
+      "viewports_px": [
+        320,
+        390,
+        430,
+        900,
+        1280,
+        1440
+      ],
+      "system_review_page_included": true
+    },
+    "syntax": {
+      "python_compile": "passed",
+      "tracked_shell_bash_n": "passed",
+      "git_diff_check": "passed"
+    }
+  },
+  "cleanup": {
+    "isolated_clickhouse_container_removed": true,
+    "fixture_databases_removed": true,
+    "existing_user_services_untouched": true,
+    "owned_benchmark_artifacts": "small measurement JSON preserved in this record; generated outputs removed after collection"
+  },
+  "independent_review": {
+    "blocking_issues": 0,
+    "checks": [
+      "unknown slow span with unrelated exact span",
+      "mixed duration group",
+      "legacy missing duration-specific quality",
+      "truncated reference rejection",
+      "same full storage identity",
+      "cohort and policy identity"
+    ],
+    "scope": "read-only code and four executed memory fixtures; not independent full suite"
+  },
+  "benchmark_after_code_sha256": {
+    "diagnosis_analysis": "7b1889403cc4eff2f65f81b01d38cd73e9608c23feeb779eaea768b4a96869bc",
+    "diagnostics": "aa2d8451e80bed39cda7a32fc9a4a4e565817b91fe4538013763e8e3238ddc82",
+    "behavior_signature": "1f58ba87e5b0a3c3a81391b112acd2a6db39c19eac7b3a2f08f8d1a53918a026"
+  }
+}

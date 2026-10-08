@@ -126,9 +126,9 @@ def test_threefs_distribution_cardinality_is_bounded(monkeypatch):
         queries.append(query)
         return [{"metricName": f"metric-{i}"} for i in range(1001)]
     monkeypatch.setattr(client, "_query_rows", rows)
-    with pytest.raises(ValueError, match="1000 metric"):
+    with pytest.raises(ValueError, match="1000 entity"):
         client.query_window(1, 2)
-    assert "ORDER BY metricName LIMIT 1001" in queries[0]
+    assert "ORDER BY metricName, host" in queries[0] and "LIMIT 1001" in queries[0]
 
 
 def promtool():

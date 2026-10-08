@@ -75,7 +75,7 @@ Observation은 `signal`·`scope`·`entity`·`source`·`unit`·`status`·`value`�
 - Ratio와 percent를 혼합하지 않습니다. 같은 signal도 node/GPU/engine/device/interface/source/unit이 다르면 delta를 만들지 않습니다.
 - Counter reset·rate window·insufficient samples는 기존 query/producer에서 처리한 결과를 전달합니다. 이 API는 raw counter에 임의 rate를 적용하지 않습니다.
 
-Workload는 호출자가 명시하는 compact scalar dimension입니다. 비어 있거나 다른 workload는 비교를 거절하며, 동일 token 수만으로 trajectory·tool 종류·policy·parallelism이 같다고 보장할 수 없습니다. Peer는 같은 run/producer/role/step/scope/workload에서 선택하지만 GPU·NIC·storage resource identity를 서로 대신 쓰지 않습니다.
+Workload는 호출자가 명시하는 compact scalar dimension입니다. 비어 있거나 다른 workload는 비교를 거절하며, 동일 token 수만으로 trajectory·tool 종류·policy·parallelism이 같다고 보장할 수 없습니다. Peer는 같은 run/producer/role/step/scope/workload와 명시된 policy version에서 선택하지만 GPU·NIC·storage resource identity를 서로 대신 쓰지 않습니다. History의 context는 optional field의 존재까지 일치해야 합니다.
 
 ```{admonition} Parent relation
 :class: important
@@ -86,6 +86,10 @@ Parent relation은 선택된 worker/boundary 내부에서 실제 `trace_id`와 `
 Relation delta는 `children_per_parent`와 `child_seconds_per_parent`를 구분합니다. Child 수만 늘어난 경우와 같은 child의 비용이 늘어난 경우를 별도로 조사할 수 있지만, duration sum은 overlapping/parallel children을 포함할 수 있습니다. Parent-child identity가 바뀌거나 baseline relation이 없으면 delta는 unknown이며 0으로 채우지 않습니다.
 
 Event의 exact/calibrated/approximate/sampled/unknown 구분을 count로 보존하고, 원본 node 시각 범위와 보정된 correlation 시각 범위·reference·최대 uncertainty를 분리합니다. 이 범위는 관측한 record의 범위이며 연속 coverage나 critical path를 뜻하지 않습니다. 상세 timestamp·span ID·per-event 순서는 원본 artifact에서 확인합니다.
+
+Resource와 연결한 candidate는 실제 supporting span의 current·baseline duration quality를 검사합니다. `duration_accuracy_counts`는 duration에 기여한 span만 세므로 같은 phase의 정상 exact span이나 point event가 unknown/approximate duration을 인증하지 않습니다. 숫자와 delta는 보존하되 이런 evidence는 `supporting_signal`과 quality missing으로 남깁니다.
+
+Event·observation·group budget이 초과된 reference는 baseline에서 제외하고 `rejected_incomplete_references`에 기록합니다. 다른 complete reference가 있으면 이를 사용하며, 없으면 baseline missing을 유지합니다. Duration-specific quality가 없는 이전 signature도 읽을 수 있지만 precise resource correlation 근거로 승격하지 않습니다. 변경 검증은 [시스템 리뷰](system-review.md)에 기록합니다.
 
 ## Optional capture와 failure boundary
 
