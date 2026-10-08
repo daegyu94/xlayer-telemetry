@@ -56,7 +56,18 @@ test("provisioned canonical panel/reference contracts exist in Loki and metrics-
         logs,
       );
       assert.equal(!!dashboards[DASHBOARD_UIDS.summary], logs);
+      for (const id of [101, 102, 103, 104])
+        assert.equal(!!find(dashboards[DASHBOARD_UIDS.storage].panels, id), logs);
       if (logs) {
+        const plot = find(dashboards[DASHBOARD_UIDS.storage].panels, 102);
+        assert.equal(plot.type, 'timeseries');
+        assert.equal(plot.fieldConfig.defaults.custom.drawStyle, 'points');
+        assert.equal(plot.fieldConfig.defaults.custom.lineWidth, 0);
+        assert.equal(plot.fieldConfig.defaults.custom.spanNulls, false);
+        assert.match(plot.targets[0].expr, /metric_name=\$\{storage_metric:json\}/);
+        assert.match(plot.targets[0].expr, /window_role="current"/);
+        assert.ok(plot.targets[0].maxLines <= 2500);
+        assert.ok(plot.transformations.some((t: any) => t.id === 'convertFieldType' && t.options.conversions.some((c: any) => c.targetField === 'sample_timestamp_ms' && c.destinationType === 'time')));
         for (const id of [2, 3, 4, 6])
           assert.ok(find(dashboards[DASHBOARD_UIDS.summary].panels, id));
         for (const id of [2, 3, 9])

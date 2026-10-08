@@ -1210,6 +1210,392 @@
           }
         }
       ]
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "3FS · saved collection context (optional Loki)",
+      "datasource": {
+        "type": "loki",
+        "uid": "telemetry-loki"
+      },
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 101,
+          "type": "table",
+          "title": "3FS collection reports · original timestamp",
+          "description": "저장된 shared-service collection record입니다. Source host·원본 수집 시각·전체 entity를 보존하며 phase 사용량이나 인과관계로 해석하지 않습니다. Saved shared-service collection records. Source host, original collection timestamp and full entity identity are preserved. Missing/ambiguous values are not zero; correlation is not attribution.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 39,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A",
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "lg",
+            "enablePagination": true
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "targetField": "sample_timestamp_ms",
+                    "destinationType": "time"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "sample_timestamp_ms",
+                    "window_role",
+                    "metric_name",
+                    "source_table",
+                    "sample_value",
+                    "unit",
+                    "statistic",
+                    "source_host",
+                    "entity",
+                    "series_key",
+                    "ambiguous_sample",
+                    "report_count",
+                    "host_clock_coverage",
+                    "collection_interval_seconds",
+                    "timestamp_resolution_seconds",
+                    "quality_issues",
+                    "phase_attribution"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "type": "timeseries",
+          "title": "3FS · current collection points / selected metric",
+          "description": "저장된 shared-service collection record입니다. Source host·원본 수집 시각·전체 entity를 보존하며 phase 사용량이나 인과관계로 해석하지 않습니다. Select one literal storage metric. X is the original source DateTime timestamp, at one-second resolution. Points are returned collection reports, not phase values or a continuous coverage proof. Unknown collection interval/clock/unit remain unknown; no interpolation, forward fill, zero fill or pooled percentile.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 47,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | window_role=\"current\" | metric_name=${storage_metric:json} | ambiguous_sample != \"true\" | sample_value != \"\" | sample_value != \"null\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "points",
+                "showPoints": "always",
+                "pointSize": 5,
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "spanNulls": false,
+                "axisLabel": "Raw source value · unit in records"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none",
+              "hideZeros": false
+            }
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "targetField": "sample_timestamp_ms",
+                    "destinationType": "time"
+                  },
+                  {
+                    "targetField": "sample_value",
+                    "destinationType": "number"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "sample_timestamp_ms",
+                    "sample_value",
+                    "series_key"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "partitionByValues",
+              "options": {
+                "fields": [
+                  "series_key"
+                ],
+                "keepFields": false,
+                "naming": {
+                  "asLabels": true,
+                  "withNames": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 103,
+          "type": "table",
+          "title": "3FS · comparable collection windows",
+          "description": "저장된 shared-service collection record입니다. Source host·원본 수집 시각·전체 entity를 보존하며 phase 사용량이나 인과관계로 해석하지 않습니다. Saved shared-service collection records. Source host, original collection timestamp and full entity identity are preserved. Missing/ambiguous values are not zero; correlation is not attribution.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 55,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_comparison\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A",
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "lg",
+            "enablePagination": true
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "metric_name",
+                    "source_table",
+                    "statistic",
+                    "current",
+                    "baseline",
+                    "delta_percent",
+                    "unit",
+                    "entity",
+                    "series_key",
+                    "clock_status",
+                    "host_clock_coverage",
+                    "collection_interval_seconds",
+                    "quality_issues",
+                    "phase_attribution"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 104,
+          "type": "table",
+          "title": "3FS · saved source coverage",
+          "description": "저장된 shared-service collection record입니다. Source host·원본 수집 시각·전체 entity를 보존하며 phase 사용량이나 인과관계로 해석하지 않습니다. Saved shared-service collection records. Source host, original collection timestamp and full entity identity are preserved. Missing/ambiguous values are not zero; correlation is not attribution.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 63,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_series_status\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "N/A",
+              "custom": {
+                "align": "auto",
+                "filterable": true
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "lg",
+            "enablePagination": true
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "window_role",
+                    "distribution_status",
+                    "counter_status",
+                    "point_count",
+                    "clock_status",
+                    "host_clock_coverage",
+                    "collection_interval_seconds",
+                    "coverage",
+                    "quality_issues"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Optional 3FS source를 기존 diagnosis와 Loki artifact에서 읽습니다. Raw collection context이며 phase attribution이나 global quantile을 뜻하지 않습니다."
     }
   ],
   "refresh": "5s",
@@ -1492,6 +1878,18 @@
         },
         "hide": 2,
         "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "storage_metric",
+        "label": "Storage metric (literal)",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "description": "Current collection-point plot에 사용할 원본 metric_name을 literal로 선택합니다. 비어 있으면 plot하지 않습니다. 단위·수집 주기·clock coverage는 원본 record에서 확인합니다."
       }
     ]
   },

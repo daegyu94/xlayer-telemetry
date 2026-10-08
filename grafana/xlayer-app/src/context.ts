@@ -28,6 +28,7 @@ export const VARIABLE_NAMES = [
   "mount",
   "storage_system",
   "storage_node",
+  "storage_metric",
   "ssd",
   "training_max_age",
 ] as const;

@@ -62,6 +62,7 @@ import {
 } from "./semantics";
 import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
 import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS} from './presentation';
+import { storageMetrics, storagePlotSelection } from './storage-series';
 import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
 import { ComparisonWindow } from "./comparison-window";
@@ -106,6 +107,12 @@ type ShellState = SceneObjectState & {
   approximate?: VizPanel;
   related: VizPanel[];
   detailPanels:(VizPanel|undefined)[];
+  storageSamples?: SceneQueryRunner;
+  storageStatus?: SceneQueryRunner;
+  storageSampleTable?: VizPanel;
+  storageStatusTable?: VizPanel;
+  storagePlot?: VizPanel;
+  storageComparison?: VizPanel;
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -288,6 +295,14 @@ function makeScene(page: Page, catalog: Catalog) {
       spans: query("timeline", 9),
     });
   if(page==='deep-dive')body.setState({detailPanels:DEEP_DIVE_SPECS.map(s=>s.dashboard&&s.panel!==undefined?native(s.dashboard,s.panel):undefined)});
+  if (page === 'deep-dive') {
+    const samples = query('storage',101), status = query('storage',104);
+    const samplePanel = findPanel(catalog.storage,101), statusPanel = findPanel(catalog.storage,104);
+    body.setState({storageSamples:samples,storageStatus:status,
+      storageSampleTable:samplePanel ? viz(samplePanel,samples) : undefined,
+      storageStatusTable:statusPanel ? viz(statusPanel,status) : undefined,
+      storagePlot:native('storage',102),storageComparison:native('storage',103)});
+  }
   if (page === "overview")
     body.setState({
       kpis: KPI_SPECS.map((s) =>
@@ -1109,7 +1124,7 @@ function ShellView({ model }: { model: Shell }) {
         </details>
       )}
       {state.page === "deep-dive" && (
-        <><DeepWorkspace candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
+        <><DeepWorkspace model={model} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}
       {state.selectedCell && (
         <div className="xlt-evidence-layout">
@@ -1740,7 +1755,7 @@ function HealthSummary({candidates}:{candidates:RecordRow[]}) {
 function TopChanges({rows}:{rows:RecordRow[]}) {
   return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">Saved comparison window, not a phase resource attribution. Workload comparability remains source-defined.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
-function DeepWorkspace({candidate,evidence,panels,context,catalog}:{candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
+function DeepWorkspace({model,candidate,evidence,panels,context,catalog}:{model:Shell;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
  const[tab,setTab]=useState(0),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div>
@@ -1749,10 +1764,43 @@ function DeepWorkspace({candidate,evidence,panels,context,catalog}:{candidate?:R
   <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
   <p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
  </div><div><h3>Detailed Metrics</h3><div className="xlt-chips">{DEEP_DIVE_SPECS.map((s,i)=><button key={s.label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{s.label}</button>)}</div>
-  {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
+  {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
   <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector → DFS client → 3FS service → local device are investigation layers; an instrumented dependency or Run ownership is not inferred.</p>
   <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
  </div></div></section>;
+}
+
+function StorageCollectionView({model,context}:{model:Shell;context:Context}) {
+  const state=model.useState(), sampleData=useData(state.storageSamples), statusData=useData(state.storageStatus);
+  const rows=records(sampleData), statuses=records(statusData), metric=context.variables.storage_metric?.[0];
+  const options=storageMetrics(rows), selection=storagePlotSelection(rows,metric);
+  useEffect(()=>{
+    if(!state.storagePlot)return;
+    const unit=selection.unit==='operations'?'short':selection.unit||'none';
+    const config=state.storagePlot.state.fieldConfig;
+    if(config?.defaults?.unit!==unit)state.storagePlot.setState({fieldConfig:{...config,defaults:{...config.defaults,unit}}});
+  },[state.storagePlot,selection.unit]);
+  const messages:Record<string,string>={
+    'select-metric':'Choose one literal metric for the current collection-point plot.',
+    'no-data':'No finite unambiguous current collection points for this metric. Missing values are not measured zero.',
+    'mixed-source':'This metric occurs in multiple source tables. Plot withheld; inspect the original records below.',
+    'mixed-unit':'Returned records disagree on source unit. Plot withheld; values are not converted or combined.',
+    'multiple-owner':'Multiple owner observations are selected. Choose one completed observation before plotting.'};
+  return <section aria-label="3FS collection context">
+    <h4>3FS collection context</h4>
+    <p className="xlt-notice">Shared-service reports, not phase or Run usage. Source DateTime resolution is 1 second. Collection interval and per-host clock coverage remain source-reported; no interpolation or phase attribution is inferred.</p>
+    <DataStatus provider={state.storageSamples}/>
+    <label>Storage metric <select aria-label="Storage metric" value={metric||''} onChange={event=>locationService.push(appLink('deep-dive',{...context,variables:{...context.variables,storage_metric:event.target.value?[event.target.value]:[]}}))}>
+      <option value="">Choose metric</option>
+      {metric&&!options.includes(metric)&&<option value={metric}>Selected metric outside returned records</option>}
+      {options.map(name=><option key={name} value={name}>{name}</option>)}
+    </select></label>
+    {selection.state==='ready'&&state.storagePlot?<><p className="xlt-muted">Current collection points · original source timestamp · unit {selection.unit||'not reported (raw)'} · {selection.points.length} returned points. Baseline timestamps remain unchanged in the records table.</p><Native panel={state.storagePlot}/></>:<p className="xlt-empty">{messages[selection.state]||'Collection-point panel unavailable.'}</p>}
+    {state.storageSampleTable&&<details open><summary>Original collection records · Current / Baseline</summary><Native panel={state.storageSampleTable}/></details>}
+    {state.storageComparison&&<details><summary>Comparable collection windows</summary><p className="xlt-muted">Delta is reported only by the existing diagnosis. Unknown clock/host mapping or collection semantics are not a baseline match.</p><Native panel={state.storageComparison}/></details>}
+    <details><summary>Saved source coverage · {statuses.length} status records</summary><DataStatus provider={state.storageStatus}/>{state.storageStatusTable&&<Native panel={state.storageStatusTable}/>}</details>
+    {!rows.length&&sampleData?.state===LoadingState.Done&&<p className="xlt-empty">No saved collection points in this interval. The optional source may be unconfigured, failed, empty or unsupported; inspect saved coverage. This is not a healthy verdict.</p>}
+  </section>;
 }
 
 function RelatedTabs({panels}:{panels:VizPanel[]}){const[tab,setTab]=useState(0);return <><div className="xlt-chips">{['GPU','vLLM','KV Cache','Storage','Network'].slice(0,panels.length).map((label,i)=><button key={label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{label}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}</>;}
@@ -1787,9 +1835,10 @@ function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Co
 function Coverage({model}:{model:Shell}) {
   const state=model.useState();
   const providers=React.useMemo(()=>[state.steps,state.spans,state.events,state.comparison,state.evidence,
+    ...(state.page==='deep-dive'?[state.storageSamples,state.storageStatus]:[]),
     ...state.kpis,...state.matrix,...(state.baselineMatrix||[]),...state.pressure]
     .filter((provider,index,all)=>!provider||all.indexOf(provider)===index),
-    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure]);
+    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure,state.page,state.storageSamples,state.storageStatus]);
   const [data,setData]=useState(providers.map(provider=>provider?.state.data));
   useEffect(()=>{
     const refresh=()=>setData(providers.map(provider=>provider?.state.data));
