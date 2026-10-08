@@ -284,12 +284,23 @@ def multi_worker_journey(args):
         detail = page.get_by_role('complementary', name='Evidence detail')
         detail.wait_for();page.wait_for_timeout(400)
         detail.get_by_role('link', name='compute ↗', exact=True).click()
-        page.wait_for_url('**/d/xlayer-compute-communication?**')
+        page.wait_for_url('**/d/xlayer-compute-communication**')
+        # Exercise the loaded dashboard. Its initialization can add native URL
+        # state/history; going Back before it mounts races that pending routing.
+        page.get_by_text('05 · Compute & Communication',exact=True).first.wait_for(timeout=30000)
+        page.wait_for_function("new URLSearchParams(location.search).has('orgId')",timeout=15000)
         deep = parse_qs(urlparse(page.url).query)
         for name in ('var-phase_worker','var-node','var-gpu','var-run_id','var-record_id','var-source_node','from','to'):
             assert deep[name] == selected[name], (name, deep, selected)
         assert deep['var-phase'] == ['rollout']
-        page.go_back()
+        return_entries=0
+        while return_entries<4:
+            page.go_back(wait_until='domcontentloaded')
+            return_entries+=1
+            if urlparse(page.url).path.startswith('/a/xlayer-telemetry-app'):
+                break
+            assert urlparse(page.url).netloc==urlparse(args.url).netloc and urlparse(page.url).path.startswith('/d/'), 'Back navigated outside the bounded native dashboard history'
+        assert urlparse(page.url).path.startswith('/a/xlayer-telemetry-app'), 'App entry absent from the last four native dashboard history entries'
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
@@ -312,7 +323,7 @@ def multi_worker_journey(args):
         assert not errors, errors
         report = {'checks':checks, 'browser_errors':errors, 'data_origin':'live synthetic metrics + four explicit SDK rollout worker spans',
                   'grafana_version':'12.1.0', 'scenes_version':'6.20.0', 'browser_version':browser.version, 'playwright_version':version('playwright'), 'browser_locale':'en-US', 'browser_timezone':'UTC', 'selected_context':selected,
-                  'multi_worker':True, 'worker_rows':4, 'context_transition_count':len(transitions),
+                  'multi_worker':True, 'worker_rows':4, 'native_dashboard_back_entries':return_entries, 'context_transition_count':len(transitions),
                   'datasource_fixtures':'Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement'}
         (args.output / f'{args.label}-validation.json').write_text(json.dumps(report, indent=2)+'\n')
         print(json.dumps(report, indent=2))
