@@ -31,16 +31,18 @@ export const VARIABLE_NAMES = [
   "storage_metric",
   "detail_tab",
   "training_max_age",
+  "workload", "log_search", "log_severity", "event_search", "infra_component",
 ] as const;
 export type VariableName = (typeof VARIABLE_NAMES)[number];
 export type Context = {
+  uiVersion?: 'classic'|'workspace';
   variables: Partial<Record<VariableName, string[]>>;
   from: string;
   to: string;
   timezone: string;
 };
 export type RecordRow = Record<string, unknown>;
-export function readContext(search: string): Context {
+export function readContext(search: string,uiVersion?:'classic'|'workspace'): Context {
   const params = new URLSearchParams(search);
   const variables: Context["variables"] = {};
   for (const name of VARIABLE_NAMES) {
@@ -48,6 +50,7 @@ export function readContext(search: string): Context {
     if (values.length) variables[name] = values;
   }
   return {
+    ...(uiVersion?{uiVersion}:{}),
     variables,
     from: params.get("from") || "now-30m",
     to: params.get("to") || "now",
@@ -66,7 +69,7 @@ export function writeContext(context: Context): URLSearchParams {
   return params;
 }
 export function appLink(page: string, context: Context): string {
-  return `${APP_BASE}/${page}?${writeContext(context)}`;
+  return `${APP_BASE}${context.uiVersion==='workspace'?'/v2':''}/${page}?${writeContext(context)}`;
 }
 export function sceneTime(value: string): string {
   // SceneTimeRange constructor accepts date math / ISO, not numeric URL epochs.

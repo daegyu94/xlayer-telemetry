@@ -41,3 +41,15 @@ def test_conflicting_or_invalid_mapping_does_not_supply_storage_owner(tmp_path):
     ]}))
     rows=[g.labels for g in build_gauges(tmp_path)]
     assert rows and all('resource_node' not in row for row in rows)
+
+
+def test_compute_resource_identity_and_gpu_zero_are_explicit_not_inferred(tmp_path):
+    (tmp_path/'compute-topology.json').write_text(json.dumps({'components':[
+        {'id':'trainer','role':'gpu-node','resource_node':'host-a'},
+        {'id':'gpu-0','role':'gpu','resource_node':'host-a','gpu':'0'},
+        {'id':'legacy','role':'gpu-node'},
+    ]}))
+    rows={g.labels['component']:g.labels for g in build_gauges(tmp_path)}
+    assert rows['trainer']['resource_node']=='host-a'
+    assert rows['gpu-0']['gpu']=='0' and rows['gpu-0']['resource_node']=='host-a'
+    assert 'resource_node' not in rows['legacy']

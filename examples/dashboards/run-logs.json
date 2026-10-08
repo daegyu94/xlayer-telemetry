@@ -62,7 +62,7 @@
       },
       "targets": [
         {
-          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"$run_id\"",
+          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"$run_id\" |= ${log_search:doublequote} |= ${log_severity:doublequote}",
           "queryType": "range",
           "refId": "A"
         }
@@ -261,6 +261,30 @@
           "value": ".*"
         },
         "description": "조사 중인 application Run입니다. Log directory 필터와 독립적으로 dashboard navigation에서 유지합니다."
+      },
+      {
+        "name": "log_search",
+        "label": "Log text",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "value": "",
+          "text": ""
+        },
+        "hide": 0,
+        "description": "반환된 raw log의 literal text를 필터합니다. 구조화된 severity나 전체 log count로 추정하지 않습니다."
+      },
+      {
+        "name": "log_severity",
+        "label": "Log text severity",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "value": "",
+          "text": ""
+        },
+        "hide": 0,
+        "description": "반환된 raw log의 literal text를 필터합니다. 구조화된 severity나 전체 log count로 추정하지 않습니다."
       }
     ]
   },

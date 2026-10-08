@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType } from "@grafana/data";
+import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType,ThemeContext,createTheme } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
 import {Sparkline,useTheme2} from '@grafana/ui';
@@ -73,6 +73,9 @@ import { executionChoices, executionKey, selectExecution, observedPhases, measur
 import { ComparisonWindow } from "./comparison-window";
 import { baselineBounds, matrixEntities, matrixEntityKey, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSYSTEM_COLORS } from "./matrix-presentation";
 import { MATRIX_SPECS } from "./matrix-contract";
+import {Page,UiVersion,PAGES,PAGE_LABELS,sceneRoutes,versionFromPath,switchVersion,INFRASTRUCTURE_PANELS,LOGS_PANELS} from './pages';
+import {infrastructureModel,selectInfrastructure,ResourceNode} from './infrastructure';
+import {TopologyView} from './topology-view';
 import {
   eventTime,
   latestEntitySamples,
@@ -81,10 +84,11 @@ import {
   workerPeers,
 } from "./mockup";
 import "./style.css";
+import './workspace.css';
 
-type Page = "overview" | "analyze" | "investigate" | "timeline" | "deep-dive";
 type ShellState = SceneObjectState & {
   page: Page;
+  uiVersion:UiVersion;
   catalog: Catalog;
   steps?: SceneQueryRunner;
   spans?: SceneQueryRunner;
@@ -119,6 +123,13 @@ type ShellState = SceneObjectState & {
   storagePlot?: VizPanel;
   storageComparison?: VizPanel;
   storageCluster?: VizPanel[];
+  components?:SceneQueryRunner;
+  relationships?:SceneQueryRunner;
+  availability?:SceneQueryRunner;
+  resourceGpus?:SceneQueryRunner;
+  resourceDevices?:SceneQueryRunner;
+  infraPanels?:(VizPanel|undefined)[];
+  logPanels?:Array<VizPanel|undefined>;
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -260,8 +271,8 @@ const PRESSURE_SPECS: {
     scope: "Node/device · sampled",
   },
 ];
-function makeScene(page: Page, catalog: Catalog) {
-  const context = readContext(window.location.search);
+function makeScene(page: Page, catalog: Catalog,uiVersion:UiVersion='classic') {
+  const context = readContext(window.location.search,uiVersion);
   const queryCache = new Map<string, SceneQueryRunner>();
   const query = (key: Destination, id: number, refs?: string[]) => {
     const panel = findPanel(catalog[key], id);
@@ -277,10 +288,11 @@ function makeScene(page: Page, catalog: Catalog) {
     if(!panel)return undefined;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
-    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
+    return viz(panel,page==='infrastructure'&&(key==='storage'&&id===1||key==='compute'&&id===2)?query(key,id):pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
   };
   const body = new Shell({
     page,
+    uiVersion,
     catalog,
     kpis: [],
     matrix: [],
@@ -291,7 +303,7 @@ function makeScene(page: Page, catalog: Catalog) {
   });
   body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
   body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
-  if (page !== "deep-dive"||context.variables.candidate_id?.[0])
+  if (!['infrastructure','logs'].includes(page)&&(page !== "deep-dive"||context.variables.candidate_id?.[0]))
     body.setState({
       steps: query("overview", 20),
       summary: query("summary", 2),
@@ -324,6 +336,15 @@ function makeScene(page: Page, catalog: Catalog) {
         Boolean,
       ) as VizPanel[],
     });
+  if(page==='overview'||page==='infrastructure')body.setState({components:query('compute',70),relationships:query('compute',71),availability:query('compute',72)});
+  if(page==='infrastructure')body.setState({resourceGpus:query('compute',2),resourceDevices:query('storage',1),infraPanels:INFRASTRUCTURE_PANELS.map(s=>native(s.dashboard,s.panel))});
+  if(page==='logs'){
+    const logSource=findPanel(catalog.logs,1);
+    // The canonical log page calls its directory run_id. Scene Run context
+    // retains telemetry ownership, so alias only this template variable.
+    const logPanel=logSource?{...logSource,targets:logSource.targets?.map(target=>({...target,expr:target.expr?.replace(/\$run_id\b/g,'$log_run_id')}))}:undefined;
+    body.setState({events:query('timeline',10),logPanels:[logPanel?viz(logPanel):undefined,...LOGS_PANELS.slice(1).map(s=>native(s.dashboard,s.panel))]});
+  }
   // Scene objects must be direct state properties / array elements. A plain
   // dictionary is not parented by Scenes and silently loses variable/time scope.
   if (page === "analyze")
@@ -366,32 +387,24 @@ function makeScene(page: Page, catalog: Catalog) {
 }
 let loadedCatalog: Catalog;
 function createApp() {
-  const pages = (
-    ["overview", "analyze", "investigate", "timeline", "deep-dive"] as Page[]
-  ).map(
-    (page) =>
+  const pages = sceneRoutes().map(
+    ({page,version,path}) =>
       new SceneAppPage({
-        title: {
-          overview: "Run Overview",
-          analyze: "Analyze · Phase × Subsystem",
-          investigate: "Investigation",
-          timeline: "Agent RL Timeline",
-          "deep-dive": "Deep Dive",
-        }[page],
+        title: PAGE_LABELS[page],
         renderTitle: (title) => (
           <h1 className="xlt-page-title">
             XLayer Telemetry <span> / {title}</span>
           </h1>
         ),
-        url: `${APP_BASE}/${page}`,
-        routePath: `${APP_BASE}/${page}`,
+        url: path,
+        routePath: path,
         preserveUrlKeys: [
           "from",
           "to",
           "timezone",
           ...VARIABLE_NAMES.map((n) => `var-${n}`),
         ],
-        getScene: () => makeScene(page, loadedCatalog),
+        getScene: () => makeScene(page, loadedCatalog,version),
       }),
   );
   return new SceneApp({
@@ -418,14 +431,16 @@ function Ready() {
 function Root() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [uiVersion,setUiVersion]=useState(versionFromPath(window.location.pathname));
+  useEffect(()=>locationService.getHistory().listen(()=>setUiVersion(versionFromPath(window.location.pathname))),[]);
   useEffect(() => {
     let active = true;
     if (
       window.location.pathname === APP_BASE ||
-      window.location.pathname === `${APP_BASE}/`
+      window.location.pathname === `${APP_BASE}/`||window.location.pathname===`${APP_BASE}/v2`||window.location.pathname===`${APP_BASE}/v2/`
     ) {
       locationService.replace(
-        appLink("overview", readContext(window.location.search)),
+        appLink("overview", readContext(window.location.search,versionFromPath(window.location.pathname))),
       );
     }
     loadCatalog()
@@ -443,7 +458,8 @@ function Root() {
       active = false;
     };
   }, []);
-  return status === "ready" ? (
+  const theme=React.useMemo(()=>createTheme({colors:{mode:uiVersion==='workspace'?'dark':'light',...(uiVersion==='workspace'?{background:{canvas:'#091321',primary:'#101e2e',secondary:'#152639',elevated:'#172c40'},text:{primary:'#e3edf7',secondary:'#9cafc3',link:'#75b4e5'},border:{weak:'#253b50',medium:'#34506b',strong:'#4c7093'}}:{})}}),[uiVersion]);
+  return <ThemeContext.Provider value={theme}><div className="xlt-frame" data-ui={uiVersion}>{status === "ready" ? (
     <Ready />
   ) : (
     <div className="xlt">
@@ -453,7 +469,7 @@ function Root() {
           : error}
       </p>
     </div>
-  );
+  )}</div></ThemeContext.Provider>;
 }
 export const plugin = new AppPlugin().setRootPage(Root);
 
@@ -566,6 +582,8 @@ function Link({
 }
 function ShellView({ model }: { model: Shell }) {
   const state = model.useState();
+  const [location, setLocation] = useState(locationService.getLocation());
+  useEffect(() => locationService.getHistory().listen(() => setLocation(locationService.getLocation())), []);
   const stepData = useData(state.steps),
     summaryData = useData(state.summary),
     compareData = useData(state.comparison),
@@ -586,7 +604,7 @@ function ShellView({ model }: { model: Shell }) {
     evidence = records(evidenceData),
     spans = records(spanData),
     events = records(eventData);
-  const context = readContext(window.location.search),
+  const context = readContext(location.search,state.uiVersion),
     record = context.variables.record_id?.[0];
   const contextKey = investigationKey(context);
   useEffect(() => {
@@ -641,7 +659,8 @@ function ShellView({ model }: { model: Shell }) {
   const baselineSpans=records(baselineSpanData);
   const workspaceCandidate=diagnosis.find(c=>c.candidate_id===context.variables.candidate_id?.[0]);
   return (
-    <div className="xlt-app-layout">
+    <div className="xlt-app-layout" data-ui={state.uiVersion}>
+    {state.uiVersion==='workspace'&&<WorkspaceNavigation page={state.page} context={context}/>}
     <div className="xlt">
       <header className="xlt-header">
         <div>
@@ -658,7 +677,7 @@ function ShellView({ model }: { model: Shell }) {
                   ? `${boundary.label} Investigation`
                   : state.page === "timeline"
                     ? "Follow the same interval"
-                  : workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
+                  : state.page==='infrastructure'?'Cluster Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
           <p>
             <b>
@@ -682,6 +701,7 @@ function ShellView({ model }: { model: Shell }) {
           )}
         </div>
         <div className="xlt-header-actions">
+          <a className="xlt-version-switch" href={appLink(state.page,switchVersion(context,state.uiVersion==='classic'?'workspace':'classic'))}>{state.uiVersion==='classic'?'V2 Workspace':'V1 Classic'}</a>
           {selected && (
             <button
               onClick={() => navigate("analyze", selectStep(selected, context))}
@@ -696,7 +716,7 @@ function ShellView({ model }: { model: Shell }) {
       </header>
       <nav className="xlt-nav" aria-label="XLayer investigation">
         <>
-          {(["overview", "analyze", "investigate", "deep-dive"] as Page[]).map(
+          {PAGES.map(
             (p) => (
               <a
                 key={p}
@@ -714,6 +734,7 @@ function ShellView({ model }: { model: Shell }) {
                     investigate: "Investigate",
                     timeline: "Timeline",
                     "deep-dive": "Deep Dive",
+                    infrastructure:'Infrastructure',logs:'Logs & Events',
                   }[p]
                 }
               </a>
@@ -722,7 +743,7 @@ function ShellView({ model }: { model: Shell }) {
         </>
       </nav>
       <RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>
-      {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
+      {selected&&!['infrastructure','logs'].includes(state.page)&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
 
       <details className="xlt-filters">
         <summary>Trace, GPU, engine and evidence filters</summary>
@@ -825,6 +846,7 @@ function ShellView({ model }: { model: Shell }) {
             <div>
               <h3>System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">Saved diagnosis signals, not collector-UP health.</p></div>
           </section>
+          <ClusterSummary model={model} context={context}/>
           <PolicyLifecycle events={events} context={context} catalog={state.catalog}/>
           <details className="xlt-completed-detail">
             <summary>Completed Steps · choose another investigation</summary>{" "}
@@ -902,7 +924,7 @@ function ShellView({ model }: { model: Shell }) {
             </section>
           )}
           {selected && (
-            <>
+            <div className="xlt-investigation-grid">
               <section className="xlt-investigation-section">
                 <div className="xlt-section">
                   <h3>What changed?</h3>
@@ -962,7 +984,7 @@ function ShellView({ model }: { model: Shell }) {
                   </p>
                 )}
               </section>
-              <p>
+              <p className="xlt-investigation-actions">
                 <button onClick={() => navigate("analyze")}>
                   Open Phase × Subsystem →
                 </button>{" "}
@@ -970,7 +992,7 @@ function ShellView({ model }: { model: Shell }) {
                   Inspect measured timeline →
                 </button>
               </p>
-              <section>
+              <section className="xlt-investigation-candidates">
                 <h3>Bottleneck Candidates</h3>
                 <DataStatus provider={state.candidates} />
                 <div className="xlt-candidates">
@@ -1088,7 +1110,9 @@ function ShellView({ model }: { model: Shell }) {
                   </p>
                 )}
               </section>
-            </>
+              <section className="xlt-investigation-timeline"><h3>Related Cross-Layer Timeline</h3><Native panel={state.timeline}/><p className="xlt-muted">Measured spans / approximate Step boundaries; overlap is not resource ownership.</p></section>
+              <section className="xlt-investigation-proof"><h3>Evidence Summary</h3>{(['supporting','counter','missing'] as const).map(type=><details key={type} open={type==='supporting'}><summary>{type==='counter'?'Counter':type==='missing'?'Missing':'Supporting'} ({proofs.filter(row=>row.evidence_type===type).length})</summary>{proofs.filter(row=>row.evidence_type===type).map((row,index)=><p key={index}><b>{scalar(row.signal)}</b><small>{scalar(row.observation_scope)} · {scalar(row.reason,row.detail?scalar(row.detail):'See candidate evidence')}</small></p>)}</details>)}{!proofs.length&&<p className="xlt-empty">No saved evidence. No causal conclusion is inferred.</p>}</section>
+            </div>
           )}
         </>
       )}
@@ -1143,6 +1167,8 @@ function ShellView({ model }: { model: Shell }) {
       {state.page === "deep-dive" && (
         <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}
+      {state.page==='infrastructure'&&<Infrastructure model={model} context={context}/>}
+      {state.page==='logs'&&<LogsWorkspace model={model} context={context} events={events} steps={steps} spans={spans}/>}
       {state.selectedCell && (
         <div className="xlt-evidence-layout">
           <div>
@@ -1168,6 +1194,42 @@ function ShellView({ model }: { model: Shell }) {
     </div>
   );
 }
+function WorkspaceNavigation({page,context}:{page:Page;context:Context}){
+ const descriptions={overview:'Run & cluster',analyze:'Phase × subsystem',investigate:'Baseline & evidence','deep-dive':'Subsystem workspace',infrastructure:'Resources & topology',logs:'Logs & events'};
+ return <aside className="xlt-workspace-nav"><a className="xlt-workspace-brand" href={appLink('overview',context)}><img src="/public/plugins/xlayer-telemetry-app/img/logo.svg" alt=""/>XLayer <b>Telemetry</b></a><small>Agent RL observability</small><nav aria-label="Workspace pages">{PAGES.map(p=><a key={p} href={appLink(p,context)} aria-current={page===p?'page':undefined}><span>{PAGE_LABELS[p]}</span><small>{descriptions[p]}</small></a>)}</nav><div className="xlt-workspace-version">V2 Workspace<br/><a href={appLink(page,switchVersion(context,'classic'))}>Switch to Classic</a></div></aside>;
+}
+function ClusterSummary({model,context}:{model:Shell;context:Context}){
+ const state=model.useState(),components=useData(state.components),relationships=useData(state.relationships),availability=useData(state.availability);
+ const range=sceneGraph.getTimeRange(model).useState();
+ const topology=infrastructureModel(samples(components),samples(relationships),samples(availability),range.value.to.valueOf());
+ return <section className="xlt-cluster-summary"><div className="xlt-section"><h3>Cluster Summary</h3><a href={appLink('infrastructure',context)}>Open Infrastructure →</a></div><div className="xlt-health-grid">{[['Configured components',topology.configuredNodes],['Exporter-observed resources',topology.observedNodes],['Unknown mapping / source',topology.unknownNodes]].map(([label,count])=><article className="xlt-card" key={String(label)}><small>{label}</small><b>{components?.state===LoadingState.Error||availability?.state===LoadingState.Error?'Query failed':components?.state===LoadingState.Loading||availability?.state===LoadingState.Loading?'Loading':topology.nodes.length?count:'No data'}</b></article>)}</div><p className="xlt-muted">Configured inventory and sampled exporter reachability · no cluster-health verdict or observed path.</p></section>;
+}
+function Infrastructure({model,context}:{model:Shell;context:Context}){
+ const state=model.useState(),componentData=useData(state.components),edgeData=useData(state.relationships),availabilityData=useData(state.availability);
+ const gpuData=useData(state.resourceGpus),diskData=useData(state.resourceDevices);
+ const range=sceneGraph.getTimeRange(model).useState(),topology=infrastructureModel(samples(componentData),samples(edgeData),samples(availabilityData),range.value.to.valueOf(),30000,[...samples(gpuData),...samples(diskData)]);
+ const [search,setSearch]=useState(''),[tab,setTab]=useState('compute'),[inventoryMode,setInventoryMode]=useState('hosts'),[limit,setLimit]=useState(12);
+ const selected=topology.nodes.find(node=>node.key===context.variables.infra_component?.[0]);
+ useEffect(()=>{if(selected)setTab(selected.kind==='storage'?'storage':/network|fabric/i.test(selected.role)?'network':'compute');},[selected?.key]);
+ const select=(node:ResourceNode)=>locationService.push(appLink('infrastructure',selectInfrastructure(context,node)));
+ const nodes=topology.nodes.filter(node=>(inventoryMode==='all'||!node.device&&node.gpu===undefined)&&`${node.component} ${node.role} ${node.resourceNode||''}`.toLowerCase().includes(search.toLowerCase()));
+ const visible=INFRASTRUCTURE_PANELS.map((spec,index)=>({spec,panel:state.infraPanels?.[index]})).filter(({spec})=>tab==='storage'?spec.dashboard==='storage':tab==='network'?spec.dashboard==='compute'&&[8,9,42].includes(spec.panel):spec.dashboard==='compute'&&![8,9,42].includes(spec.panel));
+ return <><div className="xlt-infrastructure-top"><section><div className="xlt-section"><h3>Cluster Topology</h3><span className="xlt-badge">Configured / Observed / Unknown</span></div><DataStatus provider={state.components}/><DataStatus provider={state.availability}/><TopologyView nodes={topology.nodes} edges={topology.edges} selected={selected?.key} onSelect={select}/></section><section className="xlt-resource-detail"><h3>Selected Resource</h3>{selected?<><h4>{selected.component}</h4><dl><dt>Role</dt><dd>{selected.role} · configured</dd><dt>Resource node</dt><dd>{selected.resourceNode||'Unknown mapping'}</dd><dt>Observation</dt><dd>{selected.status.replace(/_/g,' ')} · exporter, not health</dd><dt>Device / GPU</dt><dd>{selected.device||selected.gpu||'Not reported'}</dd><dt>Targets</dt><dd>{selected.targets.join(', ')||'Not registered'}</dd></dl>{selected.issues.map(issue=><p className="xlt-notice" key={issue}>{issue}</p>)}{selected.resourceNode?<Link to={selected.kind==='storage'?'storage':'compute'} context={context} catalog={state.catalog}>Detailed resource dashboard</Link>:<p className="xlt-notice">Resource metrics require an explicit owner mapping. No node is inferred.</p>}<p><a href={appLink('investigate',context)}>Open Step investigation →</a></p></>:<p className="xlt-empty">Choose a configured component or an observed exporter. Owner mapping is required for resource drill-down.</p>}</section></div>
+ <section><div className="xlt-section"><h3>Resource Metrics</h3><div className="xlt-chips">{['compute','network','storage'].map(kind=><button key={kind} aria-pressed={tab===kind} onClick={()=>setTab(kind)}>{kind}</button>)}</div></div><div className="xlt-infrastructure-metrics">{selected&&!selected.resourceNode?<p className="xlt-empty">Resource metrics withheld: selected component has no unique owner mapping. Current Run context remains available.</p>:visible.map(({spec,panel})=><Native key={`${spec.dashboard}/${spec.panel}`} panel={panel}/>)}</div><p className="xlt-notice">Storage DS/MDS inventory is separate from GPU-host sandbox local I/O. Device means, service distributions and connector RPC p95 are distinct statistics. 3FS evidence is implemented in Deep Dive; pNFS is TBD.</p></section>
+ <section><div className="xlt-section"><h3>Component Inventory</h3><select aria-label="Inventory resource kind" value={inventoryMode} onChange={e=>{setInventoryMode(e.target.value);setLimit(12);}}><option value="hosts">Hosts / services</option><option value="all">All devices / components</option></select><input aria-label="Search component inventory" placeholder="Node, role or device" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className="xlt-scroll"><table><thead><tr><th>Component</th><th>Role</th><th>Resource owner</th><th>Source / scope</th><th>Observation</th><th>Next</th></tr></thead><tbody>{nodes.slice(0,limit).map(node=><tr key={node.key}><td>{node.component}<small>{node.cluster} · {node.kind}</small></td><td>{node.role}</td><td>{node.resourceNode||'Unknown'}<small>{node.device?`Device ${node.device}`:node.gpu!==undefined?`GPU ${node.gpu}`:''}</small></td><td>{node.configured?'Configured inventory':'Registered exporter'}<small>Node/device · shared resources</small></td><td>{node.status.replace(/_/g,' ')}</td><td><button onClick={()=>select(node)}>Inspect resource</button></td></tr>)}</tbody></table></div>{!nodes.length&&<p className="xlt-empty">No matching configured or observed resources. Missing is not measured zero.</p>}<p className="xlt-muted">{nodes.length} matching resources · {Math.min(limit,nodes.length)} shown. No observed service/resource edges are currently instrumented.</p>{nodes.length>limit&&<button onClick={()=>setLimit(Math.min(limit+20,200))}>Show more resources</button>}</section>
+ <details><summary>Configured relationship inventory · {topology.edges.length} edges</summary><DataStatus provider={state.relationships}/><div className="xlt-scroll"><table><thead><tr><th>Source</th><th>Destination</th><th>Relation</th><th>Evidence</th></tr></thead><tbody>{topology.edges.slice(0,200).map(edge=><tr key={edge.key}><td>{edge.source}</td><td>{edge.destination}</td><td>{edge.relation}</td><td>Configured · operation relationship not observed</td></tr>)}</tbody></table></div></details></>;
+}
+function LogsWorkspace({model,context,events,steps,spans}:{model:Shell;context:Context;events:RecordRow[];steps:RecordRow[];spans:RecordRow[]}){
+ const state=model.useState(),[selected,setSelected]=useState<RecordRow>(),[approximateOpen,setApproximateOpen]=useState(false);
+ useEffect(()=>setSelected(undefined),[investigationKey(context)]);
+ const search=(sceneGraph.lookupVariable('event_search',model) as TextBoxVariable),searchState=search.useState();
+ const needle=String(searchState.value||'').toLowerCase(),filtered=events.filter(event=>`${event.name||''} ${event.phase||''} ${JSON.stringify(event.attributes||{})}`.toLowerCase().includes(needle));
+ const step=selected?resolveEventStep(selected,steps,spans):undefined;
+ return <><section><h3>Log / Event Filters</h3><div className="xlt-log-filters">{['workload','log_run_id','node','log_search','log_severity','event_search'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><p className="xlt-muted">Log directory and telemetry Run are independent. Text severity is a literal raw-log filter, not inferred structured severity. Event search filters returned records only.</p></section>
+ <div className="xlt-logs-grid"><section><div className="xlt-section"><h3>Raw Logs</h3><Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logPanels?.[0]?<Native panel={state.logPanels[0]}/>:<p className="xlt-empty">Loki / Run Logs not provisioned. No log data is not an error count of zero.</p>}</section><section className="xlt-event-detail"><h3>Event Details</h3>{selected?<><b>{scalar(selected.name)}</b><pre>{JSON.stringify(selected,null,2)}</pre>{step?.state==='matched'?<a href={appLink('investigate',selectStep(step.step!,context))}>Investigate matching Step →</a>:<p className="xlt-notice">No unique execution-linked Step. Timestamp coincidence does not establish ownership.</p>}</>:<p className="xlt-empty">Select an actual returned event to inspect its source, Run/Step and trace fields.</p>}</section></div>
+ <section><h3>Events · returned records</h3><DataStatus provider={state.events}/><div className="xlt-scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Phase</th><th>Node / worker</th><th>Run / Step</th><th>Next</th></tr></thead><tbody>{filtered.slice(-100).reverse().map((event,i)=><tr key={i}><td>{eventTime(event)!==undefined?new Date(eventTime(event)!).toLocaleTimeString():'Unknown source time'}</td><td>{scalar(event.name)}</td><td>{scalar(event.phase)}</td><td>{scalar(event.node)} / {scalar(event.worker_id)}</td><td>{scalar(event.run_id)} / {scalar(event.step)}</td><td><button onClick={()=>setSelected(event)}>Inspect event</button></td></tr>)}</tbody></table></div>{!filtered.length&&<p className="xlt-empty">No matching event records in the selected range. Uncollected events are not invented.</p>}<p className="xlt-muted">First/last returned query records only · no global severity total or synthetic event-volume histogram.</p></section><section><h3>Related Agent RL Timeline</h3><Native panel={state.logPanels?.[2]}/><details onToggle={event=>setApproximateOpen(event.currentTarget.open)}><summary>Approximate Step intervals</summary>{approximateOpen&&<Native panel={state.logPanels?.[3]}/>}</details><p className="xlt-muted">Exact/calibrated spans and approximate Step intervals retain their precision and ownership boundaries.</p><a href={appLink('timeline',context)}>Detailed Timeline →</a></section></>;
+}
+
 function Steps({
   rows,
   selected,
@@ -1359,7 +1421,7 @@ function Kpi({
 }
 
 function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
- const ctx=readContext(window.location.search),workerKey=ctx.variables.phase_worker?.[0];
+ const ctx=readContext(window.location.search,versionFromPath(window.location.pathname)),workerKey=ctx.variables.phase_worker?.[0];
  const choices=executionChoices(spans,selected),ownSpans=selectExecution(spans,workerKey),ownBaseline=selectExecution(baselineSpans,workerKey),phases=observedPhases(spans,selected,workerKey);
  const phaseName=(name:string)=>({actor_update:'Training · actor',weight_sync:'Weight Sync',checkpoint_save:'Checkpoint',critic_update:'Training · critic',reference_log_prob:'Reference log prob',reference:'Reference',checkpoint_load:'Checkpoint load',rollout:'Rollout',reward:'Reward'}[name]||name);
  return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · choose worker if ambiguous</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>Selected worker outside range</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
@@ -1370,7 +1432,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
  const data=useData(model.state.matrix[index]),baseData=useData(model.state.baselineMatrix?.[index]),spec=MATRIX_SPECS[s];
  const panel=findPanel(model.state.catalog[spec.dashboard],spec.panel),unit=panel?.fieldConfig?.defaults?.unit||spec.unit;
  const values=samples(data).map(p=>({...p,unit})),baseValues=samples(baseData).map(p=>({...p,unit}));
- const context=readContext(window.location.search),variable=`matrix_${s}_entity` as typeof VARIABLE_NAMES[number],selectedKey=context.variables[variable]?.[0];
+ const context=readContext(window.location.search,versionFromPath(window.location.pathname)),variable=`matrix_${s}_entity` as typeof VARIABLE_NAMES[number],selectedKey=context.variables[variable]?.[0];
  const entities=matrixEntities(values);const activeKey=selectedKey|| (entities.length===1?entities[0].key:undefined);
  const chosen=filterMatrixEntity(values,activeKey),baselineChosen=filterMatrixEntity(baseValues,activeKey),stepCell=stepEvidenceCell(evidence,s);
  const title=({gpu:'GPU',vllm:'vLLM',kv:'KV Cache',ray:'Ray',network:'Network',storage:'Storage',sandbox:'Sandbox'} as Record<string,string>)[s];
@@ -1624,7 +1686,7 @@ function Pressure({
             key={spec.name}
             spec={spec}
             provider={model.state.pressure[index]}
-            context={readContext(window.location.search)}
+            context={readContext(window.location.search,versionFromPath(window.location.pathname))}
             catalog={model.state.catalog}
             evidence={pressureEvidence}
           />
@@ -1702,7 +1764,7 @@ function WorkerOutliers({
     samples(step),
     samples(age),
     Number(
-      readContext(window.location.search).variables.training_max_age?.[0] ||
+      readContext(window.location.search,versionFromPath(window.location.pathname)).variables.training_max_age?.[0] ||
         300,
     ),
   );
@@ -1870,7 +1932,7 @@ function WorkerComparison({model,selected,spans}:{model:Shell;selected:RecordRow
  const data=useData(model.state.matrix[0]),values=samples(data);const rows=measuredWorkers(spans,selected);
  return <section><h3>Measured Worker Comparison</h3><p className="xlt-muted">One declared execution identity per row. Peer duration requires matching operation, scope and workload fingerprint. GPU is a linked sampled device, not worker consumption.</p><div className="xlt-scroll"><table><thead><tr><th>Worker / node</th><th>Phase coverage</th><th>Rollout call</th><th>Peer median / delta</th><th>GPU</th><th>Next</th></tr></thead><tbody>{rows.map(row=>{
   const gpu=row.window.span?.gpu;const device=gpu===undefined?undefined:gaugeSummary(values.filter(value=>value.labels.gpu===String(gpu)),row.window).sample;
-  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity / sample unavailable'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search);locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
+  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity / sample unavailable'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search,versionFromPath(window.location.pathname));locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
  })}</tbody></table></div></section>;
 }
 function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Context;catalog:Catalog}){
@@ -1880,10 +1942,11 @@ function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Co
 function Coverage({model}:{model:Shell}) {
   const state=model.useState();
   const providers=React.useMemo(()=>[state.steps,state.spans,state.events,state.comparison,state.evidence,
+    ...(state.page==='infrastructure'||state.page==='overview'?[state.components,state.relationships,state.availability]:[]),
     ...(state.page==='deep-dive'?[state.storageSamples,state.storageStatus]:[]),
     ...state.kpis,...state.matrix,...(state.baselineMatrix||[]),...state.pressure]
     .filter((provider,index,all)=>!provider||all.indexOf(provider)===index),
-    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure,state.page,state.storageSamples,state.storageStatus]);
+    [state.steps,state.spans,state.events,state.comparison,state.evidence,state.kpis,state.matrix,state.baselineMatrix,state.pressure,state.page,state.storageSamples,state.storageStatus,state.components,state.relationships,state.availability]);
   const [data,setData]=useState(providers.map(provider=>provider?.state.data));
   useEffect(()=>{
     const refresh=()=>setData(providers.map(provider=>provider?.state.data));

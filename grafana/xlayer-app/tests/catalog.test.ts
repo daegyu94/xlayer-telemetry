@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { MATRIX_SPECS } from "../src/matrix-contract";
+import { INFRASTRUCTURE_PANELS, LOGS_PANELS } from "../src/pages";
 import { DASHBOARD_UIDS } from "../src/context";
 test("provisioned canonical panel/reference contracts exist in Loki and metrics-only profiles", () => {
   const temporary = mkdtempSync(join(tmpdir(), "xlayer-app-contract-"));
@@ -48,6 +49,11 @@ test("provisioned canonical panel/reference contracts exist in Loki and metrics-
           );
         assert.ok(panel.datasource.uid);
         assert.ok(panel.fieldConfig.defaults.unit !== undefined, spec.label);
+      }
+      for (const spec of [...INFRASTRUCTURE_PANELS, ...[70,71,72].map(panel=>({dashboard:"compute" as const,panel})), ...(logs?LOGS_PANELS:[])]) {
+        const panel=find(dashboards[DASHBOARD_UIDS[spec.dashboard]]?.panels||[],spec.panel);
+        assert.ok(panel,`${spec.dashboard}/${spec.panel} in ${logs?"Loki":"metrics-only"}`);
+        assert.ok(panel.datasource.uid);
       }
       for (const id of [30, 31, 33, 34, 40, 41, 42, 44])
         assert.ok(find(dashboards[DASHBOARD_UIDS.overview].panels, id));

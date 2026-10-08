@@ -66,7 +66,7 @@ GF_USERS_DEFAULT_THEME = "light"
 | Diagnosis | `DIAGNOSTICS_CONFIG`; 새 Run | [Diagnose](diagnosis.md) |
 | Prometheus retention | `PROMETHEUS_RETENTION`; server restart | [운영 Reference](monitoring-reference.md#retain-data-for-completed-runs) |
 | Native/scrape budget | Bounded sample/target/body/interval 설정 | [Metrics limits](metrics-reference.md#bounded-collection-and-pressure-evidence) |
-| Storage inventory | `TOPOLOGY_DIR`; collector restart | [DS/MDS 선언과 identity](monitoring-reference.md#storage-cluster-inventory) |
+| Compute / Storage inventory | `TOPOLOGY_DIR`; collector restart | [DS/MDS 선언과 identity](monitoring-reference.md#storage-cluster-inventory) |
 
 ## 검증과 변경
 

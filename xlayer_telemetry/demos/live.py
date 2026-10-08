@@ -605,10 +605,10 @@ class Demo:
     def _topology(self) -> list[GaugeSample]:
         samples = []
         for node in self.gpu["gpu_nodes"]:
-            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": node, "role": "gpu-node"}))
+            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": node, "role": "gpu-node", "resource_node": node}))
             for gpu in range(self.gpu["gpus_per_node"]):
                 component = f"{node}/gpu-{gpu}"
-                samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": component, "role": self.gpu["gpu_model"]}))
+                samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": component, "role": self.gpu["gpu_model"], "resource_node": node, "gpu": str(gpu)}))
                 for peer in range(self.gpu["gpus_per_node"]):
                     if gpu != peer:
                         samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": component, "destination": f"{node}/gpu-{peer}", "relation": self.gpu["intra_node_interconnect"]}))

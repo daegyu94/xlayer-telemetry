@@ -1,6 +1,6 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana dashboard·datasource 위에 **Overview / Analyze / Investigate / Deep Dive** 네 개의 독립 화면을 추가하는 선택적 static App Plugin입니다. 공통 상단 Run Context가 선택한 Run·Step·시간을 유지합니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana dashboard·datasource 위에 **V1 Classic(Light) / V2 Workspace(Dark)**를 함께 제공하는 선택적 static App Plugin입니다. 두 UI는 Overview / Analyze / Investigate / Deep Dive / Infrastructure / Logs & Events를 같은 query·data·component로 제공합니다. 공통 상단 Run Context가 선택한 Run·Step·시간을 유지합니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
@@ -10,8 +10,12 @@
 | Phase와 subsystem 연결 | Analyze: Matrix·System Pressure·Top Changes·worker snapshots | Execution worker / Worker Comparison → Cell evidence → Investigate |
 | Baseline과 후보 확인 | Investigate: What changed·candidate·Supporting/Against/Missing | Open Evidence / Deep Dive |
 | 선택 후보 검증 | Deep Dive: `candidate_id` workspace·Key Findings·native metric tab·System Pressure | 기존 Timeline / Storage / Logs dashboard |
+| 리소스 탐색 | Infrastructure: configured topology·observed exporter·inventory·resource metric | 명시 owner 선택 → Compute / Storage |
+| 로그 조사 | Logs & Events: native Loki 검색·event record detail | 유일하게 연결된 Step → Investigate |
 
 Timeline helper route와 기존 detailed dashboard는 유지합니다. Detailed Metrics는 canonical native panel을 사용하며 자체 graph/query engine을 만들지 않습니다.
+
+V1 URL은 유지합니다. V2는 `/a/xlayer-telemetry-app/v2/overview`에서 시작합니다. 상단 버전 전환은 현재 화면·Run/Step/worker/resource/time을 보존합니다. Dark palette는 App 안에만 적용하며 Grafana 사용자 theme을 변경하지 않습니다.
 
 ## 준비
 
@@ -99,6 +103,8 @@ python grafana/xlayer-app/scripts/browser_validate.py \
 
 Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합니다. 설치된 Chromium을 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 결과는 desktop·900px·390px capture와 validation JSON입니다. Test는 실제 Grafana query request의 Step interval도 확인합니다.
 
+`versions_validate.py --url <owned-loopback-demo> --output <new-directory>`는 여섯 화면의 V1/V2 값·Matrix·candidate·native query target 동등성, version/resource context, 1440/390px, empty/error/stale response fixture를 확인합니다.
+
 `metric_contract_validate.py --url <owned-loopback-demo> --output <new-directory>`는 metrics-only veRL label·async presentation의 browser response fixture와 Storage layer context·GPU/Ray query 재사용을 검사합니다. `ci_demo.py`도 기본 journey 뒤에 이 검사를 실행합니다. Async fixture는 실제 veRL 실행이나 backend 장애 실험이 아닙니다.
 
 최신 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
@@ -128,7 +134,10 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 - `src/catalog.ts`: 실제 provisioned dashboard metadata와 native Scenes query/variable/viz 연결.
 - `src/context.ts`, `semantics.ts`, `selection.ts`, `distributed.ts`, `data.ts`: URL state, observation boundary, projection decoding.
 - `src/matrix-contract.ts`: Canonical panel/ref 선택. PromQL/LogQL은 중복 정의하지 않습니다.
-- `src/module.tsx`: XLayer Scene 페이지와 custom component.
+- `src/pages.ts`: 공통 화면·route·primary panel reference 목록.
+- `src/infrastructure.ts`, `topology-view.tsx`: 명시 owner와 exporter observation을 구분하는 공통 topology model·resource 선택.
+- `src/module.tsx`: 버전별로 복제하지 않는 Scene factory와 shared component.
+- `src/workspace.css`: V2 scoped palette·layout; 기존 V1 `style.css` 유지.
 - `scripts/`: 선택적 live demo와 browser validation.
 
 설치·조사 흐름은 [App guide](../../docs/grafana-scenes-poc.md), query·scope·운영 한계는 [App Reference](../../docs/grafana-scenes-reference.md), 당시 화면·결과는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.

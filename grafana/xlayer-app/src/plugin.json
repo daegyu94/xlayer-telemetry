@@ -4,7 +4,7 @@
   "name": "XLayer Telemetry",
   "id": "xlayer-telemetry-app",
   "info": {
-    "description": "Agent RL investigation over existing XLayer dashboards and datasource contracts",
+    "description": "Classic and Workspace views over shared Agent RL observability, infrastructure and diagnosis contracts",
     "author": {
       "name": "XLayer Telemetry contributors"
     },
@@ -24,7 +24,7 @@
       }
     ],
     "version": "0.1.0",
-    "updated": "2026-10-07"
+    "updated": "2026-10-09"
   },
   "dependencies": {
     "grafanaDependency": ">=12.1.0",
@@ -64,6 +64,69 @@
       "type": "page",
       "name": "Deep Dive",
       "path": "/a/xlayer-telemetry-app/deep-dive",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "Infrastructure",
+      "path": "/a/xlayer-telemetry-app/infrastructure",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "Logs & Events",
+      "path": "/a/xlayer-telemetry-app/logs",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Overview",
+      "path": "/a/xlayer-telemetry-app/v2/overview",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Analyze",
+      "path": "/a/xlayer-telemetry-app/v2/analyze",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Investigate",
+      "path": "/a/xlayer-telemetry-app/v2/investigate",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Deep Dive",
+      "path": "/a/xlayer-telemetry-app/v2/deep-dive",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Infrastructure",
+      "path": "/a/xlayer-telemetry-app/v2/infrastructure",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Logs & Events",
+      "path": "/a/xlayer-telemetry-app/v2/logs",
+      "addToNav": false,
+      "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "V2 Timeline",
+      "path": "/a/xlayer-telemetry-app/v2/timeline",
       "addToNav": false,
       "role": "Viewer"
     }
