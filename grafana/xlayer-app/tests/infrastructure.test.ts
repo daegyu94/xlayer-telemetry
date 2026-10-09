@@ -38,6 +38,11 @@ test('resource navigation keeps investigation identity while setting only applic
  const gpu=resourceSelection(disk,model.nodes.find(n=>n.id==='gpu')!);assert.deepEqual(gpu.variables.device,['.*']);assert.deepEqual(gpu.variables.gpu,['0']);
  assert.throws(()=>resourceSelection(context,model.nodes.find(n=>n.id==='fabric')!));
 });
+test('All-cluster resource selection pins the explicit resource cluster, not just its colliding hostname',()=>{
+ const model=infrastructure(rows,[],[],2000);
+ const selected=resourceSelection({...context,variables:{...context.variables,cluster:['.*']}},model.nodes.find(n=>n.id==='gpu')!);
+ assert.deepEqual(selected.variables.cluster,['c']);
+});
 test('canonical log expressions use distinct application and log payload Run filters without rewriting queries',()=>{
  const panel={id:1,type:'logs',title:'Logs',targets:[{expr:'{run_id=~"$telemetry_run_id"} | unpack | run_id=~"$run_id"'}]};
  assert.equal(logPanel(panel)?.targets?.[0].expr,'{run_id=~"$run_id"} | unpack | run_id=~"$log_run_id"');

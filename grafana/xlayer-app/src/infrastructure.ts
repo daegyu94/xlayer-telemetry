@@ -33,7 +33,7 @@ export function infrastructure(components:RecordRow[], edges:RecordRow[], availa
 }
 export function resourceSelection(context:Context,node:Resource):Context{
  if(node.mapping!=='configured'||!node.resource)throw new Error('Resource mapping is not unambiguous');
- return {...context,variables:{...context.variables,infra_component:[node.key],node:[node.resource],
+ return {...context,variables:{...context.variables,cluster:[node.cluster],infra_component:[node.key],node:[node.resource],
   gpu:[node.gpu||'.*'],device:[node.device||node.interface||'.*'],
   storage_node:[node.kind==='storage'?node.resource:'.*'],storage_system:[node.storageSystem||'.*']}};
 }

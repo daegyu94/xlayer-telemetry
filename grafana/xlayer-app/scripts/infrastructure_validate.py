@@ -19,6 +19,7 @@ def main():
     args.output.mkdir(parents=True,exist_ok=False)
     record=json.loads(args.context.read_text())
     params=record.get('selected_context') or record.get('context');assert params
+    params['var-cluster']=['$__all']
     errors=[]
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=True,args=['--no-sandbox'],**({'executable_path':args.browser} if args.browser else {}))
@@ -34,6 +35,7 @@ def main():
             page.get_by_role('heading',name='Selected Resource · gpu-node-0/gpu-0',exact=True).wait_for()
             gpu=parse_qs(urlparse(page.url).query)
             assert gpu['var-gpu']==['0'] and gpu['var-node']==['gpu-node-0']
+            assert gpu['var-cluster']==['scenes-demo']
             for key in ('var-run_id','var-record_id','var-source_node','from','to'):assert gpu[key]==params[key]
             resource.select_option(label='gpu-node-0/eth0 · nic')
             page.get_by_role('heading',name='Selected Resource · gpu-node-0/eth0',exact=True).wait_for()
