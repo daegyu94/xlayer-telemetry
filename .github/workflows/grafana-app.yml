@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        demo: [single-worker, multi-worker]
+        demo: [single-worker, multi-worker, multi-job]
     defaults:
       run:
         working-directory: grafana/xlayer-app
@@ -60,6 +60,8 @@ jobs:
           demo_args=()
           if [[ "${{ matrix.demo }}" == "multi-worker" ]]; then
             demo_args=(--multi-worker)
+          elif [[ "${{ matrix.demo }}" == "multi-job" ]]; then
+            demo_args=(--multi-job --completed-comparisons 1)
           fi
           python scripts/ci_demo.py \
             --tools "$RUNNER_TEMP/xlayer-grafana-tools" \

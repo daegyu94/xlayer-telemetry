@@ -28,11 +28,11 @@ def bounded_tail(path, max_bytes=65536):
         return source.read(max_bytes).decode('utf-8', errors='replace')
 
 
-def wait_for_fixtures(process, log, state, deadline, comparisons=2):
+def wait_for_fixtures(process, log, state, deadline, comparisons=2, *, multi_job=False):
     while time.monotonic() < deadline:
         if process.poll() is not None:
             raise RuntimeError('Owned live demo exited before completing fixtures')
-        if (state / 'connection.json').is_file() and bounded_tail(log).count('COMPLETED Step ') >= comparisons:
+        if (state / 'connection.json').is_file() and bounded_tail(log).count('COMPLETED MULTI-JOB ' if multi_job else 'COMPLETED Step ') >= comparisons:
             return json.loads((state / 'connection.json').read_text())
         # Bounded process wait, rather than a busy-poll or fixed sleep loop.
         try:
@@ -71,12 +71,16 @@ def run(args):
     try:
         with launcher_log.open('w') as dest:
             demo_command = [sys.executable, str(SCRIPTS / 'live_demo.py'), '--tools', str(args.tools.resolve()),
-                            '--output', str(args.state), '--grafana-port', str(port), '--storage-series']
+                                       '--output', str(args.state), '--grafana-port', str(port)]
+            if not args.multi_job:
+                demo_command.append('--storage-series')
             if args.multi_worker:
                 demo_command.append('--multi-worker')
+            if args.multi_job:
+                demo_command.append('--multi-job')
             process = subprocess.Popen(demo_command,
                                        cwd=ROOT, stdout=dest, stderr=subprocess.STDOUT, start_new_session=True)
-            connection = wait_for_fixtures(process, launcher_log, args.state, time.monotonic() + args.ready_timeout, args.completed_comparisons)
+            connection = wait_for_fixtures(process, launcher_log, args.state, time.monotonic() + args.ready_timeout, args.completed_comparisons, multi_job=args.multi_job)
             command = [sys.executable, str(SCRIPTS / 'browser_validate.py'), '--url', connection['grafana'],
                        '--output', str(args.output), '--label', 'ci-multi' if args.multi_worker else 'ci']
             if args.multi_worker:
@@ -95,7 +99,12 @@ def run(args):
                       '--url', connection['grafana'], '--output', str(args.output / 'clock-quality')]
             if args.browser:
                 clocks.extend(['--browser', args.browser])
-            for validation_command in (command, contracts, series, clocks):
+            validators = (command, contracts, series, clocks)
+            if args.multi_job:
+                validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
+                    '--state', str(args.state), '--output', str(args.output / 'multi-job'),
+                    *(['--browser', args.browser] if args.browser else [])],)
+            for validation_command in validators:
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:
                     code = validator.wait(timeout=args.browser_timeout)
@@ -121,7 +130,9 @@ def main():
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--browser', default=None)
-    parser.add_argument('--multi-worker', action='store_true', help='Explicit opt-in four-worker SDK/demo browser journey')
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--multi-job', action='store_true', help='Actual three-job Collect/Query/Diagnose browser journey')
+    modes.add_argument('--multi-worker', action='store_true', help='Explicit opt-in four-worker SDK/demo browser journey')
     parser.add_argument('--completed-comparisons', type=int, choices=(1,2), default=2, help='Actual completed baseline/current pairs to await; default validates both scenarios')
     parser.add_argument('--ready-timeout', type=int, default=240)
     parser.add_argument('--browser-timeout', type=int, default=180)

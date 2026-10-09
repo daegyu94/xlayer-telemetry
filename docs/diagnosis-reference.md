@@ -304,6 +304,8 @@ Collection point와 reset-after-report counter의 상세는 [Storage correlation
 :class: important
 
 수치 confidence를 계산하지 않습니다. Storage 필수 조건을 충족해도 Run별 3FS client bytes가 없으면 attribution 자료를 별도 missing evidence로 남깁니다. Strong도 시간적 상관이며 실행별 사용량·원인은 아닙니다.
+
+Prometheus/3FS의 resource evidence를 사용하는 candidate는 `resource_attribution=not_established`와 `run_resource_attribution_unverified`를 남깁니다. 이 marker는 required pressure sample 누락과 구분합니다. 모든 관측 조건이 충족돼 `strong_signal`이어도 공유 node/service가 특정 Run의 원인이라는 뜻은 아닙니다.
 ```
 
 | Rule | 주요 evidence | 판정 범위·주의 |

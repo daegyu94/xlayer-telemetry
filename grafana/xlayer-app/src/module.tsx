@@ -1188,11 +1188,13 @@ function Steps({
       numeric(r.window_start_ms) !== undefined &&
       numeric(r.window_end_ms)! > numeric(r.window_start_ms)!,
   );
+  const multipleRuns = new Set(unique.map(row => String(row.run_id))).size > 1;
   return (
     <div className="xlt-scroll">
       <table>
         <thead>
           <tr>
+            {multipleRuns && <th>Run</th>}
             <th>Step</th>
             <th>Duration</th>
             <th>Boundary</th>
@@ -1209,6 +1211,7 @@ function Steps({
                 key={String(r.record_id)}
                 aria-selected={r.record_id === selected?.record_id}
               >
+                {multipleRuns && <td>{scalar(r.run_id)}</td>}
                 <td>{scalar(r.step)}</td>
                 <td>{format(r.step_duration_seconds, "s")}</td>
                 <td>{scalar(r.boundary_accuracy)}</td>

@@ -89,6 +89,8 @@ Demo의 MFU·policy·wrapper report도 명시적으로 생성한 synthetic sourc
 
 `Ctrl-C`는 이 launcher가 만든 process만 종료합니다. 작은 fixture/log와 state는 지정한 directory에 남깁니다. Cleanup은 process 종료를 확인한 뒤 이 directory만 삭제합니다.
 
+세 동시 Job·shared resource·missing/stale source의 실제 query/diagnosis 경로는 같은 명령에 `--multi-job`을 추가합니다. 기존 `--multi-worker`와는 별도 경로이며 [Multi-job Tutorial](../../docs/demo.md#multi-job-live-demo)의 확인 순서를 따릅니다. 이 모드는 모델 이름을 metadata로 기록할 뿐 weights를 실행하지 않고, 기존 단일 Job의 precomputed scenario diagnosis를 사용하지 않습니다.
+
 ```bash
 python -m pip install playwright
 python -m playwright install chromium

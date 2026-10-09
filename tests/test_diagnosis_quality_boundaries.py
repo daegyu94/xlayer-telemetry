@@ -82,7 +82,7 @@ def test_dense_comparable_engine_retains_strong_observational_signal():
     report=queue_report(Queues())
     candidate=next(c for c in report['candidates'] if c['id']=='rollout_queue_backlog')
     assert candidate['state']=='strong_signal'
-    assert not candidate['missing_evidence']
+    assert candidate['missing_evidence'] == ['run_resource_attribution_unverified']
 
 
 def distribution(host,value):

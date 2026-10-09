@@ -58,6 +58,8 @@ xltel inspect RUN_ID
 
 > **Correlation ≠ attribution ≠ causality.** Shared resource의 동시 변화는 Run 사용량이나 확정 원인이 아닙니다. Exact/calibrated span, approximate step, sampled metric과 missing/zero를 구분합니다. [해석 기준](docs/concepts.md)을 확인하세요.
 
+여러 Job의 application metric·log·span은 Run/worker identity로 구분합니다. GPU·host·Ray·Mooncake·storage에는 Run ID가 없거나 공유 scope일 수 있으므로, 같은 시간의 pressure를 특정 Job의 원인으로 단정하지 않습니다. `strong_signal`도 관측된 조건의 강도이며 자원 소유권을 뜻하지 않습니다. GPU 없이 세 Job의 겹침·누락·stale source와 실제 query/diagnosis를 확인하려면 [Multi-job Live Demo](docs/demo.md#multi-job-live-demo)를 사용하세요.
+
 ## 어떻게 조사하나
 
 <a id="why-cross-layer-telemetry"></a>

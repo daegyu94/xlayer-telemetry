@@ -81,6 +81,7 @@
           "counter_evidence": {"type": "array", "items": {"$ref": "#/$defs/counter_evidence"}},
           "missing_evidence": {"type": "array", "items": {"type": "string"}},
           "observation_scope": {"$ref": "#/$defs/observation_scope"},
+          "resource_attribution": {"enum": ["not_established"]},
           "related_nodes": {"type": "array", "items": {"type": "string"}},
           "related_devices": {"type": "array", "items": {"type": "string"}},
           "related_spans": {"type": "array", "items": {"type": "string"}}

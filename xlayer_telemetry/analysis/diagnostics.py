@@ -1141,6 +1141,12 @@ class DiagnosticEngine:
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
         for candidate in candidates:
+            if any(item.get('source') in {'prometheus', '3fs_clickhouse'} and item.get('observation_scope') != 'application'
+                   for item in candidate.get('evidence', [])):
+                # The Run selects an investigation window, not resource ownership.
+                # Strong describes the observed pressure pattern, not a Job cause.
+                candidate['resource_attribution'] = 'not_established'
+                candidate['missing_evidence'].append('run_resource_attribution_unverified')
             duration_comparison = any(item['signal'] in {
                 'step_duration_seconds', 'rollout_duration_seconds', 'communication_duration_seconds',
                 'actor_update_duration_seconds', 'critic_update_duration_seconds', 'checkpoint_duration_seconds',
@@ -1526,6 +1532,7 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "counter_evidence_summary": ", ".join(item["signal"] for item in candidate.get("counter_evidence", [])),
                      "missing_evidence_summary": ", ".join(candidate.get("missing_evidence", [])),
                      "observation_scope": candidate.get("observation_scope")})
+        rows[-1]['resource_attribution'] = candidate.get('resource_attribution', 'not_established')
         for kind, items in (("supporting", candidate.get("evidence", [])),
                             ("counter", candidate.get("counter_evidence", []))):
             for item in items:

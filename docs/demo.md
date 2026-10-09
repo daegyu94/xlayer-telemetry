@@ -87,6 +87,47 @@ unset XLAYER_CONFIG
 | Logs가 없음 | Log directory `verl-agent-demo`, Run context `verl-agent-demo` 확인 |
 | Source가 N/A | Fixture coverage와 필터 확인; N/A를 0으로 해석하지 않기 |
 
+## Multi-job Live Demo
+
+기존 단일 Job·`--multi-worker`를 유지하면서 세 Job이 같은 GPU node와 infrastructure를 공유하는 선택적 App demo입니다. Model 이름은 Run metadata이며 실제 weights를 내려받거나 실행하지 않습니다.
+
+### 준비 → 시작
+
+- [App build 및 binary 준비](grafana-scenes-poc.md)를 완료합니다.
+- 새 `--output` directory와 사용 가능한 loopback Grafana port를 선택합니다.
+
+```bash
+python grafana/xlayer-app/scripts/live_demo.py \
+  --tools /path/to/existing-demo-tools \
+  --output /tmp/xlayer-multi-job \
+  --grafana-port 23400 --multi-job
+```
+
+**정상 결과:** `LIVE DEMO http://127.0.0.1:23400/...`와 세 Job의 schedule이 출력됩니다. 약 110초 동안 실제 scrape를 수집한 뒤 `COMPLETED MULTI-JOB ... runs=3`가 표시됩니다. 세 Run의 SDK Step·span·log와 실제 Prometheus 조회로 만든 diagnosis가 Loki에 저장됩니다.
+
+| Run / metadata model | Producer 입력 / 조사할 것 |
+| --- | --- |
+| `demo-qwen` · Qwen2.5 | Step duration 유지. 다른 Job의 shared I/O pressure는 함께 관측될 수 있음 |
+| `demo-llama` · Llama 3.1 | Rollout duration·engine queue·KV pressure 증가; reward source 누락 |
+| `demo-deepseek` · DeepSeek distill | Actor update·checkpoint 증가와 host pressure 중첩; application snapshot stale, native preemption source 누락, engine 관계 미확인 |
+
+### Grafana에서 확인
+
+1. Run을 **All**로 선택하면 같은 Step·worker ID를 가진 Job들을 Run 열로 구분합니다. Job·완료 Step을 하나 선택합니다.
+2. Overview의 application KPI와 shared resource card를 구분합니다. Reward missing·stale snapshot을 측정값 `0`으로 읽지 않습니다.
+3. Analyze → Investigate에서 Current/Baseline의 Run과 candidate의 실제 endpoint/device identity를 확인합니다.
+4. `run_resource_attribution_unverified`는 해당 resource가 Job 소유라는 증거가 없다는 뜻입니다. Strong observed pressure가 있어도 특정 Job의 원인 확정은 아닙니다.
+5. Deep Dive → 기존 Storage/Compute/Logs → Browser Back으로 Run·Step·node·time이 유지되는지 확인합니다. 다른 종료 시각의 Job을 조사하려면 먼저 Grafana time picker로 최근 구간을 넓힙니다.
+6. 모델 정보는 Run directory의 `telemetry-manifest.json`과 `run.metadata` event에서 확인합니다. Application Prometheus label에 model을 추가하지 않습니다. vLLM의 기존 `model_name`·endpoint label은 native source identity입니다.
+
+```{admonition} 관측한 것과 검증하지 않은 것
+:class: important
+
+Schedule은 지연·pressure·누락을 만드는 producer 입력이며 diagnosis 정답을 주입하지 않습니다. 새 경로는 실제 `DiagnosticEngine`·Prometheus·Loki·Grafana를 사용합니다. Qwen의 Step이 정상이어도 공유 resource Finding은 남을 수 있으며 legacy `bottleneck_suspected`는 Job 원인 확정이 아닙니다. ClickHouse/3FS를 설정한 것처럼 표시하지 않고, operation attribution·replica selection·실제 model training·물리 multi-node·async 실행 소유 관계는 검증하지 않습니다.
+```
+
+`Ctrl-C`로 이번 launcher의 process를 종료합니다. State에는 synthetic artifact가 남으므로 종료를 확인한 뒤 지정한 demo directory만 삭제합니다. `--multi-job`과 `--multi-worker`는 각각 다른 검증 경로이며 동시에 사용하지 않습니다.
+
 ## 다음
 
 [느린 Step 조사](dashboards.md) · [기존 VERL 연결](verl-quickstart.md) · [Fixture coverage / 상세 검증](monitoring-reference.md#check-dashboard-coverage)

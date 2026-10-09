@@ -17,6 +17,8 @@ from xlayer_telemetry.adapters.verl import VerlMetricsAdapter
 from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.operations.config import assets_root
 from .scenario import frame_at, load_scenario, phase_values
+from .multi_job import load_schedule, native_values, resource_values
+from dataclasses import replace
 
 
 _NAME = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -71,7 +73,11 @@ def _phase(elapsed: float) -> tuple[str, dict[str, float]]:
 
 
 class Demo:
-    def __init__(self, topology_dir: Path, *, scenario_state: Path | None = None) -> None:
+    def __init__(self, topology_dir: Path, *, scenario_state: Path | None = None, multi_job_state: Path | None = None) -> None:
+        if scenario_state is not None and multi_job_state is not None:
+            raise ValueError('single-job and multi-job states are mutually exclusive')
+        self.multi_job_state = multi_job_state
+        self.multi_job = None
         self.gpu, self.storage = load_topology(topology_dir)
         self.network = f"{self.gpu['network']['transport']}-{self.gpu['network']['bandwidth_gbps']:g}Gbps"
         if self.network != f"{self.storage['network']['transport']}-{self.storage['network']['bandwidth_gbps']:g}Gbps":
@@ -96,6 +102,16 @@ class Demo:
         now = time.monotonic()
         phase, values = _phase(now - self.started)
         with self.lock:
+            if self.multi_job_state is not None:
+                try: self.multi_job = load_schedule(self.multi_job_state)
+                except FileNotFoundError: pass
+                if self.multi_job is not None:
+                    values = resource_values(self.multi_job, time.time())
+                    for job in self.multi_job['jobs']:
+                        if endpoint == job['instance']:
+                            rows = self._vllm(now, native_values(job, time.time()), identity=endpoint,
+                                              labels={'model_name': job['model'], 'engine': '0'})
+                            return [r for r in rows if not job['missing_preemptions'] or r.name != 'vllm:num_preemptions_total']
             if self.scenario_state is not None:
                 wall = time.time()
                 try:
@@ -130,6 +146,7 @@ class Demo:
             if endpoint == "topology":
                 return self._topology()
             if endpoint == "vllm":
+                if self.multi_job_state is not None: return []
                 return self._vllm(now, values)
             if endpoint == "ray":
                 return self._ray(now, values)
@@ -196,16 +213,28 @@ class Demo:
                       "data_loader": .08 if phase != "data_wait" else .62, "checkpoint": .01 if phase != "checkpoint" else .40}
             samples.extend(GaugeSample("training_timer_seconds", "Synthetic worker timer.", timer, {**labels, "timer": name}) for name, timer in timers.items())
         if node == self.gpu["gpu_nodes"][0]:
-            samples.extend(self._scenario_agent(now) if self.scenario_state is not None else self._agent_rl(now))
-        return samples
+            if self.multi_job_state is not None:
+                for job in (self.multi_job or {}).get('jobs', []):
+                    completed = [f for f in job['scenario']['frames'] if f['end'] <= time.time()]
+                    if not completed: continue
+                    frame = completed[0] if job['stale_application'] else completed[-1]
+                    rows = self._scenario_agent(now, schedule=job['scenario'], frame=frame, include_sandbox=False)
+                    rows = [replace(sample, value=job['reward']) if sample.name == 'reward_mean' else
+                            replace(sample, value=frame['end'] - 600) if sample.name == 'training_sample_timestamp_seconds' and job['stale_application'] else sample
+                            for sample in rows]
+                    samples.extend(r for r in rows if not job['missing_reward'] or r.name != 'reward_mean')
+            else:
+                samples.extend(self._scenario_agent(now) if self.scenario_state is not None else self._agent_rl(now))
+        return [s for s in samples if s.labels.get('run_id') != 'live-demo'] if self.multi_job_state is not None else samples
 
-    def _scenario_agent(self, now: float) -> list[GaugeSample]:
+    def _scenario_agent(self, now: float, *, schedule=None, frame=None, include_sandbox=True) -> list[GaugeSample]:
         """Only completed application observations; resource samples remain live."""
-        if self.scenario is None:
+        schedule = schedule or self.scenario
+        if schedule is None:
             return []
-        labels = {"run_id": self.scenario["run_id"], "producer": "verl-file-demo", "role": "trainer",
-                  "node": self.scenario["node"], "worker_id": "driver"}
-        frame = self.completed_frame
+        labels = {"run_id": schedule["run_id"], "producer": "verl-file-demo", "role": "trainer",
+                  "node": schedule["node"], "worker_id": "driver"}
+        frame = frame or self.completed_frame
         samples = []
         if frame is not None:
             stages = {p["phase"]: p["end"] - p["start"] for p in frame["phases"]}
@@ -238,7 +267,7 @@ class Demo:
                        for state in ("running", "succeeded", "failed"))
         samples.append(GaugeSample("telemetry_wrapped_workload_observed_timestamp_seconds",
                                    "Synthetic node-clock wrapper report timestamp.", time.time(), wrapper))
-        samples.extend(self._sandbox(now))
+        if include_sandbox: samples.extend(self._sandbox(now))
         return samples
 
     def _agent_rl(self, now: float) -> list[GaugeSample]:
@@ -337,7 +366,7 @@ class Demo:
             samples.append(GaugeSample(name, "Synthetic swap page counter.",
                                        self._counter(node, name, 2, now), kind="counter"))
         for name, rate in {
-            "node_pressure_cpu_waiting_seconds_total": .04,
+            "node_pressure_cpu_waiting_seconds_total": value.get("host_pressure", .04),
             "node_pressure_memory_waiting_seconds_total": .02,
             "node_pressure_memory_stalled_seconds_total": .01,
             "node_pressure_io_waiting_seconds_total": value["busy"] / 2,
@@ -413,8 +442,8 @@ class Demo:
             samples.append(GaugeSample(name, "Synthetic sandbox counter.", self._counter("sandbox", name, rate, now), labels, kind="counter"))
         return samples
 
-    def _vllm(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
-        labels = {"model_name": "synthetic-model", "engine": "0"}
+    def _vllm(self, now: float, value: dict[str, float], *, identity="vllm", labels=None) -> list[GaugeSample]:
+        labels = labels or {"model_name": "synthetic-model", "engine": "0"}
         waiting = value.get("waiting", 8 if value["busy"] > .5 else 1)
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
@@ -426,18 +455,18 @@ class Demo:
                            "vllm:external_prefix_cache_queries_total": 50,
                            "vllm:external_prefix_cache_hits_total": 20,
                            "vllm:kv_offload_allocation_failure_total": .05 if waiting > 1 else 0}.items():
-            samples.append(GaugeSample(name, "Synthetic vLLM counter.", self._counter("vllm", name, rate, now), labels, kind="counter"))
+            samples.append(GaugeSample(name, "Synthetic vLLM counter.", self._counter(identity, name, rate, now), labels, kind="counter"))
         for direction, rate in (("GPU_to_CPU", .2 * _GIB), ("CPU_to_GPU", .1 * _GIB)):
             samples.append(GaugeSample("vllm:kv_offload_total_bytes_total", "Synthetic KV offload transfer counter.",
-                self._counter("vllm", direction, rate, now), {**labels, "transfer_type": direction}, kind="counter"))
+                self._counter(identity, direction, rate, now), {**labels, "transfer_type": direction}, kind="counter"))
         for direction, bytes_rate in (("store", .2 * _GIB), ("load", .1 * _GIB)):
             for suffix, rate in (("bytes_total", bytes_rate), ("time_total", .04), ("size_count", 10)):
                 name = f"vllm:kv_offload_{direction}_{suffix}"
                 samples.append(GaugeSample(name, "Synthetic flat KV offload counter.",
-                    self._counter("vllm", name, rate, now), labels, kind="counter"))
+                    self._counter(identity, name, rate, now), labels, kind="counter"))
         for reason, rate in (("stop", 8), ("length", 2), ("abort", 0)):
             samples.append(GaugeSample("vllm:request_success_total", "Synthetic finished request counter.",
-                self._counter("vllm", "finished-" + reason, rate, now), {**labels, "finished_reason": reason}, kind="counter"))
+                self._counter(identity, "finished-" + reason, rate, now), {**labels, "finished_reason": reason}, kind="counter"))
         # Cumulative bucket COUNTERS, not percentile gauges. Rates preserve the
         # ordering needed by the dashboards' real histogram_quantile queries.
         distributions = {
@@ -454,15 +483,15 @@ class Demo:
             for bound, fraction in zip(("0.1", "0.5", "1", "5", "+Inf"), fractions):
                 metric = f"vllm:{name}_bucket"
                 samples.append(GaugeSample(metric, "Synthetic cumulative latency bucket counter.",
-                    self._counter("vllm", name + bound, fraction * 10, now), {**labels, "le": bound}, kind="counter"))
+                    self._counter(identity, name + bound, fraction * 10, now), {**labels, "le": bound}, kind="counter"))
         for operation, calls, byte_rate in (("save_exists", 4, 0), ("save_put", 4, .2 * _GIB),
                                             ("load_get", 2, .1 * _GIB), ("lookup_exists", 2, 0)):
             operation_labels = {**labels, "operation": operation, "status": "ok"}
             for name, rate in (("operation_total", calls), ("operation_keys_total", calls * 8),
                                ("operation_bytes_total", byte_rate), ("operation_failed_keys_total", 0)):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
-                    self._counter("vllm", operation + name, rate, now), operation_labels, kind="counter"))
-            if self.scenario_state is not None:
+                    self._counter(identity, operation + name, rate, now), operation_labels, kind="counter"))
+            if self.scenario_state is not None or self.multi_job_state is not None:
                 # Fixed bucket identities for the entire scenario replay. Only
                 # nonnegative observation increments change between phases;
                 # cumulative counters are never replaced by the current CDF.
@@ -473,15 +502,15 @@ class Demo:
                 for bound, fraction in zip(bounds[:-1], fractions[:-1]):
                     mean += (float(bound) + previous_bound) / 2 * (fraction - previous_fraction)
                     previous_bound, previous_fraction = float(bound), fraction
-                self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
+                self._histogram(samples, identity, "vllm:mooncake_store_operation_time_seconds",
                                 bounds, fractions, calls, now, operation_labels, mean=mean)
             else:
-                self._histogram(samples, "vllm", "vllm:mooncake_store_operation_time_seconds",
+                self._histogram(samples, identity, "vllm:mooncake_store_operation_time_seconds",
                                 ("0.001", "0.01", "0.1", "1", "+Inf"), (.1, .7, .95, 1, 1),
                                 calls, now, operation_labels)
             for name in ("operation_total", "operation_failed_keys_total"):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
-                    self._counter("vllm", operation + name + "error", 0, now),
+                    self._counter(identity, operation + name + "error", 0, now),
                     {**operation_labels, "status": "error"}, kind="counter"))
         return samples
 
@@ -649,6 +678,15 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
                   "          data_origin: synthetic", f"          telemetry_source: {source}",
                   f"          node: {node}", f"          nodename: {node}", f"          instance: synthetic-{endpoint}-0",
                   f"          component: {endpoint}-0", f"          __metrics_path__: /metrics/{endpoint}"]
+    if demo.multi_job_state is not None:
+        from .multi_job import MODELS
+        for name, _ in MODELS:
+            endpoint = 'synthetic-job-' + name
+            lines += [f"      - targets: ['{address}']", '        labels:', f'          cluster: {cluster}',
+                      '          data_origin: synthetic', '          telemetry_source: vllm',
+                      f"          node: {demo.gpu['gpu_nodes'][0]}", f"          nodename: {demo.gpu['gpu_nodes'][0]}",
+                      f'          instance: {endpoint}', f'          component: {endpoint}',
+                      f'          __metrics_path__: /metrics/{endpoint}']
     return "\n".join(lines) + "\n"
 
 
@@ -683,10 +721,11 @@ def main() -> None:
     parser.add_argument("--cluster", default="demo-b300")
     parser.add_argument("--listen", default="127.0.0.1:19110")
     parser.add_argument("--write-prometheus-config", type=Path)
+    parser.add_argument("--multi-job-state", type=Path, help="Bounded concurrent three-job synthetic inputs")
     parser.add_argument("--scenario-state", type=Path, help="Optional bounded synthetic schedule written atomically by the App demo")
     args = parser.parse_args()
     try:
-        demo = Demo(args.topology_dir, scenario_state=args.scenario_state)
+        demo = Demo(args.topology_dir, scenario_state=args.scenario_state, multi_job_state=args.multi_job_state)
         if args.write_prometheus_config:
             args.write_prometheus_config.write_text(prometheus_config(demo, args.listen, args.cluster), encoding="utf-8")
             return

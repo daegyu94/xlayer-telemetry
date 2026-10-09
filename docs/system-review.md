@@ -211,3 +211,29 @@ Frontend·dashboard·upstream 코드는 수정하지 않았으며 실제 GPU/veR
 | 문서·syntax | Link/diagram 10개, strict Sphinx build, Python compile·shell syntax 통과 |
 
 공식 CI image pull은 registry 연결 오류로 실패해 이미 존재하는 `open3fs/clickhouse:25.1-jammy` image로 새 격리 container를 만들었습니다. Runtime version은 25.1.5.31이며 network와 public port를 열지 않았습니다. 기존 사용자 container는 변경하지 않았고 이번 SQL database·container·demo process·임시 state는 정리했습니다. Actual GPU·veRL/3FS workload·물리 multi-node·실제 LLM 추론 검증을 대신하지 않습니다.
+
+## Multi-job 검증
+
+`8b77fa6` 이후의 작업은 여러 Job의 관측을 공유 자원 소유권으로 오인하지 않는지 확인하는 데 집중했습니다. 기존 SDK snapshot/event filename과 baseline identity에는 Run이 이미 포함되어 있어 수정하지 않았습니다. 같은 shared directory·node·worker ID에서도 세 Run의 snapshot/span과 baseline이 구분되는 regression을 추가했습니다.
+
+| 보완 | 근거 / 결과 |
+| --- | --- |
+| 선택적 `--multi-job` | 세 모델 이름을 Run metadata로 기록; 서로 다른 종료 시각·동일 Step/worker ID·missing/stale source를 생성. 실제 model weights 실행 없음 |
+| 실제 diagnosis | 기존 단일 Job의 scenario 답안을 사용하지 않고 SDK Step + 실제 Prometheus query를 `DiagnosticEngine`에 입력 |
+| Shared attribution | Resource candidate의 `not_established`·missing marker를 schema/projection에 보존. Strong pressure 조건은 Run 원인 확정이 아님 |
+| Engine config | 명시 endpoint는 기존 core/profile query 모두 같은 instance로 제한. 미확인 관계는 임의 endpoint를 Run 소유로 지정하지 않음 |
+| UI / 로그 | 다중 Run Step 표에만 Run 열 표시. 로그 timestamp는 batch 종료가 아닌 각 Job의 완료 시각으로 보존 |
+
+### 실제 확인
+
+| Run | Fixture에서 관측 / 진단 |
+| --- | --- |
+| Qwen | Step duration 유지·회귀 candidate 없음. Shared I/O Finding은 남을 수 있음 |
+| Llama | Rollout queue backlog·KV pressure·queue latency supporting. Reward 누락; 자원 소유 관계 미확인 |
+| DeepSeek | Actor CPU/checkpoint I/O stalls supporting과 다른 engine의 shared KV pressure 중첩. Snapshot stale·preemption source 누락·Run/engine 관계 미확인 |
+
+각 Run은 current/baseline에서 clock·freshness를 포함해 실제 Prometheus 126 request를 사용했습니다. 한 cycle의 localhost 분석 elapsed는 약 41–46ms/Run이었으며 실제 대규모 cluster latency나 학습 overhead가 아닙니다. Native endpoint는 세 개이고 Run label은 없으며 model은 기존 native `model_name` label만 사용합니다.
+
+검증은 CPU 전체 1,540 passed / optional ClickHouse 6 skipped와 별도 신규 SDK shared-directory regression을 포함한 관련 28개, App 104개·typecheck·build, strict Sphinx·문서 link/diagram으로 수행했습니다. Grafana 12.1.0·Scenes 6.20.0의 multi-job, single-job, multi-worker 실제 browser journey가 통과했습니다. Multi-job의 All-Run 표·native Job 전환·Step 선택·Evidence·Deep Dive·Storage dashboard·Browser Back, 1440/390px overflow와 실제 Loki log/Prometheus missing/stale 조회를 확인했습니다.
+
+단일 Job browser 검사는 동시 실행 중 180초 deadline에 한 번 걸렸고, 다른 검사가 끝난 뒤 격리 재실행하여 통과했습니다. 원인을 제품 결함으로 확정하지 않았으며 CI에 임의 retry나 늘어난 timeout을 추가하지 않았습니다. 세 demo matrix 경로를 CI에서 각각 실행합니다. 이번 process/state만 정리하며 실제 GPU·multi-node·async veRL·Mooncake/3FS operation attribution·LLM 추론은 미검증입니다.

@@ -24,6 +24,17 @@
 
 ## Limitations
 
+### Multi-job 관측과 자원 소유권
+
+| 구분 | 현재 가능한 것 | 보장하지 않는 것 |
+| --- | --- | --- |
+| Application | Run·worker·Step·span/event identity로 기록·baseline·drill-down 구분 | 모든 async rollout을 하나의 trainer update가 소유한다는 관계 |
+| Native engine/service | Endpoint·model·device label이 있는 관측을 그대로 보존; 명시 query selector 활용 | 설정된 endpoint가 실제 모든 요청을 처리했다는 operation 관계 |
+| Shared node/storage | GPU/host/network/Ray/Mooncake pressure와 선택 window의 중첩 조사 | 특정 Job의 resource 사용량·I/O bytes·확정 원인 |
+| Quality | Missing/stale/no-data·clock·sampling·unverified attribution 표시 | 관측되지 않은 source의 정상 상태나 수치 `0` |
+
+Resource를 사용하는 candidate는 `resource_attribution=not_established`와 `run_resource_attribution_unverified`를 보존합니다. `strong_signal`은 실제 관측된 pressure 조건의 강도이며 attribution·causality를 확정하지 않습니다. 기존 [Multi-job demo](demo.md#multi-job-live-demo)는 서로 다른 모델 metadata·동일 Step/worker ID·겹치는 시간·missing/stale 입력을 실제 query/diagnosis 경로로 재현합니다. 실장비·framework-level execution propagation과 동일한 검증은 아닙니다.
+
 ### Time-window와 execution 관계
 
 | 질문 | 현재 근거 | 아직 설명하지 못하는 것 |

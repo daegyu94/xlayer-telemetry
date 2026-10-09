@@ -264,12 +264,15 @@ def _synthetic_calibrations(output: Path, scenario: dict, nodes: set[str]) -> di
     return caches
 
 
-def _record_scenario_spans(output: Path, scenario: dict, calibrations: dict[str, CalibrationCache] | None = None) -> None:
+def _record_scenario_spans(output: Path, scenario: dict, calibrations: dict[str, CalibrationCache] | None = None,
+                           *, step_record_ids: dict[int, str] | None = None) -> None:
     calibrations = calibrations or {}
     fingerprint = hashlib.sha256(json.dumps(scenario["workload"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     attrs = {"data_origin": "synthetic", "workload_fingerprint": fingerprint,
              "boundary_scope": "rl_step", "measurement_source": "synthetic_scenario_sdk"}
     for frame in scenario["frames"]:
+        if step_record_ids is not None:
+            attrs = {**attrs, 'step_record_id': step_record_ids[frame['step']]}
         for phase in frame["phases"]:
             clock = iter((int(phase["start"] * 1e9), int(phase["end"] * 1e9)))
             context = CorrelationContext(run_id=scenario["run_id"], node=scenario["node"], producer="demo_phase",
