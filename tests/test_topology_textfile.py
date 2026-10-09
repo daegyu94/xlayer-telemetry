@@ -41,3 +41,17 @@ def test_conflicting_or_invalid_mapping_does_not_supply_storage_owner(tmp_path):
     ]}))
     rows=[g.labels for g in build_gauges(tmp_path)]
     assert rows and all('resource_node' not in row for row in rows)
+def test_compute_resource_mapping_is_explicit_and_conflicts_are_not_attributed(tmp_path):
+    import json
+    (tmp_path/'compute-topology.json').write_text(json.dumps({'components':[
+        {'id':'gpu','role':'gpu','resource_node':'compute-a','gpu':'0'},
+        {'id':'nic','role':'nic','resource_node':'compute-a','interface':'ens5'},
+        {'id':'conflict','role':'gpu','resource_node':'a','gpu':'0'},
+        {'id':'conflict','role':'gpu','resource_node':'b','gpu':'0'},
+        {'id':'unknown','role':'gpu'}]}))
+    values=build_gauges(tmp_path)
+    gpu=next(row for row in values if row.labels['component']=='gpu')
+    assert gpu.labels['resource_node']=='compute-a' and gpu.labels['gpu']=='0'
+    nic=next(row for row in values if row.labels['component']=='nic')
+    assert nic.labels['interface']=='ens5'
+    assert all('resource_node' not in row.labels for row in values if row.labels['component'] in {'conflict','unknown'})

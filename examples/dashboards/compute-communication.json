@@ -416,12 +416,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_receive_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} RX"
         },
         {
           "refId": "B",
-          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
+          "expr": "sum by (cluster, nodename, instance, device) (rate(node_network_transmit_bytes_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\",device=~\"$device\",device!~\"lo|docker.*|veth.*\"}[$__rate_interval]))",
           "legendFormat": "{{cluster}}/{{instance}} {{device}} TX"
         }
       ],
@@ -1829,6 +1829,117 @@
           }
         }
       ]
+    },
+    {
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg"
+      },
+      "transformations": [],
+      "id": 130,
+      "title": "Configured infrastructure components",
+      "description": "선언한 component·관계와 반환된 collector evidence입니다. Physical 연결·node health·Run 소유권을 증명하지 않으며 publisher와 resource identity를 구분합니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (cluster, kind, component, role, resource_node, gpu, interface, device, storage_system) (telemetry_topology_component_info{job=\"telemetry\",cluster=~\"$cluster\"})",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg"
+      },
+      "transformations": [],
+      "id": 131,
+      "title": "Configured infrastructure relationships",
+      "description": "선언한 component·관계와 반환된 collector evidence입니다. Physical 연결·node health·Run 소유권을 증명하지 않으며 publisher와 resource identity를 구분합니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 86,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (cluster, kind, source, destination, relation) (telemetry_topology_edge_info{job=\"telemetry\",cluster=~\"$cluster\"})",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg"
+      },
+      "transformations": [],
+      "id": 132,
+      "title": "Infrastructure collector availability",
+      "description": "선언한 component·관계와 반환된 collector evidence입니다. Physical 연결·node health·Run 소유권을 증명하지 않으며 publisher와 resource identity를 구분합니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"telemetry\",cluster=~\"$cluster\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "time() - timestamp(node_time_seconds{job=\"telemetry\",cluster=~\"$cluster\"})",
+          "format": "table",
+          "instant": true
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -2026,6 +2137,17 @@
         },
         "hide": 2,
         "description": "상세 화면의 Sandbox node 선택을 navigation에서 유지합니다."
+      },
+      {
+        "name": "device",
+        "label": "Device / interface",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "description": "명시 device/interface filter입니다. Node 전체는 .*이며 특정 Run의 resource 소유권을 의미하지 않습니다."
       }
     ]
   },

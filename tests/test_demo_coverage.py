@@ -41,3 +41,11 @@ def test_coverage_never_reports_nan_or_skipped_loki_as_full_success(tmp_path, mo
     assert report["all_queries_covered"] == (expected == 0)
     if not with_loki:
         assert report["checks"][1]["status"] == "not_validated"
+def test_topology_exposition_keeps_one_definition_and_explicit_resource_mappings():
+    from xlayer_telemetry.demos.live import Demo
+    from xlayer_telemetry.metrics.prometheus import format_gauges
+    rows=Demo(ROOT/'examples/live-demo')._topology()
+    text=format_gauges(rows)
+    assert 'telemetry_topology_component_info' in text
+    assert any(row.labels.get('gpu')=='0' and row.labels.get('resource_node')=='gpu-node-0' for row in rows)
+    assert any(row.labels.get('interface')=='eth0' for row in rows)

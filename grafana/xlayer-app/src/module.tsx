@@ -71,6 +71,9 @@ import {parseStorageOverview,storageDetailGroups,storageSourceContext} from './s
 import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
 import { replicaRows } from './replicas';
+import { tableRows } from './data';
+import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './infrastructure';
+import { InfrastructureView } from './InfrastructureView';
 
 function AsyncDecision({summary}:{summary?:RecordRow}) {
  let value:RecordRow;try{value=JSON.parse(String(summary?.async_decision||'null'));}catch{return null;}
@@ -104,7 +107,7 @@ import {
 } from "./mockup";
 import "./style.css";
 
-type Page = "overview" | "analyze" | "investigate" | "timeline" | "deep-dive";
+type Page = "overview" | "analyze" | "investigate" | "timeline" | "deep-dive" | "infrastructure" | "logs";
 type ShellState = SceneObjectState & {
   page: Page;
   catalog: Catalog;
@@ -141,6 +144,13 @@ type ShellState = SceneObjectState & {
   storagePlot?: VizPanel;
   storageComparison?: VizPanel;
   storageCluster?: VizPanel[];
+  infraComponents?:SceneQueryRunner;
+  infraEdges?:SceneQueryRunner;
+  infraAvailability?:SceneQueryRunner;
+  infraMetrics?:(VizPanel|undefined)[];
+  infraSelectionVersion?:number;
+  logsPanel?:VizPanel;
+  logEvents?:VizPanel;
   pressure: (SceneQueryRunner | undefined)[];
   contextControls:(SceneTimePicker|SceneRefreshPicker)[];
   selectedCell?: {
@@ -311,9 +321,12 @@ function makeScene(page: Page, catalog: Catalog) {
     pressure: [],
     contextControls:[new SceneTimePicker({isOnCanvas:false}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
   });
-  body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
-  body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
-  if (page !== "deep-dive"||context.variables.candidate_id?.[0])
+  const resourcePage=page==='infrastructure'||page==='logs';
+  if(!resourcePage){
+    body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
+    body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
+  } else if(context.variables.record_id?.some(id=>id!=='.*'&&id!=='$__all'))body.setState({steps:query('overview',20),summary:query('summary',2)});
+  if (!resourcePage&&(page !== "deep-dive"||context.variables.candidate_id?.[0]))
     body.setState({
       steps: query("overview", 20),
       summary: query("summary", 2),
@@ -322,6 +335,12 @@ function makeScene(page: Page, catalog: Catalog) {
       evidence: query("summary", 6),
       spans: query("timeline", 9),
     });
+  if(page==='infrastructure')body.setState({infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability),
+    infraMetrics:[native('compute',30),native('overview',2),native('compute',2),native('compute',6),native('compute',8),native('compute',9),native('storage',1),native('storage',2),native('storage',30),native('storage',31)]});
+  if(page==='logs'){
+    const panel=logPanel(findPanel(catalog.logs,1));
+    body.setState({logsPanel:panel?viz(panel):undefined,logEvents:native('timeline',10)});
+  }
   if(page==='deep-dive')body.setState({summary:query('summary',2),detailPanels:DEEP_DIVE_SPECS.map(s=>s.dashboard&&s.panel!==undefined?native(s.dashboard,s.panel):undefined)});
   if (page === 'deep-dive') {
     const samples = query('storage',101), status = query('storage',104);
@@ -389,7 +408,7 @@ function makeScene(page: Page, catalog: Catalog) {
 let loadedCatalog: Catalog;
 function createApp() {
   const pages = (
-    ["overview", "analyze", "investigate", "timeline", "deep-dive"] as Page[]
+    ["overview", "analyze", "investigate", "timeline", "deep-dive", "infrastructure", "logs"] as Page[]
   ).map(
     (page) =>
       new SceneAppPage({
@@ -399,6 +418,8 @@ function createApp() {
           investigate: "Investigation",
           timeline: "Agent RL Timeline",
           "deep-dive": "Deep Dive",
+          infrastructure:"Infrastructure",
+          logs:"Logs & Events",
         }[page],
         renderTitle: (title) => (
           <h1 className="xlt-page-title">
@@ -601,6 +622,7 @@ function ShellView({ model }: { model: Shell }) {
     mfuData=useData(state.mfu),
     policyData=useData(state.policy),
     workloadData=useData(state.workload);
+  const infraComponents=useData(state.infraComponents),infraEdges=useData(state.infraEdges),infraAvailability=useData(state.infraAvailability);
   const steps = records(stepData),
     summaries = records(summaryData),
     comparisons = records(compareData),
@@ -681,7 +703,7 @@ function ShellView({ model }: { model: Shell }) {
                   ? `${boundary.label} Investigation`
                   : state.page === "timeline"
                     ? "Follow the same interval"
-                  : workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
+                  : state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
           <p>
             <b>
@@ -720,7 +742,7 @@ function ShellView({ model }: { model: Shell }) {
       </header>
       <nav className="xlt-nav" aria-label="XLayer investigation">
         <>
-          {(["overview", "analyze", "investigate", "deep-dive"] as Page[]).map(
+          {(["overview", "analyze", "investigate", "deep-dive", "infrastructure", "logs"] as Page[]).map(
             (p) => (
               <a
                 key={p}
@@ -738,6 +760,8 @@ function ShellView({ model }: { model: Shell }) {
                     investigate: "Investigate",
                     timeline: "Timeline",
                     "deep-dive": "Deep Dive",
+                    infrastructure:"Infrastructure",
+                    logs:"Logs & Events",
                   }[p]
                 }
               </a>
@@ -1168,6 +1192,12 @@ function ShellView({ model }: { model: Shell }) {
           </div>
         </details>
       )}
+      {state.page==='infrastructure'&&<InfrastructureView data={infrastructure(tableRows(infraComponents),tableRows(infraEdges),tableRows(infraAvailability),Date.now())} context={context}
+        unavailable={infraComponents?.state===LoadingState.Error?'Query failure':!state.infraComponents?'Canonical topology panel unavailable':undefined}
+        onSelect={node=>{const c=node.mapping==='configured'?resourceSelection(context,node):{...context,variables:{...context.variables,infra_component:[node.key]}};navigate('infrastructure',c);model.setState({infraSelectionVersion:(state.infraSelectionVersion||0)+1});}}
+        links={(node,c)=><><Link to={node.kind==='storage'?'storage':'compute'} context={c} catalog={state.catalog}>Full resource metrics</Link><a href={appLink('deep-dive',{...c,variables:{...c.variables,candidate_id:[],detail_tab:[node.kind==='storage'?'Local I/O mean':'GPU']}})}>Deep Dive →</a></>}
+        metrics={node=>{const indices=node.type==='gpu'?[2,3]:node.type==='ssd'?[6,7,8,9]:node.type==='nic'?[4]:node.kind==='storage'?[0,1,4,5,6,8]:[0,1,2,4,5];return indices.map(index=>state.infraMetrics?.[index]?<Native key={index} panel={state.infraMetrics[index]}/>:<p key={index} className="xlt-empty">Canonical resource panel unavailable</p>);}}/>}
+      {state.page==='logs'&&<><section><h3>Log Search</h3><p className="xlt-notice">Application Run context is preserved. The log payload/directory filter is independent; selecting a Run does not establish ownership of every node-local log.</p><div className="xlt-actions">{['log_run_id','workload','node','trace_id'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}<Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logsPanel?<Native panel={state.logsPanel}/>:<p className="xlt-empty">Loki / canonical Run Logs is unavailable. This is not an empty successful log query.</p>}</section><section><h3>Recorded Events</h3>{state.logEvents?<Native panel={state.logEvents}/>:<p className="xlt-empty">Event source unavailable · enable Loki and explicit event collection</p>}</section></>}
       {state.page === "deep-dive" && (
         <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}

@@ -115,7 +115,10 @@ def run(args):
                       '--url', connection['grafana'], '--output', str(args.output / 'clock-quality')]
             if args.browser:
                 clocks.extend(['--browser', args.browser])
-            validators = (command, contracts, series, clocks)
+            infrastructure = [sys.executable,str(SCRIPTS/'infrastructure_validate.py'),'--url',connection['grafana'],
+                '--context',str(args.output/('ci-multi-validation.json' if args.multi_worker else 'ci-validation.json')),
+                '--output',str(args.output/'infrastructure'),*(['--browser',args.browser] if args.browser else [])]
+            validators = (command, contracts, series, clocks, infrastructure)
             if args.multi_job:
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),

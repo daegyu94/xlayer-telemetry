@@ -69,6 +69,18 @@ export function samples(data: PanelData | undefined): Sample[] {
   }
   return result;
 }
+
+/** Prometheus instant/table frames preserve declared labels as row fields. */
+export function tableRows(data:PanelData|undefined):RecordRow[]{
+ if(data?.state&&!["Done","Streaming"].includes(data.state))return [];
+ return (data?.series||[]).flatMap(frame=>Array.from({length:frame.length},(_v,index)=>{
+  const row:RecordRow={_refId:frame.refId};
+  for(const field of frame.fields)row[field.name]=field.values[index];
+  const value=frame.fields.find(f=>f.type==='number'&&f.name.startsWith('Value'));
+  if(value)row.Value=value.values[index];
+  return row;
+ }));
+}
 export function selectTargets(
   targets: RecordRow[],
   refs?: string[],

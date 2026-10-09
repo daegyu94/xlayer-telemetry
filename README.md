@@ -96,7 +96,7 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 | 용어·scope·정밀도 | [Concepts](docs/concepts.md) |
 | 명령·config·운영 오류 | [CLI](docs/cli.md) · [Configuration](docs/configuration.md) · [Runbooks](docs/runbooks.md) |
 | Metric source·unit·label·coverage | [Metrics](docs/metrics.md) |
-| Optional Grafana App / Scenes | [App guide](docs/grafana-scenes-poc.md). 기존 V1과 상세 dashboard 유지 |
+| XLayer Telemetry Dashboard | [Dashboard guide](docs/grafana-scenes-poc.md). App/Scenes 진입점과 기존 상세 dashboard |
 | 전체 데이터 경로·구현 계약 | [Architecture](docs/architecture.md) · [상세 Reference](docs/reference.md) |
 | Clock·backend·attribution 한계 | [Correlation limitations](docs/correlation-limitations.md) |
 | 실제 검증 범위 | [Validation 기록](docs/validation/README.md). Synthetic와 실장비 구분 |

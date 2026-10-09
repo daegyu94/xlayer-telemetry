@@ -657,14 +657,20 @@ class Demo:
     def _topology(self) -> list[GaugeSample]:
         samples = []
         for node in self.gpu["gpu_nodes"]:
-            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": node, "role": "gpu-node"}))
+            samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": node, "role": "gpu-node", "resource_node":node}))
             for gpu in range(self.gpu["gpus_per_node"]):
                 component = f"{node}/gpu-{gpu}"
-                samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": component, "role": self.gpu["gpu_model"]}))
+                samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": component, "role": self.gpu["gpu_model"],"resource_node":node,"gpu":str(gpu)}))
+                samples.append(GaugeSample("telemetry_topology_edge_info","Synthetic topology edge.",1,
+                    {"kind":"compute","source":node,"destination":component,"relation":"attached"}))
                 for peer in range(self.gpu["gpus_per_node"]):
                     if gpu != peer:
                         samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": component, "destination": f"{node}/gpu-{peer}", "relation": self.gpu["intra_node_interconnect"]}))
             samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": node, "destination": "roce-fabric", "relation": self.network}))
+            samples.append(GaugeSample('telemetry_topology_component_info','Synthetic topology component.',1,
+                {'kind':'compute','component':node+'/eth0','role':'nic','resource_node':node,'interface':'eth0'}))
+            samples.append(GaugeSample('telemetry_topology_edge_info','Synthetic topology edge.',1,
+                {'kind':'compute','source':node,'destination':node+'/eth0','relation':'attached'}))
         samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": "roce-fabric", "role": "network"}))
         for node in self.storage["storage_nodes"]:
             samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": node, "role": "data", "resource_node": node, "storage_system": "synthetic-3fs"}))

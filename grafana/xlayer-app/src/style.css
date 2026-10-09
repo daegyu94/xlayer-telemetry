@@ -260,6 +260,7 @@ body.theme-dark .xlt {
 }
 .xlt-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
 }
 .xlt footer {
@@ -684,3 +685,17 @@ body.theme-dark .xlt {
 @media(max-width:900px){.xlt-storage-cluster-panels{grid-template-columns:1fr}}
 
 .xlt-storage-cluster-controls{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.xlt-topology svg { display: block; color: var(--xl-muted); }
+.xlt-topology-node { cursor: pointer; }
+.xlt-topology-node rect { fill: var(--xl-bg); stroke: var(--xl-border); stroke-width: 1; }
+.xlt-topology-node rect.xlt-topology-selected { fill: #eef2ff; stroke: #6366f1; stroke-width: 2; }
+.xlt-topology-node text { fill: var(--xl-text); font-size: 13px; }
+.xlt-topology-node text.xlt-topology-meta { fill: #64748b; font-size: 11px; }
+.xlt-topology-node:focus rect { stroke: #6366f1; stroke-width: 2; }
+.xlt-infra-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+@media(max-width: 900px) { .xlt-infra-metrics { grid-template-columns: minmax(0,1fr); } }
+.xlt-device-map { margin: 12px 0; padding: 10px; border: 1px solid var(--xl-border); border-radius: 5px; }
+.xlt-device-map>div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--xl-border); }
+.xlt-device-map small { display: block; color: var(--xl-muted); font-size: 11px; }
+.xlt-nav { flex-wrap: wrap; }
+.xlt-nav a { white-space: nowrap; flex: 0 0 auto; }

@@ -1,4 +1,4 @@
-# Grafana App / Scenes (PoC)
+# XLayer Telemetry Dashboard
 
 **목표:** XLayer App에서 Run을 선택하고 느린 Step의 baseline·candidate·evidence를 기존 dashboard까지 이어서 조사합니다.
 
@@ -10,6 +10,10 @@
 | Analyze | Phase × Subsystem·System Pressure·worker 차이 |
 | Investigate | Current / Baseline / Delta·candidate·supporting/counter/missing evidence |
 | Deep Dive | 선택한 candidate의 상세 metric·기존 subsystem dashboard |
+| Infrastructure | Configured GPU/Network/Storage topology·resource selection·collector evidence |
+| Logs & Events | 기존 node-local log query·recorded events; application Run과 log filter 구분 |
+
+공식 UI는 하나의 **XLayer Telemetry Dashboard**입니다. UI 버전 전환은 제공하지 않으며 기존 `/overview`, `/analyze`, `/investigate`, `/deep-dive`, `/timeline` URL과 canonical Grafana dashboard UID를 유지합니다. Package/API 버전과 Sandbox 지원 범위의 V1 표기는 UI 버전이 아닙니다.
 
 ```{admonition} 선택 사항
 :class: note
@@ -23,6 +27,31 @@ App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 pl
 - Node 20 이상·npm. Python core runtime에는 npm이 필요하지 않습니다.
 - Step·span·candidate를 보려면 [Loki](logs-events.md)와 [diagnosis](diagnosis.md). Metrics만 연결한 경우 이 영역은 unavailable로 표시됩니다.
 - Plugin을 설치할 Grafana의 설정·plugin directory 접근 권한.
+
+## Infrastructure에서 조사하기
+
+1. **Infrastructure**에서 GPU node 또는 Storage DS/MDS를 선택합니다. Dashed edge는 Configured이며 실제 연결을 검증한 선이 아닙니다.
+2. **Node / device**에서 GPU·NIC·SSD를 선택합니다. `resource_node`와 GPU/interface/device가 명시된 경우에만 resource filter를 설정합니다.
+3. 기존 CPU/memory/GPU/network/RDMA/diskstats panel을 읽습니다. Node-wide 값과 device 값을 구분하며 Run 사용량으로 해석하지 않습니다.
+4. **Full resource metrics**로 기존 Compute/Storage dashboard에 이동하거나 **Deep Dive**로 조사합니다. Run·Step·observer·worker·time은 유지합니다.
+5. **Investigate selected Step**으로 baseline/evidence에 돌아갑니다. Resource 선택은 특정 Step의 실제 사용 자원을 증명하지 않습니다.
+
+| 표시 | 의미 |
+| --- | --- |
+| Configured | Operator가 제공한 component·relationship·resource mapping |
+| Collector available | 한 target의 UP와 Node Exporter sample age를 반환받음; node health·GPU 존재·연결 증명 아님 |
+| Down / Stale | 선택 interval에서 반환된 scrape/age evidence |
+| Unknown / Ambiguous | Mapping 누락·상충·no data·여러 target. Publisher 이름으로 owner를 추정하지 않음 |
+
+기존 topology JSON의 component에 `resource_node`·`gpu`·`interface`·`device`·`storage_system`을 실제 배치에 맞게 명시합니다. Compute/Storage 모두 같은 collector가 gauge로 변환하며 새 exporter를 설치하지 않습니다. 문자열 mapping만 보존하고 상충한 mapping은 Unknown입니다. NIC 선택은 기존 network panel의 interface filter를 적용합니다. RDMA·CPU/memory 등 node scope panel은 별도 해석합니다.
+
+Topology 그림은 compact node/fabric view이며 선택한 node의 GPU/NIC/SSD는 **declared resource map**과 inventory에서 탐색합니다. 관측 edge source가 없으므로 connectivity를 Observed/Healthy로 표시하지 않습니다. 3FS의 기존 심층 진단과 pNFS TBD는 유지하고 SMART는 추가하지 않습니다.
+
+## Logs로 이어서 조사하기
+
+**Logs & Events**는 기존 Run Logs·Timeline의 datasource/query를 재사용합니다. Application `Run`은 조사 문맥이며 `Log Run/directory` regex와는 별도입니다. 저장된 log payload의 identity를 확인한 뒤 filter를 좁힙니다. Node를 Storage resource로 선택하면 그 node의 log를 조사하며 다른 node의 application log를 자동 대체하지 않습니다.
+
+Loki가 미설정이면 unavailable을 표시합니다. Empty response, query failure, missing source와 실제 측정값 0을 같은 상태로 취급하지 않습니다. 자세한 log source 설정은 [Logs & Events](logs-events.md)를 따릅니다.
 
 ## 1. Configure
 

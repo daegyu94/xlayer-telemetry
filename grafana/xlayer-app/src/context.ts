@@ -31,6 +31,8 @@ export const VARIABLE_NAMES = [
   "storage_metric",
   "detail_tab",
   "training_max_age",
+  "infra_component",
+  "workload",
 ] as const;
 export type VariableName = (typeof VARIABLE_NAMES)[number];
 export type Context = {

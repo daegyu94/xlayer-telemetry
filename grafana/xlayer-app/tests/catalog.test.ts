@@ -51,6 +51,7 @@ test("provisioned canonical panel/reference contracts exist in Loki and metrics-
       }
       for (const id of [30, 31, 33, 34, 40, 41, 42, 44])
         assert.ok(find(dashboards[DASHBOARD_UIDS.overview].panels, id));
+      for(const id of [130,131,132])assert.ok(find(dashboards[DASHBOARD_UIDS.compute].panels,id));
       assert.equal(
         !!find(dashboards[DASHBOARD_UIDS.overview].panels, 20),
         logs,
