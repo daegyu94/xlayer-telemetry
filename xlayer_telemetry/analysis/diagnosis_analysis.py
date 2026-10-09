@@ -65,6 +65,54 @@ _APPLICATION_DURATION_METADATA = {
                  "critic_update_duration_seconds", "checkpoint_duration_seconds", "communication_duration_seconds")
 }
 
+VLLM_OBSERVATIONS = ('vllm_requests_waiting', 'vllm_kv_cache_usage', 'vllm_preemptions_total')
+_VLLM_IDENTITY = ('cluster', 'node', 'instance', 'component', 'engine', 'engine_id', 'model_name', 'model')
+_VLLM_ENGINE_FIELDS = frozenset({'instance', 'component', 'engine', 'engine_id', 'model_name', 'model'})
+
+
+def vllm_identity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    labels = item.get('labels', {})
+    return tuple((key, str(labels[key])) for key in _VLLM_IDENTITY if key in labels)
+
+
+def select_vllm_observations(series: Mapping[str, list[dict]], thresholds: Mapping[str, float]) -> dict[str, dict] | None:
+    """Choose one common engine without rescanning each metric per candidate.
+
+    None means conflicting/duplicate identity, not absent telemetry. Empty
+    input stays empty; legacy singleton identities keep their existing meaning.
+    """
+    indexed = {}
+    for name in VLLM_OBSERVATIONS:
+        items = series.get(name, [])
+        if not items:
+            continue
+        index = {}
+        for item in items:
+            identity = vllm_identity(item)
+            if identity in index:
+                return None
+            index[identity] = item
+        indexed[name] = index
+    if not indexed:
+        return {}
+    populations = [set(index) for index in indexed.values()]
+    shared = set.intersection(*populations)
+    if not shared or (len(set.union(*populations)) > 1 and not any(
+            any(key in _VLLM_ENGINE_FIELDS for key, _ in identity) for identity in shared)):
+        return None
+
+    def score(identity):
+        stats = {name: index[identity]['stats'] for name, index in indexed.items()}
+        kv = stats.get('vllm_kv_cache_usage', {}).get('max') or 0
+        kv = kv / 100 if kv > 1 else kv
+        waiting = stats.get('vllm_requests_waiting', {}).get('max') or 0
+        preemptions = stats.get('vllm_preemptions_total', {}).get('max_series_delta') or 0
+        return (int(kv >= thresholds['vllm_kv_usage']) + int(waiting >= thresholds['vllm_waiting'])
+                + int(preemptions >= 1), kv)
+
+    selected = max(sorted(shared), key=score)
+    return {name: index[selected] for name, index in indexed.items()}
+
 
 def validate_baseline_policy(policy: Mapping[str, Any]) -> None:
     if not isinstance(policy, Mapping):

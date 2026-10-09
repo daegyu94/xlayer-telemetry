@@ -21,7 +21,11 @@ from urllib.request import Request, build_opener
 
 from .._http_redirects import _CredentialSafeRedirectHandler
 
-from .diagnosis_analysis import compare_signals, evaluate_rules, finite, recent_baseline_history, select_baseline, validate_baseline_policy
+from .diagnosis_analysis import (
+    VLLM_OBSERVATIONS, compare_signals, evaluate_rules, finite,
+    recent_baseline_history, select_baseline, select_vllm_observations,
+    validate_baseline_policy, vllm_identity,
+)
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
@@ -804,57 +808,33 @@ class DiagnosticEngine:
         if tool_event is not None:
             signal_labels["tool_duration_seconds"] = tool_event["labels"]
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
-        vllm_names = ("vllm_requests_waiting", "vllm_kv_cache_usage", "vllm_preemptions_total")
-        identity_keys = ("cluster", "node", "instance", "component", "engine", "engine_id", "model_name", "model")
-        identity_fields = ("instance", "component", "engine", "engine_id", "model_name", "model")
-        detailed = [current_series.get(name, []) for name in vllm_names]
         selected_vllm_stats: dict[str, Any] = {}
-        available = {name: items for name, items in zip(vllm_names, detailed) if items}
-        if available:
-            def entity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
-                labels = item.get("labels", {})
-                return tuple((key, str(labels[key])) for key in identity_keys if key in labels)
-
-            identities = [{entity(item) for item in items} for items in available.values()]
-            ambiguous = any(len(items) != len(keys) for items, keys in zip(available.values(), identities))
-            shared = set.intersection(*identities)
-            if not shared or ambiguous or (len(set.union(*identities)) > 1 and not any(
-                    any(key in identity_fields for key, _ in identity) for identity in shared)):
-                for name in vllm_names:
-                    current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
-                missing.append("vllm:shared_engine_identity")
-            else:
-                def score(identity: tuple[tuple[str, str], ...]) -> tuple[int, float]:
-                    stats = {name: next(item["stats"] for item in items if entity(item) == identity)
-                             for name, items in available.items()}
-                    kv = stats.get("vllm_kv_cache_usage", {}).get("max") or 0
-                    kv = kv / 100 if kv > 1 else kv
-                    waiting = stats.get("vllm_requests_waiting", {}).get("max") or 0
-                    preemptions = stats.get("vllm_preemptions_total", {}).get("max_series_delta") or 0
-                    return (int(kv >= self.thresholds["vllm_kv_usage"])
-                            + int(waiting >= self.thresholds["vllm_waiting"])
-                            + int(preemptions >= 1), kv)
-
-                selected = max(sorted(shared), key=score)
-                for name, items in available.items():
-                    stats = next(item["stats"] for item in items if entity(item) == selected)
-                    selected_vllm_stats[name] = stats
-                    signal = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
-                    value = stats.get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
-                    if value is None:
-                        current_signals.pop(signal, None)
-                    else:
-                        current_signals[signal] = value / 100 if name == "vllm_kv_cache_usage" and value > 1 else value
-                    signal_labels[signal] = dict(selected)
-                    matching_prior = [item for item in baseline_series.get(name, []) if entity(item) == selected]
-                    baseline_signals.pop(signal, None)
-                    if len(matching_prior) == 1:
-                        prior_value = matching_prior[0]["stats"].get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
-                        if prior_value is not None:
-                            baseline_signals[signal] = prior_value / 100 if name == "vllm_kv_cache_usage" and prior_value > 1 else prior_value
+        selected_vllm = select_vllm_observations(current_series, self.thresholds)
+        if selected_vllm is None:
+            for name in VLLM_OBSERVATIONS:
+                current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
+            missing.append("vllm:shared_engine_identity")
+        else:
+            for name, item in selected_vllm.items():
+                selected = vllm_identity(item)
+                stats = item["stats"]
+                selected_vllm_stats[name] = stats
+                signal = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
+                value = stats.get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
+                if value is None:
+                    current_signals.pop(signal, None)
+                else:
+                    current_signals[signal] = value / 100 if name == "vllm_kv_cache_usage" and value > 1 else value
+                signal_labels[signal] = dict(selected)
+                matching_prior = [item for item in baseline_series.get(name, []) if vllm_identity(item) == selected]
+                baseline_signals.pop(signal, None)
+                if len(matching_prior) == 1:
+                    prior_value = matching_prior[0]["stats"].get("max_series_delta" if signal == "vllm_preemptions_delta" else "max")
+                    if prior_value is not None:
+                        baseline_signals[signal] = prior_value / 100 if name == "vllm_kv_cache_usage" and prior_value > 1 else prior_value
         finding_evidence = dict(evidence)
         if "vllm:shared_engine_identity" in missing:
-            for name in vllm_names:
+            for name in VLLM_OBSERVATIONS:
                 finding_evidence.pop(name, None)
         else:
             finding_evidence.update(selected_vllm_stats)

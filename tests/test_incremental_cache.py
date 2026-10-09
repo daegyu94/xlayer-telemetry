@@ -1,6 +1,8 @@
 """Cache correctness under append, rotation, partial writes and capacity limits."""
 import json
+from collections import deque
 from pathlib import Path
+import tracemalloc
 
 import pytest
 
@@ -62,6 +64,37 @@ def test_cache_overflow_preserves_all_evidence_and_bounds_retained_data(tmp_path
     path.write_text(json.dumps({'x': 'a'*150})+'\n')
     assert len(list(cache.read(path))) == 1
     assert cache.stats()['cached_source_bytes'] == 0
+
+
+def test_unchanged_cache_read_does_not_allocate_another_record_list(tmp_path):
+    path = tmp_path / 'stream.jsonl'
+    path.write_text('{"x":1}\n' * 50_000)
+    cache = JSONLCache()
+    deque(cache.read(path), maxlen=0)
+    parsed = cache.stats()['parsed_bytes']
+    tracemalloc.start()
+    try:
+        deque(cache.read(path), maxlen=0)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert cache.stats()['parsed_bytes'] == parsed
+    # 50k copied references alone take about 400 KiB on a 64-bit runtime.
+    # Leave ample room for the stream, sentinel reads and cache entry.
+    assert peak < 100_000
+
+
+def test_append_during_read_preserves_the_reader_snapshot(tmp_path):
+    path = tmp_path / 'stream.jsonl'
+    path.write_text('{"x":1}\n{"x":2}\n')
+    cache = JSONLCache()
+    assert list(cache.read(path)) == [{'x': 1}, {'x': 2}]
+    reader = cache.read(path)
+    assert next(reader) == {'x': 1}
+    with path.open('ab') as stream:
+        stream.write(b'{"x":3}\n')
+    assert list(cache.read(path)) == [{'x': 1}, {'x': 2}, {'x': 3}]
+    assert list(reader) == [{'x': 2}]
 
 
 def test_cached_tool_lookup_preserves_tool_baseline_filter(tmp_path):

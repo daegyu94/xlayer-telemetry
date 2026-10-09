@@ -130,3 +130,46 @@ Unknown span이 unrelated exact span으로 승격되던 fixture는 `supported_ca
 | Long run 메모리를 제한하는가? | Streaming/index 접근·rotation invalidation·decoded-object RSS·lossless recovery 검증 |
 
 GET/PUT·3FS device/service counter를 시간상 나란히 놓는 것만으로 read/write amplification이나 causality를 계산하지 않습니다. 필요한 observation이 없으면 missing evidence로 남깁니다.
+
+## 반복 분석 비용 리팩토링
+
+2026-10-09의 `main` `2ae3a48`을 기준으로 CLI·SDK·collector·query·diagnosis·Grafana의 책임과 의존성을 조사했습니다. [Ponytail](https://github.com/DietrichGebert/ponytail/blob/main/skills/ponytail/SKILL.md)의 기존 구현 재사용·작은 변경·검증 경계 보존 원칙을 적용했으며, 아래 두 항목만 수정했습니다.
+
+| 판단 | 코드 근거 | 적용 / 유지 |
+| --- | --- | --- |
+| 수정 | `DiagnosticEngine.analyze()`가 vLLM engine마다 세 metric 목록을 다시 검색 | `diagnosis_analysis.select_vllm_observations()`로 순수 선택 로직 분리; entity index를 한 번 구성하고 공통 engine만 평가 |
+| 수정 | `JSONLCache.read()`가 변경 없는 파일에서도 모든 record reference를 복사 | Complete record를 추가할 때만 목록 복사; 진행 중 reader의 기존 snapshot 보존 |
+| 유지 | Baseline의 최근 5개 cohort·query budget·isolated deadline·clock/quality gate | 이미 bounded 처리와 regression이 있음; 판정 기준·query 수·failure boundary 유지 |
+| 보류 | `diagnostics.py`의 client/persistence 책임, App `module.tsx`의 rendering 집중 | 파일 크기만으로 분리하지 않음; 안정적인 API·HTTP hook·browser 검증을 동반한 별도 변경 필요 |
+| 보류 | Health와 artifact의 작은 JSON loader 중복 | 현재 error·non-object 처리 결함이 재현되지 않음; 공통 helper 추가 효과가 작음 |
+
+### 정확성 확인
+
+- 같은 engine의 queue·KV·preemption만 선택합니다. Duplicate identity·unrelated entity는 계속 missing evidence입니다.
+- Percent/ratio 변환과 deterministic tie-break를 유지합니다. Missing source를 측정값 `0`으로 대체하지 않습니다.
+- Cache의 append·split UTF-8·rotation·truncate·overflow 동작을 유지합니다. Append 중 기존 reader에 새 record가 섞이지 않습니다.
+- 변경 전후 101개 synthetic report에서 생성 시각·실행 시간만 제외하고 전체 결과와 query 수가 일치했습니다. Missing preemption·duplicate engine·empty queue·일부 identity mismatch와 shuffled response를 포함합니다.
+
+### 처리 비용 실측
+
+입력을 먼저 구성하고 warm-up 후 before/after 실행 순서를 번갈아 7회 측정했습니다. Wall/CPU 중앙값과 별도 `tracemalloc` peak입니다. Fake backend는 기존 통계 형식의 응답을 반환하며 network·실제 exporter·GPU·ClickHouse 비용을 측정하지 않습니다.
+
+| Synthetic 경로 | 이전 | 수정 후 | 의미 |
+| --- | ---: | ---: | --- |
+| 500 engine, 전체 rule analysis wall | 140.5ms | 5.1ms | Metric당 반복 목록 검색 제거; deterministic 정렬 유지 |
+| 같은 분석 CPU | 140.5ms | 5.1ms | Python 처리 비용 |
+| 같은 분석 추가 peak allocation | 552,120 bytes | 475,674 bytes | 입력 fixture 메모리·전체 RSS 제외 |
+| 같은 분석 backend request | 24 | 24 | Query budget·수집 coverage 변경 없음 |
+| 변경 없는 5만 record cache 조회 wall | 0.995ms | 0.889ms | 전체 record 순회는 여전히 필요 |
+| 같은 cache 조회 추가 peak allocation | 408,740 bytes | 8,684 bytes | Cache에 보존된 decoded object 메모리는 제외 |
+
+Regression은 latency 숫자를 gate로 쓰지 않고 identity 검사 횟수와 메모리 상한을 검사합니다. 기존 cache·baseline·quality·scope 테스트와 함께 실행합니다.
+
+```bash
+python -m pytest -q tests/test_diagnosis_analysis.py tests/test_incremental_cache.py \
+  tests/test_diagnostics.py tests/test_repository_regressions.py tests/test_package_structure.py
+```
+
+**검증 결과:** 관련 검사 92개, 전체 CPU suite 및 CI helper 1,523개 통과. 실제 promtool을 사용했으며 격리 ClickHouse 미설정으로 SQL 통합 검사 6개는 skip입니다. Python·shell syntax, 문서 link/diagram 10개와 strict Sphinx build도 통과했습니다.
+
+Frontend·dashboard·upstream 코드는 수정하지 않았으며 실제 GPU/veRL·물리 multi-node·3FS workload와 화면 rendering은 이번 리팩토링의 검증 범위가 아닙니다. Decoded cache와 history 전체의 장기 메모리 비용은 이번 transient-copy 개선으로 해결되지 않습니다.

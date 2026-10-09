@@ -77,13 +77,17 @@ class JSONLCache:
                 valid = prefix == entry.prefix and stream.read(len(entry.tail)) == entry.tail
             if valid:
                 stream.seek(entry.offset)
-                records = list(entry.records)
+                records = entry.records
                 self.cache_hits += 1
             else:
                 stream.seek(0)
                 records = []
                 self.reloads += 1
             for record in self._objects(stream):
+                if valid and records is entry.records:
+                    # Published lists stay immutable so an in-progress reader
+                    # keeps its snapshot when another read observes an append.
+                    records = list(records)
                 records.append(record)
                 if len(records) > self.max_records:
                     self.uncached_scans += 1

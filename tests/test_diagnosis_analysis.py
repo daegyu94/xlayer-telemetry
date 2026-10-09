@@ -9,6 +9,7 @@ import pytest
 
 from xlayer_telemetry.analysis.diagnosis_analysis import compare_signals, evaluate_rules, select_baseline
 from xlayer_telemetry.analysis.diagnostics import _investigation_rows
+from xlayer_telemetry.analysis import diagnosis_analysis
 
 
 BASE = {
@@ -30,6 +31,63 @@ BASE = {
     "vllm_kv_cache_usage": 0.4,
     "vllm_preemptions_delta": 0,
 }
+
+
+def vllm_observation(engine, value, *, delta=False):
+    return {'labels': {'node': 'n', 'engine': engine},
+            'stats': {'max_series_delta' if delta else 'max': value}}
+
+
+def test_vllm_selection_uses_one_engine_and_preserves_percent_units():
+    series = {
+        'vllm_requests_waiting': [vllm_observation('a', 10), vllm_observation('b', 5)],
+        'vllm_kv_cache_usage': [vllm_observation('a', .4), vllm_observation('b', 99)],
+        'vllm_preemptions_total': [vllm_observation('a', 0, delta=True), vllm_observation('b', 2, delta=True)],
+    }
+    selected = diagnosis_analysis.select_vllm_observations(series, {'vllm_waiting': 1, 'vllm_kv_usage': .9})
+    assert {item['labels']['engine'] for item in selected.values()} == {'b'}
+    assert selected['vllm_kv_cache_usage']['stats']['max'] == 99
+    del series['vllm_preemptions_total']
+    assert diagnosis_analysis.select_vllm_observations(series, {'vllm_waiting': 1, 'vllm_kv_usage': .9}) == {
+        name: items[1] for name, items in series.items()}
+
+
+@pytest.mark.parametrize('series', [
+    {'vllm_requests_waiting': [vllm_observation('a', 5), vllm_observation('a', 6)]},
+    {'vllm_requests_waiting': [vllm_observation('a', 5)],
+     'vllm_kv_cache_usage': [vllm_observation('b', .99)]},
+    {'vllm_requests_waiting': [{'labels': {'node': 'n'}, 'stats': {'max': 5}}, vllm_observation('a', 5)],
+     'vllm_kv_cache_usage': [{'labels': {'node': 'n'}, 'stats': {'max': .99}}]},
+])
+def test_vllm_selection_rejects_ambiguous_or_unrelated_entities(series):
+    assert diagnosis_analysis.select_vllm_observations(series, {'vllm_waiting': 1, 'vllm_kv_usage': .9}) is None
+
+
+def test_vllm_selection_keeps_legacy_empty_and_deterministic_ties():
+    thresholds = {'vllm_waiting': 1, 'vllm_kv_usage': .9}
+    assert diagnosis_analysis.select_vllm_observations({}, thresholds) == {}
+    legacy = {'vllm_requests_waiting': [{'labels': {}, 'stats': {'max': 5}}]}
+    assert diagnosis_analysis.select_vllm_observations(legacy, thresholds) == {'vllm_requests_waiting': legacy['vllm_requests_waiting'][0]}
+    items = [vllm_observation('b', 5), vllm_observation('a', 5)]
+    for order in (items, list(reversed(items))):
+        assert diagnosis_analysis.select_vllm_observations({'vllm_requests_waiting': order}, thresholds)['vllm_requests_waiting']['labels']['engine'] == 'a'
+
+
+def test_vllm_selection_inspects_each_entity_once_at_scale():
+    class CountedObservation(dict):
+        reads = 0
+
+        def get(self, key, default=None):
+            if key == 'labels':
+                type(self).reads += 1
+            return super().get(key, default)
+
+    series = {name: [CountedObservation(vllm_observation(str(i), i, delta=name.endswith('_total')))
+                     for i in range(1000)]
+              for name in ('vllm_requests_waiting', 'vllm_kv_cache_usage', 'vllm_preemptions_total')}
+    selected = diagnosis_analysis.select_vllm_observations(series, {'vllm_waiting': 1, 'vllm_kv_usage': .9})
+    assert {item['labels']['engine'] for item in selected.values()} == {'999'}
+    assert CountedObservation.reads <= 3000
 
 
 @pytest.fixture(scope="module")
