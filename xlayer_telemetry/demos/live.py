@@ -233,6 +233,12 @@ class Demo:
                             replace(sample, value=frame['end'] - 600) if sample.name == 'training_sample_timestamp_seconds' and job['stale_application'] else sample
                             for sample in rows]
                     samples.extend(r for r in rows if not job['missing_reward'] or r.name != 'reward_mean')
+                    if job['instance'].endswith('deepseek'):
+                        from ..adapters.verl import ASYNC_DECISIONS
+                        decisions = (12,20,1,.3)
+                        labels = {'run_id':job['scenario']['run_id'],'node':node,'producer':'verl','role':'trainer','worker_id':'driver'}
+                        samples.extend(GaugeSample(name,'Synthetic reported async decision, not engine queue.',value,labels)
+                                       for (_, (name, _)),value in zip(ASYNC_DECISIONS.items(),decisions))
             else:
                 samples.extend(self._scenario_agent(now) if self.scenario_state is not None else self._agent_rl(now))
         return [s for s in samples if s.labels.get('run_id') != 'live-demo'] if self.multi_job_state is not None else samples

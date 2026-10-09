@@ -157,6 +157,10 @@ Rollout Replica는 VERL request를 처리하는 논리 실행 배치이며 Moonc
 
 Replica별 percentile·throughput의 단순 합계/평균 또는 Job 간 workload-mismatched straggler 판정은 제공하지 않습니다. 실제 request→rollout replica→applied policy→consumed sample 관계와 동적 scale/restart generation은 native/framework hook 검증이 필요한 TBD이며, 현재 CPU synthetic inventory를 물리 VERL multinode 검증으로 간주하지 않습니다.
 
+선택적 [serving observations](diagnosis-reference.md#router-membership-and-serving-lifecycle)은 read-only Router snapshot과 완료 hook의 lifecycle·workload·applied policy를 읽습니다. Endpoint up와 요청 수용 가능성을 구분하지만 Router membership도 엔진 readiness를 보장하지 않습니다. Sticky routing은 `get_status()` in-flight 불균형만으로 확인할 수 없으며 prompt mix·실제 routing strategy·request 관계가 없으면 원인을 보류합니다.
+
+PD disaggregation은 [검토한 VERL revision의 vLLMPDReplica](https://github.com/verl-project/verl/blob/6afd1f5d1feee75a6982250ae8438daee21c29b2/verl/workers/rollout/vllm_rollout/vllm_pd_replica.py)가 single-node·prefill 1개 구성을 제한하는 P2/TBD입니다. 향후 fixture는 prefill TTFT/queue, KV-transfer bytes/latency/errors, decode TPOT/KV를 분리해야 하며 이를 하나의 vLLM latency나 일반적인 multi-node PD 지원으로 표시하지 않습니다. Ray scheduling/spilling과 engine 내부 대기, replica request→KV→storage의 공통 ID, routing/affinity cause, 미계측 scale/restart·shared storage ownership도 별도 검증이 필요합니다.
+
 ### 우선순위와 최소 변경 범위
 
 | 우선 | 제안 / 기대효과 | 최소 변경과 upstream 경계 |

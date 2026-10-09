@@ -11,6 +11,13 @@ test('phase coverage adds only measured phases; critic stays distinct',()=>{
 test('worker duration peers require matching operation, scope and fingerprint',()=>{
  const rows=[3,3.2,5].map((seconds,i)=>({...span,worker_id:`w${i}`,span_id:`s${i}`,duration_seconds:seconds,end_time_ms:2000+seconds*1000}));const peers=measuredWorkers(rows,step);assert.equal(peers[2].median,3.2);assert.equal(peers[2].peers,3);assert.ok(peers[2].delta!>50);assert.equal(measuredWorkers(rows.map((r,i)=>i===2?{...r,attributes:{}}:r),step)[2].peers,0);
 });
+test('known prompt/tool/concurrency/policy differences cannot share an opaque fingerprint cohort',()=>{
+ for(const field of ['prompt_tokens','tool_calls','concurrency','applied_policy_version','replica_generation']){
+  const rows=[3,3.2,5].map((seconds,i)=>({...span,worker_id:`w${i}`,span_id:`s${i}`,duration_seconds:seconds,
+   end_time_ms:2000+seconds*1000,attributes:{...span.attributes,[field]:i===2?2:1}}));
+  assert.equal(measuredWorkers(rows,step)[2].peers,0);
+ }
+});
 test('pressure ordering includes an outlier GPU anywhere in eight entities without calling high util a fault',()=>{
  const rows=Array.from({length:8},(_,i)=>({value:i===7?9:90,time:10000,unit:'percent',labels:{cluster:'c',node:'n',gpu:String(i)}}));assert.equal(pressureOrder(rows,{kind:'utilization'})[0].sample.labels.gpu,'7');
  const ranked=pressureOrder(rows,{kind:'utilization',signal:'gpu',unit:'percent',evidence:[{signal:'gpu',unit:'percent',cluster:'c',window_start_ms:1000,window_end_ms:20000,entity:'node=n,gpu=7',baseline:80,evidence_type:'supporting'}]});assert.equal(ranked[0].delta,-88.75);

@@ -45,8 +45,8 @@ def make_schedule(*, start, node, cycle=0, replica_nodes=None):
                      'reward': (.732, .614, .681)[index]})
     if replica_nodes:
         jobs[1]['rollout_replicas'] = [
-            {'id': 'llama-0', 'instance': jobs[1]['instance'], 'endpoint_node': node, 'nodes': [node]},
-            {'id': 'llama-1', 'instance': 'synthetic-job-llama-peer', 'endpoint_node': replica_nodes[0], 'nodes': list(replica_nodes)},
+            {'id': 'llama-0', 'instance': jobs[1]['instance'], 'endpoint_node': node, 'nodes': [node], 'server_id':'api-llama-0'},
+            {'id': 'llama-1', 'instance': 'synthetic-job-llama-peer', 'endpoint_node': replica_nodes[0], 'nodes': list(replica_nodes), 'server_id':'api-llama-1'},
         ]
     return validate_schedule({'schema_version': 1, 'data_origin': 'synthetic', 'jobs': jobs})
 
@@ -117,7 +117,7 @@ def native_values(job, when, *, replica_instance=None):
     return value
 
 
-def diagnosis_config(job, prometheus_url):
+def diagnosis_config(job, prometheus_url, *, events_dir=None):
     """Use canonical queries; a configured endpoint is not operation ownership."""
     from ..analysis.diagnostics import DiagnosticEngine
     node = job['scenario']['node']
@@ -127,6 +127,8 @@ def diagnosis_config(job, prometheus_url):
         'prometheus': {'url': prometheus_url, 'metric_profiles': ['host', 'vllm', 'vllm_waiting', 'mooncake', 'mooncake_storage']}}
     if job.get('rollout_replicas'):
         config['rollout_replicas'] = job['rollout_replicas']
+        if events_dir is not None:
+            config['rollout_observations'] = {'events_dir':str(events_dir),'router_id':'demo-router','max_age_seconds':90}
     elif job['engine_mapping']:
         config['run_engine_instances'] = [job['instance']]
         source = 'telemetry_source="vllm",'
@@ -147,7 +149,13 @@ def record_job(root, job):
         data = {'perf/time_per_step': frame['end'] - frame['start'], 'policy_version': frame['policy_version'],
                 'perf/total_num_tokens': scenario['workload']['batch_size'] * scenario['workload']['response_tokens']}
         data.update({'timing_s/' + ('gen' if p['phase'] == 'rollout' else p['operation']): p['end'] - p['start'] for p in frame['phases']})
+        if job['instance'].endswith('deepseek'):
+            data.update({'separate_async/decision/sampleable_count':12.0,'separate_async/decision/remaining':20.0,
+                         'separate_async/decision/should_switch_to_rollout':1.0,
+                         'separate_async/decision/effective_switch_cost_seconds':.3})
         rows.append(writer.append({'step': frame['step'], 'data': data}))
+    if job.get('rollout_replicas'):
+        record_serving_inputs(root / 'telemetry-events', job)
     _record_scenario_spans(root, scenario, step_record_ids={row['step']: row['record_id'] for row in rows})
     roles = [('trainer', scenario['node'])]
     if job.get('rollout_replicas'):
@@ -166,3 +174,38 @@ def record_job(root, job):
     atomic_write_text(root / 'logs/agent.log', json.dumps({'run_id': scenario['run_id'], 'model': job['model'],
         'message': 'Synthetic completed workload; shared resource ownership is not established.'}) + '\n')
     return rows
+
+
+def record_serving_inputs(directory, job):
+    """Mock control-plane facts only; diagnosis consumes them through SDK JSONL."""
+    import asyncio
+    from ..adapters.rollout import RolloutObserver
+    stamp = [0]
+    recorder = EventRecorder(directory, CorrelationContext(run_id=job['scenario']['run_id'],
+        node=job['scenario']['node'], producer='demo_router', role='rollout', worker_id='observer'),
+        clock_ns=lambda: int(stamp[0]*1e9))
+    observer = RolloutObserver(recorder, cluster='scenes-demo', router_id='demo-router')
+    class MockRouter:
+        def __init__(self, servers): self.servers = servers
+        async def get_status(self):
+            return {'servers':self.servers,'total_inflight':sum(self.servers.values()),
+                    'active_servers':len(self.servers),'registered_handles':list(self.servers)}
+    for index,frame in enumerate(job['scenario']['frames']):
+        stamp[0] = frame['start'] - 1
+        router = MockRouter({'api-llama-1':10} if index else {'api-llama-0':0,'api-llama-1':0})
+        asyncio.run(observer.poll_router(router.get_status))
+        for replica in job['rollout_replicas']:
+            primary = replica['id']=='llama-0'; generation='demo-generation-0'
+            observer.replica_state(replica['id'], replica['instance'], 'weight_update' if primary and index else 'serving', generation=generation)
+            stamp[0] += .01
+            if primary and index:
+                observer.replica_state(replica['id'], replica['instance'], 'sleeping', generation=generation)
+            observer.replica_workload(replica['id'], replica['instance'],
+                {'prompt_tokens':256 if primary else 4096,'turns':1 if primary else 4,'tool_calls':0 if primary else 3,
+                 'concurrency':2 if primary else 10}, generation=generation)
+            if not primary:
+                worker_recorder = EventRecorder(directory, CorrelationContext(run_id=job['scenario']['run_id'],
+                    node=replica['endpoint_node'],producer='demo_rollout',role='rollout',worker_id=replica['id']),
+                    clock_ns=lambda:int(stamp[0]*1e9))
+                worker = RolloutObserver(worker_recorder,cluster='scenes-demo',router_id='demo-router')
+                worker.policy_applied(replica['id'], replica['instance'], frame['policy_version']-1, generation=generation)

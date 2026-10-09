@@ -34,7 +34,7 @@ def collect_and_analyze_job(directory, job, prom):
     streams=[]
     run_id=job['scenario']['run_id']; node=job['scenario']['node']
     steps=record_job(directory,job)
-    config=diagnosis_config(job,prom)
+    config=diagnosis_config(job,prom,events_dir=directory/'telemetry-events')
     with IsolatedAnalyzer(config, seconds=60) as analyzer:
         report=analyzer.analyze(steps[-1],directory/'telemetry-events/verl-steps.jsonl')
     report['data_origin']='synthetic'

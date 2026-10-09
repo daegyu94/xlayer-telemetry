@@ -103,7 +103,10 @@ class StepHistoryWriter:
             and value >= 0
         }
         scope = "trainer_update" if self.execution_mode == "async" else "rl_step"
+        from .adapters.verl import async_decisions
+        decision = async_decisions(data)
         history_record = {
+            **({'async_decision': decision} if decision else {}),
             "schema_version": 1,
             "record_type": "verl_step_observation",
             "record_id": record_id,

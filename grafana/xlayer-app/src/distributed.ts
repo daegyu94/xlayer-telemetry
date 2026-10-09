@@ -58,12 +58,15 @@ export function measuredWorkers(rows: RecordRow[], step: RecordRow) {
     const measured = row ? numeric(row.duration_seconds) : undefined;
     const duration = measured !== undefined && measured >= 0 ? measured : undefined;
     return {...choice, phases: new Set(own.map(span => span.phase)).size, window, duration,
-      fingerprint: row ? attrs(row).workload_fingerprint : undefined, operation: row?.name,
+      fingerprint: row ? attrs(row).workload_fingerprint : undefined,
+      workload: row ? JSON.stringify(['prompt_tokens','output_tokens','turns','tool_calls','concurrency','applied_policy_version','replica_generation','execution_mode','model_identifier','serving_state']
+        .map(key=>[key,attrs(row)[key]??null])) : undefined, operation: row?.name,
       scope: row ? attrs(row).boundary_scope : undefined, peers: 0,
       median: undefined as number | undefined, delta: undefined as number | undefined};
   }).map((row, _index, all) => {
     const peers = all.filter(peer => peer.duration !== undefined &&
       typeof peer.fingerprint === 'string' && peer.fingerprint && peer.fingerprint === row.fingerprint &&
+      peer.workload === row.workload &&
       peer.operation && peer.operation === row.operation && peer.scope && peer.scope === row.scope &&
       peer.row.producer && peer.row.producer === row.row.producer && peer.row.role && peer.row.role === row.row.role);
     if (row.duration === undefined || peers.length < 3) return row;

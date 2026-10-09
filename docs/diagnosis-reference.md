@@ -478,6 +478,69 @@ Dynamic scale/discovery, 같은 endpoint를 재사용한 process generation, 실
 
 **검증 범위:** CPU fixture에서 metric 누락·stale·endpoint no-data·engine identity 변경·미등록 remote clock·calibration reference session 변경과 잘못된 metadata를 검사했습니다. 실제 Prometheus/Loki/Grafana Multi-job synthetic에서는 queue 0인 Replica와 queue 14·KV 98%인 부분 수집 Replica를 분리하고, endpoint drill-down/Browser Back 및 1440/390px 화면을 확인했습니다. Llama는 추가 두 node의 current/baseline clock 검사로 134→154 request/Run이며 metric query 수는 유지됐습니다. 물리 VERL/vLLM multinode·TP/DP, 실제 process restart/scale, routing/policy 적용과 GPU 소유 관계는 미검증입니다.
 
+### Router Membership and Serving Lifecycle
+
+Scrape 성공은 endpoint 접근 가능성입니다. Router 등록 여부와 실제 serving 상태는 별도 관측해야 합니다. 기본값은 **Unknown**이며 `up=1`, queue=0, GPU idle로 active/sleep/healthy를 추정하지 않습니다.
+
+| 관측 | Source / 연결 | 해석 경계 |
+| --- | --- | --- |
+| Router membership·in-flight | 선택적 `get_status()` SDK adapter | Registered server의 count. 요청 수용 준비·routing strategy·Job 소유량은 아님 |
+| Sleep / weight update / waking / serving | 실제 runtime 호출의 완료 hook | 마지막 명시 상태의 sampled coverage. 연속 상태 증명·장애 분류는 아님 |
+| Applied policy | Owning rollout worker의 `policy_applied()` | Trainer version·step 번호로 대체하지 않음 |
+| Workload / generation | Owning runtime의 명시 counts·incarnation | 미보고 항목은 unknown. 재구성·재시작을 timestamp로 추정하지 않음 |
+
+**준비:** Replica inventory·native targets·clock 검사를 먼저 연결합니다. 별도 observer host를 사용하면 `clock.nodes`에 추가합니다. SDK event는 같은 Run·cluster·router namespace를 사용합니다.
+
+```json
+"rollout_observations": {
+  "events_dir": "artifacts/run-a/telemetry-events",
+  "router_id": "trainer-router",
+  "max_age_seconds": 60
+}
+```
+
+각 `rollout_replicas` entry에 실제 Router ID인 `"server_id": "rollout-a:8000"`를 추가합니다. Prometheus `instance`와 API server ID가 같다고 가정하지 않습니다. Mapping이 없으면 membership은 Unknown입니다.
+
+```python
+from pathlib import Path
+from xlayer_telemetry.events import CorrelationContext, EventRecorder
+from xlayer_telemetry.adapters.rollout import RolloutObserver
+
+events = EventRecorder(Path("artifacts/run-a/telemetry-events"),
+    CorrelationContext(run_id="run-a", node="trainer", producer="rollout_observer",
+                       role="trainer", worker_id="driver"))
+observer = RolloutObserver(events, cluster="rl-cluster", router_id="trainer-router")
+
+# Inside the existing async coordinator; this reads only get_status.
+ok = await observer.poll_router(lambda: router.get_status.remote(), timeout_seconds=1)
+# After the runtime confirms a completed transition, never before the call:
+observer.replica_state("replica-0", "rollout-a:8000", "sleeping", generation="verified-process-1")
+```
+
+**정상 결과:** SDK JSONL에 `rollout.router.snapshot`·`rollout.replica.state`가 추가됩니다. `ok`는 read/shape validation 성공이며 SDK flush·서비스 readiness를 보장하지 않습니다. Ray import·cluster 연결·poll scheduling은 기존 coordinator가 담당합니다. XLayer는 router/scheduler를 생성하거나 `add_servers`·`remove_servers`·sleep/wake를 호출하지 않습니다.
+
+- `poll_router` getter는 즉시 awaitable을 반환해야 합니다. Timeout/invalid response는 Unknown 관측으로 기록하며 backend 상세 오류를 노출하지 않습니다. Poll 주기는 사용자가 정하고 요청당 timeout은 최대 10초입니다.
+- Policy 적용은 **실제 owning worker**의 recorder로 `observer.policy_applied(...)`를 호출합니다. Router snapshot만으로 적용 version이나 KV reset 정합성을 만들지 않습니다.
+- 선택 window 이전의 관측, window 안의 상태 변화, sample gap, observer clock·reference session을 검사합니다. Window 중간의 sleep/wake·membership 변경은 전체 Step 상태로 확장하지 않습니다.
+- 명시 inactive engine은 강한 serving bottleneck으로 승격하지 않습니다. 같은 node의 GPU idle에는 mixed context limitation을 추가하며 다른 active engine의 pressure는 보존합니다.
+- Known generation·workload·applied version·serving eligibility가 달라지면 raw current/baseline을 남기고 delta를 보류합니다. 미계측 restart와 실제 consumed-sample 관계는 여전히 TBD입니다.
+- 읽기는 최대 32 JSONL file·file당 1 MiB·8,192 record로 제한합니다. Limit/partial source는 Unknown이며 0으로 채우지 않습니다. Metric query 수는 추가하지 않습니다.
+
+Worker Comparison은 같은 명시 fingerprint라도 보고된 prompt/output token·turn/tool·concurrency·applied policy·generation·execution mode·model·state가 다르면 같은 cohort로 묶지 않습니다. 미보고 차원은 검증하지 못한 조건이며 fingerprint 자체도 producer의 선언입니다.
+
+### Separate Async Decision Context
+
+| Logger key suffix (`separate_async/decision/`) | Canonical metric | 읽는 방법 |
+| --- | --- | --- |
+| `sampleable_count` | `training_async_sampleable_count` | 다음 trainer update에서 사용할 수 있다고 보고한 sample 수 |
+| `remaining` | `training_async_samples_remaining` | 다음 update의 decision sample gap; 실제 wait duration 아님 |
+| `should_switch_to_rollout` | `training_async_should_switch_to_rollout` | 보고된 0/1 전환 결정; 완료된 lifecycle 아님 |
+| `effective_switch_cost_seconds` | `training_async_effective_switch_cost_seconds` | 보고된 cost estimate; unknown이면 metric 없음 |
+
+VERL key가 출력될 때만 snapshot·Step history에 저장합니다. Overview의 **Reported Async Trainer Decision**에서 completed observation을 읽습니다. Source·단위·scope는 [Metric Coverage](subsystem-metrics.md)를 확인하며 이 context로 vLLM bottleneck이나 trainer의 현재 sample starvation을 확정하지 않습니다.
+
+Source 기준은 VERL [`6afd1f5`](https://github.com/verl-project/verl/commit/6afd1f5d1feee75a6982250ae8438daee21c29b2)의 [Router](https://github.com/verl-project/verl/blob/6afd1f5d1feee75a6982250ae8438daee21c29b2/verl/workers/rollout/router.py), [Separate Async](https://github.com/verl-project/verl/blob/6afd1f5d1feee75a6982250ae8438daee21c29b2/verl/trainer/ppo/v1/trainer_separate_async.py), [Colocated Async](https://github.com/verl-project/verl/blob/6afd1f5d1feee75a6982250ae8438daee21c29b2/verl/trainer/ppo/v1/trainer_colocate_async.py)입니다. Native integration은 opt-in hook이며 실제 Ray/VERL actor 연결은 이번 CPU/mock 검증에 포함되지 않습니다.
+
 `cluster`를 지정하면 기본 query는 cluster/job으로 제한되고 clock check도 기본 활성화됩니다.
 사용자가 제공한 `prometheus.queries`는 그대로 사용하므로 각 selector에 `cluster="{cluster}"`와 source·node/device 조건을 명시해야 합니다.
 지원 placeholder는 `{node}`, `{run_id}`, `{cluster}`, `{compute_node}`, `{rollout_node}`, `{storage_node}`, `{storage_device}`, `{sandbox_node}`, `{sandbox_device}`입니다.

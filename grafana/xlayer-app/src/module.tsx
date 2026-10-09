@@ -72,12 +72,21 @@ import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
 import { replicaRows } from './replicas';
 
+function AsyncDecision({summary}:{summary?:RecordRow}) {
+ let value:RecordRow;try{value=JSON.parse(String(summary?.async_decision||'null'));}catch{return null;}
+ if(!value||typeof value!=='object'||Array.isArray(value))return null;
+ const fields=[['sampleable_count','Sampleable samples'],['remaining','Next-update sample gap'],['should_switch_to_rollout','Switch decision (0/1)'],['effective_switch_cost_seconds','Estimated switch cost (s)']];
+ const valid=fields.filter(([key])=>typeof value[key]==='number'&&Number.isFinite(value[key])&&Number(value[key])>=0);
+ if(!valid.length)return null;
+ return <details className="xlt-completed-detail"><summary>Reported Async Trainer Decision</summary><p className="xlt-muted">Saved next-update replay-buffer decision. It does not prove this Step waited for samples, an engine bottleneck, or a completed sleep/wake transition.</p>{valid.map(([key,label])=><p key={key}>{label}: <b>{format(value[key])}</b></p>)}</details>;
+}
+
 function RolloutReplicas({summary,context,catalog}:{summary?:RecordRow;context:Context;catalog:Catalog}) {
  const rows=replicaRows(summary);
  if(!rows.length)return null;
  return <section><h3>Rollout Replica Coverage</h3><p className="xlt-muted">Configured placement, not request routing or resource ownership. Each engine retains its own samples, baseline and clock checks. Missing metrics are not zero.</p>
   <div className="xlt-scroll"><table><thead><tr><th scope="col">Replica / engine</th><th scope="col">Queue / KV</th><th scope="col">Evidence quality</th><th scope="col">Observations / Next</th></tr></thead><tbody>{rows.map((r,i)=><tr key={`${r.id}-${i}`}>
-   <td><b>{r.id}</b><small className="xlt-entity" title={r.instance}>{r.instance} · engine {scalar(r.identity?.engine,'not reported')}</small><small>{r.nodes.join(', ')} · configured</small></td>
+   <td><b>{r.id}</b><small className="xlt-entity" title={r.instance}>{r.instance} · engine {scalar(r.identity?.engine,'not reported')}</small><small>{r.nodes.join(', ')} · configured</small><small>Serving: {r.serving.state} · sampled context</small><small>Router: {r.serving.registered===undefined?'Unknown':r.serving.registered?'Registered':'Not registered'} · in-flight {format(r.serving.inflight)}</small><small>Applied policy: {r.serving.applied===undefined||r.serving.applied===null?'Unknown':`v${scalar(r.serving.applied)}`} · worker report</small>{Object.keys(r.serving.workload).length>0&&<details><summary>Reported workload / generation</summary><small>{JSON.stringify(r.serving.workload)}</small><small>Generation: {scalar(r.serving.generation,'Unknown')}</small></details>}</td>
    <td>{format(r.signals.vllm_requests_waiting?.current)} requests<br/>{format(typeof r.signals.vllm_kv_cache_usage?.current==='number'?r.signals.vllm_kv_cache_usage.current*100:undefined,'%')} KV<small>per engine · shared service</small></td>
    <td>{r.status.replace(/_/g,' ')}<small>Clock: {r.clock} / baseline {r.baselineClock}</small><details><summary>Coverage · {r.missing.length} issues</summary>{r.missing.length?r.missing.map((issue,j)=><small key={j}>{issue}</small>):<small>Returned source coverage; not full scrape or replica lifecycle proof.</small>}</details></td>
    <td>{r.candidates.length?r.candidates.map((c,j)=><small key={j}>{scalar(c.id)} · {scalar(c.state).replace(/_/g,' ')}</small>):<small>{r.status==='observed'?'No anomaly observed':'Evidence incomplete or correlation withheld'}</small>}<Link to="stage" context={resourceContext(context,{node:r.endpoint_node,engine:r.instance})} catalog={catalog}>Inspect endpoint →</Link></td>
@@ -805,6 +814,7 @@ function ShellView({ model }: { model: Shell }) {
             <ErrorKpi spans={spans} data={spanData} />
           </div>
           {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework-reported MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · completed logger observation</p>}
+          <AsyncDecision summary={comparisonMeta}/>
           <section className="xlt-overview-top"><div>
             <div className="xlt-section">
               <h3>Agent RL Timeline</h3>
@@ -1036,6 +1046,7 @@ function ShellView({ model }: { model: Shell }) {
                           {scalar(c.observation_scope)} · confidence is not a
                           probability of causality
                         </p>
+                        {Boolean(c.context_status)&&<p className="xlt-notice">Replica context: {scalar(c.context_status).replace(/_/g,' ')} · observed lifecycle/eligibility, not resource ownership</p>}
                         <button
                           onClick={() =>
                             model.setState({

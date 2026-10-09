@@ -6,6 +6,7 @@ import re
 from ..prometheus import escape_label
 from ..time_alignment import validate_alignment, alignment_metadata
 from .evidence_quality import quality, source_for_entity, correlation_quality_issues, INVALID_SOURCE_TIME
+from .rollout_state import comparison_issues, apply_serving_limits
 
 
 def validate_rollout_replicas(config):
@@ -15,7 +16,9 @@ def validate_rollout_replicas(config):
         raise ValueError('rollout_replicas needs at most 16 declared replicas')
     ids, instances = set(), set()
     for row in replicas:
-        if (not isinstance(row, dict) or set(row) != {'id', 'instance', 'endpoint_node', 'nodes'}
+        if (not isinstance(row, dict) or not {'id', 'instance', 'endpoint_node', 'nodes'} <= set(row)
+                or set(row) - {'id', 'instance', 'endpoint_node', 'nodes', 'server_id'}
+                or ('server_id' in row and not text(row['server_id']))
                 or not all(text(row.get(key)) for key in ('id', 'instance', 'endpoint_node'))
                 or not isinstance(row['nodes'], list) or not 1 <= len(row['nodes']) <= 8
                 or any(not text(node) for node in row['nodes']) or len(set(row['nodes'])) != len(row['nodes'])
@@ -48,7 +51,7 @@ def matches_replica(labels, replica, cluster):
 
 
 def observations(config, current_series, baseline_series, sources, queries, sampling,
-                 window, baseline_window, clocks, thresholds):
+                 window, baseline_window, clocks, thresholds, serving=None):
     # Local import avoids a dependency cycle with the existing rule catalogue.
     from .diagnosis_analysis import vllm_identity, evaluate_rules, compare_signals
     from .metric_queries import PROFILE_SIGNALS
@@ -86,6 +89,9 @@ def observations(config, current_series, baseline_series, sources, queries, samp
         if baseline_window and alignment_metadata(window).get('reference_session') != alignment_metadata(baseline_window).get('reference_session'):
             prior_clock = 'unknown'
         entities = []
+        contexts = {'current': (serving or {}).get('current', {}).get(replica['id'], {}),
+                    'baseline': (serving or {}).get('baseline', {}).get(replica['id'], {})}
+        context_issues = comparison_issues(contexts['current'], contexts['baseline']) if baseline_window else []
         for identity in sorted(population):
             values, before, labels, qualities, missing = {}, {}, {}, {}, []
             for name in names:
@@ -110,6 +116,9 @@ def observations(config, current_series, baseline_series, sources, queries, samp
                         max(1, float(config['prometheus'].get('query_step_seconds', 2))), row['stats'], source=source,
                         result=sampling.get(name, {}).get(role, {}).get('query_result'))
             rule_values, rule_before = dict(values), dict(before)
+            missing.extend(context_issues)
+            if context_issues:
+                rule_before.clear()
             for signal, pair in qualities.items():
                 for role, target in (('current', rule_values), ('baseline', rule_before)):
                     issues = correlation_quality_issues(pair.get(role, {}))
@@ -139,6 +148,8 @@ def observations(config, current_series, baseline_series, sources, queries, samp
                     if issues and candidate['state'] == 'strong_signal':
                         candidate['state'] = 'supporting_signal'
                 candidate['signal_strength'] = candidate['state']
+            if serving:
+                apply_serving_limits(candidates, [replica], serving.get('current', {}))
             signals = {row['signal']: {**row, 'sampling_quality': qualities.get(row['signal'])}
                        for row in compare_signals(values, before, labels=labels)}
             for name, row in signals.items():
@@ -146,6 +157,8 @@ def observations(config, current_series, baseline_series, sources, queries, samp
                 if current_clock != 'aligned' or (baseline_window and prior_clock != 'aligned') or any(
                         correlation_quality_issues(q) for q in qualities.get(name, {}).values()):
                     row.update(delta=None, delta_percent=None, comparison_status='quality_unverified')
+                if context_issues:
+                    row.update(delta=None, delta_percent=None, comparison_status='replica_context_changed')
             entities.append({'identity': dict(identity), 'signals': signals, 'candidates': candidates,
                              'missing_sources': sorted(set(missing))})
         missing = sorted({issue for entity in entities for issue in entity['missing_sources']})
@@ -153,6 +166,7 @@ def observations(config, current_series, baseline_series, sources, queries, samp
             missing.append('endpoint:no_returned_observations')
         result.append({**replica, 'run_relation': 'configured', 'resource_attribution': 'not_established',
                        'clock_status': current_clock, 'baseline_clock_status': prior_clock,
+                       **({'serving_context': contexts} if serving else {}),
                        'status': 'missing' if not entities else 'clock_unverified' if current_clock != 'aligned'
                            else 'partial_evidence' if missing else 'observed',
                        'entities': entities, 'missing_sources': missing,

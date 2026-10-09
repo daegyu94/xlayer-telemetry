@@ -10,7 +10,7 @@ spec.loader.exec_module(coverage)
 
 def test_catalogue_distinguishes_definitions_bridge_aliases_and_manual_hooks():
     rows = {row['name']: row for row in coverage.catalogue(ROOT)}
-    assert len(rows) == 152
+    assert len(rows) == 156
     assert rows['training_tokens_per_second_per_gpu']['collection'] == 'verl_reported'
     assert rows['training_tokens_per_second']['collection'] == 'explicit_integration'
     assert rows['checkpoint_size_bytes']['collection'] == 'explicit_integration'

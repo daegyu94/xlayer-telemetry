@@ -53,6 +53,38 @@
   ],
   "metrics": [
     {
+      "name": "training_async_sampleable_count",
+      "category": "training",
+      "unit": "samples",
+      "scope": "run/worker",
+      "source": "VERL separate_async/decision/sampleable_count",
+      "policy": "reported replay-buffer samples eligible for the next trainer update; not engine queue"
+    },
+    {
+      "name": "training_async_samples_remaining",
+      "category": "training",
+      "unit": "samples",
+      "scope": "run/worker",
+      "source": "VERL separate_async/decision/remaining",
+      "policy": "reported next-step decision sample gap; not observed wait duration"
+    },
+    {
+      "name": "training_async_should_switch_to_rollout",
+      "category": "training",
+      "unit": "boolean",
+      "scope": "run/worker",
+      "source": "VERL separate_async/decision/should_switch_to_rollout",
+      "policy": "reported float 0/1 switch decision; not a completed lifecycle transition"
+    },
+    {
+      "name": "training_async_effective_switch_cost_seconds",
+      "category": "training",
+      "unit": "seconds",
+      "scope": "run/worker",
+      "source": "VERL separate_async/decision/effective_switch_cost_seconds",
+      "policy": "reported switch cost estimate, absent when unknown; not current step latency"
+    },
+    {
       "name": "training_tokens_per_second",
       "category": "training",
       "unit": "tokens/s",

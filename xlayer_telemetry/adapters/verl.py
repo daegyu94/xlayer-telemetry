@@ -54,6 +54,28 @@ DIRECT_METRICS = {
     "tool_call_counts/mean": ("agent_tool_calls_mean", {}),
 }
 
+# Reported next-step replay-buffer decisions, not engine queue observations.
+ASYNC_DECISIONS = {
+    'separate_async/decision/sampleable_count': ('training_async_sampleable_count', 'count'),
+    'separate_async/decision/remaining': ('training_async_samples_remaining', 'count'),
+    'separate_async/decision/should_switch_to_rollout': ('training_async_should_switch_to_rollout', 'flag'),
+    'separate_async/decision/effective_switch_cost_seconds': ('training_async_effective_switch_cost_seconds', 'seconds'),
+}
+
+
+def async_decisions(data):
+    result = {}
+    for key, (_, kind) in ASYNC_DECISIONS.items():
+        value = finite_number(data.get(key))
+        if value is None or value < 0:
+            continue
+        if kind == 'count' and (value > 2**53 or not float(value).is_integer()):
+            continue
+        if kind == 'flag' and value not in (0, 1):
+            continue
+        result[key.removeprefix('separate_async/decision/')] = value
+    return result
+
 
 # Only public, explicitly reported logger keys are accepted. These are model
 # FLOPs estimates reported by VERL, not estimates from GPU busy/utilization.
@@ -107,6 +129,8 @@ def describe_metrics() -> str:
     for key, (name, labels) in DIRECT_METRICS.items():
         suffix = " " + ", ".join(f"{key}={value}" for key, value in labels.items()) if labels else ""
         lines.append(f"{key} -> {name}{suffix}")
+    for key, (name, kind) in ASYNC_DECISIONS.items():
+        lines.append(f'{key} -> {name} (reported next-step decision; {kind}, not engine queue)')
     for key, stage in MFU_STAGES.items():
         lines.append(f"{key} -> training_model_flops_utilization_ratio phase={STAGE_PHASES[stage]} verl_stage={stage} reported_key={key} (finite ratio in [0, 1])")
     for key in POLICY_VERSION_KEYS:
@@ -133,6 +157,9 @@ class VerlMetricsAdapter:
     @staticmethod
     def translate(data: Mapping[str, Any]) -> list[Metric]:
         samples: list[Metric] = []
+        decisions = async_decisions(data)
+        samples.extend(Metric(name, decisions[key.removeprefix('separate_async/decision/')])
+                       for key, (name, _) in ASYNC_DECISIONS.items() if key.removeprefix('separate_async/decision/') in decisions)
         for key, value in data.items():
             value = finite_number(value)
             if value is None:

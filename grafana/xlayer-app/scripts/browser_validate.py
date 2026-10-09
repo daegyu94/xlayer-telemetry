@@ -11,7 +11,7 @@ import threading
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
-from ci_demo import datasource_error_result
+from ci_demo import datasource_error_result, native_dashboard_back
 
 
 
@@ -294,14 +294,7 @@ def multi_worker_journey(args):
         for name in ('var-phase_worker','var-node','var-gpu','var-run_id','var-record_id','var-source_node','from','to'):
             assert deep[name] == selected[name], (name, deep, selected)
         assert deep['var-phase'] == ['rollout']
-        return_entries=0
-        while return_entries<4:
-            page.go_back(wait_until='domcontentloaded')
-            return_entries+=1
-            if urlparse(page.url).path.startswith('/a/xlayer-telemetry-app'):
-                break
-            assert urlparse(page.url).netloc==urlparse(args.url).netloc and urlparse(page.url).path.startswith('/d/'), 'Back navigated outside the bounded native dashboard history'
-        assert urlparse(page.url).path.startswith('/a/xlayer-telemetry-app'), 'App entry absent from the last four native dashboard history entries'
+        native_dashboard_back(page, args.url)
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')

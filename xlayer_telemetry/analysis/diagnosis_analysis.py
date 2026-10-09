@@ -66,7 +66,7 @@ _APPLICATION_DURATION_METADATA = {
 }
 
 VLLM_OBSERVATIONS = ('vllm_requests_waiting', 'vllm_kv_cache_usage', 'vllm_preemptions_total')
-_VLLM_IDENTITY = ('cluster', 'node', 'instance', 'component', 'engine', 'engine_id', 'model_name', 'model')
+_VLLM_IDENTITY = ('cluster', 'node', 'instance', 'component', 'replica', 'replica_rank', 'node_rank', 'engine', 'engine_id', 'model_name', 'model')
 _VLLM_ENGINE_FIELDS = frozenset({'instance', 'component', 'engine', 'engine_id', 'model_name', 'model'})
 
 

@@ -12,6 +12,24 @@ from xlayer_telemetry.adapters.verl import (
 from xlayer_telemetry.metrics import MetricEmitter
 
 
+@pytest.mark.parametrize('key,name,value', [
+    ('sampleable_count','training_async_sampleable_count',12.0),
+    ('remaining','training_async_samples_remaining',0.0),
+    ('should_switch_to_rollout','training_async_should_switch_to_rollout',1.0),
+    ('effective_switch_cost_seconds','training_async_effective_switch_cost_seconds',.3),
+])
+def test_separate_async_decision_scalars_preserve_reported_type_and_units(key,name,value):
+    samples = VerlMetricsAdapter.translate({'separate_async/decision/'+key:value})
+    assert [(sample.name,sample.value) for sample in samples] == [(name,value)]
+
+
+@pytest.mark.parametrize('key,value', [('sampleable_count',1.5),('remaining',-1),
+    ('should_switch_to_rollout',2),('should_switch_to_rollout',True),
+    ('effective_switch_cost_seconds',-1),('effective_switch_cost_seconds',None)])
+def test_invalid_or_unreported_async_decision_is_not_zero_filled(key,value):
+    assert VerlMetricsAdapter.translate({'separate_async/decision/'+key:value}) == []
+
+
 @pytest.mark.parametrize("duration,expected", [(None, 8.0), (float("nan"), 8.0), (-1.0, 8.0), (0.0, 0.0), (6.0, 6.0)])
 def test_step_duration_fallback_preserves_primary_metric(duration, expected) -> None:
     data = {"timing_s/step": 8.0}

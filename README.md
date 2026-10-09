@@ -64,6 +64,8 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 
 여러 Rollout Replica는 [선언형 inventory](docs/diagnosis-reference.md#declared-rollout-replica-inventory)로 대표 endpoint와 배치 node를 구분합니다. Replica별 일부 metric 누락·freshness·clock·baseline을 보존하며, 배치 선언만으로 request routing이나 trainer의 sample 소비 관계를 추정하지 않습니다.
 
+[선택적 Router / Serving SDK](docs/diagnosis-reference.md#router-membership-and-serving-lifecycle)는 read-only membership과 완료 hook의 sleep/wake·workload·worker-applied policy를 읽습니다. Endpoint UP와 serving 정상은 다르며, 상태가 없으면 Unknown으로 남깁니다. Separate Async의 다음-update sample decision도 보고된 logger key가 있을 때만 표시합니다.
+
 ## 어떻게 조사하나
 
 <a id="why-cross-layer-telemetry"></a>

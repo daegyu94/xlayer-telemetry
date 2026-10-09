@@ -119,9 +119,11 @@ Job별 완료 시각마다 `PUBLISHED MULTI-JOB`가 출력되고 해당 Run의 S
 2. Overview의 application KPI와 shared resource card를 구분합니다. Reward missing·stale snapshot을 측정값 `0`으로 읽지 않습니다.
 3. Analyze → Investigate에서 Current/Baseline의 Run과 candidate의 실제 endpoint/device identity를 확인합니다.
    Llama의 **Rollout Replica Coverage**에서는 정상 engine과 일부 metric이 누락된 혼잡 engine을 별도로 확인합니다. **Inspect endpoint** → Stage dashboard → Browser Back으로 context가 유지되는지 확인합니다. 이는 같은 process의 synthetic node labels이며 물리 multinode/TP/DP 실행은 아닙니다.
+   CPU Mock Router snapshot에서는 `llama-0` endpoint가 UP여도 Router에서 제거·sleeping 상태입니다. `llama-1`은 긴 prompt·tool workload와 높은 in-flight count를 보고하며, 명시 worker-applied policy만 표시합니다. 이 불균형의 원인이 Sticky routing이라고 확정하지 않습니다. 실제 upstream Router와 weight update는 실행하지 않습니다.
 4. Candidate 카드의 **Run relation unverified / configured endpoint**를 먼저 확인하고, Evidence의 `run_resource_attribution_unverified`를 읽습니다. Strong observed pressure가 있어도 특정 Job의 원인 확정은 아닙니다.
 5. Deep Dive → 기존 Storage/Compute/Logs → Browser Back으로 Run·Step·node·time이 유지되는지 확인합니다. 다른 종료 시각의 Job을 조사하려면 먼저 Grafana time picker로 최근 구간을 넓힙니다.
 6. 모델 정보는 Run directory의 `telemetry-manifest.json`과 `run.metadata` event에서 확인합니다. Application Prometheus label에 model을 추가하지 않습니다. vLLM의 기존 `model_name`·endpoint label은 native source identity입니다.
+7. DeepSeek Overview의 **Reported Async Trainer Decision**에서 다음-update sample gap·전환 결정을 읽습니다. Synthetic logger의 관측이며 실제 trainer가 현재 sample을 기다렸다는 증거가 아닙니다.
 
 ```{admonition} 관측한 것과 검증하지 않은 것
 :class: important

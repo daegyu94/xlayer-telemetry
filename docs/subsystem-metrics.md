@@ -31,6 +31,7 @@ Source unavailable, metric absent, stale, collected-but-not-diagnosed와 measure
 | Reward / MFU / policy | 명시 logger key + 같은 entity의 sample age | Loss/reward/MFU를 GPU util로 추정하지 않음 |
 | vLLM queue / KV | Native endpoint · instance/model/engine | Current/baseline 같은 entity; shared engine |
 | Waiting reason | `vllm_waiting` opt-in + exporter gauge 지원 | Capacity/deferred 비교 context. Deferred가 KV 원인은 아님 |
+| Async trainer decision | 명시 `separate_async/decision/*` logger key | 다음 update의 sample/cost decision. vLLM queue·현재 Step 대기를 증명하지 않음 |
 | Ray | Native session/task/resource metrics | JobId·SessionName은 XLayer Run ID와 다름 |
 | Mooncake | Connector / Master / DFS Client 각각 연결 | RPC percentile·batch latency·successful key bytes 구분. Backend/replica 미확인 유지 |
 | 3FS | Optional ClickHouse·clock·full entity·report population | Maximum reported p99; pooled p99·Run별 I/O 아님 |

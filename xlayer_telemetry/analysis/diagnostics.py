@@ -30,6 +30,7 @@ from .clock_quality import assess_interval, clock_inventory, producer_hosts_veri
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from .evidence_quality import quality, check_source, source_for_entity, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
 from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
+from .rollout_state import validate_observations, load_serving_context, comparison_issues, apply_serving_limits
 from ..sandbox import device_window
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
@@ -329,6 +330,7 @@ def load_config(path: Path) -> dict[str, Any]:
     validate_baseline_policy(config.get("baseline", {}))
     validate_run_engine_instances(config)
     validate_rollout_replicas(config)
+    validate_observations(config)
     thresholds = config.get("thresholds", {})
     if not isinstance(thresholds, dict) or any(
         type(value) not in (int, float) or not math.isfinite(value) or value < 0
@@ -529,6 +531,7 @@ class DiagnosticEngine:
     ) -> None:
         validate_run_engine_instances(config)
         validate_rollout_replicas(config)
+        validate_observations(config)
         self.config = config
         prom = config["prometheus"]
         self.prometheus = prometheus or PrometheusClient(prom["url"], float(prom.get("timeout_seconds", 5)))
@@ -701,6 +704,12 @@ class DiagnosticEngine:
                     clock_quality["baseline"]["status"] = "unknown"
         clock_quality["operating_scope"] = "cross-node" if cross_node else "single-resource-node"
         clock_quality["required_nodes"] = sorted(clock_nodes)
+        serving = None
+        if self.config.get('rollout_observations'):
+            reader = self.jsonl_cache.read if self.jsonl_cache is not None else None
+            serving = {'current': load_serving_context(self.config, window, clock_quality, reader=reader),
+                       'baseline': load_serving_context(self.config, baseline_window,
+                           clock_quality.get('baseline', {}), reader=reader) if baseline_record else {}}
 
         def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]], dict | None]:
             if hasattr(prometheus, "query_range_detail"):
@@ -1087,6 +1096,18 @@ class DiagnosticEngine:
                     qualities[role] = selected_quality(qualities[role], stats)
 
         rule_current,rule_baseline=dict(current_signals),dict(baseline_signals)
+        changed_replica_signals = set()
+        if serving:
+            for replica in self.config['rollout_replicas']:
+                issues = comparison_issues(serving['current'].get(replica['id'], {}), serving['baseline'].get(replica['id'], {})) if baseline_record else []
+                for signal, labels in signal_labels.items():
+                    if labels.get('instance') != replica['instance'] or labels.get('node') != replica['endpoint_node']:
+                        continue
+                    if issues:
+                        rule_baseline.pop(signal, None); changed_replica_signals.add(signal)
+                        missing.extend(replica['id'] + ':' + issue for issue in issues)
+                    if serving['current'].get(replica['id'], {}).get('serving_state') in {'sleeping','weight_update','waking'}:
+                        finding_evidence.pop('vllm_preemptions_total' if signal=='vllm_preemptions_delta' else signal, None)
         for name,qualities in sampling_quality.items():
             signal='vllm_preemptions_delta' if name=='vllm_preemptions_total' else name
             for role,values in (('current',rule_current),('baseline',rule_baseline)):
@@ -1214,9 +1235,13 @@ class DiagnosticEngine:
                     item.update(unit=spec.unit, window_statistic=spec.statistic,
                                 query=signal_queries.get(item["signal"]))
             candidate['signal_strength'] = candidate['state']
+        if serving:
+            apply_serving_limits(candidates, self.config['rollout_replicas'], serving['current'])
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
+            if row['signal'] in changed_replica_signals:
+                row.update(delta=None, delta_percent=None, comparison_status='replica_context_changed')
             if row['signal'] == 'threefs_p99_latency' and threefs_comparison is not None:
                 row['comparison_quality'] = threefs_comparison
                 if threefs_comparison['status'] != 'shared_report_window':
@@ -1288,7 +1313,8 @@ class DiagnosticEngine:
             "sampling_quality": sampling_quality,
             **({'rollout_replicas': replica_observations({**self.config, 'node': node}, current_series, baseline_series,
                 source_samples, executed_queries, sampling_quality, window, baseline_window if baseline_record else {},
-                clock_quality, self.thresholds)} if self.config.get('rollout_replicas') else {}),
+                clock_quality, self.thresholds, serving=serving)} if self.config.get('rollout_replicas') else {}),
+            **({'async_decision': current['async_decision']} if current and current.get('async_decision') else {}),
             "metric_profiles": profiles,
             "query_execution": budget.summary(),
             "storage_overview": storage_overview(comparison, signal_queries, missing,
@@ -1572,6 +1598,7 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
              "run_model_identifier": report['run_model'].get('identifier') if isinstance(report.get('run_model'), Mapping) else None,
              "run_model_source": report['run_model'].get('source') if isinstance(report.get('run_model'), Mapping) else None,
              "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':')),
+             **({'async_decision': json.dumps(report['async_decision'], separators=(',', ':'))} if report.get('async_decision') else {}),
              **({'rollout_replicas': json.dumps(report['rollout_replicas'], separators=(',', ':'))}
                 if report.get('rollout_replicas') is not None else {})}]
     for replica in report.get('rollout_replicas', []):
@@ -1593,6 +1620,9 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         rows[-1]['resource_attribution'] = candidate.get('resource_attribution', 'not_established')
         rows[-1]['run_relation'] = candidate.get('run_relation', 'not_reported')
         rows[-1]['signal_strength'] = candidate.get('signal_strength', candidate.get('state'))
+        rows[-1]['context_status'] = candidate.get('context_status')
+        rows[-1]['replica_id'] = candidate.get('replica_id')
+        rows[-1]['serving_context'] = json.dumps(candidate.get('serving_context'), separators=(',', ':'))
         for kind, items in (("supporting", candidate.get("evidence", [])),
                             ("counter", candidate.get("counter_evidence", []))):
             for item in items:

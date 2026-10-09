@@ -8,6 +8,7 @@ from urllib.request import urlopen
 
 from playwright.sync_api import sync_playwright
 from browser_validate import EntryDiagnostics
+from ci_demo import native_dashboard_back
 
 
 def main():
@@ -52,6 +53,14 @@ def main():
     assert replica_rows[1]['status'] == 'partial_evidence'
     assert 'gpu-node-2' in replica_rows[1]['nodes']
     assert any('vllm_preemptions_delta:missing' in issue for issue in replica_rows[1]['missing_sources'])
+    primary=replica_rows[0]['serving_context']['current']; peer=replica_rows[1]['serving_context']['current']
+    assert primary['router_registered'] is False and primary['serving_state']=='sleeping'
+    assert primary['applied_policy_version'] is None
+    assert peer['router_registered'] is True and peer['serving_state']=='serving'
+    assert peer['applied_policy_version'] == reports['demo-llama']['comparison']['current_workload']['policy_version']-1
+    assert primary['workload']['prompt_tokens'] != peer['workload']['prompt_tokens']
+    assert replica_rows[1]['signals']['vllm_requests_waiting']['delta'] is None
+    assert reports['demo-deepseek']['async_decision']['remaining']==20
     for report in reports.values():
         for candidate in report['candidates']:
             assert candidate['resource_attribution'] == 'not_established'
@@ -66,6 +75,10 @@ def main():
     assert not query_prom('reward_mean{run_id="demo-llama"}')
     assert not query_prom('vllm:num_preemptions_total{instance="synthetic-job-deepseek"}')
     assert not query_prom('up{telemetry_source="vllm",instance="synthetic-vllm-0"}')
+    up=query_prom('up{telemetry_source="vllm",instance="synthetic-job-llama"}')
+    assert len(up)==1 and float(up[0]['value'][1])==1
+    decision=query_prom('training_async_samples_remaining{run_id="demo-deepseek"}')
+    assert len(decision)==1 and float(decision[0]['value'][1])==20
     stale = query_prom('time() - training_sample_timestamp_seconds{run_id="demo-deepseek",role="trainer"}')
     assert stale and all(float(row['value'][1]) > 300 for row in stale)
     for run, report in reports.items():
@@ -109,6 +122,11 @@ def main():
                 step=page.get_by_role('combobox', name='Completed Step')
                 step.locator('option[value="' + reports[run]['trigger_record_id'] + '"]').wait_for(state='attached', timeout=30000)
                 step.select_option(reports[run]['trigger_record_id'])
+                if run == 'demo-deepseek':
+                    decision = page.locator('details').filter(has=page.get_by_text('Reported Async Trainer Decision', exact=True))
+                    decision.locator('summary').click()
+                    assert 'Next-update sample gap' in decision.inner_text() and '20' in decision.inner_text()
+                    page.screenshot(path=str(args.output/'async-decision.png'),full_page=True)
                 page.get_by_role('button', name='Analyze Step').click()
                 if run == 'demo-llama':
                     page.get_by_role('heading', name='Rollout Replica Coverage', exact=True).wait_for(timeout=30000)
@@ -116,6 +134,8 @@ def main():
                     replica_table.get_by_text('llama-1', exact=True).wait_for(timeout=30000)
                     assert 'partial evidence' in replica_table.inner_text()
                     assert 'gpu-node-1, gpu-node-2' in replica_table.inner_text()
+                    assert 'Serving: sleeping' in replica_table.inner_text() and 'Not registered' in replica_table.inner_text()
+                    assert 'Serving: serving' in replica_table.inner_text() and 'worker report' in replica_table.inner_text()
                     for width in (1440, 390):
                         page.set_viewport_size({'width': width, 'height': 1000})
                         replica_table.scroll_into_view_if_needed()
@@ -127,7 +147,7 @@ def main():
                     assert replica_context['var-engine'] == ['synthetic-job-llama-peer']
                     assert replica_context['var-node'] == ['gpu-node-1']
                     assert replica_context['var-run_id'] == [run] and replica_context['var-record_id'] == [reports[run]['trigger_record_id']]
-                    page.go_back(); page.wait_for_url('**/a/xlayer-telemetry-app/**')
+                    native_dashboard_back(page, args.url)
                 page.get_by_role('link', name='Investigate', exact=True).click()
                 page.get_by_role('heading', name=re.compile('Step Investigation')).wait_for(timeout=30000)
                 page.wait_for_timeout(1200)
@@ -143,7 +163,7 @@ def main():
                     page.wait_for_url('**/d/**', timeout=20000)
                     current=parse_qs(urlparse(page.url).query)
                     assert current['var-run_id'] == [run] and current['var-record_id'] == [reports[run]['trigger_record_id']]
-                    page.go_back(); page.wait_for_url('**/a/xlayer-telemetry-app/**')
+                    native_dashboard_back(page, args.url)
                     assert parse_qs(urlparse(page.url).query)['var-run_id'] == [run]
                 for width in (1440, 390):
                     page.set_viewport_size({'width':width,'height':1000}); page.wait_for_timeout(300)

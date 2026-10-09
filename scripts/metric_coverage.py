@@ -11,7 +11,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from xlayer_telemetry.adapters.verl import DIRECT_METRICS, MFU_STAGES, POLICY_VERSION_KEYS, STAGE_PHASES, VerlMetricsAdapter
+from xlayer_telemetry.adapters.verl import DIRECT_METRICS, ASYNC_DECISIONS, MFU_STAGES, POLICY_VERSION_KEYS, STAGE_PHASES, VerlMetricsAdapter
 from xlayer_telemetry.analysis.diagnostics import DEFAULT_QUERIES
 from xlayer_telemetry.analysis.metric_queries import METRIC_PROFILES, profile_queries
 
@@ -100,6 +100,7 @@ def catalogue(root=ROOT):
     root=Path(root)
     contract=json.loads((root/'config/metrics.json').read_text())['metrics']
     logger={key:1 for key in DIRECT_METRICS}
+    logger.update({key:1 for key in ASYNC_DECISIONS})
     logger.update({key:.5 for key in MFU_STAGES}); logger.update({key:1 for key in POLICY_VERSION_KEYS})
     logger.update({'timing_s/'+stage:1 for stage in STAGE_PHASES})
     logger.update({'timing_per_token_ms/'+stage:1 for stage in STAGE_PHASES})

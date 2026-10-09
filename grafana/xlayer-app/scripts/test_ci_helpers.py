@@ -21,6 +21,22 @@ def load(name):
     return module
 
 
+def test_native_back_waits_for_dashboard_mount_and_walks_only_its_history():
+    native_dashboard_back = load('ci_demo').native_dashboard_back
+    class Page:
+        def __init__(self):
+            self.url='http://127.0.0.1:3000/d/stage?orgId=1'
+            self.history=iter(['http://127.0.0.1:3000/d/stage?var-engine=all','http://127.0.0.1:3000/a/xlayer-telemetry-app/analyze?var-run_id=one'])
+            self.calls=[]
+        def wait_for_function(self,*args,**kwargs): self.calls.append('dashboard_ready')
+        def go_back(self,**kwargs): self.calls.append('back');self.url=next(self.history)
+        def get_by_role(self,*args,**kwargs):return self
+        def wait_for(self,**kwargs):self.calls.append('app_ready')
+    page=Page();native_dashboard_back(page,'http://127.0.0.1:3000')
+    assert page.calls==['dashboard_ready','back','back','app_ready']
+    assert 'var-run_id=one' in page.url
+
+
 TOOLS = load('install_ci_tools')
 CI = load('ci_demo')
 PACKAGE = load('package_plugin')

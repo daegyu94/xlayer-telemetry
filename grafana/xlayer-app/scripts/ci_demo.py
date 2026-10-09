@@ -21,6 +21,22 @@ def datasource_error_result(queries, message='Synthetic browser boundary datasou
     } for query in queries}}
 
 
+def native_dashboard_back(page, origin):
+    """Exercise a mounted dashboard before traversing its bounded URL history."""
+    from urllib.parse import urlparse
+    page.wait_for_function("new URLSearchParams(location.search).has('orgId')", timeout=15000)
+    for _ in range(4):
+        page.go_back(wait_until='domcontentloaded')
+        current = urlparse(page.url)
+        assert current.netloc == urlparse(origin).netloc, 'Back left the owned Grafana origin'
+        if current.path.startswith('/a/xlayer-telemetry-app'):
+            page.get_by_role('navigation', name='XLayer investigation').wait_for(timeout=30000)
+            assert urlparse(page.url).path.startswith('/a/xlayer-telemetry-app'), 'App mount changed the return route'
+            return
+        assert current.path.startswith('/d/'), 'Back left the native dashboard history'
+    raise AssertionError('App entry absent from the last four native dashboard history entries')
+
+
 def bounded_tail(path, max_bytes=65536):
     with path.open('rb') as source:
         source.seek(0, 2)
