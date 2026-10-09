@@ -185,6 +185,37 @@ def test_reset_report_amount_delta_requires_equal_window_exposure(end, status, d
     assert row['delta'] == delta
     assert row['delta_percent'] == (100 if delta is not None else None)
     assert row['comparison_status'] == status
+
+
+@pytest.mark.parametrize('case,expected', [
+    ('longer_window', 'different_report_window_exposure'),
+    ('more_reports', 'different_report_population'),
+    ('missing_second', 'different_report_population'),
+    ('unknown_reports', 'report_population_unknown'),
+    ('equal', 'shared_report_window'),
+])
+def test_distribution_extrema_delta_requires_comparable_report_population(case, expected):
+    current = [distribution(101, 20), distribution(102, 50)]
+    baseline = [distribution(81, 10), distribution(82, 10)]
+    if case == 'more_reports':
+        current[0]['report_count'] = 100
+    elif case == 'missing_second':
+        baseline.pop()
+        baseline[0]['report_count'] = 2  # Equal report count, different observed seconds.
+    elif case == 'unknown_reports':
+        baseline[0].pop('report_count')
+    clock = {'status': 'aligned', 'nodes': {'storage': {'status': 'aligned'}}}
+    clock['baseline'] = dict(clock)
+    result = collect_storage_series(Source(current + baseline),
+        {'start': 100, 'end': 110 if case == 'longer_window' else 105}, {'start': 80, 'end': 85},
+        settings=settings(host_clock_nodes={'storage-a': 'storage'}), clock_quality=clock, queried_at=200)
+    row, = result['comparison']['rows']
+    assert (row['current'], row['baseline']) == (50, 10)
+    assert row['comparison_status'] == expected
+    assert row['delta_percent'] == (400 if case == 'equal' else None)
+    assert row['comparison_quality']['current_report_count'] == (101 if case == 'more_reports' else 2)
+    assert row['comparison_quality']['current_reported_seconds'] == 2
+    assert row['comparison_quality']['complete_collection_coverage'] == 'unknown'
     from xlayer_telemetry.analysis.storage_series import project_storage_summary
     summary = next(row for row in project_storage_summary(result, {}) if row['row_kind'] == 'storage_comparison')
     assert summary['host_clock_coverage'] == 'screened_aligned'

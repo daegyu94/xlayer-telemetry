@@ -352,8 +352,9 @@ Prometheus tool query는 `run_id`로 표본을 고르므로 trainer·rollout nod
 
 ### Select a Comparable Workload
 
-기존 baseline 선택은 유지하지만 기본 `workload_comparability`는 `unverified`입니다.
-Token 수·evaluation·checkpoint 차이를 제외하려면 diagnostics config에 비교 조건을 추가합니다.
+기존 baseline 선택은 유지하지만 기본 `workload_comparability`는 `unverified`입니다. 완료된 step·rollout·training·checkpoint·communication duration의 baseline 비교를 사용하는 candidate는 이 상태에서 최대 `supporting_signal`이며, `workload_comparability_unverified`를 missing evidence로 남깁니다. 현재 KV pressure처럼 duration baseline을 사용하지 않는 관측은 이 제한으로 낮추지 않습니다.
+
+Token 수·evaluation·checkpoint 차이를 제외하려면 diagnostics config에 비교 조건을 추가합니다. Raw duration·baseline·delta는 그대로 남기며, workload가 다르다는 이유만으로 관측값을 없애지 않습니다.
 
 ```json
 "baseline": {

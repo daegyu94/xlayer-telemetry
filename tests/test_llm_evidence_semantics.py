@@ -109,6 +109,19 @@ def test_saved_report_missing_statistic_stays_unknown_in_mixed_model_rows():
     assert all("window_statistic" not in item for item in packet["observations"])
 
 
+def test_withheld_storage_comparison_status_survives_model_input():
+    source = report()
+    row = source['comparison']['signals'][0]
+    row.update(comparison_status='different_report_population', delta=None, delta_percent=None)
+    packet = llm.packet_from_report(source)
+    llm.validate_packet(packet)
+    model_row = restore(llm.model_view(packet))[0]
+    assert model_row['comparison_status'] == 'different_report_population'
+    assert model_row['current'] == .04 and model_row['baseline'] == .01
+    assert model_row['delta'] is None and model_row['delta_percent'] is None
+    assert 'comparison_status' not in packet['observations'][1]
+
+
 @pytest.mark.parametrize("invalid", [None, "", " ", 1, True, ["max"], {"mean": 1}])
 def test_invalid_statistic_is_rejected(invalid):
     packet = llm.packet_from_report(report())

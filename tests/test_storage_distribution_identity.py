@@ -13,7 +13,7 @@ LABELS = ("host", "tag", "mount_name", "instance", "io", "uid", "method",
 
 def distribution(value, *, host="a", method="read", name="client_read_latency", legacy=False):
     row = {"metricName": name, "count": 3, "max_observed_p99": value,
-           "weighted_mean": value}
+           "weighted_mean": value, "report_count": 1, "observed_second_count": 1}
     if not legacy:
         row["labels"] = {key: "" for key in LABELS}
         row["labels"].update(host=host, method=method)
@@ -60,7 +60,7 @@ def test_distribution_sql_keeps_all_entities_and_only_positive_contributors(monk
     labels = {key: "" for key in LABELS}
     labels.update(host="a", method="read")
     raw = {"metricName": "read_latency", **labels, "sample_count": "3",
-           "max_value": 10, "max_observed_p99": 9}
+           "max_value": 10, "max_observed_p99": 9, "report_count": "2", "observed_second_count": "1"}
     def load(request, **kwargs):
         captured.append(request.data.decode())
         return io.BytesIO((json.dumps(raw) + "\n").encode())
@@ -73,6 +73,26 @@ def test_distribution_sql_keeps_all_entities_and_only_positive_contributors(monk
     assert "`count` > 0" in query
     assert "LIMIT 1001" in query
     assert "max(p99) AS max_observed_p99" in query
+    assert 'count() AS report_count' in query and 'uniqExact(TIMESTAMP) AS observed_second_count' in query
+    assert row['report_count'] == 2 and row['observed_second_count'] == 1
+
+
+@pytest.mark.parametrize('population,expected', [(100, 'different_report_population'), (None, 'report_population_unknown')])
+def test_aggregate_extrema_with_unmatched_report_population_is_not_a_regression(population, expected):
+    now, prior = distribution(30), distribution(10)
+    if population is None:
+        prior.pop('report_count')
+    else:
+        now['report_count'] = population
+    result = report([now], [prior], request_size=True, verified=True)
+    row, = [r for r in result['comparison']['signals'] if r['signal'] == 'threefs_p99_latency']
+    assert (row['current'], row['baseline']) == (30, 10)
+    assert row['delta'] is None and row['delta_percent'] is None
+    assert row['comparison_status'] == expected
+    assert not any(f['component'] == '3fs' for f in result['findings'])
+    assert not any(any(e['signal'] == 'threefs_p99_latency' for e in c['evidence']) for c in result['candidates'])
+    projected, = [r for r in diagnostics._investigation_rows(result) if r.get('signal') == 'threefs_p99_latency']
+    assert projected['comparison_status'] == expected
 
 
 @pytest.mark.parametrize("before", [distribution(1, host="b"), distribution(1, method="write"),

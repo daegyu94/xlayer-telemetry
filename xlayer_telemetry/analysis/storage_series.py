@@ -62,6 +62,46 @@ def _quality(window, rows, clock, settings, queried_at):
             "issues": issues}
 
 
+def distribution_comparison_quality(current, baseline, current_window, baseline_window):
+    """Compare exposure/population of reported extrema, not complete coverage.
+
+    Inputs are one entity's second-level series or one window aggregate with
+    report_count/observed_second_count. Operation sample counts are different.
+    """
+    result = {'complete_collection_coverage': 'unknown'}
+    for role, rows, window in (('current', current, current_window), ('baseline', baseline, baseline_window)):
+        start, end = finite(window.get('start')), finite(window.get('end'))
+        valid = start is not None and end is not None and start < end
+        result[role + '_interval_seconds'] = end - start if valid else None
+        result[role + '_timestamp_slots'] = math.ceil(end) - math.ceil(start) if valid else None
+        counts = [finite(row.get('report_count')) for row in rows]
+        result[role + '_report_count'] = sum(counts) if counts and all(
+            value is not None and value > 0 and value == int(value) for value in counts) else None
+        stamps = [finite(row.get('timestamp_seconds')) for row in rows]
+        if stamps and all(stamp is not None for stamp in stamps):
+            seconds = len(set(stamps))
+        else:
+            seconds = finite(rows[0].get('observed_second_count')) if len(rows) == 1 else None
+        result[role + '_reported_seconds'] = seconds if seconds is not None and seconds > 0 and seconds == int(seconds) else None
+    durations = [result[role + '_interval_seconds'] for role in ('current', 'baseline')]
+    if any(value is None for value in durations):
+        status = 'report_window_unknown'
+    elif min(durations) < 1:
+        status = 'insufficient_timestamp_resolution'
+    elif (not math.isclose(*durations, rel_tol=0, abs_tol=1e-6)
+          or result['current_timestamp_slots'] != result['baseline_timestamp_slots']):
+        status = 'different_report_window_exposure'
+    elif any(result[role + field] is None for role in ('current', 'baseline')
+             for field in ('_report_count', '_reported_seconds')):
+        status = 'report_population_unknown'
+    elif (result['current_report_count'] != result['baseline_report_count']
+          or result['current_reported_seconds'] != result['baseline_reported_seconds']):
+        status = 'different_report_population'
+    else:
+        status = 'shared_report_window'
+    return {**result, 'status': status}
+
+
 def collect_storage_series(client, current_window, baseline_window, *, settings, clock_quality, queried_at):
     settings = validate_series_settings(settings)
     result = {"enabled": settings.get("enabled", False), "max_points": settings.get("max_points", 2000),
@@ -122,12 +162,16 @@ def collect_storage_series(client, current_window, baseline_window, *, settings,
         table, metric, labels = key
         unit = settings.get("distribution_units", {}).get(metric) if table == "distributions" else a[key][0].get("unit")
         status = "shared_report_window" if eligible else "clock_unverified"
+        comparison_quality = None
         if table == "distributions":
             values = [[finite(row.get("max_observed_p99")) for row in group] for group in (a[key], b[key])]
             statistic = "maximum reported p99, not pooled p99"
             if any(not group or any(value is None for value in group) for group in values):
                 continue
             now, before = max(values[0]), max(values[1])
+            comparison_quality = distribution_comparison_quality(a[key], b[key], windows[0], windows[1])
+            if eligible:
+                status = comparison_quality['status']
         elif a[key][0].get("kind") in {"reset_on_collect", "reset_after_collect", "interval_delta"}:
             values = [[finite(row.get("observed_sum")) for row in group] for group in (a[key], b[key])]
             statistic = "sum returned reset reports; incomplete I/O total"
@@ -142,6 +186,7 @@ def collect_storage_series(client, current_window, baseline_window, *, settings,
             "current": now, "baseline": before, "delta": now-before if status == "shared_report_window" else None,
             "delta_percent": 100*(now-before)/abs(before) if status == "shared_report_window" and before else None,
             "unit": unit, "statistic": statistic, "comparison_status": status,
+            **({'comparison_quality': comparison_quality} if comparison_quality is not None else {}),
             "host_clock_coverage": "screened_aligned" if eligible else "unknown"})
     return result
 
@@ -206,13 +251,18 @@ def project_storage_summary(series, common):
             "quality_issues": ", ".join(quality.get("issues", [])+entry.get("errors", [])),
             "phase_attribution": "not_established"})
     for row in series.get("comparison", {}).get("rows", []):
+        comparison_quality = row.get('comparison_quality', {})
         rows.append({**common, "row_kind": "storage_comparison", "metric_name": row["metricName"],
             "source_table": row["table"], "current": row["current"], "baseline": row["baseline"],
             "delta_percent": row["delta_percent"], "unit": row["unit"], "statistic": row["statistic"],
             "comparison_status": row["comparison_status"],
+            "comparison_quality": json.dumps(comparison_quality, separators=(',', ':')),
+            **{key: comparison_quality.get(key) for key in ('current_report_count', 'baseline_report_count',
+                'current_reported_seconds', 'baseline_reported_seconds', 'current_interval_seconds', 'baseline_interval_seconds')},
             "clock_status": row.get("host_clock_coverage", "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown"),
             "host_clock_coverage": row.get("host_clock_coverage", "screened_aligned" if row["comparison_status"] == "shared_report_window" else "unknown"),
-            "quality_issues": "collection_interval_unknown, returned_reports_only",
+            "quality_issues": "collection_interval_unknown, returned_reports_only" + (
+                ', ' + comparison_quality['status'] if comparison_quality.get('status') not in {None, 'shared_report_window'} else ''),
             "entity": ",".join(f"{key}={value}" for key, value in sorted(row["labels"].items())),
             "observation_scope": "shared-service", "phase_attribution": "not_established"})
     return rows

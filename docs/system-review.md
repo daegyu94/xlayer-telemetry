@@ -173,3 +173,41 @@ python -m pytest -q tests/test_diagnosis_analysis.py tests/test_incremental_cach
 **검증 결과:** 관련 검사 92개, 전체 CPU suite 및 CI helper 1,523개 통과. 실제 promtool을 사용했으며 격리 ClickHouse 미설정으로 SQL 통합 검사 6개는 skip입니다. Python·shell syntax, 문서 link/diagram 10개와 strict Sphinx build도 통과했습니다.
 
 Frontend·dashboard·upstream 코드는 수정하지 않았으며 실제 GPU/veRL·물리 multi-node·3FS workload와 화면 rendering은 이번 리팩토링의 검증 범위가 아닙니다. Decoded cache와 history 전체의 장기 메모리 비용은 이번 transient-copy 개선으로 해결되지 않습니다.
+
+## Baseline / Distribution 비교 경계 보완
+
+2026-10-09의 `main` `4cecaa9`에 대한 후속 리뷰에서 두 조건을 실패하는 regression으로 재현했습니다. 아래 항목 외에 collector·UI 구조·upstream 기능을 추가하지 않았습니다.
+
+| 검토 항목 | 재현 / 조치 |
+| --- | --- |
+| Workload baseline | 같은 identity의 token 1,000→4,000·policy 변경·duration 증가가 fresh resource evidence와 결합하면 `unverified`에서도 strong. Duration 비교를 사용하는 candidate만 supporting으로 제한; 명시된 `match_fields`가 일치하면 기존 strong 유지 |
+| 3FS extrema 비교 | 다른 길이·report 수·관측된 초 수에서도 maximum reported p99 delta 표시. Aggregate/series 공통 비교 helper로 delta와 legacy Finding/rule regression 보류; raw 값 보존 |
+| Optional LLM 입력 | Saved report의 비교 보류 상태가 observation allowlist에서 빠짐. `comparison_status`를 검증·compact model input·projection에 보존; 실제 모델 추론은 별도 검증 |
+| Query fan-out | 기본 12개·host/disk/vLLM 추가 시 31개 expression의 조회는 실제로 서로 다른 metric. 전체 profile의 source expression에도 중복 없음; 단순 cache 추가 효과를 주장하지 않음 |
+
+상세 해석 계약은 [Comparable workload](diagnosis-reference.md#select-a-comparable-workload)와 [Distribution 비교 상태](storage-correlation.md#distribution-비교-상태)를 기준으로 합니다. Report 모집단 일치는 완전한 수집이나 특정 Run의 I/O 소유권을 인증하지 않습니다.
+
+### 비용과 다음 우선순위
+
+격리 ClickHouse 25.1.5.31의 Memory table에 10만 positive report·128 entity를 구성해 900초 구간을 조회했습니다. Warm-up 후 순서를 번갈아 7회 실행한 `clickhouse-client --time` 중앙값은 기존 SQL 6ms, report 수·`uniqExact(TIMESTAMP)`를 추가한 SQL 8ms였습니다. 1ms 해상도의 단일 fixture 측정이며 실제 3FS table·HTTP·대규모 scan 성능을 보장하지 않습니다. 요청 수·entity/response limit·query budget은 유지하지만 distinct timestamp 집계의 CPU·메모리 비용은 실제 backend에서 추가 검증해야 합니다.
+
+| 후속 항목 | 지금 구현하지 않은 이유 / 검증 조건 |
+| --- | --- |
+| Candidate-specific 2-stage query | Triage가 누락한 원인의 recall과 explicit profile coverage를 바꿀 수 있음. Full scan 대비 후보·missing·query count 동등성, periodic/deep investigation 정책부터 검증 |
+| Incremental history index | 최근 baseline 이외에 workload tolerance·provisional retry·rotation·crash recovery를 보존해야 함. Long-run CPU/RSS와 recovery 결과 동등성부터 측정 |
+| Investigation segment | 기존 immutable file·Alloy replay/offset·부분 쓰기 경계를 바꿈. Inode 수·glob 비용·수집 지연이 병목인지 먼저 측정 |
+| Backend identity / pNFS / operation tracing | 실제 adapter/replica/request evidence가 필요. [기존 TBD](correlation-limitations.md)를 유지하며 backend를 추정하지 않음 |
+
+### 검증 결과
+
+| 확인 | 결과 / 범위 |
+| --- | --- |
+| CPU suite·CI helper | 1,540 passed, skip 0; actual promtool·격리 ClickHouse 6개 포함 |
+| Grafana App | 기존 104개 regression 통과; frontend source 변경 없음 |
+| 실제 browser | Grafana 12.1.0·Scenes 6.20.0·live synthetic multiworker fixture; browser error 0 |
+| Journey | Overview → Step/Worker 선택 → Investigate → Storage → 기존 dashboard/Back; observer/resource/time context 유지 |
+| Storage / clock | Original saved point·baseline 시각·bytes 단위·clock 미검증 delta 보류·unsafe recovery 확인; 실제 물리 clock 실패 아님 |
+| Viewport | Storage collection context 1440/1280/900/390px overflow 없음 |
+| 문서·syntax | Link/diagram 10개, strict Sphinx build, Python compile·shell syntax 통과 |
+
+공식 CI image pull은 registry 연결 오류로 실패해 이미 존재하는 `open3fs/clickhouse:25.1-jammy` image로 새 격리 container를 만들었습니다. Runtime version은 25.1.5.31이며 network와 public port를 열지 않았습니다. 기존 사용자 container는 변경하지 않았고 이번 SQL database·container·demo process·임시 state는 정리했습니다. Actual GPU·veRL/3FS workload·물리 multi-node·실제 LLM 추론 검증을 대신하지 않습니다.

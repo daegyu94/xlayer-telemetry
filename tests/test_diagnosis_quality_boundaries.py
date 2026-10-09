@@ -13,6 +13,7 @@ def stats(value, count=3):
 def records():
     before={'run_id':'r','node':'trainer','worker_id':'driver','record_id':'before','step':1,
             'boundary_scope':'rl_step','observed_at':80,'step_duration_seconds':20,
+            'workload':{'perf/total_num_tokens':1000},
             'stage_durations_seconds':{'gen':5},'analysis_window':{'start':60,'end':80,'accuracy':'exact'}}
     now={**before,'record_id':'now','step':2,'observed_at':120,
          'stage_durations_seconds':{'gen':10},'analysis_window':{'start':100,'end':120,'accuracy':'exact'}}
@@ -39,7 +40,8 @@ class Queues:
 
 def queue_report(source):
     now,before=records()
-    config={'sampling':{'check_source_freshness':True},'prometheus':{'url':'unused','query_step_seconds':2,
+    config={'baseline':{'match_fields':['perf/total_num_tokens']},
+        'sampling':{'check_source_freshness':True},'prometheus':{'url':'unused','query_step_seconds':2,
         'queries':{'vllm_requests_waiting':'queue_pressure{node="{rollout_node}"}'}}}
     return DiagnosticEngine(config,prometheus=source).analyze(now,[before])
 
@@ -86,7 +88,8 @@ def test_dense_comparable_engine_retains_strong_observational_signal():
 def distribution(host,value):
     return dict(metricName='storage_client.overall_latency',
                 labels=dict(host=host,tag='',mount_name='',instance='batchRead',io='read',uid='',method='read',
-                            pod='',thread='',statusCode=''),count=5,weighted_mean=value,max=value,max_observed_p99=value)
+                            pod='',thread='',statusCode=''),count=5,weighted_mean=value,max=value,max_observed_p99=value,
+                report_count=1,observed_second_count=1)
 
 
 class Storage:

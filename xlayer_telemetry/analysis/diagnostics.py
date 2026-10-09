@@ -36,7 +36,7 @@ from ..prometheus import PrometheusClient, escape_label
 from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
-from .storage_series import apply_collection_limits, collect_storage_series, project_storage_series, project_storage_summary, validate_series_settings
+from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, project_storage_series, project_storage_summary, validate_series_settings
 from .storage_overview import storage_overview
 
 # Keep the existing local opener hook while bounding credential redirects.
@@ -214,6 +214,7 @@ class ThreeFSClient:
             f"SELECT {identity}, sum(`count`) AS sample_count, "
             "if(sum(`count`)=0,0,sum(mean*`count`)/sum(`count`)) AS weighted_mean, "
             "max(`max`) AS max_value, max(p99) AS max_observed_p99, "
+            "count() AS report_count, uniqExact(TIMESTAMP) AS observed_second_count, "
             "toUnixTimestamp(min(TIMESTAMP)) AS first_observed_at, "
             "toUnixTimestamp(max(TIMESTAMP)) AS last_observed_at "
             f"FROM {self.database}.distributions WHERE {self._where(start, end)} AND `count` > 0 "
@@ -238,9 +239,9 @@ class ThreeFSClient:
             # JSONEachRow may quote 64-bit integers. Unavailable cells remain
             # unavailable; the established distribution field names stay intact.
             for key in ("count", "weighted_mean", "max", "max_observed_p99",
-                        "first_observed_at", "last_observed_at"):
+                        "first_observed_at", "last_observed_at", "report_count", "observed_second_count"):
                 if row.get(key) is not None:
-                    integer = key in {"count", "first_observed_at", "last_observed_at"}
+                    integer = key in {"count", "first_observed_at", "last_observed_at", "report_count", "observed_second_count"}
                     row[key] = self._number(row[key], key, integer=integer, nonnegative=integer)
         return rows
 
@@ -947,6 +948,7 @@ class DiagnosticEngine:
                 missing.append(f"prometheus:{name}:baseline_entity_match")
         selected_3fs_metric = None
         selected_3fs_identity = None
+        threefs_comparison = None
         if baseline_record:
             def latencies(rows: list[dict[str, Any]]) -> dict[tuple, float]:
                 result = {}
@@ -970,6 +972,9 @@ class DiagnosticEngine:
                 current_signals["threefs_p99_latency"] = value
                 baseline_signals["threefs_p99_latency"] = before
                 signal_labels["threefs_p99_latency"] = dict(identity)
+                threefs_comparison = distribution_comparison_quality(
+                    [_distribution_index(threefs_rows)[identity]], [_distribution_index(threefs_baseline)[identity]],
+                    window, baseline_window)
             else:
                 current_signals.pop("threefs_p99_latency", None)
                 baseline_signals.pop("threefs_p99_latency", None)
@@ -1059,6 +1064,9 @@ class DiagnosticEngine:
         storage_clock={'current':storage_clock_ok(threefs_rows,clock_quality),
                        'baseline':storage_clock_ok(threefs_baseline,clock_quality.get('baseline',{}))}
         storage_comparable=all(storage_clock.values())
+        if threefs_comparison is not None and threefs_comparison['status'] != 'shared_report_window':
+            rule_baseline.pop('threefs_p99_latency', None)
+            missing.append('threefs:comparison:' + threefs_comparison['status'])
         if threefs is not None:
             for role,values in (('current',rule_current),('baseline',rule_baseline)):
                 if not storage_clock[role]:
@@ -1067,7 +1075,8 @@ class DiagnosticEngine:
                         values.pop('storage_request_bytes',None)
                     missing.append(f'threefs:producer_clock_alignment:{role}')
         findings=self._findings(finding_evidence,threefs_rows if storage_comparable else [],
-            threefs_baseline if storage_comparable else [],float(start),end,execution_mode)
+            threefs_baseline if storage_comparable else [],float(start),end,execution_mode,
+            baseline_window={'start': baseline_start, 'end': baseline_end} if threefs_rows and threefs_baseline else None)
         candidates = evaluate_rules(
             rule_current, rule_baseline, thresholds=self.thresholds,
             context={"sources": sources, "window": window,
@@ -1132,8 +1141,14 @@ class DiagnosticEngine:
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
         for candidate in candidates:
-            if candidate['id'].startswith('mooncake_dfs_') and comparison['workload_comparability'] != 'matched_configured_fields':
+            duration_comparison = any(item['signal'] in {
+                'step_duration_seconds', 'rollout_duration_seconds', 'communication_duration_seconds',
+                'actor_update_duration_seconds', 'critic_update_duration_seconds', 'checkpoint_duration_seconds',
+            } and item.get('baseline') is not None for item in candidate.get('evidence', []))
+            if duration_comparison and comparison['workload_comparability'] != 'matched_configured_fields':
                 candidate['missing_evidence'].append('workload_comparability_unverified')
+                if candidate['state'] == 'strong_signal':
+                    candidate['state'] = 'supporting_signal'
             if candidate["id"] == "gpu_memory_pressure" and "gpu:memory_entity_match" in missing:
                 candidate["missing_evidence"].append("gpu_memory_entity_match")
             if candidate["id"] == "sandbox_local_storage_pressure" and tool_event is not None:
@@ -1153,6 +1168,10 @@ class DiagnosticEngine:
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
+            if row['signal'] == 'threefs_p99_latency' and threefs_comparison is not None:
+                row['comparison_quality'] = threefs_comparison
+                if threefs_comparison['status'] != 'shared_report_window':
+                    row.update(delta=None, delta_percent=None, comparison_status=threefs_comparison['status'])
             if any(RESOLUTION_BLOCKERS.intersection(q.get('warnings',[]))
                    for q in (row['sampling_quality'] or {}).values()):
                 row.update(delta=None,delta_percent=None,comparison_status='insufficient_sampling_coverage')
@@ -1309,6 +1328,7 @@ class DiagnosticEngine:
         start: float,
         end: float,
         execution_mode: str,
+        *, baseline_window: Mapping[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         slow_names = {item["stage"] for item in evidence.get("slow_stages", [])}
@@ -1347,6 +1367,10 @@ class DiagnosticEngine:
             # observations, even when the backend returns a retained p99 value.
             if (any(count is None or count <= 0 for count in counts)
                     or current_p99 is None or baseline_p99 is None or baseline_p99 <= 0):
+                continue
+            exposure = distribution_comparison_quality([row], [baseline], {'start': start, 'end': end},
+                baseline_window or {'start': start - (end - start), 'end': start})
+            if exposure['status'] != 'shared_report_window':
                 continue
             ratio = current_p99 / baseline_p99
             if ratio >= self.thresholds["threefs_latency_slowdown_ratio"]:
@@ -1531,6 +1555,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "baseline": signal["baseline"], "delta_percent": signal["delta_percent"],
                      "unit": signal.get("unit"), "window_statistic": signal.get("window_statistic"),
                      "query": signal.get("query"),
+                     "comparison_status": signal.get('comparison_status', 'not_reported'),
+                     "comparison_quality": json.dumps(signal.get('comparison_quality'), separators=(',', ':')),
                      "sampling_quality": json.dumps(signal.get("sampling_quality"), separators=(",", ":")),
                      **quality_fields(signal.get("sampling_quality"))})
     rows.extend(project_storage_series(report.get("storage_series", {}), common))

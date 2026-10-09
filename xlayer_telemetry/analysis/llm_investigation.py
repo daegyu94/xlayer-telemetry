@@ -65,6 +65,7 @@ def project_result(root: Path, result: dict) -> Path:
                              "observation_id": key, "evidence_type": kind, "signal": item["signal"],
                              "current": item.get("current"), "baseline": item.get("baseline"),
                              "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
+                             "comparison_status": item.get('comparison_status'),
                              "query": item.get("query"),
                              "observation_scope": item["observation_scope"], "source": item.get("source"),
                              "entity": ",".join(f"{k}={v}" for k, v in item.get("labels", {}).items()),

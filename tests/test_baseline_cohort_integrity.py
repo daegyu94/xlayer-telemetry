@@ -76,3 +76,48 @@ def test_recent_stage_and_step_selection_share_five_prior_observations():
     )
     assert report["symptom"]["slow_stages"] == []
     assert report["comparison"]["baseline_record_id"] == "90"
+
+
+class FreshPressureMetrics:
+    def query_range_detail(self, query, start, end, step):
+        if query.startswith('timestamp('):
+            stats = {'max': end - 1}
+            return {'aggregate': stats, 'series': [{'stats': stats, 'source_timestamps': [start + 1, end - 1]}]}
+        labels = {'node': 'node', 'instance': 'endpoint'}
+        if 'gpu_utilization' in query:
+            value = 40 if end == 100 else 90
+            labels['gpu'] = '0'
+        elif 'num_requests_waiting' in query:
+            value = 3
+        else:
+            return {'aggregate': None, 'series': []}
+        stats = {'min': value, 'max': value, 'mean': value, 'sample_count': 5}
+        return {'aggregate': stats, 'series': [{'labels': labels, 'stats': stats}]}
+
+
+@pytest.mark.parametrize('configured', [False, True])
+def test_duration_candidate_requires_declared_workload_comparability_for_strong(configured):
+    config = {'prometheus': {'url': 'http://unused'}, 'sampling': {'check_source_freshness': True}}
+    if configured:
+        config['baseline'] = {'match_fields': ['perf/total_num_tokens'], 'relative_tolerance': 0}
+    report = DiagnosticEngine(config, prometheus=FreshPressureMetrics(), clock=lambda: 110).analyze(
+        record(100, duration=20), [record(60)])
+    candidate = next(c for c in report['candidates'] if c['id'] == 'gpu_starvation')
+    assert candidate['state'] == ('strong_signal' if configured else 'supporting_signal')
+    assert ('workload_comparability_unverified' in candidate['missing_evidence']) is not configured
+    assert report['comparison']['baseline_record_id'] == '60'
+    assert next(r for r in report['comparison']['signals'] if r['signal'] == 'step_duration_seconds')['delta'] == 10
+
+
+def test_token_only_workload_change_cannot_create_strong_resource_regression():
+    config = {'prometheus': {'url': 'http://unused'}, 'sampling': {'check_source_freshness': True}}
+    current = record(100, duration=25, workload={'policy_version': 11, 'perf/total_num_tokens': 4000})
+    baseline = record(60, workload={'policy_version': 10, 'perf/total_num_tokens': 1000})
+    report = DiagnosticEngine(config, prometheus=FreshPressureMetrics(), clock=lambda: 110).analyze(current, [baseline])
+    candidate = next(c for c in report['candidates'] if c['id'] == 'gpu_starvation')
+    assert candidate['state'] != 'strong_signal'
+    assert 'workload_comparability_unverified' in candidate['missing_evidence']
+    config['baseline'] = {'match_fields': ['perf/total_num_tokens'], 'relative_tolerance': .1}
+    report = DiagnosticEngine(config, prometheus=FreshPressureMetrics(), clock=lambda: 110).analyze(current, [baseline])
+    assert report['comparison']['baseline_record_id'] is None
+    assert not any(c['id'] == 'gpu_starvation' for c in report['candidates'])

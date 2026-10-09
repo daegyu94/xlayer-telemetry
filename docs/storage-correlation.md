@@ -66,7 +66,7 @@ Source는 [DFS metric 정의](https://github.com/kvcache-ai/Mooncake/blob/dcddb5
 | 3FS distribution | Collection 초·full producer identity별 positive count·weighted mean·reported p99 max |
 | 3FS reset report | 검증된 이름만 반환 report 합계; cumulative counter의 delta가 아님 |
 | Gauge / unknown counter | Raw extrema·단일 report 값; 복수 report의 순서와 대표값은 unknown |
-| Current / Baseline | 같은 table·metric·full entity. Host clock 미확인·다른 reset report 구간 길이는 delta 유보 |
+| Current / Baseline | 같은 table·metric·full entity. Host clock 미확인·서로 다른 report window/population은 delta 유보 |
 | Grafana | 기존 Deep Dive의 3FS evidence → 원본 points·records·comparison·coverage |
 
 ```{admonition} 시간 해상도
@@ -150,6 +150,22 @@ Loki의 저장 위치는 owner observation의 `observed_at`입니다. 실제 poi
 | Base와 per-user counter | 같은 report의 다른 population일 수 있으므로 합산하지 않음 |
 | RDMA write bytes | Read 결과 전송일 수 있음; SSD write와 구분 |
 | 여러 p99 | 같은 entity의 reported p99 최대값만 보존; pooled/global p99 아님 |
+| 다른 길이·report 수의 p99 구간 | Raw extrema는 유지하되 delta·latency regression 보류. Aggregate와 series가 같은 비교 helper 사용 |
+
+### Distribution 비교 상태
+
+`report_count`는 positive-count distribution report 수이며 operation sample 수인 `count`와 다릅니다. `observed_second_count`는 aggregate에 실제 report가 존재하는 정수 초 수입니다. 기존 aggregate query에 두 값을 추가하며 별도 backend 요청은 하지 않습니다.
+
+| `comparison_status` | 의미 / 다음 확인 |
+| --- | --- |
+| `shared_report_window` | 같은 길이·정수 timestamp slots·report 수·관측된 초 수; 반환 report의 극댓값 비교만 허용 |
+| `different_report_window_exposure` | 구간 길이나 timestamp slots가 다름; 동일 exposure로 다시 조회 |
+| `different_report_population` | Report 수 또는 관측된 초 수가 다름; raw records·source coverage 확인 |
+| `report_population_unknown` | 이전 artifact/custom source에 report 모집단 정보 없음; 원본 값만 확인 |
+| `insufficient_timestamp_resolution` | 1초보다 짧은 구간; 더 넓은 window로 조회 |
+| `clock_unverified` / `producer_clock_unverified` | Source clock 미검증; [clock 검사](time-alignment.md#correlation-preflight) 확인 |
+
+Report 수가 적은 원인이 idle·zero suppression·누락인지 추정하지 않습니다. 같은 report 수라도 complete collection coverage는 계속 `unknown`입니다. `comparison_quality`에는 양쪽 구간·report 수·관측된 초 수가 남으며, 비교 보류 상태는 저장된 projection과 optional LLM observation input에도 보존합니다.
 
 Counter registry의 `source_revision`은 계약 검증 기준이며 실제 서버 version discovery가 아닙니다. [3FS recorder](https://github.com/deepseek-ai/3FS/blob/22fca04564c7cc230fd8b9523b8b92864e1dad47/src/common/monitor/Recorder.cc)와 [schema](https://github.com/deepseek-ai/3FS/blob/22fca04564c7cc230fd8b9523b8b92864e1dad47/deploy/sql/3fs-monitor.sql)를 기준으로 합니다.
 

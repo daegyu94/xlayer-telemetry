@@ -57,6 +57,7 @@ def test_zero_count_extrema_and_freshness_do_not_contaminate_active_entity(stora
     row, = client.query_window(99, 103)
     assert row["count"] == 3 and row["max_observed_p99"] == row["max"] == row["weighted_mean"] == 10
     assert row["first_observed_at"] == row["last_observed_at"] == 100
+    assert row['report_count'] == row['observed_second_count'] == 1
     assert row["labels"]["host"] == "a"
 
 
@@ -90,6 +91,15 @@ def test_storage_diagnosis_matches_actual_sql_entities_instead_of_metric_only(st
     finding, = [item for item in report["findings"] if item["component"] == "3fs"]
     elevated, = finding["signals"]["metrics"]
     assert elevated["ratio"] == 2 and elevated["labels"]["host"] == "a"
+    insert(201, 100, host='a', method='read')
+    changed = DiagnosticEngine({"cluster":"synthetic-clocks","clock":{"monitoring_node":"monitor"},
+                               "prometheus": {"url": "http://unused"},
+                               "threefs":{"url":"http://unused","clock_nodes":["a","b"]}},
+                              prometheus=AlignedClocks(), threefs=client).analyze(step(200), [step(100)])
+    selected, = [row for row in changed['comparison']['signals'] if row['signal'] == 'threefs_p99_latency']
+    assert selected['comparison_status'] == 'different_report_population'
+    assert selected['delta_percent'] is None
+    assert not any(f['component'] == '3fs' for f in changed['findings'])
 
 
 def test_actual_sql_rejects_more_than_the_entity_budget(storage):
