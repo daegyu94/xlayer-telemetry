@@ -55,6 +55,14 @@ def test_read_only_router_poll_is_bounded_and_failure_is_unknown(tmp_path,failur
     assert 'private endpoint' not in next(tmp_path.glob('*.jsonl')).read_text()
 
 
+def test_pre_311_asyncio_timeout_is_not_assumed_to_be_builtin_timeout(tmp_path,monkeypatch):
+    class LegacyAsyncTimeout(Exception): pass
+    monkeypatch.setattr(asyncio,'TimeoutError',LegacyAsyncTimeout)
+    async def getter(): raise LegacyAsyncTimeout('legacy asyncio deadline')
+    assert asyncio.run(observer(tmp_path,[99]).poll_router(getter)) is False
+    assert context(tmp_path)['router_registered'] is None
+
+
 def test_sleep_proof_covers_interval_but_mid_step_waking_makes_it_mixed(tmp_path):
     stamp=[99];o=observer(tmp_path,stamp)
     o.replica_state('replica-0','a:8000','sleeping',generation='g1')

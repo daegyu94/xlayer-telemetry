@@ -48,7 +48,7 @@ class RolloutObserver:
             status = await asyncio.wait_for(getter(), timeout=timeout_seconds)
             self.router_status(status)
             return True
-        except (OSError, RuntimeError, TimeoutError, ValueError, TypeError) as error:
+        except (OSError, RuntimeError, TimeoutError, asyncio.TimeoutError, ValueError, TypeError) as error:
             self.recorder.event('rollout.router.snapshot', phase='rollout_state', attributes=self._attributes(
                 observation_source='verl_router_get_status', query_status=type(error).__name__))
             return False

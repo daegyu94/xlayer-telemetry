@@ -32,7 +32,8 @@ def test_native_back_waits_for_dashboard_mount_and_walks_only_its_history():
         def go_back(self,**kwargs): self.calls.append('back');self.url=next(self.history)
         def get_by_role(self,*args,**kwargs):return self
         def wait_for(self,**kwargs):self.calls.append('app_ready')
-    page=Page();native_dashboard_back(page,'http://127.0.0.1:3000')
+    page=Page();entries=native_dashboard_back(page,'http://127.0.0.1:3000')
+    assert entries==2
     assert page.calls==['dashboard_ready','back','back','app_ready']
     assert 'var-run_id=one' in page.url
 

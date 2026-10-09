@@ -294,7 +294,7 @@ def multi_worker_journey(args):
         for name in ('var-phase_worker','var-node','var-gpu','var-run_id','var-record_id','var-source_node','from','to'):
             assert deep[name] == selected[name], (name, deep, selected)
         assert deep['var-phase'] == ['rollout']
-        native_dashboard_back(page, args.url)
+        return_entries = native_dashboard_back(page, args.url)
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
