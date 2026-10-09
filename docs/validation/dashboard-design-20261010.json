@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-10",
+  "source_base": "7320a23b185823f04a52dff3e49b1ad5a2e6cd80",
+  "data_origin": "Synthetic SDK workloads with actual Prometheus/Loki/Grafana queries",
+  "reference": "grafana/xlayer-app/design/dashboard-preview.html",
+  "reference_sha256": "00da6a20387733222ea84e676266da527731d159afd75e8847d5d60d0511ad4d",
+  "grafana": "12.1.0",
+  "scenes": "6.20.0",
+  "browser": "Chrome 145.0.7632.116",
+  "playwright": "1.63.0",
+  "design_loops": [
+    {
+      "iteration": 1,
+      "captures": 52,
+      "failures": 26,
+      "browser_errors": 0,
+      "checks": [
+        "13 routes",
+        "1440x1000 / 390x844",
+        "light / dark",
+        "context",
+        "navigation / Back",
+        "overflow",
+        "datasource responses"
+      ]
+    },
+    {
+      "iteration": 2,
+      "captures": 52,
+      "failures": 0,
+      "browser_errors": 0,
+      "checks": [
+        "13 routes",
+        "1440x1000 / 390x844",
+        "light / dark",
+        "context",
+        "navigation / Back",
+        "overflow",
+        "datasource responses"
+      ]
+    },
+    {
+      "iteration": 3,
+      "captures": 52,
+      "failures": 0,
+      "browser_errors": 0,
+      "checks": [
+        "13 routes",
+        "1440x1000 / 390x844",
+        "light / dark",
+        "context",
+        "navigation / Back",
+        "overflow",
+        "datasource responses"
+      ]
+    },
+    {
+      "iteration": 4,
+      "captures": 52,
+      "failures": 0,
+      "browser_errors": 0,
+      "checks": [
+        "13 routes",
+        "1440x1000 / 390x844",
+        "light / dark",
+        "context",
+        "navigation / Back",
+        "overflow",
+        "datasource responses"
+      ]
+    }
+  ],
+  "first_loop_failure": "Offscreen closed mobile navigation links remained visible to automation. Fixed closed menu visibility and tested real menu opening. First-loop failures are retained.",
+  "native_contract": "All canonical non-row panels preserved once; source query/unit/transform/data links unchanged; optional groups mount on expansion.",
+  "resource_inspection": {
+    "browser_errors": [],
+    "widths": [
+      1440,
+      390
+    ],
+    "resource_context_preserved": true,
+    "node_gpu_nic_ssd_selection": true,
+    "canonical_metrics_reused": true,
+    "topology_query_failure_and_logs_unavailable": true,
+    "scope": "Configured synthetic topology and actual Prometheus/Loki/Grafana; no physical connectivity, GPU or 3FS verification"
+  },
+  "theme": {
+    "actual_button_toggle": true,
+    "matrix_and_investigation_context_preserved": true,
+    "themes": [
+      "light",
+      "dark",
+      "light"
+    ]
+  },
+  "multi_worker": {
+    "passed": true,
+    "checks": [
+      "Multiple measured rollout workers keep execution-path Matrix ambiguous; no arbitrary span or synthetic phase value is selected",
+      "Four explicit rollout workers form a matched measured cohort; selecting worker sets phase_worker/resource node/GPU while preserving observer/Run/Step/time",
+      "Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context",
+      "Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence",
+      "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+      "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+      "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate"
+    ]
+  },
+  "tests": {
+    "python": {
+      "passed": 1612,
+      "skipped": 6,
+      "seconds": 192.91,
+      "skip_reason": "Optional real ClickHouse integration is not configured in this run; no skipped test is claimed as verified"
+    },
+    "frontend": {
+      "passed": 129,
+      "typecheck": true,
+      "build": true
+    }
+  },
+  "limitations": [
+    "No physical GPU, RDMA, 3FS or multi-node VERL validation",
+    "No causal/resource attribution inferred from topology or temporal correlation",
+    "Native Grafana renderer/chrome differs from the static reference",
+    "Reference numbers are not runtime data; multi-entity/missing/clock quality may change card density"
+  ],
+  "cleanup": "Owned demo processes and state are cleaned after validation; bounded screenshots stay in ignored artifacts.",
+  "single_job": {
+    "passed": true,
+    "native_requests_matching_step_window": 22,
+    "native_requests": 22,
+    "query_clock_storage_and_fault_regressions": true,
+    "ci_design_routes": 52
+  },
+  "multi_job": {
+    "passed": true,
+    "runs": [
+      "demo-qwen",
+      "demo-llama",
+      "demo-deepseek"
+    ],
+    "baseline_and_replica_isolation": true,
+    "model_metadata_visible": true,
+    "browser_errors": []
+  },
+  "infrastructure_design": "Original HTML compact Compute / Fabric / Storage cards and dashed cubic curves. The experimental vertical tier and orthogonal routing were removed at the user request.",
+  "infrastructure_final": {
+    "style": "original HTML",
+    "captures": 4,
+    "failures": 0,
+    "light_dark_desktop_mobile": true,
+    "resource_drilldown": {
+      "browser_errors": [],
+      "widths": [
+        1440,
+        390
+      ],
+      "resource_context_preserved": true,
+      "node_gpu_nic_ssd_selection": true,
+      "canonical_metrics_reused": true,
+      "topology_query_failure_and_logs_unavailable": true,
+      "scope": "Configured synthetic topology and actual Prometheus/Loki/Grafana; no physical connectivity, GPU or 3FS verification"
+    }
+  }
+}

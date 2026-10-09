@@ -353,7 +353,7 @@ def main():
         assert 'vs baseline' in page.locator('.xlt-kpis').inner_text()
         assert page.locator('.xlt-kpis .xlt-card').count()==8
         assert 'Policy' in page.locator('.xlt-run-context').inner_text()
-        assert 'trainer version' in page.locator('.xlt-header').inner_text()
+        assert 'trainer version (reported)' in page.locator('.xlt-context-meta').inner_text()
         assert 'Recent Events' in page.locator('.xlt').inner_text()
         assert 'No data' not in page.locator('.xlt-panel').first.inner_text()
         capture('overview')

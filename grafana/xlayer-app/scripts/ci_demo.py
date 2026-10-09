@@ -119,6 +119,13 @@ def run(args):
                 '--context',str(args.output/('ci-multi-validation.json' if args.multi_worker else 'ci-validation.json')),
                 '--output',str(args.output/'infrastructure'),*(['--browser',args.browser] if args.browser else [])]
             validators = (command, contracts, series, clocks, infrastructure)
+            if not args.multi_worker and not args.multi_job:
+                # Reuse the same owned stack; cover all routes/themes without
+                # adding another demo launch or repeating multi-job diagnosis.
+                design = [sys.executable, str(SCRIPTS / 'design_validate.py'), '--url', connection['grafana'],
+                    '--context',str(args.output/'ci-validation.json'), '--output',str(args.output/'design'),
+                    '--iteration','1','--mockup',str(SCRIPTS.parent/'design/dashboard-preview.html'), *(['--browser',args.browser] if args.browser else [])]
+                validators += (design,)
             if args.multi_job:
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),

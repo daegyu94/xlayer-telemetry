@@ -61,7 +61,7 @@ jobs:
             'until clickhouse-client --query "SELECT 1" 2>/dev/null; do sleep 1; done'
           echo 'XLAYER_TEST_CLICKHOUSE_CONTAINER=xlayer-ci-clickhouse' >> "$GITHUB_ENV"
       - name: CPU contracts, fault injection and optional backend regression
-        run: python -m pytest -q -ra --durations=15 --junitxml=artifacts/ci/pytest.xml tests grafana/xlayer-app/scripts/test_ci_helpers.py
+        run: python -m pytest -q -ra --durations=15 --junitxml=artifacts/ci/pytest.xml tests grafana/xlayer-app/scripts/test_ci_helpers.py grafana/xlayer-app/scripts/test_design_helpers.py
       - name: Reject skipped checks in backend-enabled CPU gate
         if: matrix.backends
         run: |

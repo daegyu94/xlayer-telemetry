@@ -9,6 +9,7 @@
 | Overview | Run context·핵심 KPI·Agent RL Timeline·최근 event |
 | Analyze | Phase × Subsystem·System Pressure·worker 차이 |
 | Investigate | Current / Baseline / Delta·candidate·supporting/counter/missing evidence |
+| Timeline | Measured span·approximate Step·관련 resource metric |
 | Deep Dive | 선택한 candidate의 상세 metric·기존 subsystem dashboard |
 | Infrastructure | Configured GPU/Network/Storage topology·resource selection·collector evidence |
 | Logs & Events | 기존 node-local log query·recorded events; application Run과 log filter 구분 |
@@ -82,7 +83,7 @@ apps:
 
 설정한 Grafana를 기존 배포 절차로 재시작하고 **More apps → XLayer Telemetry → Overview**를 엽니다.
 
-**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 공통 Run Context와 네 화면의 navigation이 보입니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
+**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 상단 Run Context와 Workspace / Native Dashboards sidebar가 보입니다. 좁은 화면에서는 메뉴 버튼으로 navigation을 엽니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
 
 ## 3. Verify
 
@@ -92,6 +93,8 @@ apps:
 | 완료 Step 선택 | URL의 record·observer·시간 구간 변경 |
 | Analyze cell 선택 | 값·scope·observation 상태와 evidence 표시 |
 | 기존 Storage dashboard 열기 → Back | Run·Step·resource·시간 구간 유지 |
+| Light / Dark 전환 | Panel과 card 배색 변경; 선택된 investigation 유지 |
+| Infrastructure node / GPU / NIC / SSD 선택 | 선언된 resource identity와 cluster로 metric 조회; Run 소유권을 추정하지 않음 |
 
 ```{admonition} Scope / Precision
 :class: important
@@ -225,3 +228,18 @@ Live exporter와 저장된 Current/Baseline diagnosis는 별도 fixture입니다
 [Dashboard와 Scenes 비교](grafana-scenes-reference.md#dashboard와-scenes-비교)
 
 :::
+
+## 공통 디자인과 상세 화면
+
+Workspace에는 Overview·Analyze·Investigate·Timeline·Deep Dive·Infrastructure·Logs & Events가 있습니다. Native Dashboards에는 Start Here·Stage Correlation·Bottleneck Summary·Compute & Communication·Data & Storage·Cross-Layer Signals가 있으며 기존 canonical panel을 그대로 사용합니다.
+
+- 상단 filter: Cluster·Run·완료 Step·Grafana time/refresh picker. Observer·resource와 상세 native filter는 펼쳐서 선택합니다.
+- Light/Dark: 헤더의 theme 버튼. URL의 `theme`과 기존 context를 함께 유지하며 Grafana panel에도 같은 배색을 적용합니다.
+- Infrastructure: 목업과 같은 Compute 왼쪽 → Fabric 가운데 → Storage 오른쪽의 compact card와 곡선 연결. 선언된 관계는 점선이며 미확인 endpoint나 표시 한도 밖 관계는 Relationship Ledger에서 확인합니다.
+- 상세 native row: 필요한 그룹만 펼칩니다. 숨겨진 source를 조회하지 않은 상태를 정상 또는 측정값 `0`으로 해석하지 않습니다.
+
+![상단 context와 공통 sidebar를 사용하는 실제 Synthetic Overview](figures/grafana-app-context-overview.png)
+
+![Compute·Fabric·Storage 그룹과 선언된 관계를 구분하는 실제 Synthetic Infrastructure](figures/grafana-app-infrastructure.png)
+
+화면별 비교와 남은 차이는 [UX Review](grafana-ui-ux-review.md), source·window·scope 계약은 [App Reference](grafana-scenes-reference.md)에서 확인합니다.

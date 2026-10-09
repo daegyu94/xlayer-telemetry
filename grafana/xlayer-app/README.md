@@ -1,6 +1,6 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana dashboard·datasource 위에 **Overview / Analyze / Investigate / Deep Dive** 네 개의 독립 화면을 추가하는 선택적 static App Plugin입니다. 공통 상단 Run Context가 선택한 Run·Step·시간을 유지합니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. 7개 Workspace 화면과 6개 Native Dashboard 화면이 공통 sidebar·Light/Dark 배색을 사용합니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
@@ -11,7 +11,7 @@
 | Baseline과 후보 확인 | Investigate: What changed·candidate·Supporting/Against/Missing | Open Evidence / Deep Dive |
 | 선택 후보 검증 | Deep Dive: `candidate_id` workspace·Key Findings·native metric tab·System Pressure | 기존 Timeline / Storage / Logs dashboard |
 
-Timeline helper route와 기존 detailed dashboard는 유지합니다. Detailed Metrics는 canonical native panel을 사용하며 자체 graph/query engine을 만들지 않습니다.
+Timeline·Infrastructure·Logs & Events도 Workspace navigation에서 선택합니다. Start Here·Stage Correlation·Bottleneck Summary·Compute·Storage·Cross-Layer Signals는 같은 shell 안에서 원본 panel을 읽으며, 기존 `/d/*` 상세 URL도 유지합니다. Detailed Metrics는 canonical native panel을 사용하며 자체 graph/query engine을 만들지 않습니다.
 
 ## 준비
 
@@ -134,3 +134,18 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 - `scripts/`: 선택적 live demo와 browser validation.
 
 설치·조사 흐름은 [App guide](../../docs/grafana-scenes-poc.md), query·scope·운영 한계는 [App Reference](../../docs/grafana-scenes-reference.md), 당시 화면·결과는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.
+
+## Design comparison
+
+디자인 원본은 `design/dashboard-preview.html`입니다. 이 파일의 가상 수치는 디자인 확인용이며 plugin bundle이나 synthetic exporter의 데이터로 사용하지 않습니다.
+
+기존 loopback demo가 실행된 상태에서 13개 화면을 같은 해상도로 비교합니다.
+
+```bash
+python grafana/xlayer-app/scripts/design_validate.py \
+  --url http://127.0.0.1:23400 \
+  --mockup grafana/xlayer-app/design/dashboard-preview.html \
+  --output artifacts/dashboard-design --iteration 1
+```
+
+정상 결과: `iteration-1/validation.json`의 `failures`가 비어 있고 `comparison.html`에서 원본과 실제 screenshot을 나란히 확인할 수 있습니다. 1440×1000 / 390×844, Light/Dark를 확인하며 pixel equality나 실제 GPU/Storage 성능 검증을 주장하지 않습니다. 원본 native panel의 query·unit·transform·link는 유지하고 추가 row는 펼칠 때 활성화합니다.

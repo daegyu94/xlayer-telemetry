@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
-import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType } from "@grafana/data";
+import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType, ThemeContext, createTheme, PageLayoutType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
-import {Sparkline,useTheme2} from '@grafana/ui';
+import {Sparkline,useTheme2,Icon} from '@grafana/ui';
 import {
   SceneApp,
   SceneAppPage,
@@ -17,6 +17,7 @@ import {
   SceneObjectState,
   SceneComponentProps,
   SceneQueryRunner,
+  SceneDataProvider,
   TextBoxVariable,
   SceneDataTransformer,
   VizPanel,
@@ -105,11 +106,17 @@ import {
   reportedRollout,
   workerPeers,
 } from "./mockup";
+import { DashboardChrome } from './DashboardChrome';
+import {WORKSPACE_PAGES,themeContext} from './navigation';
+import {nativeHighlight} from './native-highlight';
+import {NATIVE_PAGES,buildNativeWorkspace,NativeWorkspace,NativeWorkspaceModel} from './native-workspace';
 import "./style.css";
 
-type Page = "overview" | "analyze" | "investigate" | "timeline" | "deep-dive" | "infrastructure" | "logs";
+type Page = typeof WORKSPACE_PAGES[number]['route'] | typeof NATIVE_PAGES[number]['route'];
 type ShellState = SceneObjectState & {
   page: Page;
+  nativeWorkspace?:NativeWorkspaceModel;
+  nativePanels?:VizPanel[];
   catalog: Catalog;
   steps?: SceneQueryRunner;
   spans?: SceneQueryRunner;
@@ -321,7 +328,9 @@ function makeScene(page: Page, catalog: Catalog) {
     pressure: [],
     contextControls:[new SceneTimePicker({isOnCanvas:false}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
   });
-  const resourcePage=page==='infrastructure'||page==='logs';
+  const nativePage=NATIVE_PAGES.find(p=>p.route===page);
+  if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel))});}
+  const resourcePage=!!nativePage||page==='infrastructure'||page==='logs';
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
     body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
@@ -408,30 +417,20 @@ function makeScene(page: Page, catalog: Catalog) {
 let loadedCatalog: Catalog;
 function createApp() {
   const pages = (
-    ["overview", "analyze", "investigate", "timeline", "deep-dive", "infrastructure", "logs"] as Page[]
+    [...WORKSPACE_PAGES,...NATIVE_PAGES].map(p=>p.route) as Page[]
   ).map(
     (page) =>
       new SceneAppPage({
-        title: {
-          overview: "Run Overview",
-          analyze: "Analyze · Phase × Subsystem",
-          investigate: "Investigation",
-          timeline: "Agent RL Timeline",
-          "deep-dive": "Deep Dive",
-          infrastructure:"Infrastructure",
-          logs:"Logs & Events",
-        }[page],
-        renderTitle: (title) => (
-          <h1 className="xlt-page-title">
-            XLayer Telemetry <span> / {title}</span>
-          </h1>
-        ),
+        layout: PageLayoutType.Custom,
+        title: [...WORKSPACE_PAGES,...NATIVE_PAGES].find(p=>p.route===page)!.title,
+        renderTitle: () => null,
         url: `${APP_BASE}/${page}`,
         routePath: `${APP_BASE}/${page}`,
         preserveUrlKeys: [
           "from",
           "to",
           "timezone",
+          "theme",
           ...VARIABLE_NAMES.map((n) => `var-${n}`),
         ],
         getScene: () => makeScene(page, loadedCatalog),
@@ -458,7 +457,11 @@ function Ready() {
     </Router>
   );
 }
+const dashboardThemes={light:createTheme({colors:{mode:'light'}}),dark:createTheme({colors:{mode:'dark'}})};
 function Root() {
+  const inheritedTheme=useTheme2();
+  const [visualTheme,setVisualTheme]=useState(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'));
+  useEffect(()=>locationService.getHistory().listen(()=>setVisualTheme(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'))),[inheritedTheme.isDark]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   useEffect(() => {
@@ -487,7 +490,7 @@ function Root() {
     };
   }, []);
   return status === "ready" ? (
-    <Ready />
+    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><Ready /></ThemeContext.Provider>
   ) : (
     <div className="xlt">
       <p>
@@ -500,7 +503,7 @@ function Root() {
 }
 export const plugin = new AppPlugin().setRootPage(Root);
 
-function useData(provider: SceneQueryRunner | undefined) {
+function useData(provider: SceneDataProvider | undefined) {
   const [snapshot, setSnapshot] = useState({provider,data:provider?.state.data});
   useEffect(() => {
     setSnapshot({provider,data:provider?.state.data});
@@ -609,6 +612,7 @@ function Link({
 }
 function ShellView({ model }: { model: Shell }) {
   const state = model.useState();
+  const theme=useTheme2();
   const stepData = useData(state.steps),
     summaryData = useData(state.summary),
     compareData = useData(state.comparison),
@@ -686,12 +690,21 @@ function ShellView({ model }: { model: Shell }) {
   const baselineSpans=records(baselineSpanData);
   const workspaceCandidate=diagnosis.find(c=>c.candidate_id===context.variables.candidate_id?.[0]);
   return (
-    <div className="xlt-app-layout">
-    <div className="xlt">
+    <DashboardChrome page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
+      contextBar={<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
+      {state.nativeWorkspace&&<>
+        <header className="xlt-header xlt-native-heading"><div><span className="xlt-eyebrow">{NATIVE_PAGES.find(p=>p.route===state.page)?.kicker}</span><h2>{NATIVE_PAGES.find(p=>p.route===state.page)?.title}</h2><p>{NATIVE_PAGES.find(p=>p.route===state.page)?.description}</p></div><a className="xlt-link" href={appLink('infrastructure',context)}>Locate in topology →</a></header>
+        <p className="xlt-notice">{NATIVE_PAGES.find(p=>p.route===state.page)?.notice}</p>
+        <details className="xlt-filters"><summary>Resource and native panel filters</summary><div>{state.catalog[state.nativeWorkspace.destination]?.templating.list.filter(v=>VARIABLE_NAMES.includes(v.name)&&!['cluster','run_id'].includes(v.name)).map(v=>{const variable=sceneGraph.lookupVariable(v.name,model);return variable?<VariableValueSelectWrapper key={v.name} variable={variable} showAlways/>:null;})}</div></details>
+        <NativeHighlights destination={state.nativeWorkspace.destination} sources={state.nativeWorkspace.panels} panels={state.nativePanels||[]}/>
+        <NativeWorkspace workspace={state.nativeWorkspace} panels={state.nativePanels||[]} context={context}/>
+        <footer>Correlation ≠ attribution ≠ causality. No data ≠ measured zero.</footer>
+      </>}
+      {!state.nativeWorkspace&&<>
       <header className="xlt-header">
         <div>
           <span className="xlt-eyebrow">
-            XLAYER TELEMETRY{" "}
+            {WORKSPACE_PAGES.find(p=>p.route===state.page)?.kicker}{' '}
             {synthetic && <span className="xlt-badge">Synthetic demo</span>}
           </span>
           <h2>
@@ -705,7 +718,9 @@ function ShellView({ model }: { model: Shell }) {
                     ? "Follow the same interval"
                   : state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
-          <p>
+          <p className="xlt-page-description">{WORKSPACE_PAGES.find(p=>p.route===state.page)?.description}</p>
+          {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · reported Run metadata, weights/runtime not verified</p>}
+          <details className="xlt-header-details"><summary>Selected observation details</summary><p>
             <b>
               {scalar(
                 selected?.run_id,
@@ -717,7 +732,6 @@ function ShellView({ model }: { model: Shell }) {
             {scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):policySamples.length>1?'multiple sources':'not reported')} · Wrapped command{" "}
             {activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):activeWorkloads.length>1?'multiple reports':'not reported'}
           </p>
-          {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · reported Run metadata, weights/runtime not verified</p>}
           {(policySamples.length||activeWorkloads.length)>0&&<p className="xlt-muted">Policy: producer-reported trainer version · Status: latest wrapper node-clock report, not full async Run completion.</p>}
           {selected&&boundary.note&&<p className="xlt-muted">{boundary.note}</p>}
           {selected && (context.variables.run_id?.length!==1||context.variables.run_id[0]!==selected.run_id) && (
@@ -726,6 +740,7 @@ function ShellView({ model }: { model: Shell }) {
               diagnosed Step belongs to {scalar(selected.run_id)}
             </p>
           )}
+          </details>
         </div>
         <div className="xlt-header-actions">
           {selected && (
@@ -740,36 +755,6 @@ function ShellView({ model }: { model: Shell }) {
           </Link>
         </div>
       </header>
-      <nav className="xlt-nav" aria-label="XLayer investigation">
-        <>
-          {(["overview", "analyze", "investigate", "deep-dive", "infrastructure", "logs"] as Page[]).map(
-            (p) => (
-              <a
-                key={p}
-                aria-current={state.page === p ? "page" : undefined}
-                href={appLink(p, context)}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(p);
-                }}
-              >
-                {
-                  {
-                    overview: "Overview",
-                    analyze: "Analyze",
-                    investigate: "Investigate",
-                    timeline: "Timeline",
-                    "deep-dive": "Deep Dive",
-                    infrastructure:"Infrastructure",
-                    logs:"Logs & Events",
-                  }[p]
-                }
-              </a>
-            ),
-          )}
-        </>
-      </nav>
-      <RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>
       {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
 
       <details className="xlt-filters">
@@ -841,7 +826,7 @@ function ShellView({ model }: { model: Shell }) {
           <AsyncDecision summary={comparisonMeta}/>
           <section className="xlt-overview-top"><div>
             <div className="xlt-section">
-              <h3>Agent RL Timeline</h3>
+              <h3><Icon name="history"/> Agent RL Timeline</h3>
               <button onClick={() => navigate("timeline")}>
                 Open timeline →
               </button>
@@ -852,7 +837,7 @@ function ShellView({ model }: { model: Shell }) {
             </p>
             <div className="xlt-phase-legend">{Object.entries(PHASE_COLORS).map(([name,color])=><span key={name}><i style={{background:color}}/>{name.replace(/_/g," ")}</span>)}</div>
             <Native panel={state.timeline} />
-          </div><div><h3>Recent Events</h3>
+          </div><div><h3><Icon name="list-ul"/> Recent Events</h3>
               <DataStatus provider={state.events} />
               <RecentEvents
                 rows={events}
@@ -864,7 +849,7 @@ function ShellView({ model }: { model: Shell }) {
             </div></section>
           <section className="xlt-observe-grid">
             <div>
-              <h3>Related Metrics</h3>
+              <h3><Icon name="chart-line"/> Related Metrics</h3>
               <p className="xlt-muted">
                 Same time range · sampled/shared signals are correlation, not
                 attribution.
@@ -872,7 +857,7 @@ function ShellView({ model }: { model: Shell }) {
               <RelatedTabs panels={state.related}/>
             </div>
             <div>
-              <h3>System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">Saved diagnosis signals, not collector-UP health.</p></div>
+              <h3><Icon name="info-circle"/> System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">Saved diagnosis signals, not collector-UP health.</p></div>
           </section>
           <PolicyLifecycle events={events} context={context} catalog={state.catalog}/>
           <details className="xlt-completed-detail">
@@ -952,10 +937,10 @@ function ShellView({ model }: { model: Shell }) {
             </section>
           )}
           {selected && (
-            <>
+            <div className="xlt-investigate-grid">
               <section className="xlt-investigation-section">
                 <div className="xlt-section">
-                  <h3>What changed?</h3>
+                  <h3><Icon name="exchange-alt"/> What changed?</h3>
                   <Link to="summary" context={context} catalog={state.catalog}>
                     Full Bottleneck Summary
                   </Link>
@@ -1020,8 +1005,8 @@ function ShellView({ model }: { model: Shell }) {
                   Inspect measured timeline →
                 </button>
               </p>
-              <section>
-                <h3>Bottleneck Candidates</h3>
+              <section className="xlt-candidate-section">
+                <h3><Icon name="search"/> Bottleneck Candidates</h3>
                 <DataStatus provider={state.candidates} />
                 <div className="xlt-candidates">
                   {[...diagnosis]
@@ -1140,7 +1125,7 @@ function ShellView({ model }: { model: Shell }) {
                   </p>
                 )}
               </section>
-            </>
+            </div>
           )}
         </>
       )}
@@ -1222,9 +1207,17 @@ function ShellView({ model }: { model: Shell }) {
       <footer className="xlt-muted">
         Correlation ≠ attribution ≠ causality. No data ≠ measured zero.{" "}
       </footer>
-    </div>
-    </div>
+      </>}
+    </DashboardChrome>
   );
+}
+function NativeHighlights({destination,sources,panels}:{destination:Destination;sources:import('./catalog').Panel[];panels:VizPanel[]}){
+ const ids:Partial<Record<Destination,number[]>>={compute:[2,6,30,9],storage:[1,2,30,31],stage:[4,9,28,60],signals:[1,2,5,6]};
+ return ids[destination]?<div className="xlt-kpis xlt-native-highlights">{ids[destination]!.map(id=>{const index=sources.findIndex(p=>p.id===id);return index>=0?<NativeHighlight key={id} source={sources[index]} panel={panels[index]}/>:null;})}</div>:null;
+}
+function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:VizPanel}){
+ const data=useData(panel.state.$data),result=nativeHighlight(data);
+ return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entities · select node/device`:'Latest returned evaluation · source scope'}</small><small>Producer freshness is not established by this summary.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source; not Run-attributed'}</small></article>;
 }
 function Steps({
   rows,
@@ -1921,7 +1914,7 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
       <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed observation</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
     </div>
-    <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer report</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
+    <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
   </section>;
 }
 

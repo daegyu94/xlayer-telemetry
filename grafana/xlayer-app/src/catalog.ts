@@ -38,8 +38,10 @@ export type Panel = {
   fieldConfig?: any;
   transformations?: any[];
   panels?: Panel[];
+  gridPos?: {x: number; y: number; w: number; h: number};
+  collapsed?: boolean;
 };
-export type Dashboard = { panels: Panel[]; templating: { list: any[] } };
+export type Dashboard = { title?: string; description?: string; panels: Panel[]; templating: { list: any[] } };
 export type Catalog = Partial<Record<Destination, Dashboard>>;
 export async function loadCatalog(): Promise<Catalog> {
   const entries = await Promise.all(
@@ -96,12 +98,16 @@ export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
   const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
+  // Styling only: collection-point charts keep their original no-line contract.
+  const fields=panel.type==='timeseries'&&panel.fieldConfig?.defaults?.custom?.drawStyle!=='points'
+    ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:1.5}}}
+    : panel.fieldConfig;
   return new VizPanel({
     pluginId: panel.type,
     title: panel.title,
     description: panel.description,
     options: panel.type === "timeseries" ? {...panel.options,legend:{...panel.options?.legend,displayMode:"list",placement:"bottom",calcs:[]}} : panel.options || {},
-    fieldConfig: panel.type==="state-timeline"?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:panel.fieldConfig || { defaults: {}, overrides: [] },
+    fieldConfig: panel.type==="state-timeline"?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:fields || { defaults: {}, overrides: [] },
     $data: panel.transformations?.length
       ? new SceneDataTransformer({
           $data: data,
@@ -124,6 +130,7 @@ export function variables(
     "storage",
     "compute",
     "logs",
+    "start",
   ] as Destination[])
     for (const v of catalog[key]?.templating.list || [])
       if (!definitions.has(v.name)) definitions.set(v.name, v);

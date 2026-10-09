@@ -217,3 +217,24 @@ GPU·vLLM·연결된 worker 관측은 조건을 만족할 때 baseline과 비교
 - [Scene transformations](https://grafana.com/developers/scenes/transformations): 기존 panel transform 재사용.
 - [Scenes 6 Router migration](https://github.com/grafana/scenes/releases/tag/v6.0.0): Router bundle과 host history 연결 근거.
 - [Datadog dashboard UX 검토](grafana-ui-ux-review.md): Light hierarchy·절제한 색·context drill-down을 채택. Branding·가짜 service map·phase attribution은 채택하지 않음.
+
+## 공통 Shell과 Canonical 화면
+
+7개 Workspace route와 6개 Native route가 하나의 App에 있습니다. `SceneAppPage`의 custom body를 사용하며 Grafana의 global navigation·datasource·Explore·원본 Dashboard URL은 유지합니다. 배색만 변경하는 `theme`은 investigation identity의 일부가 아닙니다.
+
+| Workspace | Native panel workspace |
+| --- | --- |
+| `/overview`, `/analyze`, `/investigate` | `/start-here`, `/stage-correlation`, `/bottleneck-summary` |
+| `/timeline`, `/deep-dive` | `/compute`, `/storage` |
+| `/infrastructure`, `/logs` | `/signals` |
+
+Route는 모두 `/a/xlayer-telemetry-app` 아래에 있습니다. 기존 `/d/*` route는 query·Inspect·Explore·원본 패널 편집을 위한 상세 경로로 남습니다.
+
+- `native-workspace.tsx`는 provisioned JSON의 모든 non-row panel을 한 번씩 보존합니다. 원본 row·추가된 source panel도 catalog에 남고, 펼친 group만 component/query를 활성화합니다.
+- 상세 요약 card는 해당 native panel의 data provider를 공유합니다. 숫자 field·query ref·entity를 구분하며 multi-entity를 대표값으로 바꾸지 않습니다. Producer freshness가 별도로 확인되지 않으면 그 한계를 표시합니다.
+- `DashboardChrome.tsx`와 `style.css`는 공통 navigation·반응형·Light/Dark token을 담당합니다. Canonical graph의 unit·population·transform·data link는 바꾸지 않습니다. Collection-point plot은 원래 no-line 계약을 유지합니다.
+- `topology-layout.ts`는 선언된 inventory를 목업의 Compute / Fabric / Storage 3열 card와 곡선 경로로 배치합니다. Fabric이 없으면 가상 switch를 만들지 않으며 direct Compute→Storage 관계는 Fabric hop으로 바꾸지 않습니다. Graph 한도는 24개 resource·96개 edge이고 미표시 관계는 ledger에 남습니다.
+
+### 디자인 검증
+
+`design_validate.py`는 실제 App link와 Browser Back을 사용해 13개 화면 × Desktop/Mobile × Light/Dark를 확인합니다. 원본 HTML과 같은 viewport의 PNG·비교 HTML·bounded query/error metadata를 남기며 수치 차이를 pixel similarity나 diagnosis 정확도 점수로 환산하지 않습니다. Single-worker Grafana CI는 기존 실행 stack에서 이 route 검증을 재사용합니다.

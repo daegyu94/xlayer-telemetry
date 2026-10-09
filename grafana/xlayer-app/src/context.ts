@@ -40,6 +40,7 @@ export type Context = {
   from: string;
   to: string;
   timezone: string;
+  theme?: "light" | "dark";
 };
 export type RecordRow = Record<string, unknown>;
 export function readContext(search: string): Context {
@@ -54,6 +55,7 @@ export function readContext(search: string): Context {
     from: params.get("from") || "now-30m",
     to: params.get("to") || "now",
     timezone: params.get("timezone") || "browser",
+    ...(["light", "dark"].includes(params.get("theme") || "") ? {theme: params.get("theme") as "light" | "dark"} : {}),
   };
 }
 export function writeContext(context: Context): URLSearchParams {
@@ -62,6 +64,7 @@ export function writeContext(context: Context): URLSearchParams {
     to: context.to,
     timezone: context.timezone,
   });
+  if (context.theme) params.set("theme", context.theme);
   for (const name of VARIABLE_NAMES)
     for (const value of context.variables[name] || [])
       params.append(`var-${name}`, value);
@@ -85,6 +88,7 @@ export function investigationKey(context: Context): string {
       .map(value => value === '$__all' ? '.*' : value).sort()])]);
 }
 export const DASHBOARD_UIDS = {
+  start: "xlayer-start-here",
   overview: "telemetry-overview",
   summary: "xlayer-bottleneck-summary",
   timeline: "xlayer-cross-layer-timeline",
