@@ -62,14 +62,14 @@ def load_topology(directory: Path) -> tuple[dict, dict]:
 def _phase(elapsed: float) -> tuple[str, dict[str, float]]:
     cycle = elapsed % 100
     if cycle < 35:
-        return "training", {"gpu": 94, "tokens": 7600, "step": 1.1, "read": .5, "write": .2, "rx": 180, "tx": 180, "busy": .10}
+        return "training", {"gpu": 94, "tokens": 7600, "step": 1.1, "read": .5, "write": .2, "rx": 180, "tx": 180, "busy": .10, "waiting": 1, "waiting_capacity": 1, "waiting_deferred": 0}
     if cycle < 55:
-        return "data_wait", {"gpu": 61, "tokens": 4700, "step": 1.7, "read": 6, "write": .2, "rx": 420, "tx": 150, "busy": .82}
+        return "data_wait", {"gpu": 61, "tokens": 4700, "step": 1.7, "read": 6, "write": .2, "rx": 420, "tx": 150, "busy": .82, "waiting": 8, "waiting_capacity": 6, "waiting_deferred": 2}
     if cycle < 75:
-        return "collective", {"gpu": 75, "tokens": 5800, "step": 1.4, "read": .5, "write": .2, "rx": 330, "tx": 330, "busy": .15}
+        return "collective", {"gpu": 75, "tokens": 5800, "step": 1.4, "read": .5, "write": .2, "rx": 330, "tx": 330, "busy": .15, "waiting": 1, "waiting_capacity": 1, "waiting_deferred": 0}
     if cycle < 90:
-        return "checkpoint", {"gpu": 68, "tokens": 5100, "step": 1.6, "read": .3, "write": 5, "rx": 160, "tx": 320, "busy": .68}
-    return "recovery", {"gpu": 87, "tokens": 6800, "step": 1.2, "read": 1, "write": .5, "rx": 220, "tx": 220, "busy": .24}
+        return "checkpoint", {"gpu": 68, "tokens": 5100, "step": 1.6, "read": .3, "write": 5, "rx": 160, "tx": 320, "busy": .68, "waiting": 8, "waiting_capacity": 3, "waiting_deferred": 5}
+    return "recovery", {"gpu": 87, "tokens": 6800, "step": 1.2, "read": 1, "write": .5, "rx": 220, "tx": 220, "busy": .24, "waiting": 1, "waiting_capacity": 1, "waiting_deferred": 0}
 
 
 class Demo:
@@ -456,6 +456,13 @@ class Demo:
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
             "vllm:kv_cache_usage_perc": .92 if waiting > 1 else .45}.items()]
+        # Reason categories must be explicit producer inputs, not inferred from
+        # queue depth or interpreted as KV causality.
+        for reason in ('capacity','deferred'):
+            key='waiting_'+reason
+            if key in value:
+                samples.append(GaugeSample('vllm:num_requests_waiting_by_reason', 'Synthetic producer-reported waiting reason.',
+                    value[key], {**labels,'reason':reason}))
         for name, rate in {"vllm:num_preemptions_total": .2 if waiting > 1 else 0,
                            "vllm:prompt_tokens_total": 800, "vllm:generation_tokens_total": value["tokens"],
                            "vllm:prefix_cache_queries_total": 100,

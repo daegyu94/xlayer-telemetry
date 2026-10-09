@@ -3,6 +3,8 @@
 기본 사용자 interface는 `xltel`입니다.
 설치·config·health·run 조회는 [CLI Reference](../docs/cli.md), VERL 연결은 [Quickstart](../docs/verl-quickstart.md)를 따릅니다.
 아래 script는 기존 사용자와 role별 배포를 위한 advanced/internal entrypoint로 유지합니다.
+
+Metric capability catalogue는 `python scripts/metric_coverage.py`로 생성하고 `--check`로 drift를 검사합니다. [Subsystem coverage](../docs/subsystem-metrics.md)를 읽고 runtime availability와 static source/query reference를 구분합니다. CPU regression은 생성된 문서와 canonical/adapter/query/dashboard 대조를 함께 검사합니다.
 CLI에 필요한 launcher와 dashboard는 package에도 포함됩니다.
 Host별 server/collector lifecycle도 `xltel up|down|status --role server|node`로 관리할 수 있습니다.
 TOML은 CLI가 읽고 내부 Bash snapshot으로 전달하므로 아래 script를 직접 사용할 때는 기존 Bash config 형식을 유지합니다.

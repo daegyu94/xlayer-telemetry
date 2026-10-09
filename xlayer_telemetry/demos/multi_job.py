@@ -98,9 +98,9 @@ def native_values(job, when):
         return {'gpu': 8, 'tokens': 0, 'busy': .05, 'waiting': 0, 'kv_hit': .78, 'kv_slow': 0}
     frame, phase = active
     value = phase_values(frame, phase)
-    value['waiting'] = 0
+    value.update(waiting=0, waiting_capacity=0, waiting_deferred=0)
     if frame is job['scenario']['frames'][1] and job['instance'].endswith('llama') and phase['phase'] == 'rollout':
-        value.update(waiting=14, kv_hit=.54, kv_slow=1)
+        value.update(waiting=14, waiting_capacity=10, waiting_deferred=4, kv_hit=.54, kv_slow=1)
     return value
 
 
@@ -111,7 +111,7 @@ def diagnosis_config(job, prometheus_url):
     config = {'cluster': 'scenes-demo', 'run_id': job['scenario']['run_id'], 'node': node, 'rollout_node': node,
         'clock': {'monitoring_node': node}, 'sampling': {'check_source_freshness': True},
         'baseline': {'match_fields': ['perf/total_num_tokens']},
-        'prometheus': {'url': prometheus_url, 'metric_profiles': ['host', 'vllm', 'mooncake', 'mooncake_storage']}}
+        'prometheus': {'url': prometheus_url, 'metric_profiles': ['host', 'vllm', 'vllm_waiting', 'mooncake', 'mooncake_storage']}}
     if job['engine_mapping']:
         config['run_engine_instances'] = [job['instance']]
         source = 'telemetry_source="vllm",'

@@ -129,4 +129,4 @@ def phase_values(frame: dict[str, Any], phase: dict[str, Any]) -> dict[str, floa
             "rx": 320 if slow else 180, "tx": 330 if name == "weight_sync" else 150,
             "busy": .96 if slow else .31, "waiting": 14 if slow else 1,
             "kv_hit": .54 if slow else .78, "sandbox_pressure": .43 if slow else .02,
-            "kv_slow": float(slow)}
+            "kv_slow": float(slow), "waiting_capacity": 10 if slow else 1, "waiting_deferred": 4 if slow else 0}

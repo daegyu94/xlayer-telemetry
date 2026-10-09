@@ -25,7 +25,7 @@ def rendered(profiles=METRIC_PROFILES):
 
 def test_profiles_are_opt_in_and_queries_can_override_them():
     assert set(engine()._queries("lab")) == set(DEFAULT_QUERIES)
-    assert len(PROFILE_SIGNALS) <= 64
+    assert len(PROFILE_SIGNALS) <= 66  # Two version-conditional waiting gauges; default queries unchanged.
     selected = engine(["host"])
     selected.config["prometheus"]["queries"] = {"host_cpu_pressure_ratio": "custom_pressure"}
     assert selected._queries("lab")["host_cpu_pressure_ratio"] == "custom_pressure"
@@ -36,6 +36,18 @@ def test_profiles_are_opt_in_and_queries_can_override_them():
             native = name.startswith(("vllm_", "ray_", "gpu_", "mooncake_"))
             assert 'job="native"' in query if native else 'job="telemetry"' in query
     assert 'telemetry_source="dcgm"' in rendered()["gpu_last_xid_code"]
+
+
+def test_waiting_reasons_are_opt_in_per_engine_context_not_a_kv_cause():
+    assert 'vllm_waiting_deferred_requests' not in engine()._queries('lab')
+    expressions = rendered(['vllm_waiting'])
+    for reason in ('capacity', 'deferred'):
+        name = f'vllm_waiting_{reason}_requests'
+        query = expressions[name]
+        assert 'vllm:num_requests_waiting_by_reason' in query and f'reason="{reason}"' in query
+        assert 'job="native"' in query and 'node="rollout"' in query
+        assert 'sum(' not in query and 'or vector(0)' not in query
+        assert PROFILE_SIGNALS[name].scope == 'service'
 
 
 @pytest.mark.parametrize("profiles", ["host", ["bad"], ["host", "host"], [1], None])

@@ -108,6 +108,13 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
         "vllm_generation_tokens_per_second": MetricQuery(rate("vllm:generation_tokens_total", VLLM), "service", "tokens/s", "mean"),
         "vllm_prompt_tokens_per_second": MetricQuery(rate("vllm:prompt_tokens_total", VLLM), "service", "tokens/s", "mean"),
     },
+    # Available only in exporters that declare this upstream gauge. Deferred
+    # includes LoRA/KV/other transient constraints and is not a KV cause verdict.
+    "vllm_waiting": {
+        f"vllm_waiting_{reason}_requests": MetricQuery(
+            'vllm:num_requests_waiting_by_reason' + VLLM[:-1] + ',reason="' + reason + '"}',
+            "service", "requests") for reason in ("capacity", "deferred")
+    },
     "kv_offload": {
         "vllm_kv_offload_load_bytes_per_second": MetricQuery(offload_rate("load"), "service", "bytes/s", "mean"),
         "vllm_kv_offload_store_bytes_per_second": MetricQuery(offload_rate("store"), "service", "bytes/s", "mean"),
@@ -207,7 +214,7 @@ def profile_queries(settings: Mapping, cluster: str) -> dict[str, str]:
                 queries[name] = expression
             continue
         for name, spec in METRIC_PROFILES[profile].items():
-            job = "native" if profile in {"vllm", "kv_offload", "ray", "dcgm"} else "telemetry"
+            job = "native" if profile in {"vllm", "vllm_waiting", "kv_offload", "ray", "dcgm"} else "telemetry"
             labels = 'job="' + job + '",'
             if cluster:
                 labels = 'cluster="{cluster}",' + labels

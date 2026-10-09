@@ -7,7 +7,7 @@ language = "ko"
 root_doc = "index"
 source_suffix = {".md": "markdown"}
 extensions = ["myst_parser", "sphinx.ext.githubpages", "sphinx_copybutton"]
-exclude_patterns = ["_build", "**/__pycache__"]
+exclude_patterns = ["_build", "**/__pycache__", "_includes/**"]
 myst_heading_anchors = 6
 myst_enable_extensions = ["colon_fence"]
 

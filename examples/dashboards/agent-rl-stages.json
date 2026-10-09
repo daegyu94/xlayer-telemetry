@@ -511,7 +511,7 @@
       "id": 9,
       "type": "timeseries",
       "title": "Live rollout engine signals",
-      "description": "VERL step 완료와 독립적으로 수집하는 native vLLM metric입니다. Cluster·Node로 선택하며 Run으로 분리되지 않습니다. Metric 이름은 vLLM version에 따라 다를 수 있습니다.",
+      "description": "VERL step 완료와 독립적으로 수집하는 native vLLM metric입니다. Cluster·Node로 선택하며 Run으로 분리되지 않습니다. Metric 이름은 vLLM version에 따라 다를 수 있습니다. Waiting reasons are optional version-specific gauges. Deferred includes transient non-KV constraints. Do not add reason counts to total waiting; missing is not zero.",
       "gridPos": {
         "x": 0,
         "y": 32,
@@ -542,6 +542,16 @@
           "refId": "D",
           "expr": "vllm:num_requests_running{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
           "legendFormat": "running {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
+        },
+        {
+          "refId": "E",
+          "expr": "vllm:num_requests_waiting_by_reason{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",reason=\"capacity\"}",
+          "legendFormat": "capacity waiting {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
+        },
+        {
+          "refId": "F",
+          "expr": "vllm:num_requests_waiting_by_reason{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\",reason=\"deferred\"}",
+          "legendFormat": "deferred waiting {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         }
       ],
       "fieldConfig": {

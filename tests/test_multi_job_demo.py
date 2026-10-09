@@ -122,6 +122,16 @@ def test_same_model_on_different_endpoints_keeps_counter_history_separate():
     assert next(s.value for s in b if s.name == 'vllm:num_preemptions_total') == 0
 
 
+def test_waiting_reason_is_producer_context_and_not_inferred_for_unsupported_version():
+    demo=Demo(ROOT/'examples/live-demo')
+    raw=demo._vllm(100,{'busy':.9,'tokens':1,'waiting':14})
+    assert not any(s.name=='vllm:num_requests_waiting_by_reason' for s in raw)
+    explicit=demo._vllm(102,{'busy':.9,'tokens':1,'waiting':14,'waiting_capacity':10,'waiting_deferred':4})
+    reasons=[s for s in explicit if s.name=='vllm:num_requests_waiting_by_reason']
+    assert {s.labels['reason']:s.value for s in reasons}=={'capacity':10,'deferred':4}
+    assert sum(s.value for s in reasons)==14
+
+
 def test_configured_endpoint_filters_core_and_profile_queries_without_inventing_unknown_binding():
     jobs = make_schedule(start=1000, node='gpu-node-0')['jobs']
     for job in jobs:

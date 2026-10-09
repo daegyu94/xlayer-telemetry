@@ -40,6 +40,11 @@ def main():
     assert all(row['analysis_status']=='completed' for row in publications)
     assert any(c['id'] == 'rollout_queue_backlog' for c in reports['demo-llama']['candidates'])
     assert any(c['id'].startswith(('actor_update_', 'checkpoint_')) for c in reports['demo-deepseek']['candidates'])
+    reasons={row['signal']:row for row in reports['demo-llama']['comparison']['signals'] if row['signal'].startswith('vllm_waiting_')}
+    assert set(reasons)=={'vllm_waiting_capacity_requests','vllm_waiting_deferred_requests'}
+    assert reasons['vllm_waiting_capacity_requests']['current']==10
+    assert reasons['vllm_waiting_deferred_requests']['current']==4
+    assert all(row['labels']['instance']=='synthetic-job-llama' for row in reasons.values())
     for report in reports.values():
         for candidate in report['candidates']:
             assert candidate['resource_attribution'] == 'not_established'
