@@ -5,6 +5,7 @@ Uses the repository's live exporter and diagnosis generator. SIGINT/SIGTERM
 stops only processes launched by this script. No existing config/container is touched.
 """
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import argparse
 import json
 import os
@@ -24,8 +25,36 @@ from xlayer_telemetry.demos.diagnosis import generate
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows, write_report
 from xlayer_telemetry.demos.scenario import make_scenario
 from xlayer_telemetry.demos.multi_job import diagnosis_config, make_schedule, record_job
-from xlayer_telemetry.fileio import atomic_write_text
+from xlayer_telemetry.fileio import atomic_write_text, append_jsonl
+from xlayer_telemetry.analysis.deadline import IsolatedAnalyzer
 from xlayer_telemetry.events import CorrelationContext
+
+
+def collect_and_analyze_job(directory, job, prom):
+    streams=[]
+    run_id=job['scenario']['run_id']; node=job['scenario']['node']
+    steps=record_job(directory,job)
+    config=diagnosis_config(job,prom)
+    with IsolatedAnalyzer(config, seconds=60) as analyzer:
+        report=analyzer.analyze(steps[-1],directory/'telemetry-events/verl-steps.jsonl')
+    report['data_origin']='synthetic'
+    report['run_model']={'identifier':job['model'],'source':'run_manifest','weights_loaded':False}
+    report['limitations'].append('Concurrent synthetic jobs share this node; endpoint configuration is not operation attribution. No model weights are loaded.')
+    write_report(directory/'diagnostics',report)
+    files=[('verl_step',directory/'telemetry-events/verl-steps.jsonl')]+[
+        ('xlayer_event',p) for p in (directory/'telemetry-events').glob('*.jsonl') if p.name!='verl-steps.jsonl']
+    for telemetry_signal,path in files:
+        values=[]
+        for i,line in enumerate(path.read_text().splitlines()):
+            row=json.loads(line); stamp=row.get('event_time_unix_nano',int(row.get('observed_at',steps[-1]['observed_at'])*1e9))
+            values.append([str(int(stamp)+i),line])
+        streams.append({'stream':{'signal':telemetry_signal,'cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},'values':values})
+    rows=_investigation_rows(report)
+    streams.append({'stream':{'signal':'xlayer_diagnosis','cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},
+        'values':[[str(int(row['window_end_ms'])*1000000-len(rows)+i),json.dumps(row)] for i,row in enumerate(rows)]})
+    streams.append({'stream':{'cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},
+        'values':[[str(int(steps[-1]['observed_at']*1e9)),json.dumps({'run_id':run_id,'log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})
+    return streams, report
 
 
 def main():
@@ -166,35 +195,28 @@ datasources:
                 atomic_write_text(scenario_state, json.dumps(schedule))
                 end = max(job['scenario']['frames'][1]['end'] for job in schedule['jobs'])
                 print(f'MULTI-JOB cycle={cycle}: three overlapping jobs; completion in {end-time.time():.0f}s', flush=True)
-                while not stopping.is_set() and time.time() < end + 3:
-                    if any(p.poll() is not None for p, _ in processes): raise RuntimeError('Owned demo service exited')
-                    stopping.wait(1)
-                if stopping.is_set(): break
-                streams=[]
                 fixture=args.output/f'fixture-{cycle}'
-                for job in schedule['jobs']:
-                    run_id=job['scenario']['run_id']; node=job['scenario']['node']
-                    directory=fixture/run_id
-                    steps=record_job(directory,job)
-                    config=diagnosis_config(job,prom)
-                    report=DiagnosticEngine(config).analyze(steps[-1],steps)
-                    report['data_origin']='synthetic'
-                    report['limitations'].append('Concurrent synthetic jobs share this node; endpoint configuration is not operation attribution. No model weights are loaded.')
-                    write_report(directory/'diagnostics',report)
-                    files=[('verl_step',directory/'telemetry-events/verl-steps.jsonl')]+[
-                        ('xlayer_event',p) for p in (directory/'telemetry-events').glob('*.jsonl') if p.name!='verl-steps.jsonl']
-                    for telemetry_signal,path in files:
-                        values=[]
-                        for i,line in enumerate(path.read_text().splitlines()):
-                            row=json.loads(line); stamp=row.get('event_time_unix_nano',int(row.get('observed_at',end)*1e9))
-                            values.append([str(int(stamp)+i),line])
-                        streams.append({'stream':{'signal':telemetry_signal,'cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},'values':values})
-                    rows=_investigation_rows(report)
-                    streams.append({'stream':{'signal':'xlayer_diagnosis','cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},
-                        'values':[[str(int(row['window_end_ms'])*1000000-len(rows)+i),json.dumps(row)] for i,row in enumerate(rows)]})
-                    streams.append({'stream':{'cluster':'scenes-demo','node':node,'data_origin':'synthetic','run_id':run_id},
-                        'values':[[str(int(steps[-1]['observed_at']*1e9)),json.dumps({'run_id':run_id,'log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})
-                request(loki+'/loki/api/v1/push',{'streams':streams})
+                waiting=list(schedule['jobs']); active={}
+                with ThreadPoolExecutor(max_workers=3) as analyses:
+                    while (waiting or active) and not stopping.is_set():
+                        if any(p.poll() is not None for p, _ in processes): raise RuntimeError('Owned demo service exited')
+                        for job in waiting[:]:
+                            source_end=job['scenario']['frames'][1]['end']
+                            if time.time() < source_end + 3: continue
+                            future=analyses.submit(collect_and_analyze_job,fixture/job['scenario']['run_id'],job,prom)
+                            active[future]=(job,time.time()); waiting.remove(job)
+                        for future in list(active):
+                            if not future.done(): continue
+                            job,submitted=active.pop(future)
+                            streams,report=future.result()
+                            request(loki+'/loki/api/v1/push',{'streams':streams})
+                            publication={'run_id':report['run_id'],'step':report['step'],
+                                'source_end':report['analysis_window']['end'],'submitted_at':submitted,'published_at':time.time(),
+                                'analysis_status':report.get('analysis_execution',{}).get('status')}
+                            append_jsonl(fixture/'publications.jsonl',json.dumps(publication)+'\n')
+                            print('PUBLISHED MULTI-JOB '+json.dumps(publication),flush=True)
+                        if waiting or active: stopping.wait(.2)
+                if stopping.is_set(): break
                 print(f'COMPLETED MULTI-JOB cycle={cycle} runs=3; actual Prometheus diagnosis; attribution unverified',flush=True)
                 cycle+=1
                 if stopping.wait(4):break

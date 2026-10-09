@@ -64,7 +64,7 @@ import {
   Cell,
   PhaseWindow,
 } from "./semantics";
-import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
+import { runModelMetadata, resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "./selection";
 import {boundaryPresentation,entitySelectionHint,compactEntity,DEEP_DIVE_SPECS,detailTabIndex} from './presentation';
 import { storageMetrics, storagePlotSelection } from './storage-series';
 import {parseStorageOverview,storageDetailGroups,storageSourceContext} from './storage-overview';
@@ -616,6 +616,7 @@ function ShellView({ model }: { model: Shell }) {
     summaries.some((s) => s.data_origin === "synthetic") ||
     spans.some((s) => (s.attributes as RecordRow)?.data_origin === "synthetic");
   const ownerRun=scalar(selected?.run_id,context.variables.run_id?.length===1?context.variables.run_id[0]:'');
+  const modelMetadata = runModelMetadata(events, ownerRun, context.variables.cluster?.length === 1 ? context.variables.cluster[0] : undefined) || (typeof comparisonMeta?.run_model_identifier === 'string' ? comparisonMeta.run_model_identifier : undefined);
   const policySamples=policyData?.state===LoadingState.Error?[]:latestEntitySamples(samples(policyData)).filter(s=>s.labels.run_id===ownerRun);
   const activeWorkloads=workloadData?.state===LoadingState.Error?[]:latestEntitySamples(samples(workloadData)).filter(s=>s.labels.run_id===ownerRun&&s.value===1);
   const reportedMfu=mfuData?.state===LoadingState.Error?[]:latestEntitySamples(samples(mfuData)).filter(s=>s.labels.run_id===ownerRun);
@@ -672,6 +673,7 @@ function ShellView({ model }: { model: Shell }) {
             {scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):policySamples.length>1?'multiple sources':'not reported')} · Wrapped command{" "}
             {activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):activeWorkloads.length>1?'multiple reports':'not reported'}
           </p>
+          {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · reported Run metadata, weights/runtime not verified</p>}
           {(policySamples.length||activeWorkloads.length)>0&&<p className="xlt-muted">Policy: producer-reported trainer version · Status: latest wrapper node-clock report, not full async Run completion.</p>}
           {selected&&boundary.note&&<p className="xlt-muted">{boundary.note}</p>}
           {selected && (context.variables.run_id?.length!==1||context.variables.run_id[0]!==selected.run_id) && (
@@ -988,6 +990,7 @@ function ShellView({ model }: { model: Shell }) {
                           {scalar(c.state).replace(/_/g, " ")} · candidate
                         </span>
                         <h4>{scalar(c.component)}</h4>
+                        {(c.run_relation || c.resource_attribution === 'not_established') && <p className="xlt-muted">{c.run_relation === 'configured' ? 'Run relation: configured endpoint · ownership unverified' : c.run_relation === 'unlinked' ? 'Not linked to selected Run · shared signal' : 'Run relation unverified · shared context'}</p>}
                         <p>{scalar(c.summary)}</p>
                         <p className="xlt-muted">
                           Supporting{" "}
@@ -1194,12 +1197,12 @@ function Steps({
       <table>
         <thead>
           <tr>
-            {multipleRuns && <th>Run</th>}
-            <th>Step</th>
-            <th>Duration</th>
-            <th>Boundary</th>
-            <th>Observer / worker</th>
-            <th>Next</th>
+            {multipleRuns && <th scope="col">Run</th>}
+            <th scope="col">Step</th>
+            <th scope="col">Duration</th>
+            <th scope="col">Boundary</th>
+            <th scope="col">Observer / worker</th>
+            <th scope="col">Next</th>
           </tr>
         </thead>
         <tbody>

@@ -113,6 +113,7 @@ def diagnosis_config(job, prometheus_url):
         'baseline': {'match_fields': ['perf/total_num_tokens']},
         'prometheus': {'url': prometheus_url, 'metric_profiles': ['host', 'vllm', 'mooncake', 'mooncake_storage']}}
     if job['engine_mapping']:
+        config['run_engine_instances'] = [job['instance']]
         source = 'telemetry_source="vllm",'
         config['prometheus']['queries'] = {name: query.replace(source, source + 'instance="' + job['instance'] + '",')
             for name, query in DiagnosticEngine(config)._queries('scenes-demo').items() if source in query}

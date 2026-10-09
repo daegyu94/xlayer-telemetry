@@ -24,7 +24,7 @@ from .._http_redirects import _CredentialSafeRedirectHandler
 from .diagnosis_analysis import (
     VLLM_OBSERVATIONS, compare_signals, evaluate_rules, finite,
     recent_baseline_history, select_baseline, select_vllm_observations,
-    validate_baseline_policy, vllm_identity,
+    validate_baseline_policy, validate_run_engine_instances, resource_run_relation, vllm_identity,
 )
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
@@ -326,6 +326,7 @@ def load_config(path: Path) -> dict[str, Any]:
                 raise ValueError(f"{backend}.timeout_seconds must be finite and positive")
     validate_sampling(config.get("sampling", {}))
     validate_baseline_policy(config.get("baseline", {}))
+    validate_run_engine_instances(config)
     thresholds = config.get("thresholds", {})
     if not isinstance(thresholds, dict) or any(
         type(value) not in (int, float) or not math.isfinite(value) or value < 0
@@ -524,6 +525,7 @@ class DiagnosticEngine:
         clock: Callable[[], float] = time.time,
         time_calibration: CalibrationCache | None = None,
     ) -> None:
+        validate_run_engine_instances(config)
         self.config = config
         prom = config["prometheus"]
         self.prometheus = prometheus or PrometheusClient(prom["url"], float(prom.get("timeout_seconds", 5)))
@@ -1141,11 +1143,14 @@ class DiagnosticEngine:
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
         for candidate in candidates:
-            if any(item.get('source') in {'prometheus', '3fs_clickhouse'} and item.get('observation_scope') != 'application'
+            if any(str(item.get('source', '')).partition(':')[0] in {'prometheus', '3fs_clickhouse'} and item.get('observation_scope') != 'application'
                    for item in candidate.get('evidence', [])):
                 # The Run selects an investigation window, not resource ownership.
                 # Strong describes the observed pressure pattern, not a Job cause.
                 candidate['resource_attribution'] = 'not_established'
+                candidate['run_relation'] = resource_run_relation(
+                    [item for item in candidate['evidence'] if item.get('observation_scope') != 'application'],
+                    self.config, run_id)
                 candidate['missing_evidence'].append('run_resource_attribution_unverified')
             duration_comparison = any(item['signal'] in {
                 'step_duration_seconds', 'rollout_duration_seconds', 'communication_duration_seconds',
@@ -1171,6 +1176,7 @@ class DiagnosticEngine:
                     spec = PROFILE_SIGNALS[item["signal"]]
                     item.update(unit=spec.unit, window_statistic=spec.statistic,
                                 query=signal_queries.get(item["signal"]))
+            candidate['signal_strength'] = candidate['state']
         for row in comparison["signals"]:
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
@@ -1523,6 +1529,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
              "strong_candidate_count": len(strong),
              "primary_candidate": strong[0].get("id") if strong else None,
              "missing_sources": ", ".join(report.get("missing_sources", [])),
+             "run_model_identifier": report['run_model'].get('identifier') if isinstance(report.get('run_model'), Mapping) else None,
+             "run_model_source": report['run_model'].get('source') if isinstance(report.get('run_model'), Mapping) else None,
              "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':'))}]
     for candidate in report.get("candidates", []):
         rows.append({**common, "row_kind": "candidate", "candidate_id": candidate.get("id"),
@@ -1533,6 +1541,8 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "missing_evidence_summary": ", ".join(candidate.get("missing_evidence", [])),
                      "observation_scope": candidate.get("observation_scope")})
         rows[-1]['resource_attribution'] = candidate.get('resource_attribution', 'not_established')
+        rows[-1]['run_relation'] = candidate.get('run_relation', 'not_reported')
+        rows[-1]['signal_strength'] = candidate.get('signal_strength', candidate.get('state'))
         for kind, items in (("supporting", candidate.get("evidence", [])),
                             ("counter", candidate.get("counter_evidence", []))):
             for item in items:

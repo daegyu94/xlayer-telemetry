@@ -306,6 +306,24 @@ Collection point와 reset-after-report counter의 상세는 [Storage correlation
 수치 confidence를 계산하지 않습니다. Storage 필수 조건을 충족해도 Run별 3FS client bytes가 없으면 attribution 자료를 별도 missing evidence로 남깁니다. Strong도 시간적 상관이며 실행별 사용량·원인은 아닙니다.
 
 Prometheus/3FS의 resource evidence를 사용하는 candidate는 `resource_attribution=not_established`와 `run_resource_attribution_unverified`를 남깁니다. 이 marker는 required pressure sample 누락과 구분합니다. 모든 관측 조건이 충족돼 `strong_signal`이어도 공유 node/service가 특정 Run의 원인이라는 뜻은 아닙니다.
+
+```
+
+`signal_strength`는 기존 `state`의 최종 관측 강도이며, `run_relation`은 별도입니다. Candidate 카드에서 Evidence를 열기 전에도 관계 상태를 확인합니다.
+
+| `run_relation` | 해석 |
+| --- | --- |
+| `configured` | 선택 Run에 대해 명시한 cluster·rollout node·endpoint와 일치. 요청 소유권·causality는 미검증 |
+| `shared_unverified` | 해당 window의 shared/node/service context이며 Run 관계는 미확인 |
+| `unlinked` | 명시한 Run endpoint와 관측된 native engine이 다름. 선택 Run의 병목으로 귀속하지 않음 |
+
+기존 diagnostics JSON config에 아래 optional key를 사용할 수 있습니다. 최대 16개이며 `run_id`, `cluster`, `rollout_node`를 함께 선언합니다. Query filter나 모델 이름만으로 관계를 추정하지 않고, 설정된 endpoint도 operation attribution으로 해석하지 않습니다. `verified`는 현재 지원하지 않습니다.
+
+```json
+"run_id": "run-084",
+"cluster": "lab",
+"rollout_node": "gpu-node-0",
+"run_engine_instances": ["vllm-node-0:8000"]
 ```
 
 | Rule | 주요 evidence | 판정 범위·주의 |

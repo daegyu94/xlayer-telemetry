@@ -105,6 +105,8 @@ python grafana/xlayer-app/scripts/live_demo.py \
 
 **정상 결과:** `LIVE DEMO http://127.0.0.1:23400/...`와 세 Job의 schedule이 출력됩니다. 약 110초 동안 실제 scrape를 수집한 뒤 `COMPLETED MULTI-JOB ... runs=3`가 표시됩니다. 세 Run의 SDK Step·span·log와 실제 Prometheus 조회로 만든 diagnosis가 Loki에 저장됩니다.
 
+Job별 완료 시각마다 `PUBLISHED MULTI-JOB`가 출력되고 해당 Run의 Step·진단이 먼저 보입니다. 다른 Job의 완료를 기다리지 않으며 분석 동시성은 3개로 제한합니다. 기존 isolated analyzer의 60초 deadline을 사용합니다. Model은 Run Context에 읽기 전용 metadata로 표시하며 실행한 weights를 검증한 값이 아닙니다.
+
 | Run / metadata model | Producer 입력 / 조사할 것 |
 | --- | --- |
 | `demo-qwen` · Qwen2.5 | Step duration 유지. 다른 Job의 shared I/O pressure는 함께 관측될 수 있음 |
@@ -116,7 +118,7 @@ python grafana/xlayer-app/scripts/live_demo.py \
 1. Run을 **All**로 선택하면 같은 Step·worker ID를 가진 Job들을 Run 열로 구분합니다. Job·완료 Step을 하나 선택합니다.
 2. Overview의 application KPI와 shared resource card를 구분합니다. Reward missing·stale snapshot을 측정값 `0`으로 읽지 않습니다.
 3. Analyze → Investigate에서 Current/Baseline의 Run과 candidate의 실제 endpoint/device identity를 확인합니다.
-4. `run_resource_attribution_unverified`는 해당 resource가 Job 소유라는 증거가 없다는 뜻입니다. Strong observed pressure가 있어도 특정 Job의 원인 확정은 아닙니다.
+4. Candidate 카드의 **Run relation unverified / configured endpoint**를 먼저 확인하고, Evidence의 `run_resource_attribution_unverified`를 읽습니다. Strong observed pressure가 있어도 특정 Job의 원인 확정은 아닙니다.
 5. Deep Dive → 기존 Storage/Compute/Logs → Browser Back으로 Run·Step·node·time이 유지되는지 확인합니다. 다른 종료 시각의 Job을 조사하려면 먼저 Grafana time picker로 최근 구간을 넓힙니다.
 6. 모델 정보는 Run directory의 `telemetry-manifest.json`과 `run.metadata` event에서 확인합니다. Application Prometheus label에 model을 추가하지 않습니다. vLLM의 기존 `model_name`·endpoint label은 native source identity입니다.
 

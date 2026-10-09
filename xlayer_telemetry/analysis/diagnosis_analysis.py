@@ -75,6 +75,34 @@ def vllm_identity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
     return tuple((key, str(labels[key])) for key in _VLLM_IDENTITY if key in labels)
 
 
+def validate_run_engine_instances(config):
+    instances = config.get('run_engine_instances', [])
+    if (not isinstance(instances, list) or len(instances) > 16
+            or any(not isinstance(value, str) or not value.strip() or len(value) > 256 for value in instances)
+            or len(set(instances)) != len(instances)):
+        raise ValueError('run_engine_instances needs at most 16 unique endpoint identities')
+    if instances and any(not isinstance(config.get(key), str) or not config[key].strip()
+                         for key in ('run_id', 'cluster', 'rollout_node')):
+        raise ValueError('run_engine_instances requires explicit run_id, cluster and rollout_node')
+
+
+def resource_run_relation(evidence, config, run_id):
+    """Endpoint configuration is a relation declaration, never I/O ownership."""
+    validate_run_engine_instances(config)
+    instances = config.get('run_engine_instances', [])
+    if not instances or config.get('run_id') != run_id:
+        return 'shared_unverified'
+    if not evidence or any(not item['signal'].startswith(('vllm_', 'mooncake_connector_')) for item in evidence):
+        return 'shared_unverified'
+    if any(item.get('labels', {}).get('cluster') != config['cluster'] or
+           item.get('labels', {}).get('node') != config['rollout_node'] for item in evidence):
+        return 'shared_unverified'
+    observed = [item.get('labels', {}).get('instance') for item in evidence]
+    if any(not instance for instance in observed):
+        return 'shared_unverified'
+    return 'configured' if all(instance in instances for instance in observed) else 'unlinked'
+
+
 def select_vllm_observations(series: Mapping[str, list[dict]], thresholds: Mapping[str, float]) -> dict[str, dict] | None:
     """Choose one common engine without rescanning each metric per candidate.
 

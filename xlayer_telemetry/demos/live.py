@@ -78,6 +78,7 @@ class Demo:
             raise ValueError('single-job and multi-job states are mutually exclusive')
         self.multi_job_state = multi_job_state
         self.multi_job = None
+        self.multi_completed = {}
         self.gpu, self.storage = load_topology(topology_dir)
         self.network = f"{self.gpu['network']['transport']}-{self.gpu['network']['bandwidth_gbps']:g}Gbps"
         if self.network != f"{self.storage['network']['transport']}-{self.storage['network']['bandwidth_gbps']:g}Gbps":
@@ -106,6 +107,13 @@ class Demo:
                 try: self.multi_job = load_schedule(self.multi_job_state)
                 except FileNotFoundError: pass
                 if self.multi_job is not None:
+                    valid_runs={job['scenario']['run_id'] for job in self.multi_job['jobs']}
+                    self.multi_completed={run:entry for run,entry in self.multi_completed.items() if run in valid_runs}
+                    for job in self.multi_job['jobs']:
+                        completed=[frame for frame in job['scenario']['frames'] if frame['end']<=time.time()]
+                        if completed:
+                            frame=completed[0] if job['stale_application'] else completed[-1]
+                            self.multi_completed[job['scenario']['run_id']]=(job,frame)
                     values = resource_values(self.multi_job, time.time())
                     for job in self.multi_job['jobs']:
                         if endpoint == job['instance']:
@@ -215,9 +223,9 @@ class Demo:
         if node == self.gpu["gpu_nodes"][0]:
             if self.multi_job_state is not None:
                 for job in (self.multi_job or {}).get('jobs', []):
-                    completed = [f for f in job['scenario']['frames'] if f['end'] <= time.time()]
-                    if not completed: continue
-                    frame = completed[0] if job['stale_application'] else completed[-1]
+                    entry=self.multi_completed.get(job['scenario']['run_id'])
+                    if entry is None: continue
+                    job,frame=entry
                     rows = self._scenario_agent(now, schedule=job['scenario'], frame=frame, include_sandbox=False)
                     rows = [replace(sample, value=job['reward']) if sample.name == 'reward_mean' else
                             replace(sample, value=frame['end'] - 600) if sample.name == 'training_sample_timestamp_seconds' and job['stale_application'] else sample
@@ -673,6 +681,8 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
     lines += ["  - job_name: native", "    static_configs:"]
     for endpoint, source in (("vllm", "vllm"), ("ray", "ray"), ("dcgm", "dcgm"),
                              ("mooncake-master", "mooncake"), ("mooncake-client", "mooncake")):
+        if endpoint == 'vllm' and demo.multi_job_state is not None:
+            continue
         node = demo.gpu["gpu_nodes"][0]
         lines += [f"      - targets: ['{address}']", "        labels:", f"          cluster: {cluster}",
                   "          data_origin: synthetic", f"          telemetry_source: {source}",

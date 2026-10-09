@@ -82,6 +82,8 @@
           "missing_evidence": {"type": "array", "items": {"type": "string"}},
           "observation_scope": {"$ref": "#/$defs/observation_scope"},
           "resource_attribution": {"enum": ["not_established"]},
+          "run_relation": {"enum": ["configured", "shared_unverified", "unlinked"]},
+          "signal_strength": {"enum": ["weak_signal", "supporting_signal", "strong_signal"]},
           "related_nodes": {"type": "array", "items": {"type": "string"}},
           "related_devices": {"type": "array", "items": {"type": "string"}},
           "related_spans": {"type": "array", "items": {"type": "string"}}

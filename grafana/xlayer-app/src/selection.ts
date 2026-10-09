@@ -13,6 +13,12 @@ const text = (value: unknown): string | undefined =>
 const attributes = (row: RecordRow): RecordRow =>
   row.attributes && typeof row.attributes === "object" && !Array.isArray(row.attributes)
     ? row.attributes as RecordRow : {};
+
+export function runModelMetadata(rows: RecordRow[], run: string, cluster?: string): string | undefined {
+  const models = new Set(rows.filter(row => !row.identity_conflict && row.name === 'run.metadata' &&
+    row.run_id === run && (!cluster || row.cluster === cluster)).map(row => text(attributes(row).model)).filter(Boolean));
+  return models.size === 1 ? [...models][0] : models.size > 1 ? 'Multiple reported models' : undefined;
+}
 const explicitStepIds = (row: RecordRow): string[] =>
   // record_id identifies the event/span itself unless a source explicitly maps
   // it; only step_record_id declares a relation to a completed Step artifact.

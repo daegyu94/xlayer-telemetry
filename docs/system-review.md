@@ -237,3 +237,17 @@ Frontend·dashboard·upstream 코드는 수정하지 않았으며 실제 GPU/veR
 검증은 CPU 전체 1,540 passed / optional ClickHouse 6 skipped와 별도 신규 SDK shared-directory regression을 포함한 관련 28개, App 104개·typecheck·build, strict Sphinx·문서 link/diagram으로 수행했습니다. Grafana 12.1.0·Scenes 6.20.0의 multi-job, single-job, multi-worker 실제 browser journey가 통과했습니다. Multi-job의 All-Run 표·native Job 전환·Step 선택·Evidence·Deep Dive·Storage dashboard·Browser Back, 1440/390px overflow와 실제 Loki log/Prometheus missing/stale 조회를 확인했습니다.
 
 단일 Job browser 검사는 동시 실행 중 180초 deadline에 한 번 걸렸고, 다른 검사가 끝난 뒤 격리 재실행하여 통과했습니다. 원인을 제품 결함으로 확정하지 않았으며 CI에 임의 retry나 늘어난 timeout을 추가하지 않았습니다. 세 demo matrix 경로를 CI에서 각각 실행합니다. 이번 process/state만 정리하며 실제 GPU·multi-node·async veRL·Mooncake/3FS operation attribution·LLM 추론은 미검증입니다.
+
+### 원격 CI 후속 확인
+
+위 기록은 로컬 Chrome 145·Playwright 1.63 검증입니다. `522470c`의 [원격 Grafana CI](https://github.com/daegyu94/xlayer-telemetry/actions/runs/37883938835)는 single-job/multi-worker가 성공하고 **multi-job이 실패**했습니다. 따라서 당시 원격 Multi-job 지원 검증까지 통과했다고 해석하지 않습니다.
+
+CI와 같은 Playwright 1.56·Chromium 141 Headless Shell에서 두 차이를 재현했습니다. Locale을 지정하지 않으면 `navigator.language=en-US@posix`가 전달되어 Grafana의 `Intl.NumberFormat`이 `Invalid language tag`로 부팅하지 못했습니다. `en-US`를 명시하니 정상 로드됐습니다. 이어서 `scope`가 없는 Step table `<th>`가 `columnheader` 대신 `cell`로 노출됐으며, `scope="col"`로 의미를 명시했습니다. Timeout을 늘리거나 assertion을 제거하지 않았고, 기존 EntryDiagnostics를 재사용해 실패 DOM·console·HTTP/datasource metadata·screenshot을 저장합니다.
+
+3FS metric-qualified source의 attribution marker 누락은 source kind를 `:` 앞의 정확한 이름으로 구분해 수정했습니다. Multi-job에서 사용하지 않는 기본 vLLM target은 scrape 설정에서 제외했습니다. Signal strength와 Run 관계는 별도 필드로 보존하며, configured endpoint도 I/O 소유권은 증명하지 않습니다.
+
+동시성 검사는 별도 OS process 3개가 shared SDK directory에 기록하는 동안 collector가 읽는 상태, 한 producer의 partial JSONL·강제 종료·재시작, 세 analyzer의 동시 HTTP 조회와 Run별 baseline/report 격리를 확인합니다. HTTP fixture는 Prometheus response contract를 모사하며 실제 Prometheus는 browser demo에서 별도로 사용합니다. Demo는 Job별 완료 후 바로 SDK artifact·isolated diagnosis를 제출하고 성공한 순서로 Loki에 게시합니다. 기존 3개 Job 전체 종료 후 순차 처리와 구분합니다.
+
+로컬 최종 검증은 CPU 1,550 passed / optional ClickHouse 6 skipped, App 105개·typecheck·build, 문서 link/diagram·strict Sphinx·Python/shell syntax 통과입니다. CI와 같은 Playwright 1.56·Chromium 141 Headless Shell에서 Job 전환·Model metadata·카드의 Run relation·missing/stale source·Run별 Loki log·조기 게시·Browser Back과 1440/390px를 확인했고 browser error는 0개입니다. Qwen은 Job 회귀 candidate가 없고 Llama의 engine pressure는 configured 관계, DeepSeek의 KV/host/checkpoint evidence는 shared_unverified로 표시됐습니다.
+
+다음 scenario가 시작될 때 완료 snapshot을 지우는 Demo 경계도 재현해 수정했습니다. 마지막 완료 관측과 원래 timestamp를 Run별로 유지하며 stale timestamp를 현재 시각으로 갱신하지 않습니다. Query 수는 Run당 126개로 유지하고 동시 분석은 최대 3개입니다. Cross-Run cache·새 request budget·clock-skew/실장비 E2E 확대는 별도 측정이 필요한 TBD로 남깁니다.

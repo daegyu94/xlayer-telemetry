@@ -118,6 +118,17 @@ def test_multi_entity_comparison_selects_same_entity_and_projects_full_identity(
     assert "host=a" in projected["entity"] and "method=read" in projected["entity"]
 
 
+def test_threefs_only_candidate_keeps_attribution_marker_with_metric_qualified_source():
+    current = [distribution(30), distribution(1024, name='request_bytes')]
+    before = [distribution(10), distribution(2048, name='request_bytes')]
+    result = report(current, before, request_size=True, verified=True)
+    candidate = next(c for c in result['candidates'] if c['id'] == 'small_io_pressure')
+    assert all(e['source'].startswith('3fs_clickhouse:') for e in candidate['evidence'])
+    assert candidate['resource_attribution'] == 'not_established'
+    assert candidate['run_relation'] == 'shared_unverified'
+    assert 'run_resource_attribution_unverified' in candidate['missing_evidence']
+
+
 def test_legacy_distribution_rows_remain_comparable_only_to_legacy():
     result = report([distribution(20, legacy=True)], [distribution(10, legacy=True)])
     row, = [r for r in result["comparison"]["signals"] if r["signal"] == "threefs_p99_latency"]

@@ -6,8 +6,8 @@ import pytest
 
 from xlayer_telemetry.demos.multi_job import diagnosis_config, make_schedule, record_job, validate_schedule
 from xlayer_telemetry.demos.live import Demo, prometheus_config
-from xlayer_telemetry.analysis.diagnosis_analysis import select_baseline
-from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
+from xlayer_telemetry.analysis.diagnosis_analysis import resource_run_relation, select_baseline
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
 from xlayer_telemetry.metrics import Metric, MetricEmitter
 from xlayer_telemetry.metrics.textfile import _iter_snapshots, build_metrics
@@ -65,6 +65,13 @@ def test_live_exporter_keeps_native_engine_counters_and_application_identity(tmp
     config = prometheus_config(demo, '127.0.0.1:12345', 'scenes-demo')
     for job in schedule['jobs']:
         assert '/metrics/' + job['instance'] in config
+    assert '__metrics_path__: /metrics/vllm\n' not in config
+    # A new scheduled pair does not erase completed application observations.
+    path.write_text(json.dumps(make_schedule(start=2000, node='gpu-node-0', cycle=1)))
+    retained=demo.metrics('gpu-node-0')
+    assert {s.labels['run_id'] for s in retained if s.name=='training_step_time_seconds'} == {'demo-qwen','demo-llama','demo-deepseek'}
+    old_stamp=next(s.value for s in retained if s.name=='training_sample_timestamp_seconds' and s.labels.get('run_id')=='demo-deepseek' and s.labels.get('role')=='trainer')
+    assert old_stamp == stale.value
 
 
 def test_multi_job_state_validation_precedes_artifact_writes(tmp_path):
@@ -95,6 +102,8 @@ def test_shared_pressure_diagnosis_keeps_entity_without_claiming_the_selected_ru
     candidate = next(c for c in report['candidates'] if c['id'] == 'kv_cache_pressure')
     assert candidate['state'] == 'strong_signal', 'Strong observed pressure remains useful without Run ownership'
     assert candidate['resource_attribution'] == 'not_established'
+    assert candidate['run_relation'] == 'shared_unverified'
+    assert candidate['signal_strength'] == candidate['state']
     assert 'run_resource_attribution_unverified' in candidate['missing_evidence']
     assert {e['labels']['instance'] for e in candidate['evidence']} == {'other-job-engine'}
     assert report['run_id'] == 'selected-job'
@@ -133,3 +142,30 @@ def test_existing_sdk_shared_directories_preserve_runs_with_identical_worker_ide
     assert len(list(snapshots.glob('*.json'))) == len(list(events.glob('*.jsonl'))) == 3
     rewards=[sample for sample in build_metrics(_iter_snapshots(snapshots)) if sample.name=='reward_mean']
     assert {sample.labels['run_id']:sample.value for sample in rewards} == {'demo-qwen':.7,'demo-llama':.6,'demo-deepseek':.5}
+
+
+def test_run_engine_relation_uses_explicit_configuration_without_resource_ownership():
+    config = {'run_id':'one','cluster':'lab','rollout_node':'node','run_engine_instances':['engine-one']}
+    evidence = [{'signal':'vllm_requests_waiting','source':'prometheus','observation_scope':'service',
+                 'labels':{'cluster':'lab','node':'node','instance':'engine-one'}}]
+    assert resource_run_relation(evidence, config, 'one') == 'configured'
+    assert resource_run_relation(evidence, config, 'other') == 'shared_unverified'
+    assert resource_run_relation(evidence, {}, 'one') == 'shared_unverified'
+    evidence[0]['labels']['instance'] = 'other-engine'
+    assert resource_run_relation(evidence, config, 'one') == 'unlinked'
+    evidence[0]['signal'] = 'host_cpu_pressure_ratio'
+    assert resource_run_relation(evidence, config, 'one') == 'shared_unverified'
+
+
+@pytest.mark.parametrize('instances', ['engine', [None], ['one','one'], ['x']*17])
+def test_invalid_engine_relation_config_is_rejected_before_backend_queries(instances):
+    with pytest.raises(ValueError, match='run_engine_instances'):
+        DiagnosticEngine({'prometheus':{'url':'http://unused'}, 'run_engine_instances':instances})
+
+
+def test_reported_model_projection_is_optional_and_keeps_metadata_provenance():
+    source={'run_id':'one','analysis_window':{'start':1,'end':2},'run_model':{'identifier':'same-model','source':'run_manifest'}}
+    summary=_investigation_rows(source)[0]
+    assert summary['run_model_identifier']=='same-model' and summary['run_model_source']=='run_manifest'
+    source['run_model']='legacy'
+    assert _investigation_rows(source)[0]['run_model_identifier'] is None

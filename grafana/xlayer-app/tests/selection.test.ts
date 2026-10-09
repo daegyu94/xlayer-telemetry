@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveEventStep, resolveKpiEntity, APPLICATION_AGE_IDENTITY_KEYS } from "../src/selection";
+import { resolveEventStep, resolveKpiEntity, runModelMetadata, APPLICATION_AGE_IDENTITY_KEYS } from "../src/selection";
 import type { RecordRow } from "../src/context";
 import type { Sample } from "../src/semantics";
 
@@ -21,6 +21,16 @@ const sample = (extra: Partial<Sample> = {}): Sample => ({
   ...extra,
 });
 const age = (extra: Partial<Sample> = {}): Sample => sample({ value: 2, unit: "s", ...extra });
+
+test('Run model metadata keeps clusters and Jobs separate and never chooses conflicting models', () => {
+  const rows = [{name:'run.metadata',run_id:'one',cluster:'c',attributes:{model:'same-model'}},
+    {name:'run.metadata',run_id:'two',cluster:'c',attributes:{model:'other-model'}}];
+  assert.equal(runModelMetadata(rows,'one','c'), 'same-model');
+  assert.equal(runModelMetadata(rows,'missing','c'), undefined);
+  assert.equal(runModelMetadata(rows,'one','other'), undefined);
+  rows.push({name:'run.metadata',run_id:'one',cluster:'c',attributes:{model:'changed-model'}});
+  assert.equal(runModelMetadata(rows,'one','c'), 'Multiple reported models');
+});
 
 test("events choose the matching worker, never the first same Run/Step", () => {
   const own = step(), other = step({ record_id: "step-w1", worker_id: "w1" });
