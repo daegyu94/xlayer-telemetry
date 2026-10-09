@@ -91,6 +91,15 @@ test("sampled zero and rolling-window quality are explicit", () => {
   assert.equal(rolling.value, 19);
   assert.equal(rolling.binding, "rolling-context");
 });
+test('remote client tool span cannot supply missing sandbox resource measurements',()=>{
+ const parent=phaseWindow([span],selected,'rollout');
+ const client={...span,name:'tool.call',phase:'tool_interaction',span_id:'client',parent_span_id:span.span_id,
+  attributes:{deployment:'remote',observation_scope:'client_call'}};
+ const window=relatedPhaseWindow([span,client],selected,parent,'sandbox');
+ assert.notEqual(window.span?.name,'sandbox.exec');
+ const cell=metricCell(undefined,window,'cgroup',0);
+ assert.equal(cell.state,'no-data');assert.equal(cell.value,undefined);
+});
 
 test("phase provenance excludes other clusters and explicit conflicts while permitting remote observers",()=>{
   const step={...selected,cluster:"c",observer_node:"observer"};

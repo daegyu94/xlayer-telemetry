@@ -53,10 +53,13 @@ xltel inspect RUN_ID
 | GPU / Host | Utilization·memory·CPU·network/RDMA·diskstats·filesystem | [Monitoring](docs/monitoring.md). Node/device 전체 관측 |
 | vLLM / Ray | Native queue·latency·cache·task/resource signals | [Native source](docs/native-sources.md). 배포별 metric 지원 확인 |
 | Mooncake / Storage | Connector RPC·DFS·declared DS/MDS·local I/O·선택적 3FS collection evidence | [KV / Storage](docs/kv-storage.md). Client·service·device 통계 구분 |
-| Sandbox | Lifecycle span·worker cgroup CPU/memory/I/O pressure | [Sandbox](docs/sandbox.md). GPU-host local SSD와 shared backend 구분 |
+| Local / 직접 관리하는 Dedicated Sandbox | 명시 lifecycle span·설정한 worker cgroup CPU/memory/I/O pressure | [Sandbox](docs/sandbox.md). GPU-host local SSD와 shared backend 구분 |
+| Remote Tool / Reward 호출 | 명시 SDK client span·caller가 기록한 outcome/retry event | [V1 지원 경계](docs/sandbox.md#v1-support-boundary). Remote 내부 모니터링·자동 SandboxFusion 연동은 미지원 |
 | Logs / Diagnosis | Loki Step 탐색·Current/Baseline·candidate·evidence | [Logs](docs/logs-events.md) · [Diagnosis](docs/diagnosis.md). Source 설정 필요 |
 
 > **Correlation ≠ attribution ≠ causality.** Shared resource의 동시 변화는 Run 사용량이나 확정 원인이 아닙니다. Exact/calibrated span, approximate step, sampled metric과 missing/zero를 구분합니다. [해석 기준](docs/concepts.md)을 확인하세요.
+
+**Remote Sandbox 내부 모니터링 — Not Supported (V1).** Local/Dedicated resource 관측과 Remote 호출의 client-side telemetry를 구분합니다. SandboxFusion·Managed/External provider의 내부 queue·CPU/memory/I/O·execution lifecycle·cross-service attribution은 지원하지 않습니다. VERL은 외부 서비스를 그대로 사용할 수 있고 기존 SDK로 호출 경계를 기록할 수 있지만, 호출 시간·client error는 remote 서버의 내부 병목이나 작업 성공을 뜻하지 않습니다.
 
 여러 Job의 application metric·log·span은 Run/worker identity로 구분합니다. GPU·host·Ray·Mooncake·storage에는 Run ID가 없거나 공유 scope일 수 있으므로, 같은 시간의 pressure를 특정 Job의 원인으로 단정하지 않습니다. `strong_signal`도 관측된 조건의 강도이며 자원 소유권을 뜻하지 않습니다. GPU 없이 세 Job의 겹침·누락·stale source와 실제 query/diagnosis를 확인하려면 [Multi-job Live Demo](docs/demo.md#multi-job-live-demo)를 사용하세요.
 

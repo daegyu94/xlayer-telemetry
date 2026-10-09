@@ -462,6 +462,8 @@ Operation은 `queue`, `acquire`, `prepare`, `exec`, `reset`, `release`이며 실
 Colocated는 `tool_span`을 전달하고 dedicated는 RPC로 `run_id`·trace/parent ID를 넘깁니다.
 RPC 전파·worker 환경 설정은 외부 runtime이 담당합니다.
 
+여기서 Dedicated는 Collector/SDK와 실제 worker cgroup을 설치·관측할 수 있는 직접 관리 node입니다. HTTP-only Remote SandboxFusion·Managed provider 지원을 뜻하지 않습니다. Remote 호출은 [client-side Tool/Reward span](sandbox.md#record-a-remote-client-call)으로 구분하며 내부 lifecycle·resource를 생성하지 않습니다.
+
 선택적 `cgroup`은 span 전후 I/O·PSI를 같은 trace의 `sandbox.resource_sample`에 기록하며 worker Prometheus 집계와 분리합니다.
 Dedicated worker의 `TELEMETRY_RUN_ID`는 rollout과 같고 `TELEMETRY_NODE`는 실제 sandbox node입니다.
 각 node의 JSONL을 Alloy가 읽는 run root에 두어야 Timeline에서 함께 볼 수 있습니다.

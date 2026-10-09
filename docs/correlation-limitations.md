@@ -4,6 +4,14 @@
 
 > **Reference / TBD** · 2026-10-08 소스 조사. 현재 구현과 Future Work를 구분합니다. Common Storage·기존 3FS는 XLayer 내부 구현이며 pNFS·operation-level linkage는 TBD입니다. Upstream 수정·물리 multi-node·pNFS 배포 검증은 수행하지 않았습니다.
 
+## Sandbox V1 Boundary
+
+V1은 Local/직접 관리하는 Dedicated Sandbox의 resource/lifecycle 관측과, 명시적으로 기록한 Remote Tool/Reward의 **client-side** span/event를 구분합니다. 설정·예제의 기준은 [Sandbox 지원 범위](sandbox.md#v1-support-boundary)입니다.
+
+Remote SandboxFusion·Managed/External provider의 내부 queue·CPU/memory/I/O·execution lifecycle·cross-service attribution·자동 API adapter는 미지원입니다. Client duration에는 여러 지연 계층이 섞이며 `status=ok`는 remote 작업·reward 성공을 보장하지 않습니다. 누락된 remote resource를 client node의 값, 정상 상태 또는 `0`으로 대체하지 않습니다.
+
+**Future Work / TBD:** Provider별 공개 API 계약·request identity·retry/timeout/idempotency·server metric/lifecycle source·clock/coverage를 확인한 뒤 최소 adapter를 검토합니다. Client↔server 공통 identity와 명시적 server evidence 없이 내부 CPU/SSD 병목이나 request별 resource ownership을 만들지 않습니다. 현재 우선순위는 Multi-job/node/replica, vLLM/Mooncake/3FS, Local/Dedicated Sandbox이며 이번 변경은 remote 기능을 추가하지 않습니다.
+
 ## 현재 지원과 완료된 P0
 
 | 현재 지원 | 유지하는 해석 경계 |

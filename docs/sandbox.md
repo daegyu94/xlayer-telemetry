@@ -4,7 +4,22 @@
 **Task** 실제 runtime·worker cgroup을 계측
 :::
 
-**목표:** 외부 sandbox lifecycle span과 안정적인 worker cgroup의 자원 관측을 연결합니다.
+**목표:** 직접 관리하는 Local/Dedicated sandbox의 lifecycle과 worker cgroup 관측을 연결합니다. Remote Tool/Reward는 명시적인 client 호출 경계만 기록합니다.
+
+## V1 Support Boundary
+
+| 유형 | V1 범위 | 연결 조건 / 한계 |
+| --- | --- | --- |
+| Colocated | Lifecycle·CPU/memory/I/O 관측 | GPU host의 실제 worker/container cgroup·local device 확인 |
+| 직접 관리하는 Dedicated | 조건부 lifecycle·resource 관측 | 해당 node에 Collector/SDK 설치·권한·identity·clock 검사 필요 |
+| Remote SandboxFusion | Client-side Tool/Reward span만 | 자동 API adapter·내부 resource/lifecycle 모니터링 미지원 |
+| Managed / External provider | Client-side Tool/Reward span만 | 내부 queue·CPU/memory/I/O·실행 상태·cross-service attribution 미지원 |
+
+```{admonition} Remote Sandbox — Not Supported (V1)
+:class: important
+
+Remote 서비스의 내부 모니터링과 자동 통합은 Future Work입니다. VERL에서 외부 서비스를 호출하는 것은 제한하지 않습니다. 기존 SDK로 명시한 client span·outcome은 볼 수 있지만 remote execution span, server queue time, SSD latency 또는 Run별 remote 사용량으로 해석하지 않습니다.
+```
 
 ## 얻는 것
 
@@ -63,6 +78,41 @@ xltel inspect RUN_ID
 
 **Stage Correlation → Sandbox signals**에서 sandbox node를 선택합니다. **Cross-Layer Timeline**에서 exact span과 sampled cgroup/device metric을 분리해 읽습니다.
 
+## Record a Remote Client Call
+
+**얻는 것:** Client에서 측정한 호출 소요시간, caller가 기록한 결과·timeout·retry 정보입니다. 기존 client의 timeout/retry 정책과 실제 호출을 유지합니다. XLayer는 API client나 retry loop를 만들지 않습니다.
+
+```python
+from pathlib import Path
+from xlayer_telemetry.events import CorrelationContext, EventRecorder
+
+events = EventRecorder(Path("artifacts/run-a/telemetry-events"),
+    CorrelationContext(run_id="run-a", node="rollout-a", producer="tool_client",
+                       role="rollout", worker_id="worker-0"))
+
+async def observed_call(existing_client_call, *, step, attempt):
+    # The caller supplies the real Tool or Reward API operation and timeout policy.
+    with events.span("tool.call", phase="tool_interaction", step=step,
+                     attributes={"tool": "code_execution", "deployment": "remote",
+                                 "observation_scope": "client_call", "attempt": attempt}):
+        return await existing_client_call()
+```
+
+Reward 호출은 같은 패턴에서 `reward.call`·`phase="reward"`로 기록할 수 있습니다. 이는 generic SDK instrumentation이며 모든 Reward span을 자동 bottleneck rule 입력으로 사용하는 기능은 아닙니다.
+
+**정상 결과:** JSONL에 `node=rollout-a`의 monotonic call duration과 `status=ok/error`가 기록됩니다. `TimeoutError` 등 예외는 `error_type`으로 기록하고 원래 예외를 다시 전달합니다. Latency에는 client/network/remote queue/실행/응답 처리가 섞일 수 있으며 이를 분해하지 않습니다.
+
+| 확인할 사실 | 기록 방법 | 자동으로 제공하지 않는 것 |
+| --- | --- | --- |
+| 호출 시간 / 예외 | 실제 호출을 `events.span(...)`으로 감쌈 | Remote server execution duration |
+| API 응답·reward 결과 | Caller가 실제 응답을 확인한 뒤 `events.event("tool.result", ...)` 기록 | HTTP 오류·test/reward 성공 자동 분류 |
+| Timeout | 기존 client에서 관측한 예외 또는 명시 outcome event | Timeout 정책·재시도 실행 |
+| Retry | 실제 retry 결정/attempt를 별도 `tool.retry` event/attribute로 기록 | 자동 retry count metric·서버 중복 실행 판별 |
+
+`Span.status=ok`는 client 코드가 예외 없이 끝났다는 뜻입니다. Remote 작업의 성공·reward correctness를 보장하지 않습니다. Span 개수·duration histogram·timeout/retry Prometheus counter도 자동 생성하지 않습니다. Secret·URL credential·prompt/code payload는 event attribute에 넣지 않습니다.
+
+**확인:** Loki/Run Logs 또는 Timeline에서 `tool.call`·`reward.call`과 caller가 기록한 결과 event를 확인합니다. Remote service의 resource source가 없다면 Sandbox resource panel은 Missing/No data로 남아야 합니다. Client host의 GPU/CPU/disk metric을 remote 내부 자원으로 대체하지 않습니다.
+
 ## Troubleshooting
 
 | 상태 | 행동 |
@@ -71,6 +121,7 @@ xltel inspect RUN_ID
 | Resource가 stale | Sampler process·sample age·textfile 확인 |
 | Device를 알 수 없음 | Unknown으로 남기고 [device evidence](integration-reference.md#preserve-device-evidence-in-events) 확인 |
 | Pool occupancy N/A | 해당 runtime producer가 값을 제공하는지 확인 |
+| Remote call span은 있으나 Sandbox resource가 없음 | V1의 정상 지원 경계. Remote 내부 metric을 0/healthy 또는 client node의 값으로 채우지 않음 |
 
 ## 다음
 

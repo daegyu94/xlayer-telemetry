@@ -14,6 +14,27 @@ from xlayer_telemetry.sandbox import SandboxRecorder
 from xlayer_telemetry.collectors.sandbox_sampler import (
     parse_io_stat, parse_pressure, pressure_ratio, read_cgroup, samples,
 )
+
+
+@pytest.mark.parametrize('deployment', ['remote','managed','sandboxfusion'])
+def test_remote_service_is_not_a_resource_observable_sandbox_deployment(tmp_path, deployment):
+    events=EventRecorder(tmp_path,CorrelationContext(run_id='r',node='client',producer='sdk',role='rollout',worker_id='w'))
+    with pytest.raises(ValueError,match='invalid sandbox deployment'):
+        SandboxRecorder(events,runtime='external_api',filesystem='unknown',deployment=deployment,sandbox_node='client')
+
+
+def test_explicit_remote_tool_timeout_preserves_client_scope_and_original_error(tmp_path):
+    events=EventRecorder(tmp_path,CorrelationContext(run_id='r',node='client',producer='sdk',role='rollout',worker_id='w'))
+    with pytest.raises(TimeoutError):
+        with events.span('tool.call',phase='tool_interaction',step=1,
+                attributes={'deployment':'remote','observation_scope':'client_call','attempt':1}):
+            raise TimeoutError('test client deadline')
+    rows=[json.loads(line) for path in tmp_path.glob('*.jsonl') for line in path.read_text().splitlines()]
+    assert len(rows)==1 and rows[0]['node']=='client' and rows[0]['name']=='tool.call'
+    assert rows[0]['status']=='error' and rows[0]['attributes']['error_type']=='TimeoutError'
+    assert rows[0]['attributes']['observation_scope']=='client_call'
+    assert 'sandbox_node' not in rows[0]['attributes'] and not any(row['name'].startswith('sandbox.') for row in rows)
+    assert rows[0]['duration_seconds']>=0
 from examples.sandbox.validate_smoke import validate as validate_smoke
 
 
