@@ -34,6 +34,9 @@ def clock_inventory(config: dict, producer_node: str) -> dict:
     for key, role in (('compute_node','compute'), ('rollout_node','rollout/vLLM/Ray/client'),
                       ('storage_node','storage context')):
         add(config.get(key) or producer_node, role)
+    for replica in config.get('rollout_replicas', []):
+        for node in replica['nodes']:
+            add(node, 'declared rollout replica:' + replica['id'])
     sandbox = config.get('sandbox', {})
     if sandbox.get('enabled'):
         add(sandbox.get('node') or producer_node, 'sandbox')

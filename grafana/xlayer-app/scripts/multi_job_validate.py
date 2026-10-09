@@ -44,7 +44,14 @@ def main():
     assert set(reasons)=={'vllm_waiting_capacity_requests','vllm_waiting_deferred_requests'}
     assert reasons['vllm_waiting_capacity_requests']['current']==10
     assert reasons['vllm_waiting_deferred_requests']['current']==4
-    assert all(row['labels']['instance']=='synthetic-job-llama' for row in reasons.values())
+    assert all(row['labels']['instance']=='synthetic-job-llama-peer' for row in reasons.values())
+    replica_rows = reports['demo-llama']['rollout_replicas']
+    assert len(replica_rows) == 2
+    assert replica_rows[0]['signals']['vllm_requests_waiting']['current'] == 0
+    assert replica_rows[1]['signals']['vllm_requests_waiting']['current'] == 14
+    assert replica_rows[1]['status'] == 'partial_evidence'
+    assert 'gpu-node-2' in replica_rows[1]['nodes']
+    assert any('vllm_preemptions_delta:missing' in issue for issue in replica_rows[1]['missing_sources'])
     for report in reports.values():
         for candidate in report['candidates']:
             assert candidate['resource_attribution'] == 'not_established'
@@ -52,7 +59,7 @@ def main():
     query = 'vllm:num_requests_waiting{cluster="scenes-demo"}'
     with urlopen(connection['prometheus'] + '/api/v1/query?' + urlencode({'query': query}), timeout=10) as response:
         native = json.load(response)['data']['result']
-    assert len(native) == 3 and all('run_id' not in row['metric'] for row in native)
+    assert len(native) == 4 and all('run_id' not in row['metric'] for row in native)
     def query_prom(expression):
         with urlopen(connection['prometheus'] + '/api/v1/query?' + urlencode({'query': expression}), timeout=10) as response:
             return json.load(response)['data']['result']
@@ -103,6 +110,24 @@ def main():
                 step.locator('option[value="' + reports[run]['trigger_record_id'] + '"]').wait_for(state='attached', timeout=30000)
                 step.select_option(reports[run]['trigger_record_id'])
                 page.get_by_role('button', name='Analyze Step').click()
+                if run == 'demo-llama':
+                    page.get_by_role('heading', name='Rollout Replica Coverage', exact=True).wait_for(timeout=30000)
+                    replica_table = page.locator('section').filter(has=page.get_by_role('heading', name='Rollout Replica Coverage', exact=True))
+                    replica_table.get_by_text('llama-1', exact=True).wait_for(timeout=30000)
+                    assert 'partial evidence' in replica_table.inner_text()
+                    assert 'gpu-node-1, gpu-node-2' in replica_table.inner_text()
+                    for width in (1440, 390):
+                        page.set_viewport_size({'width': width, 'height': 1000})
+                        replica_table.scroll_into_view_if_needed()
+                        page.screenshot(path=str(args.output / f'rollout-replicas-{width}.png'), full_page=True)
+                    page.set_viewport_size({'width': 1440, 'height': 1000})
+                    replica_table.get_by_role('link', name=re.compile('^Inspect endpoint')).last.click()
+                    page.wait_for_url('**/d/**', timeout=20000)
+                    replica_context = parse_qs(urlparse(page.url).query)
+                    assert replica_context['var-engine'] == ['synthetic-job-llama-peer']
+                    assert replica_context['var-node'] == ['gpu-node-1']
+                    assert replica_context['var-run_id'] == [run] and replica_context['var-record_id'] == [reports[run]['trigger_record_id']]
+                    page.go_back(); page.wait_for_url('**/a/xlayer-telemetry-app/**')
                 page.get_by_role('link', name='Investigate', exact=True).click()
                 page.get_by_role('heading', name=re.compile('Step Investigation')).wait_for(timeout=30000)
                 page.wait_for_timeout(1200)
@@ -133,7 +158,9 @@ def main():
         assert not errors, errors
     result={'runs':{run:{'step':r['step'],'candidate_ids':[c['id'] for c in r['candidates']],
         'baseline':r['comparison']['baseline_record_id'],'prometheus_requests':r['query_execution']['sources']['prometheus']['attempted']} for run,r in reports.items()},
-        'native_endpoints_without_run_labels':3, 'browser_errors':errors, 'widths':[1440,390],
+        'native_endpoints_without_run_labels':len(native),
+        'rollout_replicas':[{key:row[key] for key in ('id','instance','nodes','status','clock_status')} for row in replica_rows],
+        'browser_errors':errors, 'widths':[1440,390],
         'scope':'SDK + actual synthetic scrapes/query/diagnosis; no model execution, physical cluster or operation attribution'}
     (args.output/'validation.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

@@ -89,6 +89,12 @@ def validate_run_engine_instances(config):
 def resource_run_relation(evidence, config, run_id):
     """Endpoint configuration is a relation declaration, never I/O ownership."""
     validate_run_engine_instances(config)
+    from .rollout_replicas import matches_replica
+    replicas = config.get('rollout_replicas', [])
+    if replicas and config.get('run_id') == run_id and evidence and all(
+            item['signal'].startswith(('vllm_', 'mooncake_connector_')) for item in evidence):
+        return 'configured' if all(any(matches_replica(item.get('labels', {}), row, config['cluster'])
+                                      for row in replicas) for item in evidence) else 'unlinked'
     instances = config.get('run_engine_instances', [])
     if not instances or config.get('run_id') != run_id:
         return 'shared_unverified'
@@ -104,7 +110,7 @@ def resource_run_relation(evidence, config, run_id):
 
 
 def select_vllm_observations(series: Mapping[str, list[dict]], thresholds: Mapping[str, float]) -> dict[str, dict] | None:
-    """Choose one common engine without rescanning each metric per candidate.
+    """Choose one coherent engine, retaining partial evidence on hot engines.
 
     None means conflicting/duplicate identity, not absent telemetry. Empty
     input stays empty; legacy singleton identities keep their existing meaning.
@@ -124,13 +130,18 @@ def select_vllm_observations(series: Mapping[str, list[dict]], thresholds: Mappi
     if not indexed:
         return {}
     populations = [set(index) for index in indexed.values()]
+    population = set.union(*populations)
     shared = set.intersection(*populations)
-    if not shared or (len(set.union(*populations)) > 1 and not any(
-            any(key in _VLLM_ENGINE_FIELDS for key, _ in identity) for identity in shared)):
+    # Multiple unlabeled/disjoint single-metric entities cannot establish a
+    # coherent pressure pattern. Never fill a missing value from another engine.
+    eligible = {identity for identity in population if identity in shared or
+                sum(identity in index for index in indexed.values()) >= 2}
+    if not eligible or (len(population) > 1 and any(
+            not any(key in _VLLM_ENGINE_FIELDS for key, _ in identity) for identity in eligible)):
         return None
 
     def score(identity):
-        stats = {name: index[identity]['stats'] for name, index in indexed.items()}
+        stats = {name: index[identity]['stats'] for name, index in indexed.items() if identity in index}
         kv = stats.get('vllm_kv_cache_usage', {}).get('max') or 0
         kv = kv / 100 if kv > 1 else kv
         waiting = stats.get('vllm_requests_waiting', {}).get('max') or 0
@@ -138,8 +149,8 @@ def select_vllm_observations(series: Mapping[str, list[dict]], thresholds: Mappi
         return (int(kv >= thresholds['vllm_kv_usage']) + int(waiting >= thresholds['vllm_waiting'])
                 + int(preemptions >= 1), kv)
 
-    selected = max(sorted(shared), key=score)
-    return {name: index[selected] for name, index in indexed.items()}
+    selected = max(sorted(eligible), key=score)
+    return {name: index[selected] for name, index in indexed.items() if selected in index}
 
 
 def validate_baseline_policy(policy: Mapping[str, Any]) -> None:

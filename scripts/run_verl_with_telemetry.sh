@@ -189,7 +189,6 @@ manifest_args=(
   --output "$output_dir/telemetry-manifest.json"
   --run-id "$run_id"
   --role "trainer=$node_name"
-  --role "rollout=$node_name"
   --artifact "logs=$output_dir/logs"
 )
 if [[ -n "$diagnostics_config" ]]; then

@@ -179,3 +179,5 @@ xltel down
 ```
 
 Server와 node를 따로 조사할 때에는 기존 `verl_local.sh --config FILE server|node`를 foreground로 실행합니다.
+
+Wrapper manifest는 실제로 관측한 trainer host만 자동 기록합니다. Rollout이 같은 node라고 추정하지 않습니다. 분리형·분산 Replica 배치는 [Diagnosis의 Replica inventory](diagnosis-reference.md#declared-rollout-replica-inventory)에 선언하고 native targets를 별도로 연결합니다. Manifest·inventory 모두 request routing이나 resource ownership을 증명하지 않습니다.

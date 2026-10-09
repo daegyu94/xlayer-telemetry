@@ -431,9 +431,52 @@ Current/baseline마다 query당 최대 한 번 비용이 추가되므로 기본�
 Multi-node diagnosis에서는 [설정 예제](https://github.com/daegyu94/xlayer-telemetry/blob/main/examples/multinode/diagnostics.json)를 복사하여 실제 cluster·node·storage device를 지정합니다.
 `compute_node`는 GPU source, `rollout_node`는 native vLLM/Ray source, `storage_node`와 `storage_device`는 storage host의 특정 block device를 선택합니다.
 생략한 node는 현재 step observer의 node를 사용합니다.
-한 설정이 cluster의 모든 GPU를 자동 집계하는 것은 아니며, 다른 compute/rollout node 조합을 조사하려면 해당 node를 선택한 설정을 사용합니다.
+한 설정이 cluster의 모든 GPU를 자동 집계하는 것은 아닙니다. 다른 compute node는 해당 node를 선택한 설정으로 조사하고, 여러 rollout endpoint는 아래 선언형 Replica inventory로 조회합니다.
 Grafana Timeline의 `Resource node`로 조사할 node를 바꿉니다.
 Manifest만으로 target이나 metric을 등록하지는 않습니다.
+
+### Declared Rollout Replica Inventory
+
+대표 endpoint와 실제 배치 node를 별도로 선언합니다. Native source의 `cluster`·`node`·`instance` 값과 일치해야 하며 `instance`는 요청 API URL이나 credential이 아닌 Prometheus endpoint identity입니다.
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "run-a",
+  "cluster": "rl-cluster",
+  "node": "trainer",
+  "clock": {"monitoring_node": "monitor"},
+  "sampling": {"check_source_freshness": true},
+  "prometheus": {"url": "http://127.0.0.1:9090", "metric_profiles": ["vllm"]},
+  "rollout_replicas": [
+    {"id": "replica-0", "instance": "rollout-a:8000", "endpoint_node": "rollout-a", "nodes": ["rollout-a"]},
+    {"id": "replica-1", "instance": "rollout-b:8000", "endpoint_node": "rollout-b", "nodes": ["rollout-b", "rollout-c"]}
+  ]
+}
+```
+
+**확인 결과:** `rollout_replicas`에는 각 선언 Replica와 endpoint의 engine별 signal·baseline·quality·candidate가 남습니다. Analyze의 **Rollout Replica Coverage**에서 누락·clock 상태와 선언 node를 확인한 뒤 **Inspect endpoint**로 기존 Stage dashboard에 이동합니다. Run·Step·observer·time을 유지하며 resource node와 endpoint만 변경합니다.
+
+| 상태 | 해석 / 다음 행동 |
+| --- | --- |
+| `observed` | 반환된 query/source coverage 검사 통과. 전체 scrape·실행 관계 보장은 아님 |
+| `partial_evidence` | Metric·baseline·freshness·rolling window 등이 부족함. Raw 관측과 missing evidence 확인 |
+| `clock_unverified` | 해당 Replica의 node 또는 trainer/monitor clock 미검증. Raw 값 유지, candidate·delta 보류 |
+| `missing` | 해당 endpoint의 관측이 없음. Target DOWN·metric 미지원·query 실패를 별도로 확인; Down으로 단정하지 않음 |
+| `identity_limit` | Replica당 engine identity 8개 초과. 임의 engine 선택 없이 상세 분석 보류 |
+
+- 최대 16 Replica·Replica당 8 node이며 전체 clock inventory는 기존 32 node 상한을 적용합니다. `run_engine_instances`와 함께 설정하지 않습니다.
+- 기본/opt-in vLLM·Connector expression은 node/endpoint regex로 조회합니다. Metric당 current/baseline range query 수는 Replica 수에 따라 늘지 않으며, 새 node당 clock 검사 5개가 구간별로 추가됩니다. 기존 budget·deadline을 공유합니다.
+- `prometheus.queries` override는 그대로 유지합니다. Override가 inventory를 조회하지 않으면 해당 Replica는 missing으로 남습니다.
+- Queue·KV·preemption은 같은 engine만 평가합니다. 부분 metric이 없는 혼잡 engine을 정상 engine의 0으로 채우지 않습니다. Replica별 percentile을 합하거나 평균하지 않습니다.
+- `configured`는 배치 선언이며 resource ownership이 아닙니다. Async trainer update가 해당 Replica의 request/sample을 소비했다는 관계도 생성하지 않습니다.
+- 전체 clock verdict가 미확인일 때 기존 Run-level 후보는 보류합니다. Replica별 결과는 trainer/monitor와 해당 Replica node의 검사만 통과한 경우 별도 관측 결과로 남습니다.
+
+VERL의 [LLMServerManager](https://github.com/verl-project/verl/blob/05093df562b90f659385ec0a313d03fc22da2ba5/verl/workers/rollout/llm_server.py)와 [vLLM replica server](https://github.com/verl-project/verl/blob/05093df562b90f659385ec0a313d03fc22da2ba5/verl/workers/rollout/vllm_rollout/vllm_async_server.py)는 논리 Replica·대표 endpoint·node rank를 구분합니다. XLayer는 배치를 자동 추론하지 않으며 clock node 선언만으로 GPU/device 사용량을 연결하지 않습니다.
+
+Dynamic scale/discovery, 같은 endpoint를 재사용한 process generation, 실제 routing/request linkage, applied-policy coverage, workload-matched replica straggler 판정은 TBD입니다. Counter reset 처리는 기존 client semantics를 유지하며 restart 여부를 추정하지 않습니다. Endpoint가 사라져도 나머지 Replica의 raw 관측은 보존합니다.
+
+**검증 범위:** CPU fixture에서 metric 누락·stale·endpoint no-data·engine identity 변경·미등록 remote clock·calibration reference session 변경과 잘못된 metadata를 검사했습니다. 실제 Prometheus/Loki/Grafana Multi-job synthetic에서는 queue 0인 Replica와 queue 14·KV 98%인 부분 수집 Replica를 분리하고, endpoint drill-down/Browser Back 및 1440/390px 화면을 확인했습니다. Llama는 추가 두 node의 current/baseline clock 검사로 134→154 request/Run이며 metric query 수는 유지됐습니다. 물리 VERL/vLLM multinode·TP/DP, 실제 process restart/scale, routing/policy 적용과 GPU 소유 관계는 미검증입니다.
 
 `cluster`를 지정하면 기본 query는 cluster/job으로 제한되고 clock check도 기본 활성화됩니다.
 사용자가 제공한 `prometheus.queries`는 그대로 사용하므로 각 selector에 `cluster="{cluster}"`와 source·node/device 조건을 명시해야 합니다.

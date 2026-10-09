@@ -10,6 +10,16 @@ import time
 ROOT = Path(__file__).parents[1]
 
 
+def test_wrapper_does_not_invent_colocated_rollout_deployment(tmp_path):
+    output = tmp_path / 'run'
+    result = subprocess.run(['bash', str(ROOT / 'scripts/run_verl_with_telemetry.sh'),
+        '--output', str(output), '--', 'true'], env=os.environ | {'TELEMETRY_PYTHON': sys.executable},
+        capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    roles = json.loads((output / 'telemetry-manifest.json').read_text())['deployment']['roles']
+    assert len(roles) == 1 and roles[0]['role'] == 'trainer'
+
+
 def test_missing_logger_warns_without_hiding_workload_exit(tmp_path: Path) -> None:
     result = subprocess.run(
         ["bash", str(ROOT / "scripts" / "run_verl_with_telemetry.sh"),

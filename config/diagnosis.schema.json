@@ -13,6 +13,24 @@
     "data_origin": {"enum": ["observed", "synthetic"]},
     "diagnosis_method": {"const": "rule"},
     "sampling_quality": {"type": "object"},
+    "rollout_replicas": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["id", "instance", "endpoint_node", "nodes", "status", "clock_status", "entities", "signals", "candidates"],
+        "properties": {
+          "id": {"type": "string"}, "instance": {"type": "string"},
+          "endpoint_node": {"type": "string"},
+          "nodes": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"type": "string"}},
+          "status": {"enum": ["observed", "partial_evidence", "clock_unverified", "missing", "identity_limit"]},
+          "clock_status": {"enum": ["aligned", "unknown"]},
+          "resource_attribution": {"const": "not_established"},
+          "run_relation": {"const": "configured"},
+          "entities": {"type": "array", "maxItems": 8},
+          "signals": {"type": "object"}, "candidates": {"type": "array"}
+        }
+      }
+    },
     "query_execution": {
       "type": "object",
       "required": ["budget_seconds", "elapsed_seconds", "budget_exhausted", "sources"],

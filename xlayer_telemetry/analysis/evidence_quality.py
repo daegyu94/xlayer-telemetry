@@ -133,7 +133,20 @@ def quality(query: str, start: float, end: float, query_step: float,
             "warnings": warnings}
 
 
-def check_source(client, query: str, start: float, end: float, step: float) -> dict:
+def source_for_entity(source: Mapping, labels: Mapping) -> dict:
+    """Match returned source series to one selected entity, without more queries."""
+    rows = source.get('series', [])
+    keys = {key: value for key, value in labels.items() if key != '__name__'}
+    matches = [row for row in rows if keys and all(row.get('labels', {}).get(key) == value for key, value in keys.items())]
+    if not matches:
+        return {}
+    last = [row.get('last_source_timestamp') for row in matches]
+    counts = [row.get('observed_source_samples') for row in matches]
+    return {'last_source_timestamp': min(last) if all(value is not None for value in last) else None,
+            'observed_source_samples': min(counts) if all(value is not None for value in counts) else None}
+
+
+def check_source(client, query: str, start: float, end: float, step: float, *, per_entity=False) -> dict:
     expression = timestamp_query(query)
     if expression is None or not hasattr(client, "query_range_detail"):
         return {}
@@ -144,8 +157,14 @@ def check_source(client, query: str, start: float, end: float, step: float) -> d
         last = [value for value in last if value is not None]
         counts=[len(set(stamp for stamp in item.get('source_timestamps',[]) if start<=stamp<=end))
                 for item in series if 'source_timestamps' in item]
-        return {"last_source_timestamp": min(last) if last else None,
-                "observed_source_samples": min(counts) if counts and len(counts)==len(series) else None}
+        result = {"last_source_timestamp": min(last) if last else None,
+                  "observed_source_samples": min(counts) if counts and len(counts)==len(series) else None}
+        if per_entity:
+            result['series'] = [{'labels': item.get('labels', {}),
+                                'last_source_timestamp': finite_number(item.get('stats', {}).get('max')),
+                                'observed_source_samples': len(set(stamp for stamp in item['source_timestamps'] if start <= stamp <= end)) if 'source_timestamps' in item else None}
+                               for item in series]
+        return result
     except (OSError, RuntimeError, TimeoutError, ValueError):
         return {}
 

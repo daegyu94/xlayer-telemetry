@@ -70,6 +70,19 @@ import { storageMetrics, storagePlotSelection } from './storage-series';
 import {parseStorageOverview,storageDetailGroups,storageSourceContext} from './storage-overview';
 import {canonicalRefs} from './data';
 import { executionChoices, executionKey, selectExecution, observedPhases, measuredWorkers, pressureOrder, appliedPolicies, workerContext, resourceContext, stepProjection } from "./distributed";
+import { replicaRows } from './replicas';
+
+function RolloutReplicas({summary,context,catalog}:{summary?:RecordRow;context:Context;catalog:Catalog}) {
+ const rows=replicaRows(summary);
+ if(!rows.length)return null;
+ return <section><h3>Rollout Replica Coverage</h3><p className="xlt-muted">Configured placement, not request routing or resource ownership. Each engine retains its own samples, baseline and clock checks. Missing metrics are not zero.</p>
+  <div className="xlt-scroll"><table><thead><tr><th scope="col">Replica / engine</th><th scope="col">Queue / KV</th><th scope="col">Evidence quality</th><th scope="col">Observations / Next</th></tr></thead><tbody>{rows.map((r,i)=><tr key={`${r.id}-${i}`}>
+   <td><b>{r.id}</b><small className="xlt-entity" title={r.instance}>{r.instance} · engine {scalar(r.identity?.engine,'not reported')}</small><small>{r.nodes.join(', ')} · configured</small></td>
+   <td>{format(r.signals.vllm_requests_waiting?.current)} requests<br/>{format(typeof r.signals.vllm_kv_cache_usage?.current==='number'?r.signals.vllm_kv_cache_usage.current*100:undefined,'%')} KV<small>per engine · shared service</small></td>
+   <td>{r.status.replace(/_/g,' ')}<small>Clock: {r.clock} / baseline {r.baselineClock}</small><details><summary>Coverage · {r.missing.length} issues</summary>{r.missing.length?r.missing.map((issue,j)=><small key={j}>{issue}</small>):<small>Returned source coverage; not full scrape or replica lifecycle proof.</small>}</details></td>
+   <td>{r.candidates.length?r.candidates.map((c,j)=><small key={j}>{scalar(c.id)} · {scalar(c.state).replace(/_/g,' ')}</small>):<small>{r.status==='observed'?'No anomaly observed':'Evidence incomplete or correlation withheld'}</small>}<Link to="stage" context={resourceContext(context,{node:r.endpoint_node,engine:r.instance})} catalog={catalog}>Inspect endpoint →</Link></td>
+  </tr>)}</tbody></table></div></section>;
+}
 import { ComparisonWindow } from "./comparison-window";
 import { baselineBounds, matrixEntities, matrixEntityKey, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSYSTEM_COLORS } from "./matrix-presentation";
 import { MATRIX_SPECS } from "./matrix-contract";
@@ -887,6 +900,7 @@ function ShellView({ model }: { model: Shell }) {
             </section>
           )}
           <Pressure model={model} selected={selected} spans={spans} spanData={spanData} />
+          <RolloutReplicas summary={comparisonMeta} context={context} catalog={state.catalog} />
           <section><h3>Subsystem Signals</h3><HealthSummary candidates={diagnosis}/></section><TopChanges rows={current}/><WorkerOutliers model={model} selected={selected} />
         </>
       )}

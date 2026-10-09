@@ -28,7 +28,8 @@ from .diagnosis_analysis import (
 )
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
-from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
+from .evidence_quality import quality, check_source, source_for_entity, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
+from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
 from ..sandbox import device_window
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
@@ -327,6 +328,7 @@ def load_config(path: Path) -> dict[str, Any]:
     validate_sampling(config.get("sampling", {}))
     validate_baseline_policy(config.get("baseline", {}))
     validate_run_engine_instances(config)
+    validate_rollout_replicas(config)
     thresholds = config.get("thresholds", {})
     if not isinstance(thresholds, dict) or any(
         type(value) not in (int, float) or not math.isfinite(value) or value < 0
@@ -526,6 +528,7 @@ class DiagnosticEngine:
         time_calibration: CalibrationCache | None = None,
     ) -> None:
         validate_run_engine_instances(config)
+        validate_rollout_replicas(config)
         self.config = config
         prom = config["prometheus"]
         self.prometheus = prometheus or PrometheusClient(prom["url"], float(prom.get("timeout_seconds", 5)))
@@ -560,6 +563,7 @@ class DiagnosticEngine:
                     lambda match: '{cluster="{cluster}",job="' + job + '"' + source + ',', template,
                 )
         queries.update(profile_queries(self.config["prometheus"], cluster))
+        queries = scope_queries(queries, self.config)
         queries.update(custom)
         if self.config.get("storage_node") and self.config.get("storage_device"):
             queries.setdefault("storage_device_busy_ratio", (
@@ -583,6 +587,8 @@ class DiagnosticEngine:
         return queries
 
     def analyze(self, current: Mapping[str, Any] | None, history: list[dict[str, Any]]) -> dict[str, Any]:
+        if self.config.get('rollout_replicas') and current and current.get('run_id') != self.config['run_id']:
+            raise ValueError('rollout_replicas inventory belongs to a different Run')
         budget = QueryBudget(self.config.get("query_budget_seconds", 30))
         prometheus = budget.wrap(self.prometheus, "prometheus", configurable_timeout=isinstance(self.prometheus, PrometheusClient))
         threefs = budget.wrap(self.threefs, "threefs", configurable_timeout=isinstance(self.threefs, ThreeFSClient)) if self.threefs is not None else None
@@ -656,6 +662,7 @@ class DiagnosticEngine:
         baseline_metrics: dict[str, Any] = {}
         executed_queries: dict[str, str] = {}
         sampling_quality: dict[str, dict] = {}
+        source_samples: dict[str, dict] = {}
         current_series: dict[str, list[dict[str, Any]]] = {}
         baseline_series: dict[str, list[dict[str, Any]]] = {}
         clock_config = self.config.get("clock", {})
@@ -708,7 +715,8 @@ class DiagnosticEngine:
                     query = query.replace("{" + key + "}", escape_label(value))
                 executed_queries[name] = query
                 stats, series, result_quality = query_with_detail(query, float(start), end)
-                source_sample = check_source(prometheus, query, float(start), end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                source_sample = check_source(prometheus, query, float(start), end, step, per_entity=True) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                source_samples[name] = {'current': source_sample}
                 sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample, result=result_quality)}
                 missing.extend(f"prometheus:{name}:current:{issue}"
                                for issue in result_quality_issues(sampling_quality[name]["current"]))
@@ -723,7 +731,8 @@ class DiagnosticEngine:
                         float(baseline_window["end"]),
                     )
                     baseline_start, baseline_end = float(baseline_window["start"]), float(baseline_window["end"])
-                    prior_source = check_source(prometheus, query, baseline_start, baseline_end, step) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                    prior_source = check_source(prometheus, query, baseline_start, baseline_end, step, per_entity=True) if self.config.get("sampling", {}).get("check_source_freshness") else {}
+                    source_samples[name]['baseline'] = prior_source
                     sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source, result=prior_quality)
                     missing.extend(f"prometheus:{name}:baseline:{issue}"
                                    for issue in result_quality_issues(sampling_quality[name]["baseline"]))
@@ -813,6 +822,12 @@ class DiagnosticEngine:
         signal_scopes: dict[str, str] = {"gpu_utilization_percent": "node"}
         selected_vllm_stats: dict[str, Any] = {}
         selected_vllm = select_vllm_observations(current_series, self.thresholds)
+        if any(current_series.get(name) for name in VLLM_OBSERVATIONS):
+            for name in VLLM_OBSERVATIONS:
+                signal = 'vllm_preemptions_delta' if name == 'vllm_preemptions_total' else name
+                current_signals.pop(signal, None)
+                baseline_signals.pop(signal, None)
+                signal_labels.pop(signal, None)
         if selected_vllm is None:
             for name in VLLM_OBSERVATIONS:
                 current_signals.pop("vllm_preemptions_delta" if name == "vllm_preemptions_total" else name, None)
@@ -840,7 +855,20 @@ class DiagnosticEngine:
             for name in VLLM_OBSERVATIONS:
                 finding_evidence.pop(name, None)
         else:
+            if any(current_series.get(name) for name in VLLM_OBSERVATIONS):
+                for name in VLLM_OBSERVATIONS:
+                    finding_evidence.pop(name, None)
             finding_evidence.update(selected_vllm_stats)
+        for name in VLLM_OBSERVATIONS:
+            for item in current_series.get(name, []):
+                observed_node = item.get('labels', {}).get('node')
+                if observed_node and observed_node != node and observed_node not in clock_nodes:
+                    missing.append(f'clock:{observed_node}:unregistered_observation_node')
+                    clock_quality['nodes'][observed_node] = {'status': 'unknown', 'issues': ['unregistered_observation_node']}
+                    clock_quality['required_nodes'] = sorted(set(clock_quality['required_nodes']) | {observed_node})
+                    clock_quality['operating_scope'] = 'cross-node'
+                    if clock_quality['status'] != 'unsafe':
+                        clock_quality['status'] = 'unknown'
         def gpu_identity(item):
             labels = item.get("labels", {})
             return tuple((key, str(labels[key])) for key in ("cluster", "instance", "nodename", "node", "gpu", "gpu_uuid") if key in labels)
@@ -1047,7 +1075,16 @@ class DiagnosticEngine:
             for role,series in (('current',current_series),('baseline',baseline_series)):
                 matches=[item for item in series.get(name,[]) if all(item.get('labels',{}).get(k)==v for k,v in labels.items() if k!='__name__')]
                 if role in qualities:
-                    qualities[role]=selected_quality(qualities[role],matches[0].get('stats',{}) if len(matches)==1 else {})
+                    stats = matches[0].get('stats', {}) if len(matches) == 1 else {}
+                    source = source_samples.get(name, {}).get(role, {})
+                    # A singleton legacy client with no source labels has no
+                    # alternate entity to borrow. Multi-entity clients must match.
+                    if (any(row.get('labels') for row in source.get('series', []))
+                            or len(series.get(name, [])) > 1 or len(source.get('series', [])) > 1):
+                        interval = window if role == 'current' else baseline_window
+                        qualities[role] = quality(executed_queries[name], interval['start'], interval['end'], step,
+                            stats, source=source_for_entity(source, labels), result=qualities[role].get('query_result'))
+                    qualities[role] = selected_quality(qualities[role], stats)
 
         rule_current,rule_baseline=dict(current_signals),dict(baseline_signals)
         for name,qualities in sampling_quality.items():
@@ -1249,6 +1286,9 @@ class DiagnosticEngine:
             "findings": findings,
             "evidence": evidence,
             "sampling_quality": sampling_quality,
+            **({'rollout_replicas': replica_observations({**self.config, 'node': node}, current_series, baseline_series,
+                source_samples, executed_queries, sampling_quality, window, baseline_window if baseline_record else {},
+                clock_quality, self.thresholds)} if self.config.get('rollout_replicas') else {}),
             "metric_profiles": profiles,
             "query_execution": budget.summary(),
             "storage_overview": storage_overview(comparison, signal_queries, missing,
@@ -1531,7 +1571,17 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
              "missing_sources": ", ".join(report.get("missing_sources", [])),
              "run_model_identifier": report['run_model'].get('identifier') if isinstance(report.get('run_model'), Mapping) else None,
              "run_model_source": report['run_model'].get('source') if isinstance(report.get('run_model'), Mapping) else None,
-             "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':'))}]
+             "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':')),
+             **({'rollout_replicas': json.dumps(report['rollout_replicas'], separators=(',', ':'))}
+                if report.get('rollout_replicas') is not None else {})}]
+    for replica in report.get('rollout_replicas', []):
+        for entity in replica.get('entities', []) or [{}]:
+            rows.append({**common, 'row_kind': 'replica', 'replica_id': replica['id'],
+                         'replica_status': replica['status'], 'replica_clock_status': replica['clock_status'],
+                         'replica_nodes': replica['nodes'], 'replica_endpoint': replica['instance'],
+                         'run_relation': 'configured', 'resource_attribution': 'not_established',
+                         'replica_entity': entity.get('identity'), 'replica_signals': entity.get('signals', {}),
+                         'replica_missing_sources': entity.get('missing_sources', [])})
     for candidate in report.get("candidates", []):
         rows.append({**common, "row_kind": "candidate", "candidate_id": candidate.get("id"),
                      "component": candidate.get("component"), "state": candidate.get("state"),

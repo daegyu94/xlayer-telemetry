@@ -110,7 +110,7 @@ Job별 완료 시각마다 `PUBLISHED MULTI-JOB`가 출력되고 해당 Run의 S
 | Run / metadata model | Producer 입력 / 조사할 것 |
 | --- | --- |
 | `demo-qwen` · Qwen2.5 | Step duration 유지. 다른 Job의 shared I/O pressure는 함께 관측될 수 있음 |
-| `demo-llama` · Llama 3.1 | Rollout duration·engine queue·KV pressure 증가; reward source 누락 |
+| `demo-llama` · Llama 3.1 | 두 선언 Rollout Replica. `llama-0` queue 정상, 두 node에 배치한 `llama-1` queue·KV pressure 증가·preemption metric 누락; reward source 누락 |
 | `demo-deepseek` · DeepSeek distill | Actor update·checkpoint 증가와 host pressure 중첩; application snapshot stale, native preemption source 누락, engine 관계 미확인 |
 
 ### Grafana에서 확인
@@ -118,6 +118,7 @@ Job별 완료 시각마다 `PUBLISHED MULTI-JOB`가 출력되고 해당 Run의 S
 1. Run을 **All**로 선택하면 같은 Step·worker ID를 가진 Job들을 Run 열로 구분합니다. Job·완료 Step을 하나 선택합니다.
 2. Overview의 application KPI와 shared resource card를 구분합니다. Reward missing·stale snapshot을 측정값 `0`으로 읽지 않습니다.
 3. Analyze → Investigate에서 Current/Baseline의 Run과 candidate의 실제 endpoint/device identity를 확인합니다.
+   Llama의 **Rollout Replica Coverage**에서는 정상 engine과 일부 metric이 누락된 혼잡 engine을 별도로 확인합니다. **Inspect endpoint** → Stage dashboard → Browser Back으로 context가 유지되는지 확인합니다. 이는 같은 process의 synthetic node labels이며 물리 multinode/TP/DP 실행은 아닙니다.
 4. Candidate 카드의 **Run relation unverified / configured endpoint**를 먼저 확인하고, Evidence의 `run_resource_attribution_unverified`를 읽습니다. Strong observed pressure가 있어도 특정 Job의 원인 확정은 아닙니다.
 5. Deep Dive → 기존 Storage/Compute/Logs → Browser Back으로 Run·Step·node·time이 유지되는지 확인합니다. 다른 종료 시각의 Job을 조사하려면 먼저 Grafana time picker로 최근 구간을 넓힙니다.
 6. 모델 정보는 Run directory의 `telemetry-manifest.json`과 `run.metadata` event에서 확인합니다. Application Prometheus label에 model을 추가하지 않습니다. vLLM의 기존 `model_name`·endpoint label은 native source identity입니다.

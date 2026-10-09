@@ -110,6 +110,9 @@ def main():
         ep, pp, lp, grpc = port(), port(), port(), port()
         scenario_state = args.output / 'scenario-state.json'
         demo = Demo(ROOT / 'examples/live-demo', **({'multi_job_state': scenario_state} if args.multi_job else {'scenario_state': scenario_state}))
+        if args.multi_job:
+            atomic_write_text(scenario_state, json.dumps(make_schedule(start=time.time()+120,
+                node=demo.gpu['gpu_nodes'][0], replica_nodes=demo.gpu['gpu_nodes'][1:3])))
         pc = args.output / 'prometheus.yaml'
         pc.write_text(prometheus_config(demo, f'127.0.0.1:{ep}', 'scenes-demo'))
         launch([sys.executable, '-m', 'xlayer_telemetry.demos.live', '--listen', f'127.0.0.1:{ep}', '--multi-job-state' if args.multi_job else '--scenario-state', str(scenario_state)], 'exporter')
@@ -191,7 +194,8 @@ datasources:
             if any(process.poll() is not None for process, _ in processes):
                 raise RuntimeError('An owned demo service exited; inspect launcher logs')
             if args.multi_job:
-                schedule = make_schedule(start=time.time()+2, node=demo.gpu['gpu_nodes'][0], cycle=cycle)
+                schedule = make_schedule(start=time.time()+2, node=demo.gpu['gpu_nodes'][0], cycle=cycle,
+                                         replica_nodes=demo.gpu['gpu_nodes'][1:3])
                 atomic_write_text(scenario_state, json.dumps(schedule))
                 end = max(job['scenario']['frames'][1]['end'] for job in schedule['jobs'])
                 print(f'MULTI-JOB cycle={cycle}: three overlapping jobs; completion in {end-time.time():.0f}s', flush=True)

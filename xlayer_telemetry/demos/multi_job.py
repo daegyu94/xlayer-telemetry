@@ -20,7 +20,7 @@ MODELS = (
 )
 
 
-def make_schedule(*, start, node, cycle=0):
+def make_schedule(*, start, node, cycle=0, replica_nodes=None):
     jobs = []
     for index, (name, model) in enumerate(MODELS):
         scenario = make_scenario(start=start + 3 * index, run_id='demo-' + name, node=node,
@@ -43,6 +43,11 @@ def make_schedule(*, start, node, cycle=0):
                      'missing_reward': name == 'llama', 'missing_preemptions': name == 'deepseek',
                      'stale_application': name == 'deepseek', 'engine_mapping': name != 'deepseek',
                      'reward': (.732, .614, .681)[index]})
+    if replica_nodes:
+        jobs[1]['rollout_replicas'] = [
+            {'id': 'llama-0', 'instance': jobs[1]['instance'], 'endpoint_node': node, 'nodes': [node]},
+            {'id': 'llama-1', 'instance': 'synthetic-job-llama-peer', 'endpoint_node': replica_nodes[0], 'nodes': list(replica_nodes)},
+        ]
     return validate_schedule({'schema_version': 1, 'data_origin': 'synthetic', 'jobs': jobs})
 
 
@@ -67,6 +72,9 @@ def validate_schedule(schedule):
         if finite_number(job.get('reward')) is None or not 0 <= job['reward'] <= 1:
             raise ValueError('invalid synthetic reward')
         runs.add(run); instances.add(instance)
+        if job.get('rollout_replicas'):
+            from ..analysis.rollout_replicas import validate_rollout_replicas
+            validate_rollout_replicas({'run_id': run, 'cluster': 'scenes-demo', 'rollout_replicas': job['rollout_replicas']})
     return schedule
 
 
@@ -92,7 +100,7 @@ def resource_values(schedule, when):
     return value
 
 
-def native_values(job, when):
+def native_values(job, when, *, replica_instance=None):
     active = frame_at(job['scenario'], when)
     if active is None:
         return {'gpu': 8, 'tokens': 0, 'busy': .05, 'waiting': 0, 'kv_hit': .78, 'kv_slow': 0}
@@ -101,6 +109,11 @@ def native_values(job, when):
     value.update(waiting=0, waiting_capacity=0, waiting_deferred=0)
     if frame is job['scenario']['frames'][1] and job['instance'].endswith('llama') and phase['phase'] == 'rollout':
         value.update(waiting=14, waiting_capacity=10, waiting_deferred=4, kv_hit=.54, kv_slow=1)
+    if job.get('rollout_replicas'):
+        if replica_instance == 'synthetic-job-llama-peer':
+            value['kv_util'] = .98 if value['waiting'] else .45
+        else:
+            value.update(waiting=0, waiting_capacity=0, waiting_deferred=0, kv_hit=.78, kv_slow=0)
     return value
 
 
@@ -112,7 +125,9 @@ def diagnosis_config(job, prometheus_url):
         'clock': {'monitoring_node': node}, 'sampling': {'check_source_freshness': True},
         'baseline': {'match_fields': ['perf/total_num_tokens']},
         'prometheus': {'url': prometheus_url, 'metric_profiles': ['host', 'vllm', 'vllm_waiting', 'mooncake', 'mooncake_storage']}}
-    if job['engine_mapping']:
+    if job.get('rollout_replicas'):
+        config['rollout_replicas'] = job['rollout_replicas']
+    elif job['engine_mapping']:
         config['run_engine_instances'] = [job['instance']]
         source = 'telemetry_source="vllm",'
         config['prometheus']['queries'] = {name: query.replace(source, source + 'instance="' + job['instance'] + '",')
@@ -134,7 +149,12 @@ def record_job(root, job):
         data.update({'timing_s/' + ('gen' if p['phase'] == 'rollout' else p['operation']): p['end'] - p['start'] for p in frame['phases']})
         rows.append(writer.append({'step': frame['step'], 'data': data}))
     _record_scenario_spans(root, scenario, step_record_ids={row['step']: row['record_id'] for row in rows})
-    manifest = make_agent_rl_manifest(run_id=scenario['run_id'], roles={'trainer': scenario['node'], 'rollout': scenario['node']})
+    roles = [('trainer', scenario['node'])]
+    if job.get('rollout_replicas'):
+        roles += [('rollout', node) for node in sorted({node for row in job['rollout_replicas'] for node in row['nodes']})]
+    manifest = make_agent_rl_manifest(run_id=scenario['run_id'], roles=roles)
+    if job.get('rollout_replicas'):
+        manifest['deployment']['rollout_replicas'] = job['rollout_replicas']
     manifest.update(data_origin='synthetic', model={'identifier': job['model'], 'weights_loaded': False},
                     resource_attribution='not_established', native_endpoint_relation='configured' if job['engine_mapping'] else 'unverified')
     write_manifest(root / 'telemetry-manifest.json', manifest)

@@ -62,6 +62,8 @@ xltel inspect RUN_ID
 
 Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 source 조건과 Defined / Collection / Query / Diagnosis / Dashboard 단계를 [Subsystem Metric Coverage](docs/subsystem-metrics.md)에서 확인하세요.
 
+여러 Rollout Replica는 [선언형 inventory](docs/diagnosis-reference.md#declared-rollout-replica-inventory)로 대표 endpoint와 배치 node를 구분합니다. Replica별 일부 metric 누락·freshness·clock·baseline을 보존하며, 배치 선언만으로 request routing이나 trainer의 sample 소비 관계를 추정하지 않습니다.
+
 ## 어떻게 조사하나
 
 <a id="why-cross-layer-telemetry"></a>

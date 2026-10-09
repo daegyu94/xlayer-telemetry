@@ -116,10 +116,12 @@ class Demo:
                             self.multi_completed[job['scenario']['run_id']]=(job,frame)
                     values = resource_values(self.multi_job, time.time())
                     for job in self.multi_job['jobs']:
-                        if endpoint == job['instance']:
-                            rows = self._vllm(now, native_values(job, time.time()), identity=endpoint,
+                        replicas = job.get('rollout_replicas', [])
+                        if endpoint == job['instance'] or any(row['instance'] == endpoint for row in replicas):
+                            rows = self._vllm(now, native_values(job, time.time(), replica_instance=endpoint), identity=endpoint,
                                               labels={'model_name': job['model'], 'engine': '0'})
-                            return [r for r in rows if not job['missing_preemptions'] or r.name != 'vllm:num_preemptions_total']
+                            missing_preemption = job['missing_preemptions'] or (bool(replicas) and endpoint != job['instance'])
+                            return [r for r in rows if not missing_preemption or r.name != 'vllm:num_preemptions_total']
             if self.scenario_state is not None:
                 wall = time.time()
                 try:
@@ -455,7 +457,7 @@ class Demo:
         waiting = value.get("waiting", 8 if value["busy"] > .5 else 1)
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
-            "vllm:kv_cache_usage_perc": .92 if waiting > 1 else .45}.items()]
+            "vllm:kv_cache_usage_perc": value.get('kv_util', .92 if waiting > 1 else .45)}.items()]
         # Reason categories must be explicit producer inputs, not inferred from
         # queue depth or interpreted as KV causality.
         for reason in ('capacity','deferred'):
@@ -697,11 +699,15 @@ def prometheus_config(demo: Demo, address: str, cluster: str = "demo-b300") -> s
                   f"          component: {endpoint}-0", f"          __metrics_path__: /metrics/{endpoint}"]
     if demo.multi_job_state is not None:
         from .multi_job import MODELS
-        for name, _ in MODELS:
-            endpoint = 'synthetic-job-' + name
+        endpoints = [('synthetic-job-' + name, demo.gpu['gpu_nodes'][0]) for name, _ in MODELS]
+        if demo.multi_job_state.exists():
+            from .multi_job import load_schedule
+            for job in load_schedule(demo.multi_job_state)['jobs']:
+                endpoints += [(row['instance'], row['endpoint_node']) for row in job.get('rollout_replicas', []) if row['instance'] != job['instance']]
+        for endpoint, endpoint_node in endpoints:
             lines += [f"      - targets: ['{address}']", '        labels:', f'          cluster: {cluster}',
                       '          data_origin: synthetic', '          telemetry_source: vllm',
-                      f"          node: {demo.gpu['gpu_nodes'][0]}", f"          nodename: {demo.gpu['gpu_nodes'][0]}",
+                      f"          node: {endpoint_node}", f"          nodename: {endpoint_node}",
                       f'          instance: {endpoint}', f'          component: {endpoint}',
                       f'          __metrics_path__: /metrics/{endpoint}']
     return "\n".join(lines) + "\n"

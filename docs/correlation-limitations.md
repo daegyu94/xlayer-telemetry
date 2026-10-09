@@ -153,6 +153,10 @@ Prometheus·SDK·기본 window/quality 모델과 `storage_overview`의 common so
 
 **우선순위:** 기존 source 활용 → capability/identity 선언 → local execution link → 실제 replica/completion → operation/resource path 순서입니다. 아래 overhead는 비용의 구조에 대한 예상이며 측정값이 아닙니다.
 
+Rollout Replica는 VERL request를 처리하는 논리 실행 배치이며 Mooncake KV data replica와 다릅니다. [선언형 Rollout inventory](diagnosis-reference.md#declared-rollout-replica-inventory)는 endpoint·여러 node의 clock·engine별 부분 metric을 보존합니다. 배치 선언은 request routing, TP/DP device 소유권, trainer의 sample consumption 관계를 증명하지 않습니다. 같은 Run/Step 번호를 가진 async worker call은 원래 monotonic duration을 조사할 수 있지만 trainer-owned rollout이라고 해석하지 않습니다.
+
+Replica별 percentile·throughput의 단순 합계/평균 또는 Job 간 workload-mismatched straggler 판정은 제공하지 않습니다. 실제 request→rollout replica→applied policy→consumed sample 관계와 동적 scale/restart generation은 native/framework hook 검증이 필요한 TBD이며, 현재 CPU synthetic inventory를 물리 VERL multinode 검증으로 간주하지 않습니다.
+
 ### 우선순위와 최소 변경 범위
 
 | 우선 | 제안 / 기대효과 | 최소 변경과 upstream 경계 |
