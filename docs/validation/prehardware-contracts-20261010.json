@@ -1,0 +1,48 @@
+{
+  "data_origin": "synthetic_sdk_and_vllm_exposition",
+  "checks": {
+    "generated_config_sdk_node_isolation": {
+      "node-a": 10.0,
+      "node-b": 20.0
+    },
+    "sdk_event_alloy_loki_node_isolation": true,
+    "remote_prometheus_status": "matched on both isolated localhost namespaces",
+    "partial_replica_and_disabled_histogram": "no peer fill, fake zero or percentile",
+    "unverified_multinode_clock": "raw observations retained; candidates withheld",
+    "native_partial_timeout_http_sample_limit_recovery": true,
+    "native_counter_reset_no_negative_rate": true,
+    "node_stop_restart_preserves_peer": true,
+    "optional_collector_exit_policy": "node role stops siblings; peer node and external native source remain"
+  },
+  "limitations": [
+    "Shared host kernel; no physical clock/GPU/vLLM/3FS validation.",
+    "Monitoring uses a test-only container listener; production bind/security policy unchanged."
+  ],
+  "baseline_revision": "90b95efbccb444087b0d48bb0f0795b1bfa55414",
+  "date": "2026-10-10",
+  "failure_regressions": [
+    "v1/v2/failed-v3 at seven transaction points; actual rollback retained",
+    "real finish writer and wrapper outcome readback",
+    "JSONL deletion/replacement/append during cache read and concurrent SDK writer/publication",
+    "100 Run / 5000 record / 16 MiB boundaries",
+    "topology enabled/disabled/restart preserves user.prom",
+    "target IPv4 mismatch/duplicates/missing URI/unavailable backend/DNS-IP unknown"
+  ],
+  "supported_claim": "CPU software/data-path contracts only; not physical infrastructure reliability",
+  "tool_versions": {
+    "node_exporter": "1.9.1",
+    "prometheus": "3.5.0",
+    "loki": "existing 3.7.3 binary",
+    "alloy": "existing binary",
+    "container_base": "python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1"
+  },
+  "validation": {
+    "cpu_passed": 1814,
+    "cpu_skipped": 6,
+    "skipped_reason": "local ClickHouse unavailable",
+    "frontend_tests": 144,
+    "typecheck": "passed",
+    "docs": "passed",
+    "cleanup": "owned containers, networks and temporary test state removed; binary/image dependency caches preserved"
+  }
+}

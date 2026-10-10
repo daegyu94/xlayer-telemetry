@@ -8,6 +8,7 @@ import hashlib
 from itertools import islice
 from fractions import Fraction
 import json
+import os
 from pathlib import Path
 import time
 
@@ -46,21 +47,27 @@ def _stamp(value):
 
 
 def _records(path):
-    if not path.is_file() or path.is_symlink(): return [], False
-    if path.stat().st_size > MAX_BYTES: return [], True
     try:
-        rows = list(islice(_CACHE.read(path), MAX_RECORDS + 1))
+        if not path.is_file() or path.is_symlink(): return [], False
+        before = path.stat()
+        if before.st_size > MAX_BYTES: return [], True
+        def version(value):
+            return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
+        with path.open('rb') as stream:
+            if version(os.fstat(stream.fileno())) != version(before): return [], True
+            rows = list(islice(_CACHE.read(path), MAX_RECORDS + 1))
+            if version(path.stat()) != version(before): return [], True
+            partial = len(rows) > MAX_RECORDS
+            if before.st_size:
+                stream.seek(-1, 2)
+                partial = partial or stream.read(1) != b'\n'
+            stream.seek(0)
+            expected = sum(bool(line.strip()) for line in islice(stream, MAX_RECORDS+1))
+            partial = partial or expected != len(rows) or bool(before.st_size and not rows)
+            if version(os.fstat(stream.fileno())) != version(before) or version(path.stat()) != version(before):
+                return [], True
     except (OSError, ValueError, RecursionError):
         return [], True
-    partial = len(rows) > MAX_RECORDS
-    with path.open('rb') as stream:
-        if path.stat().st_size:
-            stream.seek(-1, 2)
-            partial = partial or stream.read(1) != b'\n'
-    with path.open('rb') as stream:
-        expected = sum(bool(line.strip()) for line in islice(stream,MAX_RECORDS+1))
-    partial = partial or expected != len(rows)
-    partial = partial or bool(path.stat().st_size and not rows)
     return rows[:MAX_RECORDS], partial
 
 
@@ -143,16 +150,20 @@ def summarize(run: Path):
     starts = [finite_number(row.get('window_start_ms')) for row in rows]
     ends = [finite_number(row.get('window_end_ms')) for row in rows]
     starts,ends = [v for v in starts if v is not None],[v for v in ends if v is not None]
-    status = (health.get('workload') or {}).get('status','unknown')
-    status = 'reported_completed' if status=='exited' and (health.get('workload') or {}).get('exit_code')==0 else 'reported_failed' if status=='exited' else 'reported_running' if status=='running' else 'unknown'
+    from ..telemetry_health import reported_workload_status
+    workload = health.get('workload') or {}
+    status = reported_workload_status(workload)
+    telemetry_status = _text(health.get('status')) or 'unknown'
     selected = max(rows,key=lambda row:finite_number(row.get('window_end_ms')) or 0) if rows else {}
     return {'key':hashlib.sha256(_json([cluster,run_id,observer]).encode()).hexdigest()[:24], 'run_id':run_id,
         'cluster':cluster,'observer_node':observer,'model':model,'execution_mode':_text(config.get('execution_mode')),
         'fingerprint':_text(config.get('workload_fingerprint')), 'steps':len(rows),
         'average_step':step_metrics[0]['value'] if len(step_metrics)==1 else None,
         'from':min(starts) if starts else _stamp(manifest.get('created_at')),'to':max(ends) if ends else None,
-        'status':status,'status_recorded_at':(health.get('workload') or {}).get('recorded_at',health.get('observed_at')),
-        'quality':'partial' if partial or conflict or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
+        'status':status,'status_recorded_at':workload.get('recorded_at',health.get('observed_at')),
+        'workload_exit_code':workload.get('exit_code') if type(workload.get('exit_code')) is int else None,
+        'telemetry_status':telemetry_status,
+        'quality':'partial' if partial or conflict or telemetry_status=='partial' or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
         'data_origin':data_origin,'source':'stored_artifact','selected_step':{key:selected.get(key) for key in
             ('record_id','step','window_start_ms','window_end_ms','node','worker_id','boundary_scope')},
         'limitations':['Recorded status is not a live process check. Shared resources are not run-owned.',
@@ -162,12 +173,21 @@ def summarize(run: Path):
 def catalog(root: Path, *, max_runs=MAX_RUNS):
     root = Path(root).expanduser().absolute()
     paths = [root] if (root/'telemetry-manifest.json').is_file() else sorted(islice((p for p in root.iterdir() if p.is_dir() and not p.is_symlink()),max_runs+1)) if root.is_dir() else []
-    values = [value for path in paths[:max_runs] if (value:=summarize(path)) is not None]
+    values, unavailable = [], []
+    for path in paths[:max_runs]:
+        try:
+            value = summarize(path)
+        except (OSError, ValueError, TypeError, AttributeError):
+            unavailable.append({'run_id': _text(_object(path/'telemetry-manifest.json').get('run_id')),
+                                'reason': 'artifact_unreadable_or_invalid'})
+            continue
+        if value is not None:
+            values.append(value)
     keys = [row['key'] for row in values]
     if len(set(keys)) != len(keys):
         raise ValueError('Duplicate saved-run identity; keep artifact roots separate or remove copied manifests from this index.')
     result = {'schema_version':1,'generated_at':time.time(),'runs':values,'truncated':len(paths)>max_runs,
-              'source':'saved_artifact_projection','clock_verified':False}
+              'source':'saved_artifact_projection','clock_verified':False,'unavailable_runs':unavailable}
     if len(_json(result).encode()) > MAX_CATALOG:
         raise ValueError('Run catalog exceeds 4 MiB; select a smaller root or run subset.')
     return result

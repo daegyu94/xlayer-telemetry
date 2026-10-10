@@ -172,45 +172,64 @@ def install_package(config, archive, sha256, *, allow_unsigned=False, update=Fal
             if target.exists() and not update:
                 raise AppError('A different plugin is already installed. Use xltel app update to preserve a rollback copy.')
             previous = state / 'previous'
-            if previous.exists():
-                shutil.rmtree(previous)
+            retained = state / 'retained-previous'
+            if retained.exists():
+                raise AppError('An interrupted update retains a previous backup; preserve App state and recover it before another update.')
             stage = state / 'staged'
             if stage.exists():
                 shutil.rmtree(stage)
-            shutil.copytree(unpacked / APP_ID, stage)
             old_provision = provision.read_bytes() if provision.exists() else None
+            old_receipt = receipt_path.read_bytes() if receipt_path.exists() else None
+            previous_receipt = state / 'previous.json'
+            old_previous_receipt = previous_receipt.read_bytes() if previous_receipt.exists() else None
             target.parent.mkdir(parents=True, exist_ok=True)
             had_target = target.exists()
-            moved_old = placed_new = False
+            moved_old = placed_new = kept_previous = False
+            provision_attempted = previous_receipt_attempted = receipt_attempted = False
             try:
+                # Prepare on the destination filesystem before rotating backups.
+                shutil.copytree(unpacked / APP_ID, stage)
+                if previous.exists():
+                    os.replace(previous, retained)
+                    kept_previous = True
                 if had_target:
                     os.replace(target, previous)
                     moved_old = True
                 os.replace(stage, target)
                 placed_new = True
+                provision_attempted = True
                 atomic_write_text(provision, PROVISIONING)
                 receipt = {'schema_version': 1, 'plugin_id': APP_ID, 'version': metadata['info']['version'],
                     'dependency': metadata['dependencies']['grafanaDependency'], 'sha256': sha256.lower(), 'files': hashes,
                     'unsigned_allowed': not manifest and allow_unsigned, 'manifest_present': manifest,
                     'deployment': 'external' if external else 'managed', 'changed': True, 'status': 'restart_required'}
                 if had_target:
+                    previous_receipt_attempted = True
                     write_receipt(state / 'previous.json', {'receipt': old, 'provisioning': old_provision.decode() if old_provision else None})
+                receipt_attempted = True
                 write_receipt(receipt_path, receipt)
-                return receipt
             except BaseException:
                 if placed_new and target.exists():
                     shutil.rmtree(target)
                 if moved_old and previous.exists():
                     os.replace(previous, target)
-                if old_provision is None:
-                    provision.unlink(missing_ok=True)
-                else:
-                    atomic_write_text(provision, old_provision.decode())
-                if old:
-                    atomic_write_text(receipt_path, json.dumps(old))
-                else:
-                    receipt_path.unlink(missing_ok=True)
+                if kept_previous and retained.exists():
+                    os.replace(retained, previous)
+                for path, body, attempted in ((provision, old_provision, provision_attempted),
+                    (previous_receipt, old_previous_receipt, previous_receipt_attempted),
+                    (receipt_path, old_receipt, receipt_attempted)):
+                    if not attempted:
+                        continue
+                    if body is None:
+                        path.unlink(missing_ok=True)
+                    elif not path.exists() or path.read_bytes() != body:
+                        atomic_write_text(path, body.decode())
                 raise
+            finally:
+                shutil.rmtree(stage, ignore_errors=True)
+            # Only a committed update authorizes disposing of the older backup.
+            shutil.rmtree(retained, ignore_errors=True)
+            return receipt
 
 
 def rollback(config, *, external=False, plugins_dir=None, provisioning_dir=None):

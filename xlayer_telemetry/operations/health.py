@@ -94,6 +94,27 @@ def read_json(path: Path) -> dict:
         return {}
 
 
+def _target_configuration(address, targets):
+    """Compare literal configured hosts; never resolve DNS or infer connectivity."""
+    from ipaddress import ip_address
+    from urllib.parse import urlsplit
+    if len(targets) != 1:
+        return 'ambiguous' if targets else 'unknown'
+    try:
+        parsed = urlsplit(targets[0].get('scrapeUrl', ''))
+        actual = parsed.hostname
+        if not actual or parsed.port != 19100 or parsed.path != '/metrics':
+            return 'unknown'
+        if actual.casefold() == address.casefold():
+            return 'matched'
+        try:
+            return 'matched' if ip_address(actual) == ip_address(address) else 'mismatch'
+        except ValueError:
+            return 'unknown'
+    except (TypeError, ValueError):
+        return 'unknown'
+
+
 def status(config: dict[str, str], *, role: str = "all") -> dict:
     state = Path(config["TELEMETRY_HOME"]) / "state/verl-local"
     services = {role: process_identity(state / f"{role}.pid") for role in ("server", "node")}
@@ -123,14 +144,23 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
                 and target["labels"].get("cluster") == config["CLUSTER_NAME"]
                 and target["labels"].get("nodename") == config["NODE_NAME"]]
     configured_targets = config.get("TELEMETRY_TARGETS") or f"{config['NODE_NAME']}={config['NODE_ADDR']}"
-    expected = {entry.split("=", 1)[0] for entry in configured_targets.split(",")}
+    addresses = dict(entry.split('=', 1) for entry in configured_targets.split(','))
+    expected = set(addresses)
     cluster_targets = [target for target in targets if target["labels"].get("job") == "telemetry"
                        and target["labels"].get("cluster") == config["CLUSTER_NAME"]
                        and target["labels"].get("nodename") in expected]
     target_nodes = {target["labels"].get("nodename") for target in cluster_targets}
-    collectors_ok = expected == target_nodes and all(target.get("health") == "up" for target in cluster_targets)
+    collector_rows = []
+    for name in sorted(expected):
+        rows = [target for target in cluster_targets if target['labels'].get('nodename') == name]
+        collector_rows.append({'node': name, 'health': 'up' if rows and all(t.get('health') == 'up' for t in rows)
+            else 'down' if rows else 'unavailable' if target_error else 'not_discovered',
+            'configuration_status': _target_configuration(addresses[name], rows), 'expected_address': addresses[name]})
+    collectors_ok = expected == target_nodes and all(row['health'] == 'up' and row['configuration_status'] == 'matched' for row in collector_rows)
     services["node"]["health"] = ("healthy" if matching and all(t.get("health") == "up" for t in matching)
-                                  else "degraded" if matching else "unreachable")
+                                  else "degraded" if matching else "unknown")
+    own_configuration = _target_configuration(addresses.get(config['NODE_NAME'], config['NODE_ADDR']), matching)
+    services['node']['configuration_status'] = own_configuration
     from ..time_alignment import CalibrationCache, reference_now
     calibration = CalibrationCache(Path(config["TELEMETRY_TIME_CALIBRATION_FILE"]), node=config["NODE_NAME"]) if config.get("TELEMETRY_TIME_CALIBRATION_FILE") else None
     now = reference_now(calibration, time.time())
@@ -167,7 +197,7 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
         metrics["gpu"] = gpu
     if role == "node":
         # A collector depends on scrape/log delivery, not a remote UI or engines.
-        endpoints_ok = services["node"]["health"] == "healthy" and services["loki"]["health"] in {"healthy", "disabled"}
+        endpoints_ok = services["node"]["health"] == "healthy" and own_configuration == 'matched' and services["loki"]["health"] in {"healthy", "disabled"}
         native_ok = True
     healthy = owned and endpoints_ok and native_ok and gpu["health"] in {"fresh", "disabled"}
     if role == "server":
@@ -178,10 +208,9 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
             "latest_run": saved_run,
             "grafana_url": config["GRAFANA_URL"],
             "investigation_url": dashboard_url(config, "xlayer-start-here", cluster=config["CLUSTER_NAME"], node=config["NODE_NAME"]),
-            "target_discovery": {"status": "unavailable" if target_error else "observed", "error": target_error},
-            "collector_targets": [{"node": node, "health": "up" if node in target_nodes and
-                                    all(t.get("health") == "up" for t in cluster_targets if t["labels"].get("nodename") == node)
-                                    else "down" if node in target_nodes else "unavailable" if target_error else "not_discovered"} for node in sorted(expected)],
+            "target_discovery": {"status": "unavailable" if target_error else "observed", "error": target_error,
+                **({'action': 'Check PROMETHEUS_URL and monitoring-host connectivity; unavailable discovery is not evidence of collector failure.'} if target_error else {})},
+            "collector_targets": collector_rows,
             "optional_sources": {"threefs": "configured_not_probed" if config.get("DIAGNOSTICS_CONFIG") and
                                  read_json(Path(config["DIAGNOSTICS_CONFIG"])).get("threefs") else "not_configured"},
             "note": "Endpoint health is not process ownership. Stale completed-run data is not a workload failure."}

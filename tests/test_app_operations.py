@@ -197,3 +197,49 @@ def test_failed_rollback_swap_restores_the_current_installation(tmp_path,monkeyp
     monkeypatch.setattr(app.os,'replace',fail)
     with pytest.raises(PermissionError):app.rollback(settings)
     assert (tmp_path/f'server/grafana-plugins/{app.APP_ID}/module.js').read_text()=='two'
+
+
+@pytest.mark.parametrize('point', ['copy', 'retire_previous', 'move_current', 'place_new',
+                                   'provision', 'previous_receipt', 'installed_receipt'])
+def test_failed_third_update_preserves_working_install_and_existing_rollback(tmp_path, monkeypatch, point):
+    settings = config(tmp_path)
+    for value in ('one', 'two'):
+        path, digest = bundle(tmp_path, value)
+        app.install_package(settings, path, digest, allow_unsigned=True, update=value == 'two')
+    path, digest = bundle(tmp_path, 'three')
+    target, provision, state = app._paths(settings)
+    tracked = [target/'module.js', provision, state/'installed.json', state/'previous/module.js', state/'previous.json']
+    before = {p: p.read_bytes() for p in tracked}
+    fired = False
+    def inject(selected):
+        nonlocal fired
+        if point == selected and not fired:
+            fired = True
+            raise OSError(28, 'injected ENOSPC')
+    copytree, replace, atomic, receipt = app.shutil.copytree, app.os.replace, app.atomic_write_text, app.write_receipt
+    def copy(source, destination, *args, **kwargs):
+        if Path(destination) == state/'staged': inject('copy')
+        return copytree(source, destination, *args, **kwargs)
+    def swap(source, destination):
+        if Path(source) == state/'previous': inject('retire_previous')
+        if Path(source) == target: inject('move_current')
+        if Path(source) == state/'staged': inject('place_new')
+        return replace(source, destination)
+    def write(destination, content):
+        if Path(destination) == provision: inject('provision')
+        return atomic(destination, content)
+    def write_receipt(destination, content):
+        inject('previous_receipt' if Path(destination).name == 'previous.json' else 'installed_receipt')
+        return receipt(destination, content)
+    with monkeypatch.context() as fault:
+        fault.setattr(app.shutil, 'copytree', copy)
+        fault.setattr(app.os, 'replace', swap)
+        fault.setattr(app, 'atomic_write_text', write)
+        fault.setattr(app, 'write_receipt', write_receipt)
+        with pytest.raises(OSError):
+            app.install_package(settings, path, digest, allow_unsigned=True, update=True)
+    assert fired, f'fault point not exercised: {point}'
+    assert {p: p.read_bytes() for p in tracked} == before
+    assert app.local_state(settings)['integrity'] == 'verified'
+    app.rollback(settings)
+    assert (target/'module.js').read_text() == 'one'

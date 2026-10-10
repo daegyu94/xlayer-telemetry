@@ -564,8 +564,9 @@ Mapping이 없으면 **Node / Device**를 명시 선택해 원본 I/O를 읽고 
 
 ## Check and Stop
 
-`Ctrl+C`로 role을 종료하면 함께 시작한 process를 정리하며, node 종료 시 GPU·application textfile도 제거합니다.
-수집기 하나가 종료되어도 해당 role의 나머지 process가 종료되므로 예상치 못한 종료는 해당 terminal과 log를 확인합니다.
+Node launcher는 관리하는 child 하나가 종료되면 해당 node-role의 sibling도 종료하는 fail-fast 정책입니다. Optional GPU/topology/textfile collector의 process 종료도 같은 영향을 주므로, 특정 metric 누락과 node-role 전체 종료를 구분해 `status`·process log를 확인합니다. 다른 Node·외부 native endpoint·사용자 workload process를 종료하는 정책은 아닙니다. Target API가 unavailable이면 collector 장애를 단정하지 않으며, exporter `up`과 설정 주소 일치 여부도 별도로 읽습니다.
+
+`Ctrl+C`로 role을 종료하면 함께 시작한 process를 정리하며, node 종료 시 XLayer의 GPU·application·collector·topology textfile을 제거하고 사용자 textfile은 보존합니다.
 구성 변경 시 기존 process를 종료하고 같은 role을 다시 시작하며 다른 workload process를 종료할 필요는 없습니다.
 Server는 앞서 복사한 `server.conf`로 다시 시작해 알림·로그·storage 설정을 함께 유지합니다.
 

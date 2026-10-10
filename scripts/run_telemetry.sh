@@ -74,7 +74,7 @@ cleanup() {
       wait "$pid" 2>/dev/null || true
     fi
   done
-  if [[ "$role" == node || "$role" == storage ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom"; fi
+  if [[ "$role" == node || "$role" == storage ]]; then rm -f "$output_dir/textfile/gpu.prom" "$output_dir/textfile/application.prom" "$output_dir/textfile/collector.prom" "$output_dir/textfile/topology.prom"; fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -309,6 +309,8 @@ EOF
     fi
   fi
   mkdir -p "$output_dir/textfile"
+  # A disabled publisher cannot replace declarations left by a prior run/crash.
+  [[ -n "${TOPOLOGY_DIR:-}" ]] || rm -f "$output_dir/textfile/topology.prom"
   printf '# HELP telemetry_gpu_collection_enabled Whether this collector is configured to sample GPUs.\n# TYPE telemetry_gpu_collection_enabled gauge\ntelemetry_gpu_collection_enabled %s\n' "${ENABLE_GPU_METRICS:-1}" > "$output_dir/textfile/collector.prom"
   "$tools_dir/node_exporter-1.9.1.linux-$release_arch/node_exporter" \
     --web.listen-address="$NODE_ADDR:19100" \

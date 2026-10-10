@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 from xlayer_telemetry.operations import runs
 
 
@@ -132,3 +133,86 @@ def test_python_and_frontend_share_the_recorded_comparison_contract():
     result={'comparability':result['comparability'],'reasons':result['reasons'],
             'metrics':[{key:row.get(key) for key in ('metric','a','b','delta','delta_percent','reasons')} for row in result['metrics']]}
     assert result==fixture['expected']
+
+
+@pytest.mark.parametrize('code,bridge,expected', [(0, 'ok', 'reported_completed'), (1, 'ok', 'reported_failed'),
+    (130, 'interrupted', 'reported_interrupted'), (143, 'interrupted', 'reported_interrupted'),
+    (0, 'failed', 'reported_completed')])
+def test_actual_health_writer_outcome_is_independent_of_telemetry_completeness(tmp_path, code, bridge, expected):
+    from xlayer_telemetry.telemetry_health import finish
+    run = saved(tmp_path, 'actual-writer')
+    health = finish(run, code, bridge, 'disabled')
+    row = runs.summarize(run)
+    assert row['status'] == expected
+    assert row['workload_exit_code'] == code
+    assert row['telemetry_status'] == health['status']
+    if bridge != 'ok':
+        assert row['quality'] == 'partial'
+
+
+@pytest.mark.parametrize('change', ['delete', 'replace', 'append'])
+def test_changed_history_is_partial_without_interrupting_other_runs(tmp_path, monkeypatch, change):
+    broken = saved(tmp_path, 'a'); saved(tmp_path, 'b')
+    path = broken/'telemetry-events/verl-steps.jsonl'
+    original = runs._CACHE.read
+    def read(selected):
+        rows = list(original(selected))
+        if selected == path:
+            if change == 'delete': path.unlink()
+            elif change == 'replace':
+                replacement = path.with_suffix('.new')
+                replacement.write_bytes(path.read_bytes())
+                replacement.replace(path)
+            else:
+                with path.open('a') as stream: stream.write('{partial')
+        yield from rows
+    monkeypatch.setattr(runs._CACHE, 'read', read)
+    rows = runs.catalog(tmp_path)['runs']
+    assert rows[0]['quality'] == 'partial'
+    assert rows[0]['average_step'] is None
+    assert rows[1]['quality'] == 'complete' and rows[1]['average_step'] == 10
+
+
+def test_one_run_read_error_is_isolated_and_failed_publication_preserves_catalog(tmp_path, monkeypatch):
+    root = tmp_path/'runs'; saved(root,'a'); saved(root,'b')
+    output = tmp_path/'dashboards'
+    runs.publish(root, output)
+    destination = output/'xlayer-run-catalog.json'; before = destination.read_bytes()
+    original = runs.summarize
+    def read(path):
+        if path.name == 'a': raise PermissionError('injected artifact unreadable')
+        return original(path)
+    monkeypatch.setattr(runs,'summarize',read)
+    result = runs.catalog(root)
+    assert [row['run_id'] for row in result['runs']] == ['b']
+    assert result['unavailable_runs'] == [{'run_id':'a','reason':'artifact_unreadable_or_invalid'}]
+    monkeypatch.setattr(runs,'atomic_write_text',lambda *args: (_ for _ in ()).throw(OSError('injected publish failure')))
+    with pytest.raises(OSError): runs.publish(root,output)
+    assert destination.read_bytes() == before
+
+
+@pytest.mark.parametrize('count,partial', [(4999,False),(5000,False),(5001,True)])
+def test_record_limit_preserves_partial_semantics(tmp_path, count, partial):
+    run=saved(tmp_path,'a'); path=run/'telemetry-events/verl-steps.jsonl'
+    row=json.loads(path.read_text())
+    with path.open('w') as stream:
+        for i in range(count): stream.write(json.dumps({**row,'record_id':str(i)})+'\n')
+    result=runs.summarize(run)
+    assert result['steps'] == min(count,5000)
+    assert result['quality'] == ('partial' if partial else 'complete')
+    assert result['average_step'] == 10
+
+
+@pytest.mark.parametrize('size', [runs.MAX_BYTES-1, runs.MAX_BYTES, runs.MAX_BYTES+1])
+def test_byte_limit_never_generates_zero_or_complete_empty_history(tmp_path,size):
+    run=saved(tmp_path,'a'); path=run/'telemetry-events/verl-steps.jsonl'
+    with path.open('wb') as stream: stream.write(b' '*size)
+    result=runs.summarize(run)
+    assert result['steps'] == 0 and result['average_step'] is None and result['quality']=='partial'
+
+
+@pytest.mark.parametrize('count,truncated', [(99,False),(100,False),(101,True)])
+def test_run_limit_is_exposed_without_fabricating_missing_averages(tmp_path,count,truncated):
+    for i in range(count): saved(tmp_path,f'run-{i:03}')
+    result=runs.catalog(tmp_path)
+    assert len(result['runs']) == min(count,100) and result['truncated'] is truncated

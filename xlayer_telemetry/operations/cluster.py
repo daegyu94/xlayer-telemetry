@@ -119,7 +119,7 @@ def _execute_cluster(args) -> int:
     from ..cluster_inventory import load_inventory, render_inventory
 
     if args.cluster_action == 'render':
-        manifest = render_inventory(args.inventory, args.output)
+        manifest = render_inventory(args.inventory, args.output, prometheus_url=args.prometheus_url)
         if args.json:
             print(json.dumps(manifest, indent=2, ensure_ascii=False))
         else:

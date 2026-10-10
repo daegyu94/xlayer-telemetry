@@ -142,8 +142,9 @@ def test_role_specific_health_and_missing_remote_target(tmp_path, monkeypatch):
     stat = Path(f"/proc/{os.getpid()}/stat").read_text().rsplit(") ", 1)[1].split()
     identity = f"{os.getpid()} {stat[19]} {Path('/proc/sys/kernel/random/boot_id').read_text().strip()}"
     (state / "server.pid").write_text(identity)
-    targets = [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": name}, "health": "up"}
-               for name in ("gpu-a", "sandbox-a")]
+    targets = [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": name}, "health": "up",
+                "scrapeUrl": f"http://{address}:19100/metrics"}
+               for name, address in (("gpu-a", "10.0.0.1"), ("sandbox-a", "10.0.0.2"))]
     monkeypatch.setattr(health, "probe", lambda *a, **kw: {"health": "healthy", "data":
                           {"database": "ok", "status": "success", "data": {"activeTargets": targets}}})
     result = health.status(config, role="server")

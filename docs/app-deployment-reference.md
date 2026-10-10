@@ -61,6 +61,8 @@ API 권한이 필요하면 `GRAFANA_SERVICE_ACCOUNT_TOKEN`을 environment 또는
 
 Update는 previous plugin 한 개를 Grafana가 scan하지 않는 별도 directory에 보존합니다. 파일 교체·receipt 기록 실패는 기존 plugin과 provisioning을 복구합니다. Managed `--restart` 활성화 실패는 rollback을 시도하며, API 권한 부족처럼 이유가 불명확하면 장애 원인을 단정하지 않습니다.
 
+기존 rollback 백업은 새 package의 staging·교체·provisioning·receipt 기록이 모두 성공한 뒤에 교체합니다. 실패한 다음 업데이트가 현재 plugin이나 이전 backup·receipt를 없애지 않으며, 복구 후 기존 `app rollback`도 사용할 수 있습니다. Process 강제 종료나 복구 자체의 I/O 실패로 `retained-previous`가 남으면 다음 업데이트를 보류하므로 App state를 보존하고 복구해야 합니다. 전원 장애의 multi-file crash atomicity까지 보장하는 journal은 아닙니다.
+
 `xltel app rollback`은 이전 파일을 복원하며 필요한 재시작은 별도입니다. 기존 auth·datasource·user DB와 다른 plugin은 유지합니다. 운영 signing은 아래 공식 절차를 따릅니다.
 
 <a id="개발용-package"></a>

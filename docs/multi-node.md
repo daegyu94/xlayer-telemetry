@@ -44,11 +44,14 @@ cp examples/cluster/inventory.toml "$HOME/.config/xlayer/inventory.toml"
 # inventory.toml의 placeholder 주소·장치·endpoint를 실제 배치로 수정
 xltel cluster validate --inventory "$HOME/.config/xlayer/inventory.toml" --json
 xltel cluster render --inventory "$HOME/.config/xlayer/inventory.toml" \
-  --output "$HOME/.config/xlayer/cluster-bundle"
+  --output "$HOME/.config/xlayer/cluster-bundle" \
+  --prometheus-url http://monitoring.internal:19090
 xltel --config "$HOME/.config/xlayer/cluster-bundle/server.toml" config validate
 ```
 
 **정상 결과:** Offline 검증은 `status=valid`, exit code `0`입니다. 새 bundle에는 `server.toml`, `nodes/*.toml`, `topology/*.json`, 선택적 `native-sources.json`, hash·count가 있는 `manifest.json`이 생성됩니다. 디렉터리는 `0700`, 파일은 `0600`이며 기존 output은 덮어쓰지 않습니다. 변경 시 새 output을 생성하고 확인한 뒤 설정을 전환합니다.
+
+`--prometheus-url`은 server와 node 설정에 같은 조회 주소를 전달합니다. 실제 monitoring API의 기존 내부 접속 경로나 터널 주소를 지정하며, 이 option이 server의 loopback bind·공개 범위·인증을 변경하지는 않습니다. Remote 조회가 불가능하면 target discovery는 unavailable이며 collector 자체의 장애를 뜻하지 않습니다.
 
 | 배치 대상 | 적용 |
 | --- | --- |
@@ -56,6 +59,8 @@ xltel --config "$HOME/.config/xlayer/cluster-bundle/server.toml" config validate
 | 각 collector host | 해당 `nodes/NAME.toml`만 복사. 기본 home과 선택적 `telemetry_home`은 받는 host 기준 |
 | Topology publisher 한 곳 | 생성한 topology JSON을 host-local 디렉터리에 복사하고 그 node config에 `TOPOLOGY_DIR` 지정 |
 | Run / Rollout Replica | 기존 Run별 Diagnosis/SDK 설정을 유지. Inventory가 동적 실행 배치를 대신하지 않음 |
+
+`status --role node/server`는 exporter의 `up`과 설정 주소의 `configuration_status`를 구분합니다. 명백한 IP 불일치는 `mismatch`, 중복 target은 `ambiguous`, 확인하지 못한 주소는 `unknown`이며 DNS 이름과 IP의 동등성을 추정하지 않습니다. Topology publisher를 비활성화하거나 종료하면 XLayer의 `topology.prom`만 정리하고 사용자 textfile은 보존합니다.
 
 예제에서는 등록한 `monitoring-0` collector를 publisher로 사용할 수 있습니다. 같은 host의 생성된 node 설정에서 다음 경로를 실제 bundle 위치로 지정합니다.
 

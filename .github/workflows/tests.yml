@@ -75,6 +75,22 @@ jobs:
         run: |
           python -m compileall -q xlayer_telemetry examples
           git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
+      - name: Isolated CPU collector and native-source contracts
+        if: matrix.backends
+        run: |
+          python grafana/xlayer-app/scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-cpu-tools" --only loki
+          TOOLS_DIR="$RUNNER_TEMP/xlayer-cpu-tools" bash scripts/install_telemetry_tools.sh node
+          docker build --tag xltel-cpu-contract:ci --file examples/multinode/cpu-contract.Dockerfile examples/multinode
+          PYTHONPATH=. python examples/multinode/validate_cpu_contracts.py \
+            --tools "$RUNNER_TEMP/xlayer-cpu-tools" --image xltel-cpu-contract:ci \
+            --output "$RUNNER_TEMP/xlayer-cpu-contract"
+          cp "$RUNNER_TEMP/xlayer-cpu-contract/validation.json" artifacts/ci/cpu-contract.json
+      - name: Preserve isolated collector failure diagnostics
+        if: failure() && matrix.backends
+        run: |
+          for source in "$RUNNER_TEMP/xlayer-cpu-contract/"*.log; do
+            [ ! -f "$source" ] || cp "$source" artifacts/ci/
+          done
       - name: Preserve failed SQL service diagnostics
         if: failure() && matrix.backends
         run: |

@@ -368,6 +368,8 @@ def render_inventory(path: Path, output: Path, prometheus_url: str | None = None
     for node in compiled['nodes']:
         node_values: dict[str, Any] = {'CLUSTER_NAME': compiled['cluster']['name'], 'NODE_NAME': node['name'],
             'NODE_ADDR': node['address'], 'ENABLE_GPU_METRICS': bool(node['gpus'])}
+        if prometheus_url is not None:
+            node_values['PROMETHEUS_URL'] = prometheus_url
         if 'telemetry_home' in node:
             node_values['TELEMETRY_HOME'] = node['telemetry_home']
         files[f"nodes/{node['name']}.toml"] = _toml(node_values,

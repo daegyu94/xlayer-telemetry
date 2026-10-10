@@ -110,7 +110,7 @@ def test_status_checks_identity_health_and_freshness(tmp_path, monkeypatch):
     (run / "telemetry-metrics/verl-trainer-driver.json").write_text(json.dumps({"step": 124, "observed_at": time.time()-3600}))
     from xlayer_telemetry.operations import health
     monkeypatch.setattr(health, "probe", lambda url, **kw: {"health": "healthy", "data":
-        {"database": "ok", "status": "success", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up"}]}}})
+        {"database": "ok", "status": "success", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up", "scrapeUrl": "http://127.0.0.1:19100/metrics"}]}}})
     result = status(config)
     assert result["investigation_url"] == "http://127.0.0.1:13000/d/xlayer-start-here?var-cluster=training-cluster&var-node=gpu-local"
     assert result["status"] == "healthy"
@@ -120,7 +120,7 @@ def test_status_checks_identity_health_and_freshness(tmp_path, monkeypatch):
     assert status(config)["status"] == "degraded"
     assert process_identity(directory / "server.pid")["process"] == "stopped"
     monkeypatch.setattr(health, "probe", lambda *a, **kw: {"health": "unreachable", "data": None})
-    assert status(config)["services"]["node"]["health"] == "unreachable"
+    assert status(config)["services"]["node"]["health"] == "unknown"
 
 
 def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
@@ -143,6 +143,10 @@ def test_actual_cli_run_inspect_exit_code_and_argv(tmp_path):
     sample = json.loads(next((run / "telemetry-metrics").glob("*.json")).read_text())
     assert sample["step"] == 7
     assert (run / "telemetry-health.json").is_file()
+    from xlayer_telemetry.operations.runs import summarize as summarize_saved
+    saved_result = summarize_saved(run)
+    assert saved_result['status'] == 'reported_failed' and saved_result['workload_exit_code'] == 7
+    assert saved_result['steps'] == 1
     inspected = invoke(config, "inspect")
     assert inspected.returncode == 0, inspected.stderr
     assert "smoke" in inspected.stdout
@@ -215,7 +219,7 @@ while true; do sleep 0.1; done
     class Backend(BaseHTTPRequestHandler):
         def do_GET(self):
             payload = {"database": "ok", "status": "success", "data": {"activeTargets": [
-                {"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up"}]}}
+                {"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up", "scrapeUrl": "http://127.0.0.1:19100/metrics"}]}}
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps(payload).encode())

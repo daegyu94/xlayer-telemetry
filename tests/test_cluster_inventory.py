@@ -72,6 +72,7 @@ def test_generated_bundle_is_accepted_by_actual_config_source_and_topology_consu
     gpu, _ = load_config(output / 'nodes/gpu-a.toml')
     cpu, _ = load_config(output / 'nodes/storage-a.toml')
     assert gpu['ENABLE_GPU_METRICS'] == '1' and cpu['ENABLE_GPU_METRICS'] == '0'
+    assert gpu['PROMETHEUS_URL'] == cpu['PROMETHEUS_URL'] == server['PROMETHEUS_URL']
     assert 'TOPOLOGY_DIR' not in (output / 'nodes/gpu-a.toml').read_text()
     assert str(output) not in (output / 'nodes/gpu-a.toml').read_text()
     assert manifest['scope'] == 'configured_inventory'
@@ -91,6 +92,15 @@ def test_empty_services_omit_invalid_empty_native_discovery_and_gpu_is_explicit(
     assert 'NODE_NAME' not in (output / 'server.toml').read_text()
     assert 'ENABLE_GPU_METRICS = false' in (output / 'nodes/cpu-a.toml').read_text()
     assert manifest['counts']['native_sources'] == 0
+
+
+def test_cli_render_forwards_remote_observation_url(tmp_path, monkeypatch, capsys):
+    from xlayer_telemetry.cli import main
+    for key in KEYS: monkeypatch.delenv(key, raising=False)
+    source=write_inventory(tmp_path); output=tmp_path/'bundle'
+    assert main(['cluster','render','--inventory',str(source),'--output',str(output),
+                 '--prometheus-url','http://monitoring:19090','--json']) == 0
+    assert load_config(output/'nodes/gpu-a.toml')[0]['PROMETHEUS_URL'] == 'http://monitoring:19090'
 
 
 def test_collector_disabled_nodes_remain_configured_inventory_without_duplicate_scrapes():

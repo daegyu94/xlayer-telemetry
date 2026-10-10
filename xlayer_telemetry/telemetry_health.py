@@ -14,6 +14,18 @@ from .fileio import atomic_write_text, json_objects
 from .measurements import finite_number
 
 
+FINISHED_STATUS = 'finished'
+
+
+def reported_workload_status(workload: dict) -> str:
+    """Interpret recorded outcomes without claiming live process/telemetry health."""
+    status, code = workload.get('status'), workload.get('exit_code')
+    if status in (FINISHED_STATUS, 'exited') and type(code) is int:
+        return ('reported_interrupted' if code in (-2, -15, 130, 143) else
+                'reported_completed' if code == 0 else 'reported_failed')
+    return 'reported_running' if status == 'running' else 'unknown'
+
+
 def _workload_observation(now: float) -> dict:
     """Identity/time of a wrapper report, never a phase or process start time."""
     identity = {"run_id": os.environ.get("TELEMETRY_RUN_ID"),
@@ -75,7 +87,7 @@ def observe(root: Path, pids: dict[str, int], *, now: float | None = None,
 def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str) -> dict:
     result = _read(root)
     result.update(schema_version=1, record_type="telemetry_health", observed_at=time.time(),
-                  workload={"status": "finished", "exit_code": exit_code},
+                  workload={"status": FINISHED_STATUS, "exit_code": exit_code},
                   final_export={"bridge": bridge_export, "diagnostics": diagnosis_export})
     result.update(_workload_observation(result["observed_at"]))
     issues = result.setdefault("issues", [])

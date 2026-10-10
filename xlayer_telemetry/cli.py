@@ -37,6 +37,7 @@ def parser() -> argparse.ArgumentParser:
     cluster_render = cluster_sub.add_parser("render", help="Render existing configuration contracts into a new private bundle; do not deploy")
     cluster_render.add_argument("--inventory", type=Path, required=True)
     cluster_render.add_argument("--output", type=Path, required=True)
+    cluster_render.add_argument('--prometheus-url', help='Explicit monitoring query URL propagated to server and node configs; does not change server bind/exposure')
     cluster_render.add_argument("--json", action="store_true")
     app = commands.add_parser('app', help='Install, inspect or update the existing Grafana App')
     app_sub = app.add_subparsers(dest='app_action', required=True)
@@ -159,6 +160,10 @@ def _print_health(result: dict) -> None:
         print(f"{name:<22} {'optional source':<24} {value}")
     for target in result.get("collector_targets", []):
         print(f"{target['node']:<22} {'collector target':<24} {target['health']}")
+        if target.get('configuration_status') != 'matched':
+            print(f"  Target configuration: {target.get('configuration_status', 'unknown')}; check TELEMETRY_TARGETS and Prometheus scrape configuration.")
+    if result.get('target_discovery', {}).get('action'):
+        print(result['target_discovery']['action'])
     if result["latest_run"]:
         run = result["latest_run"]
         print(f"\nLatest saved run: {run['run_id']}  mode={run['execution_mode']}  step={run['step']}")
