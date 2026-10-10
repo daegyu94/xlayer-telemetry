@@ -247,6 +247,8 @@ datasources:
                             print('PUBLISHED MULTI-JOB '+json.dumps(publication),flush=True)
                         if waiting or active: stopping.wait(.2)
                 if stopping.is_set(): break
+                from xlayer_telemetry.operations.runs import publish
+                publish(fixture, args.output / 'dashboards')
                 print(f'COMPLETED MULTI-JOB cycle={cycle} runs=3; actual Prometheus diagnosis; attribution unverified',flush=True)
                 cycle+=1
                 if stopping.wait(4):break

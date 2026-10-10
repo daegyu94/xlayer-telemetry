@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns} from '../src/run-explorer';
+import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns,readRunFilters,withRunFilters} from '../src/run-explorer';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {RunComparisonMetric} from '../src/RunComparisonMetric';
@@ -65,4 +65,16 @@ test('resource links use recorded periodic window/entity, never saved Step or st
   React.createElement(RunComparisonMetric,{row,a,b,context}))));
  assert.ok(html.includes('from=200000'));assert.ok(html.includes('to=260000'));assert.ok(html.includes('periodic'));
  assert.ok(!html.includes('a-step'));
+});
+
+test('Explorer filters survive share, Evidence context and URL reload without altering comparison selection',()=>{
+ const context=readContext('?var-cluster=lab&var-compare_run_a=a&var-compare_run_b=b&theme=dark&from=100&to=200');
+ const filtered=withRunFilters(context,{search:'Qwen / run',model:'Qwen',status:'reported_completed',source:'stored_artifact',limitTime:true});
+ const restored=readContext(new URL(comparisonLink(run('a'),run('b'),filtered),'http://local').search);
+ assert.deepEqual(readRunFilters(restored),{search:'Qwen / run',model:'Qwen',status:'reported_completed',source:'stored_artifact',limitTime:true});
+ assert.deepEqual(restored.variables.compare_run_a,['a']);assert.deepEqual(restored.variables.compare_run_b,['b']);
+ assert.equal(restored.theme,'dark');assert.equal(restored.from,'100');
+ assert.deepEqual(readRunFilters(runContext(run('a'),restored,true)),readRunFilters(restored));
+ const cleared=withRunFilters(restored,{search:'',model:'',status:'',source:'',limitTime:false});
+ assert.equal(readRunFilters(cleared).limitTime,false);assert.equal(readRunFilters(cleared).source,'');
 });

@@ -11,6 +11,65 @@ from browser_validate import EntryDiagnostics
 from ci_demo import native_dashboard_back
 
 
+def saved_run_journey(page, args, reports):
+    # Consume the demo's actual published producer/query/diagnosis artifacts,
+    # rather than constructing reader-shaped fixtures in the browser.
+    path = args.state / 'dashboards/xlayer-run-catalog.json'
+    catalog = json.loads(path.read_text())['xlayerRunCatalog']
+    entries = {row['run_id']: row for row in catalog['runs']}
+    assert set(entries) == set(reports)
+    for run, report in reports.items():
+        assert entries[run]['model'] == report['run_model']['identifier']
+        assert entries[run]['data_origin'] == 'synthetic' and entries[run]['cluster'] == 'scenes-demo'
+        assert entries[run]['execution_mode'] == 'sync'
+    base = {'from':'now-10m','to':'now','var-cluster':'scenes-demo','var-run_id':'.*','theme':'dark'}
+    page.goto(args.url.rstrip('/')+'/a/xlayer-telemetry-app/runs?'+urlencode(base))
+    for run in entries:
+        checkbox=page.get_by_role('checkbox',name='Compare '+run,exact=True)
+        checkbox.wait_for(timeout=30000)
+        row=page.get_by_role('row').filter(has=checkbox)
+        assert entries[run]['model'] in row.inner_text()
+        assert 'Synthetic' in row.inner_text() and 'sync' in row.inner_text()
+    page.get_by_role('checkbox',name='Compare demo-qwen',exact=True).check()
+    page.get_by_role('checkbox',name='Compare demo-llama',exact=True).check()
+    page.get_by_text('Comparability: Incomparable',exact=True).wait_for(timeout=15000)
+    page.get_by_label('Search Runs',exact=True).fill('demo')
+    page.get_by_label('Filter Model',exact=True).select_option(entries['demo-qwen']['model'])
+    page.get_by_label('Filter Run status',exact=True).select_option('unknown')
+    page.get_by_label('Filter Run source',exact=True).select_option('stored_artifact')
+    page.get_by_label('Limit saved Runs to selected time range',exact=True).check()
+    def assert_state():
+        page.get_by_role('checkbox',name='Compare demo-qwen',exact=True).wait_for(timeout=15000)
+        assert page.get_by_label('Search Runs',exact=True).input_value()=='demo'
+        assert page.get_by_label('Filter Model',exact=True).input_value()==entries['demo-qwen']['model']
+        assert page.get_by_label('Filter Run status',exact=True).input_value()=='unknown'
+        assert page.get_by_label('Filter Run source',exact=True).input_value()=='stored_artifact'
+        assert page.get_by_label('Limit saved Runs to selected time range',exact=True).is_checked()
+        page.get_by_role('checkbox',name='Compare demo-qwen',exact=True).wait_for(timeout=15000)
+        assert page.get_by_role('checkbox',name='Compare demo-qwen',exact=True).is_checked()
+        assert page.get_by_role('checkbox',name='Compare demo-llama',exact=True).count()==0
+        page.get_by_text('Comparability: Incomparable',exact=True).wait_for(timeout=15000)
+        params=parse_qs(urlparse(page.url).query)
+        assert params['var-compare_run_a']==[entries['demo-qwen']['key']]
+        assert params['var-compare_run_b']==[entries['demo-llama']['key']]
+    assert_state()
+    saved=page.url
+    page.get_by_role('link',name='demo-qwen: Saved Step Evidence →',exact=True).click()
+    page.get_by_role('navigation',name='XLayer investigation').wait_for(timeout=15000)
+    assert parse_qs(urlparse(page.url).query)['var-run_id']==['demo-qwen']
+    page.go_back(wait_until='domcontentloaded')
+    assert_state()
+    page.reload(wait_until='domcontentloaded')
+    assert_state()
+    page.get_by_text('Share link',exact=True).click()
+    share=page.locator('details').filter(has=page.get_by_text('Share link',exact=True)).locator('a').get_attribute('href')
+    page.goto(args.url.rstrip('/')+share)
+    assert_state()
+    page.screenshot(path=str(args.output/'saved-runs-filters-comparison.png'),full_page=True)
+    return {'actual_producer_artifacts':True,'models':[row['model'] for row in entries.values()],
+            'synthetic_retained':True,'filters_back_reload_share':True,'comparison_withheld_for_different_models':True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', required=True)
@@ -128,6 +187,15 @@ def main():
                     assert 'Next-update sample gap' in decision.inner_text() and '20' in decision.inner_text()
                     page.screenshot(path=str(args.output/'async-decision.png'),full_page=True)
                 page.get_by_role('button', name='Analyze Step').click()
+                if run == 'demo-qwen':
+                    cell=page.locator('.xlt-cell:not(:disabled)').first
+                    cell.wait_for(timeout=15000)
+                    identity=cell.get_attribute('data-matrix-cell')
+                    cell.click()
+                    page.locator('.xlt-evidence').wait_for(timeout=5000)
+                    page.keyboard.press('Escape')
+                    page.locator('.xlt-evidence').wait_for(state='detached',timeout=5000)
+                    page.wait_for_function('(identity)=>document.activeElement?.dataset.matrixCell===identity',arg=identity,timeout=5000)
                 if run == 'demo-llama':
                     page.get_by_role('heading', name='Rollout Replica Coverage', exact=True).wait_for(timeout=30000)
                     replica_table = page.locator('section').filter(has=page.get_by_role('heading', name='Rollout Replica Coverage', exact=True))
@@ -170,13 +238,14 @@ def main():
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                     page.screenshot(path=str(args.output/f'{run}-{width}.png'), full_page=True)
                 page.set_viewport_size({'width':1440,'height':1000})
+            saved_result=saved_run_journey(page,args,reports)
         except Exception as error:
             diagnostics.fail(error)
             raise
         finally:
             browser.close()
         assert not errors, errors
-    result={'runs':{run:{'step':r['step'],'candidate_ids':[c['id'] for c in r['candidates']],
+    result={'saved_run_pipeline':saved_result,'runs':{run:{'step':r['step'],'candidate_ids':[c['id'] for c in r['candidates']],
         'baseline':r['comparison']['baseline_record_id'],'prometheus_requests':r['query_execution']['sources']['prometheus']['attempted']} for run,r in reports.items()},
         'native_endpoints_without_run_labels':len(native),
         'rollout_replicas':[{key:row[key] for key in ('id','instance','nodes','status','clock_status')} for row in replica_rows],

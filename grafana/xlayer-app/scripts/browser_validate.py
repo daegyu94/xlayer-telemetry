@@ -274,6 +274,8 @@ def verify_matrix_measured_zero(page, capture, checks):
         gpu.click()
         page.locator('.xlt-evidence').get_by_role('button', name='Close', exact=True).wait_for(timeout=5000)
         page.keyboard.press('Escape')
+        page.locator('.xlt-evidence').wait_for(state='detached',timeout=5000)
+        page.wait_for_function("document.activeElement?.dataset.matrixCell==='rollout × gpu evidence'",timeout=5000)
     finally:
         page.unroute('**/api/ds/query*', zero)
         page.goto(url)

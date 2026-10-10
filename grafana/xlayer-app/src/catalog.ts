@@ -143,7 +143,7 @@ export function variables(
     for (const v of catalog[key]?.templating.list || [])
       if (!definitions.has(v.name)) definitions.set(v.name, v);
   return new SceneVariableSet({
-    variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker").map((name) => {
+    variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker"&&!["run_search","run_model","run_status","run_source","run_time_filter"].includes(name)).map((name) => {
       const definition = definitions.get(name);
       const rawSelected = context.variables[name];
       const selected = definitions.get(name)?.includeAll&&rawSelected?.some(value=>value==='.*')?['$__all']:rawSelected;

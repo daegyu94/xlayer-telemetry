@@ -251,3 +251,18 @@ CI와 같은 Playwright 1.56·Chromium 141 Headless Shell에서 두 차이를 �
 로컬 최종 검증은 CPU 1,550 passed / optional ClickHouse 6 skipped, App 105개·typecheck·build, 문서 link/diagram·strict Sphinx·Python/shell syntax 통과입니다. CI와 같은 Playwright 1.56·Chromium 141 Headless Shell에서 Job 전환·Model metadata·카드의 Run relation·missing/stale source·Run별 Loki log·조기 게시·Browser Back과 1440/390px를 확인했고 browser error는 0개입니다. Qwen은 Job 회귀 candidate가 없고 Llama의 engine pressure는 configured 관계, DeepSeek의 KV/host/checkpoint evidence는 shared_unverified로 표시됐습니다.
 
 다음 scenario가 시작될 때 완료 snapshot을 지우는 Demo 경계도 재현해 수정했습니다. 마지막 완료 관측과 원래 timestamp를 Run별로 유지하며 stale timestamp를 현재 시각으로 갱신하지 않습니다. Query 수는 Run당 126개로 유지하고 동시 분석은 최대 3개입니다. Cross-Run cache·새 request budget·clock-skew/실장비 E2E 확대는 별도 측정이 필요한 TBD로 남깁니다.
+
+## Agent RL 연결 검증의 범위
+
+새 framework 없이 실제 producer와 기존 consumer를 연결해 검증합니다. Multi-job demo의 manifest·Step·diagnosis는 catalog/publish와 Grafana Runs 화면으로 이어지며, CPU raw logger 세 개는 실제 wrapper/parser와 diagnosis·catalog를 거칩니다. 모델 이름은 metadata이며 실제 weights나 물리 multi-node 환경을 실행한 검증이 아닙니다.
+
+| 시나리오 | 이번에 연결한 경로 / 남은 범위 |
+| --- | --- |
+| A · Multi-job → Saved Runs | 실제 demo 산출물·Synthetic/Model/Cluster/mode·필터·비교 선택을 Back/reload/share까지 검증 |
+| B · Raw logger 3개 | 실제 wrapper/parser·sync/async boundary·partial raw tail·writer 종료/재시작·한 backend 실패·Run별 snapshot/baseline/catalog. 재시작한 대상은 raw writer이며 wrapper output 보호를 해제하지 않음 |
+| C · Async lifecycle 복합 조건 | 기존 explicit cross-trace link·serving/policy 경계 테스트 유지. 3–4 update를 가로지르는 tool span 전체 조사 흐름은 TBD |
+| D · Multi-turn retry / critical path | 기존 parallel sum 방지·missing dependency·clock 불량의 unknown 판정 유지. 1/4-turn과 timeout/retry/reward 전체 경로 결합은 TBD |
+| E · Checkpoint burst | 기존 recipe의 두 CPU producer로 0/4 KiB/64 KiB 동시 save/load와 한 writer 실패를 검증. Logical bytes·duration·outcome·Run을 보존하며 공유 pressure의 diagnosis/UI 연결은 TBD |
+| F · Workload 비교 control | 실제 demo producer의 동일 metadata/workload pair와 다른 model control을 catalog comparison에 연결. 불일치 delta를 숨기고 원본 metric을 유지 |
+
+`tests/test_run_artifact_pipeline.py`, `tests/test_multi_job_concurrency.py`와 기존 `grafana/xlayer-app/scripts/multi_job_validate.py`가 연결 검증을 담당합니다. 실제 GPU·RDMA·shared-storage 포화·여러 모델 동시 학습과 Remote Sandbox 내부 자원은 이 CPU/Synthetic 결과로 검증했다고 판단하지 않습니다.

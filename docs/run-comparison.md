@@ -55,6 +55,10 @@ xltel app status
 
 **Saved time filter**는 기존 Scene Time Range를 사용합니다. 기본으로 저장 Run은 전체 catalog에서 찾을 수 있으며, checkbox를 켜면 해당 시간 구간으로 좁힙니다. Live Loki는 항상 기존 Cluster/Run/Time filter를 사용합니다.
 
+검색어·Model·Recorded status·Source·Saved time filter와 비교 A/B는 기존 context URL에 보존합니다. Evidence / Timeline 이동 후 Browser Back, reload, Share link 재진입에서 같은 선택을 복원합니다. 필터 편집은 history를 replace하므로 글자마다 Back 항목을 추가하지 않습니다.
+
+Multi-job live demo는 완료된 producer artifact·실제 query/diagnosis 결과로 catalog를 게시합니다. `Synthetic`과 model metadata를 보존하며 weights를 실행한 결과로 표시하지 않습니다. 기존 최상위 `model.identifier`·`data_origin` artifact도 읽지만, 표준 `configuration`과 충돌하면 Model을 보류하거나 origin을 mixed로 표시하고 비교 delta를 제한합니다. 기록되지 않은 Cluster·mode는 추정하지 않습니다.
+
 ## 4. Verify comparison
 
 ![실제 Grafana의 Light theme에서 CPU synthetic artifact 세 개와 비교 조건을 확인한 화면](figures/run-explorer-light.png)

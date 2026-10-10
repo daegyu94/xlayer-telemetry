@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 
 from .scenario import frame_at, make_scenario, phase_values, validate_scenario
@@ -160,7 +161,13 @@ def record_job(root, job):
     roles = [('trainer', scenario['node'])]
     if job.get('rollout_replicas'):
         roles += [('rollout', node) for node in sorted({node for row in job['rollout_replicas'] for node in row['nodes']})]
-    manifest = make_agent_rl_manifest(run_id=scenario['run_id'], roles=roles)
+    mode = rows[0]['execution_mode']
+    fingerprint = hashlib.sha256(json.dumps([job['model'], mode, scenario['workload']],
+        sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    manifest = make_agent_rl_manifest(run_id=scenario['run_id'], roles=roles, configuration={
+        'cluster': 'scenes-demo', 'observer_node': scenario['node'], 'model_identifier': job['model'],
+        'execution_mode': mode, 'workload_fingerprint': 'synthetic-scenario-' + fingerprint,
+        'data_origin': 'synthetic'})
     if job.get('rollout_replicas'):
         manifest['deployment']['rollout_replicas'] = job['rollout_replicas']
     manifest.update(data_origin='synthetic', model={'identifier': job['model'], 'weights_loaded': False},

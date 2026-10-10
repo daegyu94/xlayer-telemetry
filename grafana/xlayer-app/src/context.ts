@@ -36,6 +36,10 @@ export const VARIABLE_NAMES = [
   "compare_run_a",
   "compare_run_b",
   "run_search",
+  "run_model",
+  "run_status",
+  "run_source",
+  "run_time_filter",
 ] as const;
 export type VariableName = (typeof VARIABLE_NAMES)[number];
 export type Context = {

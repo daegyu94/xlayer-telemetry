@@ -4,6 +4,21 @@ export type RunMetric={metric:string;value:number;unit?:string;scope:string;stat
 export type RunEntry={key:string;run_id:string;cluster?:string;observer_node?:string;model?:string;execution_mode?:string;fingerprint?:string;steps:number;average_step?:number;from?:number;to?:number;status:string;quality:string;data_origin:string;source:string;metrics:RunMetric[];selected_step?:RecordRow;live_records?:number};
 export type RunCatalog={schema_version:number;generated_at?:number;truncated?:boolean;runs:RunEntry[]};
 const canonical=(value:unknown):string=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
+export type RunFilters={search:string;model:string;status:string;source:string;limitTime:boolean};
+export function readRunFilters(context:Context):RunFilters {
+ const value=(key:'run_search'|'run_model'|'run_status'|'run_source')=>{
+  const item=context.variables[key]?.[0]||'';
+  return ['.*','$__all'].includes(item)?'':item.slice(0,256);
+ };
+ return {search:value('run_search'),model:value('run_model'),status:value('run_status'),source:value('run_source'),
+         limitTime:context.variables.run_time_filter?.[0]==='1'};
+}
+export function withRunFilters(context:Context, filters:RunFilters):Context {
+ const values={run_search:filters.search,run_model:filters.model,run_status:filters.status,run_source:filters.source,
+               run_time_filter:filters.limitTime?'1':''};
+ return {...context,variables:{...context.variables,...Object.fromEntries(Object.entries(values).map(([key,value])=>[key,value?[value.slice(0,256)]:[]]))}};
+}
+
 export function metricIdentity(row:RunMetric){return canonical([row.metric,row.scope,row.entity]);}
 
 export function compareRuns(a:RunEntry,b:RunEntry){

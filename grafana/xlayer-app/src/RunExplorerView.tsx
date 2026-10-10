@@ -1,16 +1,20 @@
 import React,{useEffect,useState} from 'react';
 import {getBackendSrv,locationService} from '@grafana/runtime';
 import {Icon} from '@grafana/ui';
-import {Context,RecordRow,appLink} from './context';
-import {RunEntry,RunCatalog,parseRunCatalog,liveRuns,mergeRuns,compareRuns,comparisonReason,runContext,comparisonLink} from './run-explorer';
+import {useLocation} from 'react-router-dom';
+import {Context,RecordRow,appLink,readContext} from './context';
+import {RunEntry,RunCatalog,parseRunCatalog,liveRuns,mergeRuns,compareRuns,comparisonReason,runContext,comparisonLink,readRunFilters,withRunFilters,RunFilters} from './run-explorer';
 
 import {RunComparisonMetric,metricValue as value} from './RunComparisonMetric';
 export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Context;steps:RecordRow[];liveState?:string;timeWindow:{from:number;to:number}}){
  const [catalog,setCatalog]=useState<RunCatalog>(),[state,setState]=useState('loading'),[refresh,setRefresh]=useState(0);
- const [search,setSearch]=useState(context.variables.run_search?.[0]||''),[model,setModel]=useState(''),[status,setStatus]=useState('');
+ // Native Router location is authoritative, including Back and reload.
+ context=readContext(useLocation().search);
+ const {search,model,status,source,limitTime}=readRunFilters(context);
  const [selected,setSelected]=useState<string[]>([context.variables.compare_run_a?.[0],context.variables.compare_run_b?.[0]].filter((v):v is string=>!!v));
  const [copied,setCopied]=useState(false);
- const [source,setSource]=useState(''),[limitTime,setLimitTime]=useState(false);
+ const updateFilters=(patch:Partial<RunFilters>)=>{setCopied(false);const current=readContext(locationService.getLocation().search);
+  locationService.replace(appLink('runs',withRunFilters(current,{...readRunFilters(current),...patch})));};
  useEffect(()=>{let active=true;setState('loading');getBackendSrv().get('/api/dashboards/uid/xlayer-run-catalog',undefined,undefined,{showErrorAlert:false})
    .then(result=>{if(active){setCatalog(parseRunCatalog(result.dashboard?.xlayerRunCatalog));setState('ready');}})
    .catch(error=>{if(active){setCatalog(undefined);setState(error.status===404?'unavailable':'error');}});return()=>{active=false};},[refresh]);
@@ -30,17 +34,18 @@ export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Co
  return <div className="xlt-run-explorer">
   <section><div className="xlt-section"><h3><Icon name="search"/> Experiments</h3><button onClick={()=>setRefresh(value=>value+1)}>Refresh saved catalog</button></div>
    <p className="xlt-muted">Live observations는 현재 Cluster / Run / Time filter의 Loki 응답입니다. 저장 catalog는 게시 시점의 artifact snapshot이며 retention 이후에도 읽을 수 있습니다. Recorded running은 현재 process의 생존 확인이 아닙니다.</p>
-   <div className="xlt-run-search xlt-actions"><label>Search<input aria-label="Search Runs" placeholder="Run ID or Model" value={search} onChange={e=>setSearch(e.target.value)} maxLength={256}/></label>
-    <label>Model<select aria-label="Filter Model" value={model} onChange={e=>setModel(e.target.value)}><option value="">All</option>{[...new Set(all.map(row=>row.model).filter(Boolean))].map(name=><option key={name}>{name}</option>)}</select></label>
-    <label>Recorded status<select aria-label="Filter Run status" value={status} onChange={e=>setStatus(e.target.value)}><option value="">All</option>{[...new Set(all.map(row=>row.status))].map(name=><option key={name}>{name}</option>)}</select></label>
-    <label>Source<select aria-label="Filter Run source" value={source} onChange={e=>setSource(e.target.value)}><option value="">All</option><option value="stored_artifact">Stored artifacts</option><option value="loki_window">Live Loki window</option></select></label>
-    <label><span>Saved time filter</span><span><input type="checkbox" checked={limitTime} onChange={e=>setLimitTime(e.target.checked)} aria-label="Limit saved Runs to selected time range"/> Selected time range</span></label>
+   <div className="xlt-run-search xlt-actions"><label>Search<input aria-label="Search Runs" placeholder="Run ID or Model" value={search} onChange={e=>updateFilters({search:e.target.value})} maxLength={256}/></label>
+    <label>Model<select aria-label="Filter Model" value={model} onChange={e=>updateFilters({model:e.target.value})}><option value="">All</option>{model&&!all.some(row=>row.model===model)&&<option value={model}>{model} · catalog에서 아직 확인되지 않음</option>}{[...new Set(all.map(row=>row.model).filter(Boolean))].map(name=><option key={name}>{name}</option>)}</select></label>
+    <label>Recorded status<select aria-label="Filter Run status" value={status} onChange={e=>updateFilters({status:e.target.value})}><option value="">All</option>{status&&!all.some(row=>row.status===status)&&<option value={status}>{status} · catalog에서 아직 확인되지 않음</option>}{[...new Set(all.map(row=>row.status))].map(name=><option key={name}>{name}</option>)}</select></label>
+    <label>Source<select aria-label="Filter Run source" value={source} onChange={e=>updateFilters({source:e.target.value})}><option value="">All</option><option value="stored_artifact">Stored artifacts</option><option value="loki_window">Live Loki window</option></select></label>
+    <label><span>Saved time filter</span><span><input type="checkbox" checked={limitTime} onChange={e=>updateFilters({limitTime:e.target.checked})} aria-label="Limit saved Runs to selected time range"/> Selected time range</span></label>
     <a href={appLink('runs',{...context,variables:{...context.variables,run_id:['.*'],record_id:[],candidate_id:[]}})}>All Runs in this live window →</a>
    </div>
    {state==='loading'&&<p className="xlt-muted">저장 catalog를 불러오는 중입니다…</p>}
    {state==='error'&&<p className="xlt-error" role="alert">Saved catalog query failure. 데이터 부재나 측정값 0을 뜻하지 않습니다. Grafana 권한·provisioning 상태를 확인하세요.</p>}
    {state==='unavailable'&&<p className="xlt-notice">저장 catalog가 게시되지 않았습니다. Monitoring host에서 <code>xltel runs publish</code>를 실행하세요. Live Loki 관측은 계속 사용할 수 있습니다.</p>}
    {catalog&&<p className="xlt-muted">Stored snapshot: {catalog.generated_at?new Date(catalog.generated_at*1000).toLocaleString():'Unknown'} · {catalog.runs.length} Runs {catalog.truncated&&'· limit reached; 일부 Run이 제외됐습니다'}</p>}
+   {rows.some(row=>row.data_origin==='synthetic')&&<p className="xlt-notice">Synthetic Run의 Model은 fixture metadata입니다. 실제 model weights의 학습이나 GPU·Storage 성능을 검증한 결과가 아닙니다.</p>}
    {liveState==='Error'&&<p className="xlt-error">Live Loki query failure. 저장 artifact는 별도 source로 유지됩니다.</p>}
    <div className="xlt-scroll"><table><thead><tr><th>Select</th><th>Run / Model</th><th>Recorded observations</th><th>Avg Step</th><th>Time / Status</th><th>Source / Quality</th><th>Open</th></tr></thead>
     <tbody>{rows.map(row=><tr key={row.key}>

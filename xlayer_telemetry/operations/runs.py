@@ -93,7 +93,21 @@ def summarize(run: Path):
     config = manifest.get('configuration') or {}
     if not isinstance(config, dict): config = {}
     cluster, observer = _text(config.get('cluster')), _text(config.get('observer_node'))
-    model = _text(config.get('model_identifier') or config.get('model_name'))
+    top_model = manifest.get('model')
+    top_model = _text(top_model.get('identifier')) if isinstance(top_model, dict) else None
+    configured_model = _text(config.get('model_identifier') or config.get('model_name'))
+    metadata_conflicts = []
+    if top_model and configured_model and top_model != configured_model:
+        model = None
+        metadata_conflicts.append('model')
+    else:
+        model = configured_model or top_model
+    configured_origin, top_origin = _text(config.get('data_origin')), _text(manifest.get('data_origin'))
+    if configured_origin and top_origin and configured_origin != top_origin:
+        declared_origin = 'mixed'
+        metadata_conflicts.append('data_origin')
+    else:
+        declared_origin = configured_origin or top_origin
     all_rows, partial = _records(run/'telemetry-events/verl-steps.jsonl')
     # A copied foreign run is not a record of this run. Observer mismatch is
     # retained as another entity, not silently folded into a trainer average.
@@ -107,8 +121,9 @@ def summarize(run: Path):
         if key in unique and unique[key] != row: conflict = True
         unique[key] = row
     rows = list(unique.values())
-    origin = {row.get('data_origin', config.get('data_origin', 'observed')) for row in rows}
-    data_origin = next(iter(origin)) if len(origin)==1 else 'mixed' if origin else _text(config.get('data_origin')) or 'unknown'
+    origin = {row.get('data_origin', declared_origin or 'observed') for row in rows}
+    if declared_origin: origin.add(declared_origin)
+    data_origin = next(iter(origin)) if len(origin)==1 else 'mixed' if origin else declared_origin or 'unknown'
     grouped = defaultdict(list)
     for row in rows:
         identity = {key: row.get(key) for key in ('node','worker_id','producer','role','rank','local_rank','execution_mode','boundary_scope')}
@@ -175,11 +190,13 @@ def summarize(run: Path):
         'status':status,'status_recorded_at':workload.get('recorded_at',health.get('observed_at')),
         'workload_exit_code':workload.get('exit_code') if type(workload.get('exit_code')) is int else None,
         'telemetry_status':telemetry_status,
-        'quality':'partial' if partial or conflict or telemetry_status=='partial' or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
+        'metadata_conflicts':metadata_conflicts,
+        'quality':'partial' if partial or conflict or metadata_conflicts or telemetry_status=='partial' or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
         'data_origin':data_origin,'source':'stored_artifact','selected_step':{key:selected.get(key) for key in
             ('record_id','step','window_start_ms','window_end_ms','node','worker_id','boundary_scope')},
         'limitations':['Recorded status is not a live process check. Shared resources are not run-owned.',
-            'Resource values describe the last saved diagnosis window, not a run average.']}
+            'Resource values describe the last saved diagnosis window, not a run average.'] +
+            (["Conflicting declared metadata: " + ', '.join(metadata_conflicts)] if metadata_conflicts else [])}
 
 
 def catalog(root: Path, *, max_runs=MAX_RUNS):
