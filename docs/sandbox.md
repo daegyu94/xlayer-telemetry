@@ -128,3 +128,5 @@ Reward 호출은 같은 패턴에서 `reward.call`·`phase="reward"`로 기록�
 ## 다음
 
 [Candidate와 missing evidence](diagnosis.md) · [실환경 검증 범위](integration-reference.md#real-validation-coverage) · [Dedicated 배치](multi-node.md)
+
+Calculator 예제는 timeout·실행 실패 시 private CID file 또는 실행별 고유 container name으로 자신이 생성한 container만 정리합니다. Docker daemon에 접근할 수 없으면 정리를 보장할 수 없으며, client-side span은 container 내부 자원 사용량을 뜻하지 않습니다.

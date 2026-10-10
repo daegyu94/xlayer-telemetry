@@ -100,6 +100,9 @@ def test_calculator_external_program_rejects_code(calculator):
 @pytest.mark.parametrize('failed', [False, True])
 def test_calculator_links_success_and_error_spans(calculator, monkeypatch, tmp_path, failed):
     def run(command, **kwargs):
+        if command[:2]==['docker','rm']:
+            assert command[2]=='--force' and command[3].startswith('xltel-calculator-')
+            return subprocess.CompletedProcess(command,0)
         assert command[:2] == ['docker', 'run']
         assert '--network' in command and 'none' in command
         assert kwargs['check'] is True

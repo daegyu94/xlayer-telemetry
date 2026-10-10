@@ -143,8 +143,8 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
     matching = [target for target in targets if target.get("labels", {}).get("job") == "telemetry"
                 and target["labels"].get("cluster") == config["CLUSTER_NAME"]
                 and target["labels"].get("nodename") == config["NODE_NAME"]]
-    configured_targets = config.get("TELEMETRY_TARGETS") or f"{config['NODE_NAME']}={config['NODE_ADDR']}"
-    addresses = dict(entry.split('=', 1) for entry in configured_targets.split(','))
+    from .config import effective_targets
+    addresses = effective_targets(config)
     expected = set(addresses)
     cluster_targets = [target for target in targets if target["labels"].get("job") == "telemetry"
                        and target["labels"].get("cluster") == config["CLUSTER_NAME"]

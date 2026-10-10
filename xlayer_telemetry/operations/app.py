@@ -172,6 +172,8 @@ def install_package(config, archive, sha256, *, allow_unsigned=False, update=Fal
                 return {**old, 'changed': False, 'status': 'unchanged'}
             if target.exists() and not update:
                 raise AppError('A different plugin is already installed. Use xltel app update to preserve a rollback copy.')
+            if target.exists() and (not old.get('files') or _hashes(target)!=old['files']):
+                raise AppError('Existing plugin has no verified rollback receipt or was modified. Preserve/reconcile the installation before updating; existing files were preserved.')
             previous = state / 'previous'
             retained = state / 'retained-previous'
             if retained.exists():

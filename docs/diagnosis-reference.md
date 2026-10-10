@@ -263,6 +263,8 @@ Local filesystem 측정이며 전체 collector latency나 학습 throughput 개�
 
 ### Retry / revision / 저장 복구
 
+Optional `threefs`·`sandbox`의 누락이나 `null`은 비활성 source로 정규화합니다. 기본 진단은 계속 실행하며, 해당 source의 telemetry를 측정값 0으로 만들지 않습니다.
+
 | 상황 | 동작 / 확인할 field |
 | --- | --- |
 | Retry 시작 | Batch 시작이 아닌 각 Step의 첫 분석 시작 시각 기준 |
@@ -274,6 +276,8 @@ Local filesystem 측정이며 전체 collector latency나 학습 throughput 개�
 | Wrapper 종료 | 한 번 더 조회해 final 확정. `step_event_time` 없는 replay는 재시도하지 않음 |
 | Revision / UI | `diagnostics.jsonl`은 같은 `trigger_record_id`의 revision 보존. Loki projection은 final만 생성 |
 | Report 이후 파생 파일 쓰기 실패 | 다음 분석에서 저장 report로 `latest.json` / investigation 복구. Backend 재조회·revision 추가·기존 immutable investigation 재작성 없음 |
+
+Retry와 settling의 경과시간은 관측 timestamp와 별도의 monotonic clock으로 계산합니다. Clock 보정 만료·복구가 대기를 갑자기 끝내거나 늘리지 않으며, `retry_timing`에는 boot별 clock ID와 경과시간 deadline을 보존합니다. 이전 journal이나 다른 boot의 경과시간은 추정하지 않고 새로 제한된 retry 기간을 시작합니다. `first_attempt_at`·`retry_at`은 기존 timestamp 표시를 유지하며 실제 예약 판단에는 사용하지 않습니다.
 | 후보 표가 비어 있음 | 먼저 `diagnostics/latest.json`의 `analysis_status` / `missing_sources` 확인 |
 
 ### Current / Baseline 비교의 단위와 scope
@@ -460,6 +464,8 @@ Manifest만으로 target이나 metric을 등록하지는 않습니다.
 ```
 
 **확인 결과:** `rollout_replicas`에는 각 선언 Replica와 endpoint의 engine별 signal·baseline·quality·candidate가 남습니다. Analyze의 **Rollout Replica Coverage**에서 누락·clock 상태와 선언 node를 확인한 뒤 **Inspect endpoint**로 기존 Stage dashboard에 이동합니다. Run·Step·observer·time을 유지하며 resource node와 endpoint만 변경합니다.
+
+같은 engine의 GET/PUT·status가 다른 Mooncake series는 개별 `metric_observations`로 보존합니다. 각 raw baseline은 operation/status를 포함한 같은 label에만 연결하며, 여러 operation의 p95를 합치거나 평균하지 않습니다. 복수 관측을 하나의 signal로 축약하지 않으며 이 raw 목록의 delta는 보류합니다. Replica당 최대 64개를 보존하고 한도 도달은 missing source로 표시합니다.
 
 | 상태 | 해석 / 다음 행동 |
 | --- | --- |

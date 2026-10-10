@@ -315,6 +315,11 @@ def migrate(path: Path, output: Path) -> None:
         stream.write(text)
 
 
+def effective_targets(config: dict[str,str]) -> dict[str,str]:
+    value=config.get('TELEMETRY_TARGETS') or (f"{config['NODE_NAME']}={config['NODE_ADDR']}" if config.get('NODE_NAME') and config.get('NODE_ADDR') else '')
+    return dict(entry.split('=',1) for entry in value.split(',') if entry)
+
+
 def snapshot(config: dict[str, str]) -> Path:
     """Keep the resolved config available to background launcher children."""
     text = "".join(f"{key}={shlex.quote(value)}\n" for key, value in sorted(config.items()) if key in KEYS)

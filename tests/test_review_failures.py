@@ -72,7 +72,7 @@ def test_partial_query_results_retry_until_missing_source_arrives(tmp_path):
     clock = [101.0]
     engine = diagnostics.DiagnosticEngine({"schema_version": 1,
         "prometheus": {"url": "http://unused"}, "retry_interval_seconds": 5},
-        prometheus=prom, clock=lambda: clock[0])
+        prometheus=prom, clock=lambda: clock[0], elapsed_clock=lambda: clock[0])
     history = tmp_path / "steps.jsonl"
     history.write_text(json.dumps({"schema_version": 1, "record_type": "verl_step_observation", "record_id": "one", "run_id": "r", "node": "n",
         "observed_at": 100, "analysis_window": {"start": 90, "end": 100}}) + "\n")

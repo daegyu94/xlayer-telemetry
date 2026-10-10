@@ -76,6 +76,8 @@ Gauge 숫자는 query 평가값의 window mean입니다. Query 시각과 raw scr
 | Critic / reference / 기타 phase | 현재 Step 안의 실제 measured span이 있을 때 column 추가. Actor update와 별도 표시; 최대 16 phase |
 | Scope가 다른 signal | Shared / Session / Rolling / Missing을 유지. Worker 값으로 변환하지 않음 |
 
+현재 filter에 없는 Matrix Entity 선택은 경고와 **선택 해제** 버튼으로 정리합니다. Related Metrics는 사용할 수 있는 canonical panel과 그 label을 함께 선택하며, optional dashboard가 없다고 다른 metric을 같은 탭 이름으로 표시하지 않습니다.
+
 Worker selection은 `phase_worker` URL state로 보존하며 observer `source_node`를 resource node로 바꾸지 않습니다. GPU는 span이 device identity를 명시하고 sample이 같은 node/window에 있을 때만 연결합니다. 다른 node의 Step/span clock은 공통 calibrated reference와 uncertainty가 확인되어야 phase query window로 연결합니다. Unaligned worker의 monotonic call duration은 비교할 수 있지만 해당 timestamp로 GPU를 연결하지 않습니다.
 
 Reported worker duration은 실제 adapter의 `verl_stage` 같은 metric 차원을 worker identity와 분리해 Step/freshness에 연결합니다. 서로 다른 stage는 같은 peer cohort로 합치지 않습니다. System Pressure는 구간 끝과 마지막 query sample의 간격이 15초 또는 query interval의 세 배 중 큰 값을 넘으면 순위에서 제외합니다. 이는 query coverage 검사이며 Prometheus lookback으로 반복된 값의 producer freshness를 증명하지 않습니다. Entity drill-down은 관측된 cluster도 고정합니다.

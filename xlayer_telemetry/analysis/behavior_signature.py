@@ -108,9 +108,12 @@ def _summary(values: list[float]) -> dict:
 def _event_entity(record: Mapping) -> dict:
     # Stable instrumented identities survive grouping; request/trace IDs do not.
     attributes = record.get("attributes", {})
-    return {key: attributes[key] for key in sorted(ENTITY_FIELDS) if key in attributes
+    entity={key: attributes[key] for key in sorted(ENTITY_FIELDS) if key in attributes
             and (isinstance(attributes[key], str) and 0 < len(attributes[key]) <= 128
                  or key == "rank" and type(attributes[key]) is int and attributes[key] >= 0)}
+    if 'node' not in attributes and isinstance(record.get('node'),str) and record['node']:
+        entity['node']=record['node']
+    return dict(sorted(entity.items()))
 
 
 def summarize(boundary: Boundary, events: Iterable[Mapping[str, Any]],
@@ -436,7 +439,7 @@ def candidates(signature: Mapping, comparison: Mapping) -> list[dict]:
                        and row["current_mean"] is not None and row["current_mean"] >= 1.5 * row["baseline_mean"]
                        and _precise_duration(row.get("duration_accuracy_counts", {}))
                        and _precise_duration(row.get("baseline_duration_accuracy_counts", {}))]
-        paired_entity = any(all(event["entity"].get(key, context.get(key)) == value
+        paired_entity = any(event['entity'].get('node')==metric['entity'].get('node') and all(event["entity"].get(key, context.get(key)) == value
                                    for key, value in metric["entity"].items() if key in {"gpu", "engine", "device", "interface"})
                             for metric in hot_metrics for event in slow_events)
         if resource_support and phase_support and not paired_entity:

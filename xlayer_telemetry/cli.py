@@ -126,6 +126,8 @@ def parser() -> argparse.ArgumentParser:
 
 def _launch(config: dict[str, str], action: str, role: str = "all") -> int:
     root = assets_root()
+    from .operations.config import effective_targets
+    config={**config,'TELEMETRY_TARGETS':','.join(f'{node}={address}' for node,address in effective_targets(config).items())}
     effective = snapshot(config)
     # No shell interpolation of user values; the existing lifecycle lock owns mutations.
     child = subprocess.Popen(["bash", str(root / "scripts/verl_local.sh"), "--config", str(effective), action],

@@ -97,11 +97,33 @@ case "$action" in
       OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KEEP_ALIVE=5m \
       nohup setsid "$runtime/bin/ollama" serve > "$state/server.log" 2>&1 < /dev/null 9>&- &
     pid=$!
-    started="$(identity "$pid")"
-    printf '%s %s %s\n' "$pid" "$started" "$(cat /proc/sys/kernel/random/boot_id)" > "$state/server.pid"
-    trap 'stop || true' EXIT
+    launched_pid=$pid
+    launched_started=''
+    launched_boot="$(cat /proc/sys/kernel/random/boot_id)"
+    cleanup_launched() {
+      local current
+      current="$(identity "$launched_pid")" || return 0
+      [[ -n "$launched_started" && "$current" == "$launched_started" && "$launched_boot" == "$(cat /proc/sys/kernel/random/boot_id)" ]] || return 0
+      kill -TERM -- "-$launched_pid" 2>/dev/null || kill -TERM "$launched_pid" 2>/dev/null || true
+      for ((j=0; j<100; j++)); do
+        current="$(identity "$launched_pid")" || break
+        [[ "$current" == "$launched_started" ]] || break
+        sleep 0.05
+      done
+      if [[ "$(identity "$launched_pid" 2>/dev/null || true)" == "$launched_started" ]]; then
+        kill -KILL -- "-$launched_pid" 2>/dev/null || kill -KILL "$launched_pid" 2>/dev/null || true
+      fi
+      wait "$launched_pid" 2>/dev/null || true
+      if [[ -f "$state/server.pid" ]] && read -r pid started boot < "$state/server.pid" && [[ "$pid" == "$launched_pid" && "$started" == "$launched_started" ]]; then
+        rm -f "$state/server.pid"
+      fi
+    }
+    trap 'cleanup_launched || true' EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
+    started="$(identity "$pid")"
+    launched_started=$started
+    printf '%s %s %s\n' "$pid" "$started" "$(cat /proc/sys/kernel/random/boot_id)" > "$state/server.pid"
     for ((i=0; i<30; i++)); do
       running || break
       if curl --noproxy '*' -fsS --max-time 1 "http://$OLLAMA_HOST/api/version" >/dev/null 2>&1; then

@@ -89,19 +89,43 @@ def observations(config, current_series, baseline_series, sources, queries, samp
         if baseline_window and alignment_metadata(window).get('reference_session') != alignment_metadata(baseline_window).get('reference_session'):
             prior_clock = 'unknown'
         entities = []
+        retained_raw=0
         contexts = {'current': (serving or {}).get('current', {}).get(replica['id'], {}),
                     'baseline': (serving or {}).get('baseline', {}).get(replica['id'], {})}
         context_issues = comparison_issues(contexts['current'], contexts['baseline']) if baseline_window else []
         for identity in sorted(population):
             values, before, labels, qualities, missing = {}, {}, {}, {}, []
+            metric_observations=[]
             for name in names:
                 signal = 'vllm_preemptions_delta' if name == 'vllm_preemptions_total' else name
                 field = 'max_series_delta' if name == 'vllm_preemptions_total' else PROFILE_SIGNALS[name].statistic if name in PROFILE_SIGNALS else 'max'
+                own=[row for row in current_series.get(name,[]) if vllm_identity(row)==identity]
+                def metric_identity(row):
+                    return tuple(sorted((key,value) for key,value in row.get('labels',{}).items() if key!='__name__'))
+                grouped={}
+                for row in own:grouped.setdefault(metric_identity(row),[]).append(row)
+                previous_index={}
+                for row in baseline_series.get(name,[]):previous_index.setdefault(metric_identity(row),[]).append(row)
+                for qualified,rows in list(grouped.items())[:128]:
+                    if len(rows)!=1:continue
+                    if retained_raw>=64:
+                        missing.append('qualified_metric_observation_limit');break
+                    current_value=rows[0].get('stats',{}).get(field)
+                    peers=previous_index.get(qualified,[])
+                    prior_value=peers[0].get('stats',{}).get(field) if len(peers)==1 else None
+                    observed={'signal':signal,'labels':dict(qualified),'current':current_value,'baseline':prior_value,
+                        **metadata.get(signal,{}),'delta':None,'delta_percent':None,
+                        'clock_status':current_clock,'baseline_clock_status':prior_clock,
+                        'comparison_status':'operation_qualified_raw_observation'}
+                    metric_observations.append(observed)
+                    retained_raw+=1
+                if len(grouped)>128:missing.append(signal+':qualified_identity_limit')
                 for role, series, interval, target in (('current', current_series, window, values),
                                                       ('baseline', baseline_series, baseline_window, before)):
                     if not interval:
                         continue
-                    rows = [row for row in series.get(name, []) if vllm_identity(row) == identity]
+                    rows = [row for row in series.get(name, []) if vllm_identity(row) == identity and
+                            (role=='current' or len(own)==1 and metric_identity(row)==metric_identity(own[0]))]
                     if len(rows) != 1:
                         missing.append(role + ':' + signal + ':missing_or_duplicate')
                         continue
@@ -110,8 +134,8 @@ def observations(config, current_series, baseline_series, sources, queries, samp
                         missing.append(role + ':' + signal + ':missing_value')
                         continue
                     target[signal] = value / 100 if name == 'vllm_kv_cache_usage' and value > 1 else value
-                    labels[signal] = dict(identity)
-                    source = source_for_entity(sources.get(name, {}).get(role, {}), dict(identity))
+                    labels[signal] = dict(metric_identity(row))
+                    source = source_for_entity(sources.get(name, {}).get(role, {}), labels[signal])
                     qualities.setdefault(signal, {})[role] = quality(queries[name], interval['start'], interval['end'],
                         max(1, float(config['prometheus'].get('query_step_seconds', 2))), row['stats'], source=source,
                         result=sampling.get(name, {}).get(role, {}).get('query_result'))
@@ -160,6 +184,7 @@ def observations(config, current_series, baseline_series, sources, queries, samp
                 if context_issues:
                     row.update(delta=None, delta_percent=None, comparison_status='replica_context_changed')
             entities.append({'identity': dict(identity), 'signals': signals, 'candidates': candidates,
+                             'metric_observations':metric_observations,
                              'missing_sources': sorted(set(missing))})
         missing = sorted({issue for entity in entities for issue in entity['missing_sources']})
         if not entities:

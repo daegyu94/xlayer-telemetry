@@ -136,7 +136,7 @@ def test_no_data_diagnosis_retries_and_finalizes_after_scrape(tmp_path: Path) ->
     clock = [101.0]
     prom = FakePrometheus({})
     engine = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"},
-                               "retry_interval_seconds": 5}, prometheus=prom, clock=lambda: clock[0])
+                               "retry_interval_seconds": 5}, prometheus=prom, clock=lambda: clock[0], elapsed_clock=lambda: clock[0])
     output = tmp_path / "diagnostics"
     assert run_once(engine, history, output, periodic_when_idle=False) == 1
     assert json.loads((output / "latest.json").read_text())["analysis_status"] == "provisional"
@@ -168,7 +168,7 @@ def test_missing_backend_has_bounded_retry_and_replay_baseline_is_safe(tmp_path:
     clock = [101.0]
     engine = DiagnosticEngine({"schema_version": 1, "prometheus": {"url": "http://prometheus"},
                                "retry_seconds": 10, "retry_interval_seconds": 5},
-                              prometheus=FakePrometheus({}), clock=lambda: clock[0])
+                              prometheus=FakePrometheus({}), clock=lambda: clock[0], elapsed_clock=lambda: clock[0])
     output = tmp_path / "diagnostics"
     assert run_once(engine, history, output, periodic_when_idle=False) == 2
     clock[0] = 111.0
@@ -342,7 +342,7 @@ def test_threefs_step_waits_for_ingest_settle_before_diagnosis(tmp_path: Path) -
         {"schema_version": 1, "prometheus": {"url": "http://prometheus"},
          "threefs": {"url": "http://clickhouse", "settle_seconds": 30}},
         prometheus=FakePrometheus({}), threefs=FakeThreeFS([], []),
-        clock=lambda: clock[0],
+        clock=lambda: clock[0], elapsed_clock=lambda: clock[0],
     )
     output = tmp_path / "diagnostics"
     assert run_once(engine, history, output) == 0

@@ -9,6 +9,10 @@ from contextlib import nullcontext
 import json
 import os
 import subprocess
+import tempfile
+from pathlib import Path
+import re
+import uuid
 
 from verl.tools.function_tool import function_tool
 from xlayer_telemetry.events import EventRecorder
@@ -24,6 +28,26 @@ def calc(n):
  raise ValueError("Only arithmetic literals and + - * / are accepted")
 print(json.dumps({"result":calc(ast.parse(sys.argv[1],mode="eval").body)}))
 '''
+
+
+def _execute_container(command, *, timeout=20):
+    """Keep a private CID file and unique name for failure cleanup only."""
+    name='xltel-calculator-'+uuid.uuid4().hex
+    with tempfile.TemporaryDirectory(prefix='xltel-calculator-') as directory:
+        cidfile=Path(directory)/'container.cid'
+        argv=[*command[:2],'--name',name,'--cidfile',str(cidfile),*command[2:]]
+        failed=True
+        try:
+            result=subprocess.run(argv,check=True,capture_output=True,text=True,timeout=timeout)
+            failed=False
+            return result
+        finally:
+            if failed:
+                try:identifier=cidfile.read_text().strip()
+                except OSError:identifier=''
+                target=identifier if re.fullmatch('[a-f0-9]{64}',identifier) else name
+                try:subprocess.run(['docker','rm','--force',target],capture_output=True,text=True,timeout=5)
+                except (OSError,subprocess.SubprocessError):pass
 
 
 @function_tool("calculate")
@@ -59,8 +83,7 @@ def calculate(expression: str) -> str:
             command.extend([os.environ.get("SWE_AGENT_GRADER_IMAGE", "python:3.12-alpine"),
                             "python3", "-c", PROGRAM, expression])
             with span:
-                result = subprocess.run(
-                    command, check=True, capture_output=True, text=True, timeout=20)
+                result = _execute_container(command)
             return result.stdout.strip()
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         return json.dumps({"error": type(exc).__name__})

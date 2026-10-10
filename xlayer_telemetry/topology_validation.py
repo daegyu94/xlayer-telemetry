@@ -43,8 +43,17 @@ def valid_component_id(value: Any) -> bool:
     return isinstance(value, str) and _COMPONENT.fullmatch(value) is not None
 
 
+def valid_topology_label(value: Any) -> bool:
+    if not isinstance(value,str) or len(value)>128 or any(ord(char)<32 or ord(char)==127 for char in value):
+        return False
+    try:
+        return len(value.encode('utf-8'))<=512
+    except UnicodeError:
+        return False
+
+
 def _valid_role(value: Any) -> bool:
-    return isinstance(value, str) and 0 < len(value) <= 128 and value.strip() == value and not any(ord(char) < 32 or ord(char) == 127 for char in value)
+    return valid_topology_label(value) and bool(value) and value.strip()==value
 
 
 def declared_mapping(component: dict[str, Any]) -> dict[str, str] | None:

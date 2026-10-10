@@ -1,3 +1,5 @@
+import {MatrixEntityControl} from './MatrixEntityControl';
+import {relatedPanels} from './related-panels';
 import React, { useEffect, useState, useRef } from "react";
 import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType, ThemeContext, createTheme, PageLayoutType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
@@ -145,6 +147,7 @@ type ShellState = SceneObjectState & {
   timeline?: VizPanel;
   approximate?: VizPanel;
   related: VizPanel[];
+  relatedLabels:string[];
   detailPanels:(VizPanel|undefined)[];
   storageSamples?: SceneQueryRunner;
   storageStatus?: SceneQueryRunner;
@@ -325,7 +328,7 @@ function makeScene(page: Page, catalog: Catalog) {
     catalog,
     kpis: [],
     matrix: [],
-    related: [],
+    related: [], relatedLabels:[],
     detailPanels:[],
     pressure: [],
     contextControls:[new SceneTimePicker({isOnCanvas:false}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
@@ -373,9 +376,9 @@ function makeScene(page: Page, catalog: Catalog) {
       events: query("timeline", 10),
       rewardAge: query("stage", 3, ["A"]),
       timeline: native("timeline", 2),
-      related: [native("signals", 5), native("signals", 2),native("stage",28),native("stage",60),native("compute",9)].filter(
-        Boolean,
-      ) as VizPanel[],
+      ...relatedPanels([{label:'GPU',panel:native('signals',5)},{label:'vLLM',panel:native('signals',2)},
+        {label:'KV Cache',panel:native('stage',28)},{label:'Storage',panel:native('stage',60)},
+        {label:'Network',panel:native('compute',9)}]),
     });
   // Scene objects must be direct state properties / array elements. A plain
   // dictionary is not parented by Scenes and silently loses variable/time scope.
@@ -402,9 +405,7 @@ function makeScene(page: Page, catalog: Catalog) {
     body.setState({
       timeline: native("timeline", 2),
       approximate: native("timeline", 3),
-      related: [native("timeline", 4), native("timeline", 5)].filter(
-        Boolean,
-      ) as VizPanel[],
+      ...relatedPanels([{label:'Reward',panel:native('timeline',4)},{label:'Events',panel:native('timeline',5)}]),
     });
   return new EmbeddedScene({
     $timeRange: new SceneTimeRange({
@@ -855,7 +856,7 @@ function ShellView({ model }: { model: Shell }) {
               <p className="xlt-muted">
                 같은 Time range의 Sampled / Shared signal을 비교합니다. 시간적 correlation이며 resource 소유 관계를 뜻하지 않습니다.
               </p>
-              <RelatedTabs panels={state.related}/>
+              <RelatedTabs panels={state.related} labels={state.relatedLabels}/>
             </div>
             <div>
               <h3><Icon name="info-circle"/> System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">저장된 diagnosis signal입니다. Collector UP을 의미하는 health 상태가 아닙니다.</p></div>
@@ -1425,7 +1426,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
  const title=({gpu:'GPU',vllm:'vLLM',kv:'KV Cache',ray:'Ray',network:'Network',storage:'Storage',sandbox:'Sandbox'} as Record<string,string>)[s];
  const describe=(labels:Record<string,string>)=>s==='gpu'?`GPU ${labels.gpu||labels.gpu_uuid||'?'} · ${labels.nodename||labels.node||''}`:s==='ray'?`${labels.SessionName||'Session'} · ${labels.State||'State'}`:[labels.operation,labels.status,labels.engine_id||labels.engine,labels.device,labels.port,labels.worker_id].filter(Boolean).join(' · ')||labels.instance||'Observed entity';
  const expr=(data?.series||[]).map(frame=>String(frame.meta?.executedQueryString||''));const lookback=spec.rolling?matrixLookback(expr):0;
- return <tr><th><i className="xlt-subsystem-dot" style={{background:SUBSYSTEM_COLORS[s]}}/>{title}<small>{spec.label}</small>{entities.length>1&&<select className="xlt-entity-select" aria-label={`${title} entity`} value={selectedKey||''} onChange={event=>{locationService.push(appLink(model.state.page,{...context,variables:{...context.variables,[variable]:event.target.value?[event.target.value]:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Entity를 선택하세요 ({entities.length})</option>{selectedKey&&!entities.some(e=>e.key===selectedKey)&&<option value={selectedKey}>선택한 Entity가 현재 구간에 없습니다</option>}{entities.map(e=><option key={e.key} value={e.key}>{describe(e.labels)}</option>)}</select>}</th>{phases.map(phase=>{
+ return <tr><th><i className="xlt-subsystem-dot" style={{background:SUBSYSTEM_COLORS[s]}}/>{title}<small>{spec.label}</small><MatrixEntityControl title={title} selectedKey={selectedKey} entities={entities.map(e=>({key:e.key,label:describe(e.labels)}))} onChange={value=>{locationService.push(appLink(model.state.page,{...context,variables:{...context.variables,[variable]:value?[value]:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}/></th>{phases.map(phase=>{
   const parent=phaseWindow(spans,selected,phase),window=relatedPhaseWindow(spans,selected,parent,s);
   const choice=s==='ray'?contextSample(chosen,window):spec.rolling?selectPhaseSample(chosen,window):gaugeSummary(chosen,window);
   let cell:Cell=s==='ray'?{binding:'rolling-context',state:choice.sample?'observed':'missing',scope:'shared-service',type:'session sampled context',sample:choice.sample,value:choice.sample?.value,unit,explanation:'Session / State count at this time. Node identity was aggregated; this is not phase usage or a phase baseline.'}:metricCell(choice.sample?{...choice.sample,unit}:undefined,window,spec.scope,lookback);
@@ -1894,7 +1895,7 @@ function StorageCollectionView({model,context}:{model:Shell;context:Context}) {
   </section>;
 }
 
-function RelatedTabs({panels}:{panels:VizPanel[]}){const[tab,setTab]=useState(0);return <><div className="xlt-chips">{['GPU','vLLM','KV Cache','Storage','Network'].slice(0,panels.length).map((label,i)=><button key={label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{label}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}</>;}
+function RelatedTabs({panels,labels}:{panels:VizPanel[];labels:string[]}){const[tab,setTab]=useState(0);return <><div className="xlt-chips">{labels.map((label,i)=><button key={label} aria-pressed={tab===i} onClick={()=>setTab(i)}>{label}</button>)}</div>{panels[tab]&&<Native panel={panels[tab]}/>}</>;}
 
 function RunContext({model,selected,steps,context,policySamples,activeWorkloads,onStep}:{model:Shell;selected?:RecordRow;steps:RecordRow[];context:Context;policySamples:import('./semantics').Sample[];activeWorkloads:import('./semantics').Sample[];onStep:(row:RecordRow)=>void}){
   const range=sceneGraph.getTimeRange(model);const rangeState=range.useState();

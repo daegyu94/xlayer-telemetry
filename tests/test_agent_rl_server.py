@@ -49,7 +49,7 @@ def test_server_config_registers_native_agent_rl_sources(tmp_path: Path) -> None
     assert result.returncode == 0, result.stderr
     config = (output / "prometheus.yml").read_text(encoding="utf-8")
     assert "job_name: native" in config
-    assert f"- '{output}/native-targets.json'" in config
+    assert '- '+json.dumps(str(output/'native-targets.json')) in config
     assert "replacement: agent-rl" in config
     discovery = json.loads(
         (output / "native-targets.json").read_text(encoding="utf-8")

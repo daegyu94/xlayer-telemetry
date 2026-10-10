@@ -59,6 +59,8 @@ API 권한이 필요하면 `GRAFANA_SERVICE_ACCOUNT_TOKEN`을 environment 또는
 
 ### 실패 / Rollback
 
+Update 전에 현재 파일과 설치 receipt의 hash를 대조합니다. 수동 설치로 receipt가 없거나 파일이 변경됐으면 rollback 가능성을 확인할 수 없으므로 기존 서비스·파일을 보존하고 update를 거부합니다. 설치 상태를 정리하거나 명시적인 별도 plugin directory를 사용하세요.
+
 Update는 previous plugin 한 개를 Grafana가 scan하지 않는 별도 directory에 보존합니다. 파일 교체·receipt 기록 실패는 기존 plugin과 provisioning을 복구합니다. Managed `--restart` 활성화 실패는 rollback을 시도하며, API 권한 부족처럼 이유가 불명확하면 장애 원인을 단정하지 않습니다.
 
 Package 준비 명령은 180초 timeout을 사용합니다. Timeout에서는 XLayer가 만든 build process group의 npm·compiler·test child만 정리하고, 설치된 plugin을 보존한 채 실행 시간 초과를 안내합니다.

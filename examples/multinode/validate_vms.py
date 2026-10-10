@@ -57,7 +57,7 @@ def payload(exporter, cli_tools=None):
         for path in (ROOT / 'xlayer_telemetry').rglob('*.py'):
             archive.add(path, arcname=str(path.relative_to(ROOT)))
         archive.add(ROOT / 'scripts/run_telemetry.sh', arcname='scripts/run_telemetry.sh')
-        archive.add(exporter, arcname='tools/node_exporter-1.9.1.linux-amd64/node_exporter')
+        archive.add(exporter.resolve(), arcname='tools/node_exporter-1.9.1.linux-amd64/node_exporter', recursive=False)
         if cli_tools:
             archive.add(ROOT / 'scripts/verl_local.sh', arcname='scripts/verl_local.sh')
             archive.add((cli_tools / 'alloy-linux-amd64').resolve(), arcname='tools/alloy-linux-amd64', recursive=False)

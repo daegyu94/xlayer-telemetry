@@ -465,7 +465,7 @@ EOF
     scrape_timeout: ${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}s
     file_sd_configs:
       - files:
-          - '$native_targets'
+          - $("${PYTHON:-python3}" -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$native_targets")
         refresh_interval: 30s
     relabel_configs:
       - target_label: cluster
@@ -510,8 +510,8 @@ common:
   path_prefix: $output_dir/loki-data
   storage:
     filesystem:
-      chunks_directory: $output_dir/loki-data/chunks
-      rules_directory: $output_dir/loki-data/rules
+      chunks_directory: $("${PYTHON:-python3}" -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$output_dir/loki-data/chunks")
+      rules_directory: $("${PYTHON:-python3}" -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$output_dir/loki-data/rules")
   replication_factor: 1
   ring:
     kvstore:
@@ -526,7 +526,7 @@ schema_config:
         prefix: index_
         period: 24h
 compactor:
-  working_directory: $output_dir/loki-data/compactor
+  working_directory: $("${PYTHON:-python3}" -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$output_dir/loki-data/compactor")
   retention_enabled: true
   delete_request_store: filesystem
 limits_config:
@@ -544,7 +544,7 @@ providers:
   - name: Telemetry
     type: file
     options:
-      path: $output_dir/dashboards
+      path: $("${PYTHON:-python3}" -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$output_dir/dashboards")
 EOF
   dashboard_args=(--output "$output_dir/dashboards")
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then

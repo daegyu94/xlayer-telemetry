@@ -99,7 +99,7 @@ def _iter_snapshots(metrics_dir: Path, *, counters: dict | None = None,
                 _select_latest(snapshots, value)
             elif counters is not None:
                 counters["snapshot_rejections"] = counters.get("snapshot_rejections", 0) + 1
-        except (OSError, ValueError):
+        except (OSError, ValueError, RecursionError):
             if counters is not None:
                 counters["snapshot_rejections"] = counters.get("snapshot_rejections", 0) + 1
             continue
@@ -127,7 +127,7 @@ def collect_snapshots(metrics_dirs: list[Path], run_roots: list[Path], *,
                 health = json.loads((directory.parent / "telemetry-health.json").read_text())
                 if isinstance(health, dict) and health.get("workload", {}).get("status") == "finished":
                     continue
-            except (OSError, ValueError, AttributeError):
+            except (OSError, ValueError, AttributeError, RecursionError):
                 pass
         paths = list(directory.glob("*.json"))
         active_paths.update(paths)

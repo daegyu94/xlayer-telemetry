@@ -132,6 +132,8 @@ class Demo:
                     for frame in self.scenario["frames"]:
                         if frame["end"] <= wall:
                             self.completed_frame = frame
+                    if schedule is not None and any(self.scenario.get(key)!=schedule.get(key) for key in ('run_id','node')):
+                        self.completed_frame=None
                 self.scenario = schedule
                 active = frame_at(schedule, wall) if schedule is not None else None
                 self.active_frame, self.active_phase = active if active is not None else (None, None)

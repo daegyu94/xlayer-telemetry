@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .config import ConfigError, config_path, load_config
+from .config import ConfigError, config_path, load_config, effective_targets
 from .health import status as observed_status
 
 
@@ -18,7 +18,7 @@ def configuration_report(config: dict[str, str], *, live: bool = False,
     def issue(severity, code, location, message):
         issues.append(dict(severity=severity, code=code, location=location, message=message))
 
-    nodes = {entry.split('=',1)[0] for entry in config.get('TELEMETRY_TARGETS','').split(',') if '=' in entry}
+    nodes = set(effective_targets(config))
     topology = {'status':'not_configured','counts':{'components':0,'edges':0},'issues':[]}
     if config.get('TOPOLOGY_DIR'):
         topology = inspect_topology(Path(config['TOPOLOGY_DIR']), registered_nodes=declared_nodes or nodes or None,

@@ -28,6 +28,7 @@ from .diagnosis_analysis import (
 )
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
+from . import scheduling
 from .evidence_quality import quality, check_source, source_for_entity, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
 from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
 from .rollout_state import validate_observations, load_serving_context, comparison_issues, apply_serving_limits
@@ -392,7 +393,7 @@ def load_config(path: Path) -> dict[str, Any]:
         or any(not isinstance(node, str) or not node for node in threefs["clock_nodes"])
     ):
         raise ValueError("threefs.clock_nodes must be a nonempty list of node names")
-    return config
+    return {**config,**{key:({'enabled':False} if key=='sandbox' else {}) for key in ('threefs','sandbox') if config.get(key) is None}}
 
 
 def load_history(path: Path, *, cache: JSONLCache | None = None) -> list[dict[str, Any]]:
@@ -529,7 +530,9 @@ class DiagnosticEngine:
         threefs: ThreeFSClient | None = None,
         clock: Callable[[], float] = time.time,
         time_calibration: CalibrationCache | None = None,
+        elapsed_clock: Callable[[], float] = time.monotonic,
     ) -> None:
+        config = {**config, **{key: ({'enabled':False} if key=='sandbox' else {}) for key in ('threefs','sandbox') if config.get(key) is None}}
         validate_run_engine_instances(config)
         validate_rollout_replicas(config)
         validate_observations(config)
@@ -549,6 +552,8 @@ class DiagnosticEngine:
             )
         calibration = time_calibration or (CalibrationCache.from_env(str(config.get("node") or os.environ.get("TELEMETRY_NODE", ""))) if clock is time.time else None)
         self.time_calibration, self.raw_clock = calibration, clock
+        self.elapsed_clock, self.elapsed_clock_id = elapsed_clock, scheduling.clock_id(injected=elapsed_clock is not time.monotonic)
+        self._settle_deadlines = {}
         self.clock = (lambda: reference_now(calibration, clock())) if calibration is not None else clock
         self.thresholds = {**DEFAULT_THRESHOLDS, **config.get("thresholds", {})}
         self.jsonl_cache = cache_from_config(config)
@@ -1688,19 +1693,20 @@ def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
     retry_seconds = float(engine.config.get("retry_seconds", 60))
     retry_interval = float(engine.config.get("retry_interval_seconds", 10))
 
+    active_keys=set()
     def ready(record):
-        window = record.get("analysis_window")
-        end = finite(window.get("end")) if isinstance(window, Mapping) else None
-        return end is None or now - end >= settle
+        return scheduling.ready(engine,record,settle,now,active_keys)
 
     unfinished = [record for record in history
                   if reports.get(record.get("record_id"), {}).get("analysis_status") == "provisional"
                   or record.get("record_id") not in reports]
     pending = [record for record in unfinished if ready(record) and (
-        finalize_pending or now >= reports.get(record.get("record_id"), {}).get("retry_at", 0))]
+        finalize_pending or scheduling.elapsed(engine) >= (scheduling.retry_state(engine,reports.get(record.get('record_id'),{})).get('retry_at') or 0))]
+    if hasattr(engine,'_settle_deadlines'):
+        engine._settle_deadlines={key:value for key,value in engine._settle_deadlines.items() if key in active_keys}
     batch = pending[:max_records] if max_records is not None else pending
     return {"pending": [(record, {key: reports.get(record.get("record_id"), {}).get(key)
-                                 for key in ("first_attempt_at", "revision")}) for record in batch],
+                                 for key in ("first_attempt_at", "revision", "retry_timing")}) for record in batch],
             "periodic": periodic_when_idle and not unfinished, "projection_recovery": recovery,
             "now": now, "retry_seconds": retry_seconds, "retry_interval": retry_interval}, history
 
@@ -1732,6 +1738,7 @@ def run_once(
         atomic_write_text(output / "latest.json", json.dumps(recovery["latest"], indent=2, sort_keys=True) + "\n")
     for record, previous in plan["pending"]:
         attempted_at = engine.clock()
+        attempted_elapsed = scheduling.elapsed(engine)
         if analyzer is None:
             observed = observation_time(record)
             prior = [item for item in history if observed is not None
@@ -1743,16 +1750,20 @@ def run_once(
         if first_attempt is None:
             first_attempt = attempted_at
         completed_at = engine.clock()
+        completed_elapsed = scheduling.elapsed(engine)
+        first_elapsed = scheduling.retry_state(engine,previous).get('first_attempt',attempted_elapsed)
         query_incomplete = any(source.startswith(("prometheus:", "threefs:"))
                                for source in report["missing_sources"])
         retryable = (report["verdict"] == "insufficient_data" or query_incomplete) and (
             "step_event_time" not in report["missing_sources"])
         provisional = (retryable and not finalize_pending and plan["retry_seconds"] > 0
-                       and completed_at < first_attempt + plan["retry_seconds"])
+                       and completed_elapsed < first_elapsed + plan["retry_seconds"])
         report.update({"analysis_status": "provisional" if provisional else "final",
                        "revision": int(previous.get("revision") or 0) + 1,
                        "first_attempt_at": first_attempt,
-                       "retry_at": min(completed_at + plan["retry_interval"], first_attempt + plan["retry_seconds"]) if provisional else None})
+                       "retry_at": completed_at+max(0,min(plan['retry_interval'],first_elapsed+plan['retry_seconds']-completed_elapsed)) if provisional else None,
+                       "retry_timing":{'clock_id':getattr(engine,'elapsed_clock_id',None),'first_attempt':first_elapsed,
+                           'retry_at':min(completed_elapsed+plan['retry_interval'],first_elapsed+plan['retry_seconds']) if provisional else None}})
         write_report(output, report)
     if plan["periodic"]:
         write_report(output, analyzer.analyze(None, history_path) if analyzer is not None else engine.analyze(None, history))

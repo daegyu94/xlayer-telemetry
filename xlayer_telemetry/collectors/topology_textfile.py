@@ -18,6 +18,7 @@ from xlayer_telemetry.topology_validation import (
     declared_mapping,
     read_topology_file,
     valid_component_id,
+    valid_topology_label,
     validate_topology_payload,
 )
 
@@ -44,6 +45,8 @@ def build_gauges(directory: Path) -> list[GaugeSample]:
     gauges = []
     seen = set()
     def add(name: str, help: str, labels: dict[str, str]) -> None:
+        if not all(valid_topology_label(value) for value in labels.values()):
+            return
         identity = (name, tuple(sorted(labels.items())))
         if identity not in seen:
             gauges.append(GaugeSample(name, help, 1, labels))
@@ -69,7 +72,7 @@ def build_gauges(directory: Path) -> list[GaugeSample]:
         mappings = {}
         for component in components:
             if isinstance(component, dict) and isinstance(component.get('id'), str):
-                mappings.setdefault(component['id'], set()).add(tuple(str(component.get(key, ''))
+                mappings.setdefault(component['id'], set()).add(tuple(component.get(key,'') if isinstance(component.get(key,''),str) else None
                     for key in ('role', *MAPPING_FIELDS)))
         for component in components:
             if (not isinstance(component, dict) or not valid_component_id(component.get("id"))
