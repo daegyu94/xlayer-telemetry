@@ -1,3 +1,4 @@
+import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} from './completed-steps';
 import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
 import {relatedPanels} from './related-panels';
@@ -647,14 +648,10 @@ function ShellView({ model }: { model: Shell }) {
     if (state.selectedCell && state.selectedCell.contextKey !== contextKey)
       model.setState({ selectedCell: undefined });
   }, [model, contextKey, state.selectedCell]);
-  const literalMatches=(values:string[]|undefined,value:unknown)=>!values?.length||values.some(v=>v==='.*'||v==='$__all')||values.includes(String(value));
-  const requested=[...steps,...summaries].filter(row=>!row.identity_conflict&&row.record_id===record&&
-    literalMatches(context.variables.cluster,row.cluster)&&literalMatches(context.variables.run_id,row.run_id));
-  const requestedIdentities=new Set(requested.map(row=>JSON.stringify([row.cluster,row.run_id,row.observer_node,row.node,row.record_id,row.window_start_ms,row.window_end_ms])));
   const summaryEntities=new Set(summaries.filter(row=>!row.identity_conflict).map(row=>JSON.stringify([row.cluster,row.run_id,row.observer_node,row.node,row.worker_id])));
-  const selected=requestedIdentities.size===1?requested[0]:
-    state.page==='overview'&&!record?.match(/[^.*]/)&&summaryEntities.size===1?
-      [...summaries].filter(row=>!row.identity_conflict).sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms))[0]:undefined;
+  const selected=requestedStep([...steps,...summaries],context)||
+    (state.page==='overview'&&!record?.match(/[^.*]/)&&summaryEntities.size===1?
+      [...summaries].filter(row=>!row.identity_conflict).sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms))[0]:undefined);
   const matching = (rows: RecordRow[]) => stepProjection(rows,selected,summaries);
   const boundary=boundaryPresentation(selected);
   const comparisonMeta=matching(summaries)[0];
@@ -807,8 +804,7 @@ function ShellView({ model }: { model: Shell }) {
                     ? reportedRollout(
                         steps.find(
                           (s) =>
-                            s.record_id === selected?.record_id &&
-                            s.run_id === selected?.run_id,
+                            completedStepKey(s) === completedStepKey(selected),
                         ),
                       )
                     : undefined
@@ -1217,73 +1213,11 @@ function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:
  const data=useData(panel.state.$data),result=nativeHighlight(data);
  return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entity · Node / Device를 선택하세요`:'반환된 최신 query evaluation입니다. Source scope를 유지합니다.'}</small><small>이 summary만으로 producer freshness가 확인되지는 않습니다.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</small></article>;
 }
-function Steps({
-  rows,
-  selected,
-  context,
-  onSelect,
-  limit = 8,
-}: {
-  rows: RecordRow[];
-  selected?: RecordRow;
-  context: Context;
-  onSelect: (c: Context) => void;
-  limit?: number;
-}) {
-  const unique = [
-    ...new Map(rows.map((r) => [String(r.record_id), r])).values(),
-  ].filter(
-    (r) =>
-      numeric(r.window_start_ms) !== undefined &&
-      numeric(r.window_end_ms)! > numeric(r.window_start_ms)!,
-  );
-  const multipleRuns = new Set(unique.map(row => String(row.run_id))).size > 1;
-  return (
-    <div className="xlt-scroll">
-      <table>
-        <thead>
-          <tr>
-            {multipleRuns && <th scope="col">Run</th>}
-            <th scope="col">Step</th>
-            <th scope="col">Duration</th>
-            <th scope="col">Boundary</th>
-            <th scope="col">Observer / worker</th>
-            <th scope="col">Next</th>
-          </tr>
-        </thead>
-        <tbody>
-          {unique
-            .sort((a, b) => Number(b.window_end_ms) - Number(a.window_end_ms))
-            .slice(0, limit)
-            .map((r) => (
-              <tr
-                key={String(r.record_id)}
-                aria-selected={r.record_id === selected?.record_id}
-              >
-                {multipleRuns && <td>{scalar(r.run_id)}</td>}
-                <td>{scalar(r.step)}</td>
-                <td>{format(r.step_duration_seconds, "s")}</td>
-                <td>{scalar(r.boundary_accuracy)}</td>
-                <td>
-                  {scalar(r.observer_node || r.node)} / {scalar(r.worker_id)}
-                </td>
-                <td>
-                  <button onClick={() => onSelect(selectStep(r, context))}>
-                    Analyze Step {scalar(r.step)} →
-                  </button>
-                </td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-      {!unique.length && (
-        <p className="xlt-empty">
-          이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.
-        </p>
-      )}
-    </div>
-  );
+function Steps({rows,selected,context,onSelect,limit=8}:{rows:RecordRow[];selected?:RecordRow;context:Context;
+ onSelect:(context:Context)=>void;limit?:number}){
+  return <CompletedStepsTable rows={rows} selected={selected} context={context} onSelect={onSelect} limit={limit} format={format}/>;
 }
+
 function Kpi({
   spec,
   provider,
@@ -1905,12 +1839,12 @@ function RelatedTabs({panels,labels}:{panels:VizPanel[];labels:string[]}){const[
 
 function RunContext({model,selected,steps,context,policySamples,activeWorkloads,onStep}:{model:Shell;selected?:RecordRow;steps:RecordRow[];context:Context;policySamples:import('./semantics').Sample[];activeWorkloads:import('./semantics').Sample[];onStep:(row:RecordRow)=>void}){
   const range=sceneGraph.getTimeRange(model);const rangeState=range.useState();
-  const choices=[...new Map([...steps,...(selected?[selected]:[])].map(r=>[String(r.record_id),r])).values()].sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms)).slice(0,40);
   const control=(name:string)=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper variable={variable} showAlways layout="vertical"/>:null;};
   return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
-      <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">완료된 Observation을 선택하세요</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
+      <CompletedStepSelect rows={steps} selected={selected} label={boundaryPresentation(selected).label}
+        optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>

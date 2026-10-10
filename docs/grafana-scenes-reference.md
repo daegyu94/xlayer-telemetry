@@ -29,7 +29,7 @@ Query contract는 dashboard에 한 번만 정의합니다. App에는 panel ID/re
 | 3FS / ClickHouse | 기존 diagnosis가 조회한 shared-service evidence. App의 직접 ClickHouse query는 없음 |
 
 - Run은 `run_id`, 관측한 node는 `source_node`, resource node는 `node`로 구분합니다.
-- 완료 Step은 `record_id`와 저장된 실제 window로 선택합니다.
+- 완료 Step의 목록·dropdown은 Cluster·Run·observer·`record_id`·실제 window의 복합 identity를 사용합니다. Dropdown에서 Cluster를 함께 확인하며 저장된 `record_id`와 기존 URL 형식은 유지합니다. 여러 관측을 구분하지 못하는 legacy 링크는 임의로 선택하지 않습니다.
 - `candidate_id`는 Deep Dive workspace에 보존합니다. 다른 Step을 선택하면 기존 candidate 선택을 지웁니다.
 - Static Grafana sidebar 링크보다 context를 전달하는 App navigation을 사용합니다.
 

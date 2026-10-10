@@ -138,6 +138,8 @@ def run(args):
                     '--mockup',str(SCRIPTS.parent/'design/topology-compact.html'),'--require-contrast',
                     *(['--browser',args.browser] if args.browser else [])]
                 validators += (design,readability)
+                validators += ([sys.executable,str(SCRIPTS/'cluster_steps_validate.py'),'--state',str(args.state),
+                    '--output',str(args.output/'cluster-steps'),*(['--browser',args.browser] if args.browser else [])],)
                 # Reuse this stack for saved-artifact/retention comparisons.
                 explorer=ROOT/'examples/investigation/validate_app_ux.py'
                 subprocess.run([sys.executable,str(explorer),'--fixture-root',str(args.state/'saved-run-fixtures'),

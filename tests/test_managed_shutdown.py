@@ -25,7 +25,9 @@ def _stubborn_exporter(tmp_path):
     exporter.write_text(f"#!{sys.executable}\n"
         "import os, signal, time\n"
         "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
-        f"open({str(marker)!r}, 'w').write(str(os.getpid()))\n"
+        "from pathlib import Path\n"
+        f"marker=Path({str(marker)!r}); temporary=marker.with_suffix('.tmp')\n"
+        "temporary.write_text(str(os.getpid())); temporary.replace(marker)\n"
         "while True: time.sleep(60)\n")
     exporter.chmod(0o755)
     return tools, marker

@@ -179,8 +179,8 @@ def main():
                     page.keyboard.press('Escape'); page.keyboard.press('Tab')
                     page.wait_for_function('(run)=>new URLSearchParams(location.search).getAll("var-run_id").join()===run', arg=run)
                 step=page.get_by_role('combobox', name='Completed Step')
-                step.locator('option[value="' + reports[run]['trigger_record_id'] + '"]').wait_for(state='attached', timeout=30000)
-                step.select_option(reports[run]['trigger_record_id'])
+                step.locator('option[data-record-id="' + reports[run]['trigger_record_id'] + '"]').wait_for(state='attached', timeout=30000)
+                step.select_option(step.locator('option[data-record-id="'+reports[run]['trigger_record_id']+'"]').get_attribute('value'))
                 if run == 'demo-deepseek':
                     decision = page.locator('details').filter(has=page.get_by_text('Reported Async Trainer Decision', exact=True))
                     decision.locator('summary').click()
