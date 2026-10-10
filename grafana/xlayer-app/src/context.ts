@@ -33,6 +33,9 @@ export const VARIABLE_NAMES = [
   "training_max_age",
   "infra_component",
   "workload",
+  "compare_run_a",
+  "compare_run_b",
+  "run_search",
 ] as const;
 export type VariableName = (typeof VARIABLE_NAMES)[number];
 export type Context = {

@@ -24,6 +24,14 @@ import {
   Context,
 } from "./context";
 import { Sample } from "./semantics";
+import {preserveIdentity} from './identity-variable';
+
+class IdentityQueryVariable extends QueryVariable {
+  protected interceptStateUpdateAfterValidation(update:any){
+    super.interceptStateUpdateAfterValidation(update);
+    preserveIdentity(this.state.name,this.state.value,this.state.text,update);
+  }
+}
 
 // Dashboard JSON is the query/units/source contract. This app contains no PromQL,
 // LogQL or datasource UID defaults; it reads the provisioned, potentially remapped copy.
@@ -137,7 +145,8 @@ export function variables(
   return new SceneVariableSet({
     variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker").map((name) => {
       const definition = definitions.get(name);
-      const selected = context.variables[name];
+      const rawSelected = context.variables[name];
+      const selected = definitions.get(name)?.includeAll&&rawSelected?.some(value=>value==='.*')?['$__all']:rawSelected;
       const visible = ["cluster", "run_id", "source_node", "node"].includes(
         name,
       );
@@ -173,7 +182,7 @@ export function variables(
       };
       delete state.current;
       delete state.options;
-      if (definition.type === "query") return new QueryVariable(state);
+      if (definition.type === "query") return new IdentityQueryVariable(state);
       if (definition.type === "custom") return new CustomVariable(state);
       return new TextBoxVariable({ ...state, value: String(state.value) });
     }),

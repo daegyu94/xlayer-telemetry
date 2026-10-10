@@ -4,7 +4,7 @@ import {Context, appLink} from './context';
 import {WORKSPACE_PAGES} from './navigation';
 
 type Entry={route:string;title:string};
-const icons:Record<string,any>={overview:'apps',analyze:'table',investigate:'search',timeline:'history','deep-dive':'dashboard',infrastructure:'sitemap',logs:'file-alt','start-here':'rocket','stage-correlation':'layers','bottleneck-summary':'list-ul',compute:'monitor',storage:'database',signals:'chart-line'};
+const icons:Record<string,any>={overview:'apps',analyze:'table',investigate:'search',timeline:'history','deep-dive':'dashboard',infrastructure:'sitemap',logs:'file-alt',runs:'history','start-here':'rocket','stage-correlation':'layers','bottleneck-summary':'list-ul',compute:'monitor',storage:'database',signals:'chart-line'};
 
 export function DashboardChrome({page,context,nativePages,contextBar,children,onNavigate,onTheme}:{page:string;context:Context;nativePages:readonly Entry[];contextBar:React.ReactNode;children:React.ReactNode;onNavigate:(route:string)=>void;onTheme:()=>void}){
  const [open,setOpen]=useState(false);const theme=useTheme2();

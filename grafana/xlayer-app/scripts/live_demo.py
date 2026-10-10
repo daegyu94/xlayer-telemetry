@@ -69,6 +69,7 @@ def main():
     modes.add_argument('--multi-worker', action='store_true',
                         help='Opt-in controlled rollout spans on four workers with one explicit synthetic outlier')
     parser.add_argument('--storage-series',action='store_true',help='Explicit synthetic 3FS collection points, sparse report coverage and no clock attribution')
+    parser.add_argument('--app-package',type=Path,help='Install a checksum-verified local package into this isolated demo')
     args = parser.parse_args()
     if args.multi_job and args.storage_series:
         parser.error('--multi-job uses actual diagnosis queries and does not inject --storage-series fixtures')
@@ -172,8 +173,14 @@ datasources:
 ''')
         (provisioning/'dashboards/local.yaml').write_text(f'apiVersion: 1\nproviders:\n  - name: XLayer Scenes demo\n    type: file\n    options:\n      path: {dashboards}\n')
         (provisioning/'plugins/local.yaml').write_text('apiVersion: 1\napps:\n  - type: xlayer-telemetry-app\n    org_id: 1\n    disabled: false\n')
-        plugin_dir=args.output/'plugins';plugin_dir.mkdir()
-        (plugin_dir/'xlayer-telemetry-app').symlink_to(ROOT/'grafana/xlayer-app/dist',target_is_directory=True)
+        if args.app_package:
+            from xlayer_telemetry.operations.app import install_package,checksum
+            install_package({'SERVER_OUTPUT_DIR':str(args.output),'TOOLS_DIR':str(args.tools),'GRAFANA_URL':'http://127.0.0.1:1'},
+                args.app_package,checksum(args.app_package),allow_unsigned=True)
+            plugin_dir=args.output/'grafana-plugins'
+        else:
+            plugin_dir=args.output/'plugins';plugin_dir.mkdir()
+            (plugin_dir/'xlayer-telemetry-app').symlink_to(ROOT/'grafana/xlayer-app/dist',target_is_directory=True)
         grafana_home = args.tools/'grafana-v12.1.0'
         env={**os.environ,'GF_PATHS_DATA':str(args.output/'grafana'),'GF_PATHS_LOGS':str(args.output/'grafana-logs'),
              'GF_PATHS_PROVISIONING':str(provisioning),'GF_PATHS_PLUGINS':str(plugin_dir),

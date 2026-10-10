@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "loops": 3,
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "desktop": 1440,
+  "mobile": 390,
+  "browser_errors": [],
+  "scope": "CPU synthetic artifacts and actual Grafana; no physical cluster",
+  "grafana_version": "12.1.0",
+  "scenes_version": "6.20.0",
+  "frontend_tests": 144,
+  "python310_feature_tests": 30,
+  "existing_journey": {
+    "browser_errors": 0,
+    "native_step_window_requests": "22/22"
+  },
+  "installer": {
+    "local_package_install": "passed",
+    "hot_update_status": "ready",
+    "rollback": "passed",
+    "isolated_build": "passed",
+    "prebuilt_ci": "contract regression passed; old successful main package withheld, current checkout built",
+    "production_signing": "not performed"
+  },
+  "limitations": [
+    "No physical GPU/multinode/veRL/3FS verification",
+    "Saved catalog publication is explicit; remote artifacts are not automatically fetched",
+    "Fingerprint matches declared/recorded fields, not complete workload equality or resource ownership"
+  ],
+  "cpu_regression": {
+    "passed": 1730,
+    "skipped_clickhouse": 6
+  },
+  "cleanup": "owned temporary processes and data removed"
+}

@@ -1,0 +1,210 @@
+{
+  "a": {
+    "key": "d0331a55571f6e29d0ae9208",
+    "run_id": "a",
+    "cluster": "lab",
+    "observer_node": "gpu-a",
+    "model": "Qwen",
+    "execution_mode": "sync",
+    "fingerprint": "batch-v1",
+    "steps": 1,
+    "average_step": 10.0,
+    "from": 100000.0,
+    "to": 110000.0,
+    "status": "reported_completed",
+    "status_recorded_at": null,
+    "quality": "complete",
+    "metrics": [
+      {
+        "metric": "step_duration_seconds",
+        "unit": "s",
+        "value": 10.0,
+        "scope": "application",
+        "statistic": "mean_recorded_duration",
+        "entity": {
+          "boundary_scope": "rl_step",
+          "execution_mode": "sync",
+          "local_rank": null,
+          "node": "gpu-a",
+          "producer": null,
+          "rank": null,
+          "role": null,
+          "worker_id": "driver"
+        },
+        "count": 1,
+        "accuracy": "approximate",
+        "quality": "complete",
+        "workload_shapes": [
+          {
+            "fields": {
+              "perf/total_num_tokens": 100
+            },
+            "fraction": "1"
+          }
+        ],
+        "workload_observed": true,
+        "clock": "local_reported_duration"
+      },
+      {
+        "metric": "stage:rollout",
+        "unit": "s",
+        "value": 8.0,
+        "scope": "application",
+        "statistic": "mean_recorded_duration",
+        "entity": {
+          "boundary_scope": "rl_step",
+          "execution_mode": "sync",
+          "local_rank": null,
+          "node": "gpu-a",
+          "producer": null,
+          "rank": null,
+          "role": null,
+          "worker_id": "driver"
+        },
+        "count": 1,
+        "accuracy": "approximate",
+        "quality": "complete",
+        "workload_shapes": [
+          {
+            "fields": {
+              "perf/total_num_tokens": 100
+            },
+            "fraction": "1"
+          }
+        ],
+        "workload_observed": true,
+        "clock": "local_reported_duration"
+      }
+    ],
+    "data_origin": "synthetic",
+    "source": "stored_artifact",
+    "selected_step": {
+      "record_id": "a-step",
+      "step": 1,
+      "window_start_ms": 100000,
+      "window_end_ms": 110000,
+      "node": "gpu-a",
+      "worker_id": "driver",
+      "boundary_scope": "rl_step"
+    },
+    "limitations": [
+      "Recorded status is not a live process check. Shared resources are not run-owned.",
+      "Resource values describe the last saved diagnosis window, not a run average."
+    ]
+  },
+  "b": {
+    "key": "c673b58c7cfd67c5d0509f33",
+    "run_id": "b",
+    "cluster": "lab",
+    "observer_node": "gpu-a",
+    "model": "Qwen",
+    "execution_mode": "sync",
+    "fingerprint": "batch-v1",
+    "steps": 1,
+    "average_step": 15.0,
+    "from": 100000.0,
+    "to": 115000.0,
+    "status": "reported_completed",
+    "status_recorded_at": null,
+    "quality": "complete",
+    "metrics": [
+      {
+        "metric": "step_duration_seconds",
+        "unit": "s",
+        "value": 15.0,
+        "scope": "application",
+        "statistic": "mean_recorded_duration",
+        "entity": {
+          "boundary_scope": "rl_step",
+          "execution_mode": "sync",
+          "local_rank": null,
+          "node": "gpu-a",
+          "producer": null,
+          "rank": null,
+          "role": null,
+          "worker_id": "driver"
+        },
+        "count": 1,
+        "accuracy": "approximate",
+        "quality": "complete",
+        "workload_shapes": [
+          {
+            "fields": {
+              "perf/total_num_tokens": 100
+            },
+            "fraction": "1"
+          }
+        ],
+        "workload_observed": true,
+        "clock": "local_reported_duration"
+      },
+      {
+        "metric": "stage:rollout",
+        "unit": "s",
+        "value": 8.0,
+        "scope": "application",
+        "statistic": "mean_recorded_duration",
+        "entity": {
+          "boundary_scope": "rl_step",
+          "execution_mode": "sync",
+          "local_rank": null,
+          "node": "gpu-a",
+          "producer": null,
+          "rank": null,
+          "role": null,
+          "worker_id": "driver"
+        },
+        "count": 1,
+        "accuracy": "approximate",
+        "quality": "complete",
+        "workload_shapes": [
+          {
+            "fields": {
+              "perf/total_num_tokens": 100
+            },
+            "fraction": "1"
+          }
+        ],
+        "workload_observed": true,
+        "clock": "local_reported_duration"
+      }
+    ],
+    "data_origin": "synthetic",
+    "source": "stored_artifact",
+    "selected_step": {
+      "record_id": "b-step",
+      "step": 1,
+      "window_start_ms": 100000,
+      "window_end_ms": 115000,
+      "node": "gpu-a",
+      "worker_id": "driver",
+      "boundary_scope": "rl_step"
+    },
+    "limitations": [
+      "Recorded status is not a live process check. Shared resources are not run-owned.",
+      "Resource values describe the last saved diagnosis window, not a run average."
+    ]
+  },
+  "expected": {
+    "comparability": "Verified",
+    "reasons": [],
+    "metrics": [
+      {
+        "metric": "step_duration_seconds",
+        "a": 10.0,
+        "b": 15.0,
+        "delta": 5.0,
+        "delta_percent": 50.0,
+        "reasons": []
+      },
+      {
+        "metric": "stage:rollout",
+        "a": 8.0,
+        "b": 8.0,
+        "delta": 0.0,
+        "delta_percent": 0.0,
+        "reasons": []
+      }
+    ]
+  }
+}

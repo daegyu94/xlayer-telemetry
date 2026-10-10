@@ -1,6 +1,6 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. 7개 Workspace 화면과 6개 Native Dashboard 화면이 공통 sidebar·Light/Dark 배색을 사용합니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. 8개 Workspace 화면과 6개 Native Dashboard 화면이 공통 sidebar·Light/Dark 배색을 사용합니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
@@ -16,11 +16,13 @@ Timeline·Infrastructure·Logs & Events도 Workspace navigation에서 선택합�
 ## 준비
 
 - Grafana **12.1.0**에서 검증합니다. Manifest의 최소 버전과 다른 버전의 실제 호환성 검증은 구분합니다.
-- Node 20 이상, npm. Python core runtime에는 npm dependency가 추가되지 않습니다.
+- CI prebuilt ZIP + SHA256 또는 checkout + Node 20 이상·npm. Python core runtime에는 npm dependency가 추가되지 않습니다.
 - 기존 XLayer dashboard를 `scripts/provision_dashboards.py`로 provision합니다.
 - Prometheus는 core입니다. Loki Step/span/diagnosis는 optional입니다.
 
 ## Build / test
+
+일반 설치는 `xltel app install --allow-unsigned`·`xltel app status`·`xltel app update --allow-unsigned`를 사용합니다. Unsigned flag는 격리 PoC 전용이며, 운영용 signed package·external Grafana·rollback은 [배포 Reference](../../docs/app-deployment-reference.md#설치--상태--update)를 따릅니다. 아래 명령은 frontend 개발용입니다.
 
 ```bash
 cd grafana/xlayer-app

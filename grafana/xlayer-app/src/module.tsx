@@ -75,6 +75,7 @@ import { replicaRows } from './replicas';
 import { tableRows } from './data';
 import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './infrastructure';
 import { InfrastructureView } from './InfrastructureView';
+import {RunExplorerView} from './RunExplorerView';
 import {displaySummary,displayUiNote} from './ui-copy';
 
 function AsyncDecision({summary}:{summary?:RecordRow}) {
@@ -331,7 +332,8 @@ function makeScene(page: Page, catalog: Catalog) {
   });
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel))});}
-  const resourcePage=!!nativePage||page==='infrastructure'||page==='logs';
+  const resourcePage=!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
+  if(page==='runs')body.setState({steps:query('overview',20)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
     body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
@@ -716,7 +718,7 @@ function ShellView({ model }: { model: Shell }) {
                   ? `${boundary.label} Investigation`
                   : state.page === "timeline"
                     ? "Follow the same interval"
-                  : state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
+                  : state.page==='runs'?'Run Explorer':state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
           <p className="xlt-page-description">{WORKSPACE_PAGES.find(p=>p.route===state.page)?.description}</p>
           {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · Run metadata에 보고된 값입니다. 실제 weights/runtime은 검증되지 않았습니다.</p>}
@@ -781,6 +783,7 @@ function ShellView({ model }: { model: Shell }) {
           })}
         </div>
       </details>
+      {state.page==='runs'&&<RunExplorerView context={context} steps={steps} liveState={stepData?.state} timeWindow={{from:sceneGraph.getTimeRange(model).state.value.from.valueOf(),to:sceneGraph.getTimeRange(model).state.value.to.valueOf()}}/>}
       {state.page === "overview" && (
         <>
           {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. 이력 누락을 정상 상태로 해석하지 않습니다.</p>}

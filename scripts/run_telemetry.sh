@@ -576,6 +576,12 @@ EOF
   export GF_PLUGINS_PREINSTALL_DISABLED="${GF_PLUGINS_PREINSTALL_DISABLED:-true}"
   export GF_PATHS_PLUGINS="$output_dir/grafana-plugins"
   export GF_PATHS_PROVISIONING="$output_dir/provisioning"
+  # Installer receipt opts in to this unsigned App only. Keep an existing
+  # operator allowlist intact; never disable Grafana signature verification.
+  app_allowlist="$("${PYTHON:-python3}" -c 'from pathlib import Path; import sys; from xlayer_telemetry.operations.app import unsigned_allowed; print(unsigned_allowed(Path(sys.argv[1])))' "$output_dir")"
+  if [[ -n "$app_allowlist" ]]; then
+    export GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="${GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS:+$GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS,}$app_allowlist"
+  fi
   export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="${GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH:-$output_dir/dashboards/run-overview.json}"
   "$tools_dir/grafana-v12.1.0/bin/grafana" server \
     --homepath="$tools_dir/grafana-v12.1.0" > "$output_dir/grafana.log" 2>&1 &

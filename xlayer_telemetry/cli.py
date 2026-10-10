@@ -38,6 +38,38 @@ def parser() -> argparse.ArgumentParser:
     cluster_render.add_argument("--inventory", type=Path, required=True)
     cluster_render.add_argument("--output", type=Path, required=True)
     cluster_render.add_argument("--json", action="store_true")
+    app = commands.add_parser('app', help='Install, inspect or update the existing Grafana App')
+    app_sub = app.add_subparsers(dest='app_action', required=True)
+    for action in ('install','status','update','rollback'):
+        command = app_sub.add_parser(action)
+        command.add_argument('--json', action='store_true')
+        command.add_argument('--external', action='store_true', help='Use explicit existing external Grafana paths; never manage its process')
+        command.add_argument('--plugins-dir', type=Path)
+        command.add_argument('--provisioning-dir', type=Path)
+        if action != 'status':
+            command.add_argument('--restart', action='store_true', help='Explicitly restart owned managed server services; external Grafana is never restarted')
+        if action in ('install','update'):
+            command.add_argument('--package', type=Path, help='Prebuilt plugin ZIP; matching .sha256 required unless --sha256 is supplied')
+            command.add_argument('--sha256')
+            command.add_argument('--build', action='store_true', help='Build/test in an isolated checkout copy instead of using validated CI artifacts')
+            command.add_argument('--allow-unsigned', action='store_true', help='Explicit isolated PoC opt-in for this App ID only; not production signing')
+    runs = commands.add_parser('runs', help='Search and compare saved Run artifacts, independent of backend retention')
+    runs_sub = runs.add_subparsers(dest='runs_action', required=True)
+    for action in ('list','compare','publish'):
+        command = runs_sub.add_parser(action)
+        command.add_argument('--root', type=Path, help='Artifact parent or a single saved Run; defaults to TELEMETRY_RUNS_ROOT')
+        command.add_argument('--json', action='store_true')
+        if action=='list':
+            command.add_argument('--search', default='')
+            command.add_argument('--model')
+            command.add_argument('--status')
+            command.add_argument('--after',help='Recorded time filter: ISO8601 with timezone')
+            command.add_argument('--before',help='Recorded time filter: ISO8601 with timezone')
+        elif action=='compare':
+            command.add_argument('run_a')
+            command.add_argument('run_b')
+        else:
+            command.add_argument('--output', type=Path, help='Existing Grafana dashboard provisioning directory')
     commands.add_parser("init", help="Create local config without overwriting existing settings")
     for action, help_text in (("up", "Start the managed monitoring stack"),
                               ("down", "Stop only this config's managed telemetry processes"),
@@ -59,6 +91,8 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--run-id", help="Unique run ID (default: generated for each run)")
     run.add_argument("--output", type=Path, help="Run artifact directory; cannot contain an earlier run")
     run.add_argument("--node", help="Logical collector node name")
+    run.add_argument('--model',help='Explicit Run metadata only; does not configure framework weights')
+    run.add_argument('--workload-fingerprint',help='Explicit comparison cohort identifier; not proof of full workload equivalence')
     run.add_argument("command", nargs=argparse.REMAINDER, help="Workload argv after --; otherwise VERL_COMMAND array")
     inspect = commands.add_parser("inspect", help="Inspect saved artifacts, not current service health")
     inspect.add_argument("run", nargs="?", help="Run ID or directory (default: configured/latest run)")
@@ -154,6 +188,11 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
             "--execution-mode", config["EXECUTION_MODE"],
             "--set", "cluster=" + config["CLUSTER_NAME"],
             "--set", "observer_node=" + config["NODE_NAME"]]
+    for option,key in (('model','model_identifier'),('workload_fingerprint','workload_fingerprint')):
+        value=getattr(args,option,None)
+        if value is not None:
+            if not value or len(value)>256 or any(ord(c)<32 for c in value):raise ConfigError('Run metadata must be a nonempty printable string of at most 256 characters.')
+            argv.extend(['--set',key+'='+value])
     if config.get("DIAGNOSTICS_CONFIG"):
         argv.extend(["--diagnostics-config", config["DIAGNOSTICS_CONFIG"]])
     argv.extend(["--", *command])
@@ -199,6 +238,80 @@ def execute(args) -> int:
     config, command = load_config(path)
     if args.verbose:
         print(f"Config: {path}\nRuntime assets: {assets_root()}", file=sys.stderr)
+    if args.action == 'app':
+        from .operations import app
+        paths = {'external':args.external,'plugins_dir':args.plugins_dir,'provisioning_dir':args.provisioning_dir}
+        if not args.external and (args.plugins_dir or args.provisioning_dir):
+            raise ConfigError('Explicit Grafana paths require --external; managed paths come from this config.')
+        if args.app_action != 'status' and args.restart and args.external:
+            raise ConfigError('External Grafana is never restarted by xltel. Use its existing service/deployment procedure.')
+        if args.app_action in ('install','update'):
+            with app.package_source(config, package=args.package, sha256=args.sha256, build=args.build) as (package,digest,source):
+                result = app.install_package(config,package,digest,allow_unsigned=args.allow_unsigned,
+                                             update=args.app_action=='update',**paths)
+                result = {**result,'source':source}
+        elif args.app_action=='rollback': result = app.rollback(config,**paths)
+        else: result = app.status(config,**paths)
+        if args.app_action in ('install','update') and not args.restart:
+            observed=app.status(config,**paths)
+            if observed['status']=='ready':result={**result,**observed}
+        if getattr(args,'restart',False) and result.get('changed'):
+            code = _launch(config,'down','server')
+            if not code: code = _launch(config,'up','server')
+            if code:
+                if args.app_action=='update':
+                    app.rollback(config,**paths)
+                    _launch(config,'up','server')
+                raise ConfigError('Managed activation failed; update rollback was attempted. Inspect this server config’s logs before retrying.')
+            result = app.status(config,**paths)
+        if args.json: print(json.dumps(result,indent=2,ensure_ascii=False))
+        else:
+            print('XLayer Telemetry App')
+            for check in result.get('checks',[]): print(f"[{check['status'].upper()}] {check['component']}: {check['detail']}")
+            print('Status: '+result['status'])
+            if result.get('action') and result['status']=='needs_attention':print('Action: '+result['action'])
+            if result.get('source'):print('Source: '+result['source'])
+            if result.get('dashboard'): print('Dashboard: '+result['dashboard'])
+            elif result['status']=='restart_required': print('Action: Restart Grafana with the existing lifecycle; managed: xltel restart --role server.')
+            print('Reference: docs/app-deployment-reference.md')
+        return 1 if result['status']=='needs_attention' else 0
+    if args.action == 'runs':
+        from .operations import runs
+        root = args.root or Path(config['TELEMETRY_RUNS_ROOT'])
+        if args.runs_action=='publish': result = runs.publish(root,args.output or Path(config['SERVER_OUTPUT_DIR'])/'dashboards')
+        else:
+            result = runs.catalog(root)
+            if args.runs_action=='compare':
+                selected=[]
+                for name in (args.run_a,args.run_b):
+                    matches=[row for row in result['runs'] if name in (row['run_id'],row['key'])]
+                    if len(matches)!=1: raise ConfigError('Run identity is missing or ambiguous. Use xltel runs list --json and select its exact key.')
+                    selected.append(matches[0])
+                result = runs.compare(*selected)
+            else:
+                def cutoff(value):
+                    if not value:return None
+                    try:
+                        parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
+                        if parsed.tzinfo is None:raise ValueError
+                        return parsed.timestamp()*1000
+                    except ValueError:raise ConfigError('Run time filters require ISO8601 with timezone, such as 2026-10-10T00:00:00Z.') from None
+                after,before=cutoff(args.after),cutoff(args.before)
+                if after is not None and before is not None and after>=before:raise ConfigError('--after must precede --before.')
+                result['runs']=[row for row in result['runs'] if args.search.lower() in (row['run_id']+' '+(row['model'] or '')).lower()
+                    and (not args.model or row['model']==args.model) and (not args.status or row['status']==args.status)
+                    and (after is None or row['to'] is not None and row['to']>=after)
+                    and (before is None or row['from'] is not None and row['from']<=before)]
+        if args.json: print(json.dumps(result,indent=2,ensure_ascii=False))
+        elif args.runs_action=='list':
+            print('Run ID                         Model                  Observations  Avg Step (s)  Recorded Status')
+            for row in result['runs']: print(f"{row['run_id']:<30} {(row['model'] or 'Unknown')[:22]:<22} {row['steps']:<13} {str(row['average_step'] if row['average_step'] is not None else 'N/A'):<13} {row['status']}")
+            if result['truncated']: print('[WARN] Catalog limit reached; select a smaller --root. Counts describe retained records, not total training steps.')
+        elif args.runs_action=='compare':
+            print('Comparability: '+result['comparability'])
+            for row in result['metrics']: print(f"{row['metric']}: {row['a']} → {row['b']} {row.get('unit') or ''}; change={row['delta_percent'] if row['delta_percent'] is not None else 'N/A'}% · {', '.join(row['reasons'])}")
+        else: print(f"Published {result['run_count']} saved Runs: {result['path']}\nOpen /a/xlayer-telemetry-app/runs. Source: stored artifact snapshot; refresh publication after new records.")
+        return 0
     if args.action == "config":
         if args.config_action == "show":
             visible = {key: value for key, value in config.items() if key in KEYS}
@@ -323,6 +436,8 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, "json", False):
             print(json.dumps({"status": "error", "error": message}))
         print(f"xltel: {message}", file=sys.stderr)
+        if getattr(exc,'action',None):print('Action: '+exc.action,file=sys.stderr)
+        if getattr(exc,'reference',None):print('Reference: '+exc.reference,file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         return 130

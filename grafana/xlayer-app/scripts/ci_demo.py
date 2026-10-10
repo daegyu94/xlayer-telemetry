@@ -131,6 +131,12 @@ def run(args):
                     '--mockup',str(SCRIPTS.parent/'design/topology-compact.html'),'--require-contrast',
                     *(['--browser',args.browser] if args.browser else [])]
                 validators += (design,readability)
+                # Reuse this stack for saved-artifact/retention comparisons.
+                explorer=ROOT/'examples/investigation/validate_app_ux.py'
+                subprocess.run([sys.executable,str(explorer),'--fixture-root',str(args.state/'saved-run-fixtures'),
+                    '--dashboard-output',str(args.state/'dashboards')],cwd=ROOT,check=True,timeout=20)
+                validators += ([sys.executable,str(explorer),'--url',connection['grafana'],'--output',str(args.output/'runs'),
+                    *(['--browser',args.browser] if args.browser else [])],)
             if args.multi_job:
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),

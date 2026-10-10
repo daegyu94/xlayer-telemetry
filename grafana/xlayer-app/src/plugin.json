@@ -80,6 +80,13 @@
       "path": "/a/xlayer-telemetry-app/logs",
       "addToNav": false,
       "role": "Viewer"
+    },
+    {
+      "type": "page",
+      "name": "Runs",
+      "path": "/a/xlayer-telemetry-app/runs",
+      "addToNav": false,
+      "role": "Viewer"
     }
   ]
 }

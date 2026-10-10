@@ -48,6 +48,8 @@ xltel down
 | `config` | `path`, `show`, `validate`, `migrate --output FILE.toml` |
 | `cluster validate` | `--inventory FILE.toml/FILE.json`, `--live`, `--correlation`, `--json` |
 | `cluster render` | `--inventory FILE`, `--output NEW_DIR`, `--json`; 기존 설정을 생성만 함 |
+| `app` | `install`, `status`, `update`, `rollback`; [package·signing·restart 경계](app-deployment-reference.md#설치--상태--update) |
+| `runs` | `list`, `compare RUN_A RUN_B`, `publish`; [검색·시간 filter·저장 artifact](run-comparison.md) |
 | `completion` | `bash\|zsh\|fish` |
 | `clock serve` | `--reference-id ID`, `--bind ADDRESS`, `--port PORT` |
 | `clock calibrate` | `--url URL`, `--reference-id ID`, `--node NODE`, `--file FILE` |

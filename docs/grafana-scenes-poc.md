@@ -13,6 +13,7 @@
 | Deep Dive | 선택한 candidate의 상세 metric·기존 subsystem dashboard |
 | Infrastructure | Configured GPU/Network/Storage topology·resource selection·collector evidence |
 | Logs & Events | 기존 node-local log query·recorded events; application Run과 log filter 구분 |
+| Runs | 현재 관측·저장 artifact 검색, comparison 조건과 공유 링크 |
 
 공식 UI는 하나의 **XLayer Telemetry Dashboard**입니다. UI 버전 전환은 제공하지 않으며 기존 `/overview`, `/analyze`, `/investigate`, `/deep-dive`, `/timeline` URL과 canonical Grafana dashboard UID를 유지합니다. Package/API 버전과 Sandbox 지원 범위의 V1 표기는 UI 버전이 아닙니다.
 
@@ -25,7 +26,7 @@ App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 pl
 ## 준비 조건
 
 - [Monitoring server](monitoring.md)와 기존 XLayer dashboard.
-- Node 20 이상·npm. Python core runtime에는 npm이 필요하지 않습니다.
+- Prebuilt ZIP/SHA256 또는 checkout + Node 20 이상·npm. Python core runtime에는 npm이 필요하지 않습니다.
 - Step·span·candidate를 보려면 [Loki](logs-events.md)와 [diagnosis](diagnosis.md). Metrics만 연결한 경우 이 영역은 unavailable로 표시됩니다.
 - Plugin을 설치할 Grafana의 설정·plugin directory 접근 권한.
 
@@ -56,32 +57,20 @@ Loki가 미설정이면 unavailable을 표시합니다. Empty response, query fa
 
 ## 1. Configure
 
-저장소 루트에서 plugin을 빌드합니다.
+기존 `xltel` config를 선택합니다. 격리 개발 Grafana의 unsigned PoC 설치를 한 명령으로 준비합니다.
 
 ```bash
-npm ci --prefix grafana/xlayer-app
-npm run build --prefix grafana/xlayer-app
+xltel app install --allow-unsigned
+xltel app status
 ```
 
-**정상 결과:** `grafana/xlayer-app/dist/`에 `plugin.json`·`module.js`·`img/logo.svg`가 생성됩니다.
-
-1. `dist/`의 내용을 Grafana plugin directory의 `xlayer-telemetry-app/`에 설치합니다.
-2. 격리 개발 환경에서 `plugins.allow_loading_unsigned_plugins = xlayer-telemetry-app`를 설정합니다.
-3. Grafana plugin provisioning에 다음 파일을 추가합니다.
-
-```yaml
-apiVersion: 1
-apps:
-  - type: xlayer-telemetry-app
-    org_id: 1
-    disabled: false
-```
-
-**정상 결과:** 설치한 plugin directory에서 `plugin.json`과 `module.js`를 읽을 수 있습니다. 운영 배포에는 [Grafana plugin signing](https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin)이 필요합니다.
+**정상 결과:** 검증한 plugin과 provisioning이 기존 managed 경로에 설치됩니다. CI prebuilt를 우선 사용하며 접근할 수 없으면 private checkout copy에서 build/test합니다. 활성화가 필요하면 `restart_required`, API와 served bundle이 확인되면 `ready`입니다. [External Grafana·signed package·update·rollback](app-deployment-reference.md#설치--상태--update)은 별도 조건을 확인합니다.
 
 ## 2. Start
 
 설정한 Grafana를 기존 배포 절차로 재시작하고 **More apps → XLayer Telemetry → Overview**를 엽니다.
+
+Managed restart가 필요하면 `xltel restart --role server`를 사용합니다. 이미 Ready이면 불필요한 재시작 없이 페이지를 새로고침합니다.
 
 **정상 결과:** `/a/xlayer-telemetry-app/overview`에서 상단 Run Context와 Workspace / Native Dashboards sidebar가 보입니다. 좁은 화면에서는 메뉴 버튼으로 navigation을 엽니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
 
@@ -95,6 +84,7 @@ apps:
 | 기존 Storage dashboard 열기 → Back | Run·Step·resource·시간 구간 유지 |
 | Light / Dark 전환 | Panel과 card 배색 변경; 선택된 investigation 유지 |
 | Infrastructure node / GPU / NIC / SSD 선택 | 선언된 resource identity와 cluster로 metric 조회; Run 소유권을 추정하지 않음 |
+| Runs → 두 실험 선택 | Metric별 조건·scope·보류 이유, 원래 Run/record/time으로 이동 |
 
 ```{admonition} Scope / Precision
 :class: important
@@ -103,6 +93,8 @@ Measured span 경계와 sampled resource 관측을 구분합니다. Shared resou
 ```
 
 ## 느린 Step 조사
+
+여러 실험의 탐색·artifact 게시·retention 이후 비교는 [Run Explorer & Comparison](run-comparison.md)을 사용합니다.
 
 1. **Overview:** KPI의 baseline 변화와 Timeline을 보고 완료 Step을 선택합니다.
 2. **Analyze:** Phase × Subsystem에서 숫자·상태를 확인합니다. 여러 rollout worker가 겹치면 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 의심 cell에서 evidence를 엽니다.

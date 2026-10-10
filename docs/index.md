@@ -91,6 +91,7 @@ Multi-node <multi-node>
 Slow Step Investigation <dashboards>
 Subsystem / Deep Dive <deep-dive>
 선택적 Grafana App <grafana-scenes-poc>
+Run Explorer / Comparison <run-comparison>
 ```
 
 ```{toctree}

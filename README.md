@@ -12,6 +12,7 @@ VERL 기반 Agent RL의 느린 Step을 GPU·vLLM·Ray·network·storage·sandbox
 | 기존 VERL 명령이 동작함 | [VERL 연결](docs/verl-quickstart.md) | 첫 완료 step·snapshot·telemetry health |
 | 자원 metric만 필요함 | [GPU & Host](docs/monitoring.md) | 등록한 collector target과 실제 metric |
 | 여러 Node를 등록해야 함 | [Cluster Inventory](docs/multi-node.md#1-configure) | 한 TOML/JSON에서 기존 설정 생성 → Offline/scrape/clock 검사 |
+| App 설치 / 여러 실험 비교 | [App 설치](docs/app-deployment-reference.md#설치--상태--update) · [Run Explorer](docs/run-comparison.md) | 검증한 package·저장 artifact·metric별 비교 조건 확인 |
 | Run이 느림 | [Slow Step Investigation](docs/dashboards.md) | Comparable baseline·candidate·같은 구간의 Timeline |
 | No data / 연결 오류 | [문제 해결 Runbook](docs/runbooks.md) | Process → source → age → filter 순서 점검 |
 

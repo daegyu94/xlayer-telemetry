@@ -12,7 +12,60 @@
 | 운영용 signature | Grafana가 발급한 `MANIFEST.txt` | 공식 절차 필요. 자동 발급·검증은 미구현 |
 | 운영 배포 | 기존 Grafana plugin directory·provisioning | 운영자 배포 절차 사용. Marketplace 자동 게시 없음 |
 
-## 개발용 package
+## 설치 / 상태 / Update
+
+일반 설치는 기존 `xltel` config를 선택한 뒤 실행합니다. 현재 archive는 unsigned PoC이며 production signing을 대신하지 않습니다.
+
+```bash
+# 격리 Managed Grafana PoC
+xltel app install --allow-unsigned
+xltel app status
+xltel app update --allow-unsigned
+xltel app rollback
+```
+
+**정상 결과:** 검증한 파일과 App provisioning을 준비합니다. 활성화가 필요하면 `restart_required`, 같은 bundle이면 `unchanged`, Grafana API·version·enabled state·실제 served module SHA256·signature policy·canonical datasource UID가 확인되면 `ready`입니다. Ready는 이 설치 검사 범위이며 datasource query health나 모든 Grafana 버전의 browser 호환성을 보증하지 않습니다.
+
+| Package 입력 | 동작 |
+| --- | --- |
+| 기본 | 현재 `main`과 같은 commit의 성공한 App CI artifact를 `gh`로 조회하고 ZIP/SHA256 검증 |
+| CI 접근 불가 | Checkout과 npm이 있으면 private temporary copy에서 ci·test·typecheck·build·package |
+| `--build` | CI 대신 격리 build 선택. 기존 `dist`·`node_modules`를 변경하지 않음 |
+| `--package FILE.zip` | `.zip.sha256` 또는 `--sha256 HEX`와 대조. ZIP traversal·duplicate·symlink·크기·ID 검증 |
+
+GitHub artifact 접근에는 `gh` 인증과 Actions read 권한이 필요할 수 있습니다. 현재 tag release나 Marketplace package를 제공한다고 주장하지 않습니다. CI artifact는 7일 retention이며 접근 불가·만료 시 local build 또는 명시한 package를 사용합니다. SHA256은 archive integrity이며 Grafana signature가 아닙니다.
+
+```bash
+xltel app install --package /path/to/app.zip --sha256 <sha256> --allow-unsigned
+# 명시한 경우만 기존 owned server lifecycle 재시작
+xltel app update --package /path/to/new-app.zip --sha256 <sha256> --allow-unsigned --restart
+```
+
+기본으로 process를 재시작하지 않습니다. 이미 enabled된 App이 새 module을 제공하면 status 검사로 확인할 수 있습니다. Version/manifest/provisioning 변화로 재시작이 필요하면 기존 배포 절차를 사용합니다. `--restart`는 managed server role을 재시작하므로 Grafana뿐 아니라 그 role의 Prometheus·Loki도 대상입니다. 변경이 없으면 재시작하지 않습니다.
+
+### External Grafana
+
+```bash
+xltel app install --external --plugins-dir /var/lib/grafana/plugins \
+  --provisioning-dir /etc/grafana/provisioning \
+  --package /path/to/signed-app.zip --sha256 <sha256>
+xltel app status --external --plugins-dir /var/lib/grafana/plugins \
+  --provisioning-dir /etc/grafana/provisioning
+```
+
+External mode는 명시한 directory만 사용하며 service·auth·datasource·user DB를 수정하거나 재시작하지 않습니다. 기존 symlink 설치와 사용자 편집 provisioning은 자동 교체하지 않습니다. Unsigned external PoC의 allowlist와 재시작은 운영자가 직접 적용합니다.
+
+API 권한이 필요하면 `GRAFANA_SERVICE_ACCOUNT_TOKEN`을 environment 또는 TOML `[environment]`에서 제공합니다. Token은 로그·receipt·argv에 기록하지 않습니다. API를 확인하지 못하면 Unknown이며 설치 파일만 보고 Ready로 표시하지 않습니다.
+
+### 실패 / Rollback
+
+Update는 previous plugin 한 개를 Grafana가 scan하지 않는 별도 directory에 보존합니다. 파일 교체·receipt 기록 실패는 기존 plugin과 provisioning을 복구합니다. Managed `--restart` 활성화 실패는 rollback을 시도하며, API 권한 부족처럼 이유가 불명확하면 장애 원인을 단정하지 않습니다.
+
+`xltel app rollback`은 이전 파일을 복원하며 필요한 재시작은 별도입니다. 기존 auth·datasource·user DB와 다른 plugin은 유지합니다. 운영 signing은 아래 공식 절차를 따릅니다.
+
+<a id="개발용-package"></a>
+
+## 개발용 package 생성
 
 저장소 루트에서 build와 package를 실행합니다. Output은 새 directory를 선택합니다.
 
