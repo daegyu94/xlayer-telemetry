@@ -57,6 +57,21 @@ def collect_and_analyze_job(directory, job, prom):
     return streams, report
 
 
+def validate_demo_app(package, dist):
+    """Validate build/package before creating demo state or starting services."""
+    if package:
+        from xlayer_telemetry.operations.app import _unpack, checksum
+        with tempfile.TemporaryDirectory(prefix='xlayer-demo-app-check-') as stage:
+            _unpack(package, Path(stage), checksum(package), allow_unsigned=True)
+        return
+    required = ('module.js', 'plugin.json', 'img/logo.svg')
+    if any(not (dist / name).is_file() or not (dist / name).stat().st_size for name in required):
+        raise ValueError('App bundle missing or incomplete: run npm ci && npm run build in grafana/xlayer-app, or provide --app-package ZIP with its SHA256 sidecar.')
+    metadata = json.loads((dist / 'plugin.json').read_text())
+    if not isinstance(metadata, dict) or metadata.get('id') != 'xlayer-telemetry-app' or metadata.get('type') != 'app':
+        raise ValueError('App bundle has an unexpected plugin identity; rebuild the checkout.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tools', required=True, type=Path)
@@ -80,6 +95,10 @@ def main():
     with socket.socket() as probe:
         try: probe.bind(('127.0.0.1', args.grafana_port))
         except OSError: parser.error('Grafana port already in use; choose another --grafana-port')
+    try:
+        validate_demo_app(args.app_package, ROOT / 'grafana/xlayer-app/dist')
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)
     processes = []
     stopping = threading.Event()

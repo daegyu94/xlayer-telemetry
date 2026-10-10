@@ -239,3 +239,33 @@ def test_opt_in_single_completed_comparison_still_requires_real_completion(tmp_p
     log = tmp_path / 'log';log.write_text('COMPLETED Step 128\n')
     (tmp_path / 'connection.json').write_text('{"grafana":"http://127.0.0.1:12345"}')
     assert CI.wait_for_fixtures(Live(),log,tmp_path,time.monotonic()+1,comparisons=1)['grafana'].endswith('12345')
+
+
+@pytest.mark.parametrize('package', [False, True])
+def test_demo_missing_bundle_fails_before_creating_state_or_launching_services(tmp_path, monkeypatch, package):
+    import sys
+    live = load('live_demo')
+    monkeypatch.setattr(live, 'ROOT', tmp_path)
+    output = tmp_path / 'state'
+    args = ['live_demo', '--tools', str(tmp_path / 'tools'), '--output', str(output), '--grafana-port', '24991']
+    if package:
+        args += ['--app-package', str(tmp_path / 'missing.zip')]
+    monkeypatch.setattr(sys, 'argv', args)
+    def launch(*args, **kwargs):
+        raise AssertionError('A service was launched without a valid plugin bundle')
+    monkeypatch.setattr(live.subprocess, 'Popen', launch)
+    with pytest.raises(SystemExit) as error:
+        live.main()
+    assert error.value.code == 2
+    assert not output.exists()
+
+
+def test_demo_preflight_accepts_real_build_metadata_and_rejects_incomplete_build(tmp_path):
+    live = load('live_demo')
+    dist = distribution(tmp_path / 'dist')
+    source = SCRIPTS.parent / 'src/plugin.json'
+    (dist / 'plugin.json').write_text(source.read_text())
+    live.validate_demo_app(None, dist)
+    (dist / 'module.js').write_text('')
+    with pytest.raises(ValueError, match='bundle missing or incomplete'):
+        live.validate_demo_app(None, dist)

@@ -243,3 +243,31 @@ def test_failed_third_update_preserves_working_install_and_existing_rollback(tmp
     assert app.local_state(settings)['integrity'] == 'verified'
     app.rollback(settings)
     assert (target/'module.js').read_text() == 'one'
+
+
+@pytest.mark.parametrize('requirement', ['>=12.1.0', '>=12.1.0 <13.2.0'])
+@pytest.mark.parametrize('version,compatible', [('12.0.9', False), ('12.1.0', True), ('13.1.9', True), ('13.2.0', False), ('14.0.0', False)])
+def test_react18_package_compatibility_has_a_runtime_ceiling(tmp_path, monkeypatch, requirement, version, compatible):
+    archive, digest = bundle(tmp_path, dependencies={'grafanaDependency': requirement})
+    settings = config(tmp_path)
+    monkeypatch.setattr(app, 'detected_version', lambda _: version)
+    if compatible:
+        app.install_package(settings, archive, digest, allow_unsigned=True)
+    else:
+        with pytest.raises(app.AppError, match='Grafana version'):
+            app.install_package(settings, archive, digest, allow_unsigned=True)
+        assert not (tmp_path / 'server/grafana-plugins' / app.APP_ID).exists()
+
+
+def test_status_does_not_certify_a_legacy_unbounded_receipt_on_react19(tmp_path, monkeypatch):
+    archive, digest = bundle(tmp_path)
+    settings = config(tmp_path)
+    app.install_package(settings, archive, digest, allow_unsigned=True)
+    monkeypatch.setattr(app, 'api', lambda config, path: {'version': '13.2.0'} if path == '/api/health' else None)
+    row = next(check for check in app.status(settings)['checks'] if check['component'] == 'Declared compatibility')
+    assert row['status'] == 'fail'
+
+
+def test_manifest_matches_installer_react18_ceiling():
+    metadata = json.loads((Path(__file__).parents[1] / 'grafana/xlayer-app/src/plugin.json').read_text())
+    assert metadata['dependencies']['grafanaDependency'] == '>=12.1.0 <13.2.0'

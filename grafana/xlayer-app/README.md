@@ -15,7 +15,7 @@ Timeline·Infrastructure·Logs & Events도 Workspace navigation에서 선택합�
 
 ## 준비
 
-- Grafana **12.1.0**에서 검증합니다. Manifest의 최소 버전과 다른 버전의 실제 호환성 검증은 구분합니다.
+- Grafana **12.1.0**에서 검증합니다. 선언 범위는 `>=12.1.0 <13.2.0`이며 실제 검증한 버전은 12.1.0입니다. React 19의 Grafana 13.2 이상은 현재 지원하지 않습니다.
 - CI prebuilt ZIP + SHA256 또는 checkout + Node 20 이상·npm. Python core runtime에는 npm dependency가 추가되지 않습니다.
 - 기존 XLayer dashboard를 `scripts/provision_dashboards.py`로 provision합니다.
 - Prometheus는 core입니다. Loki Step/span/diagnosis는 optional입니다.
@@ -70,6 +70,12 @@ Reported stage의 `verl_stage` 등 metric dimension은 snapshot age의 ownership
 기존 stack과 별개인 loopback-only Grafana·Prometheus·Loki를 실행합니다. 이미 설치한 binary를 재사용하며 container나 사용자의 monitoring config를 수정하지 않습니다.
 
 저장소 루트에서 프로젝트가 설치된 Python 환경을 사용합니다. `--tools` 아래에는 `grafana-v12.1.0/`, `prometheus-3.5.0.linux-amd64/`, `loki-linux-amd64`가 있어야 합니다.
+
+`xltel app install`의 임시 build는 checkout의 `dist`를 남기지 않습니다. 아래 build를 먼저 실행하거나 demo에 `--app-package ZIP`과 해당 `.zip.sha256` sidecar를 제공합니다.
+
+```bash
+(cd grafana/xlayer-app && npm ci && npm run build)
+```
 
 ```bash
 python grafana/xlayer-app/scripts/live_demo.py \

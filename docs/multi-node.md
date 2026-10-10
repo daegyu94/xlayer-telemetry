@@ -45,7 +45,7 @@ cp examples/cluster/inventory.toml "$HOME/.config/xlayer/inventory.toml"
 xltel cluster validate --inventory "$HOME/.config/xlayer/inventory.toml" --json
 xltel cluster render --inventory "$HOME/.config/xlayer/inventory.toml" \
   --output "$HOME/.config/xlayer/cluster-bundle" \
-  --prometheus-url http://monitoring.internal:19090
+  --prometheus-url http://127.0.0.1:19090
 xltel --config "$HOME/.config/xlayer/cluster-bundle/server.toml" config validate
 ```
 
@@ -87,10 +87,29 @@ xltel --config /path/to/cluster-bundle/server.toml up --role server
 
 ```bash
 xltel --config /path/on/this/host/node.toml up --role node
-xltel --config /path/on/this/host/node.toml status --role node
 ```
 
 **정상 결과:** 각 host가 소유한 role이 시작되고 monitoring host에서 등록 target이 up입니다. 이 명령은 remote host에 자동 배포하지 않습니다.
+
+### Remote node에서 상태 조회
+
+Prometheus는 기본적으로 Monitoring host의 loopback에만 바인딩합니다. Node 설정에 중앙 URL이 있어도 접근 경로가 없으면 `status`의 target 조회가 실패할 수 있습니다. 이를 collector 자체의 장애로 단정하지 않습니다.
+
+각 remote node의 별도 terminal에서 Monitoring host의 SSH 계정으로 조회용 터널을 유지합니다. 아래 `29090`은 해당 node에서 사용하지 않는 local port로 바꿀 수 있습니다.
+
+```bash
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 127.0.0.1:29090:127.0.0.1:19090 ubuntu@monitoring.internal
+```
+
+터널이 열린 상태에서 다른 terminal로 조회합니다. Environment override는 이 명령에만 적용되며 기존 생성 TOML과 monitoring bind를 바꾸지 않습니다.
+
+```bash
+PROMETHEUS_URL=http://127.0.0.1:29090 \
+  xltel --config /path/on/this/host/node.toml status --role node
+```
+
+**확인:** 해당 node의 target `health=up`, `configuration_status=matched`와 local launcher의 process 상태를 각각 확인합니다. GPU source와 optional Loki 연결도 별도 조건이므로 터널 연결만으로 전체 상태를 Healthy라고 판단하지 않습니다. SSH 접근이 없다면 Monitoring host에서 `status --role server`와 아래 live validation을 수행합니다. 중앙 검증은 remote launcher의 process ownership을 증명하지 않습니다.
 
 ## 3. Verify
 

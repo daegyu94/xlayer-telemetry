@@ -2,6 +2,8 @@
 
 **찾아보는 목적:** App build 산출물·개발용 package·실제 Grafana browser CI와 운영 서명의 경계를 확인합니다. 일반 설치와 조사 흐름은 [App guide](grafana-scenes-poc.md)를 따릅니다.
 
+현재 App 선언·installer 범위는 `>=12.1.0 <13.2.0`입니다. [Grafana React 19 migration 가이드](https://grafana.com/developers/plugin-tools/migration-guides/update-from-grafana-versions/migrate-13_1_x-to-13_2_x)에 따른 JSX runtime·Scenes·dependency 전환과 양쪽 runtime 검증 전에는 Grafana 13.2 이상을 지원하지 않습니다. 과거의 상한 없는 package/receipt도 현재 installer와 status에서 이 ceiling을 적용합니다. 선언 범위의 모든 버전을 browser 검증했다는 뜻은 아닙니다.
+
 ## 배포 단계
 
 | 단계 | 산출물 / 확인 | 현재 지원 |

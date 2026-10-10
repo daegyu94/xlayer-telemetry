@@ -363,12 +363,20 @@ Prometheus는 `127.0.0.1:19090`에서 실행되고 Grafana 기본 접근 권한�
 
 ## Enable Grafana Alerts
 
-Monitoring Guide의 수동 경로에서는 server 설정 파일의 `ENABLE_ALERTS=1`로 Grafana Alerting에 세 가지 운영 규칙을 설치합니다.
-단일 host [VERL config 경로](verl-reference.md#1-prepare-one-config-file)를 사용한다면 `xltel config path`가 가리키는 config의 `ENABLE_ALERTS=1`을 설정하고 `xltel restart`을 실행합니다.
+기본 TOML 설정에서 `ENABLE_ALERTS = true`로 Grafana Alerting에 세 가지 운영 규칙을 설치합니다. `xltel config path`가 가리키는 파일의 기존 `[telemetry]`에 필요한 값을 추가합니다.
+
+```toml
+[telemetry]
+ENABLE_ALERTS = true
+# GPU 없는 collector에서만 false; GPU node는 true 유지
+ENABLE_GPU_METRICS = false
+```
+
+**확인:** `xltel config validate`가 통과한 뒤 `xltel restart`을 실행합니다. 신뢰한 Bash 설정(`server.conf`)을 사용하는 advanced 경로에서만 `ENABLE_ALERTS=1`·`ENABLE_GPU_METRICS=0`을 사용합니다. TOML의 숫자 `0`/`1`은 Boolean 설정이 아닙니다.
 Node collector 연결 끊김, GPU 표본이 60초 넘게 갱신되지 않거나 사라짐, 지정한 filesystem의 여유 공간 부족을 node별로 평가합니다.
 `ENABLE_GPU_METRICS=0`인 collector는 `telemetry_gpu_collection_enabled=0`을 내보내 GPU 누락 경고에서 제외합니다.
 이 marker가 없는 구형 collector는 기존 GPU 감시 동작을 유지하므로, GPU 없는 node는 collector와 server를 함께 갱신하고 재시작합니다.
-기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다.
+기본 filesystem 대상은 `/`이며, 3FS FUSE 등의 다른 경로를 감시하려면 advanced Bash 설정에서 실제 `mountpoint`를 `ALERT_MOUNTPOINT`에 지정합니다. 이 shell 전용 key를 기본 TOML에 추가하지 않습니다.
 기존 server terminal에서 `Ctrl+C`로 종료한 뒤 같은 설정 파일로 다시 시작합니다.
 
 ```bash

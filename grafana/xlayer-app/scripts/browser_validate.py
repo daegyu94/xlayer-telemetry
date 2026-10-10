@@ -213,6 +213,73 @@ def loading_context_check(page, url, checks, capture):
         page.unroute_all(behavior='wait')
 
 
+def verify_matrix_accessible_names(page):
+    cells = page.locator('.xlt-cell')
+    assert cells.count(), 'No Matrix cells rendered'
+    # Read name and visible parts in one DOM evaluation. Separate calls can
+    # straddle the asynchronous arrival of a baseline result.
+    rows = cells.evaluate_all("""cells => cells.map(cell => ({
+        identity: cell.dataset.matrixCell, name: cell.getAttribute('aria-label'),
+        parts: Array.from(cell.querySelectorAll('b, .xlt-matrix-delta, small, .xlt-step-evidence')).map(part => part.innerText),
+        description: cell.getAttribute('aria-description')
+    }))""")
+    for row in rows:
+        assert all(part in row['name'] for part in row['parts'] if part), row
+        assert row['description'], 'Quality/limitation description missing'
+        assert page.get_by_role('button', name=re.compile('^' + re.escape(row['identity']) + ' ·')).count() == 1, 'Browser-computed name lacks the displayed-result prefix'
+
+
+def verify_matrix_measured_zero(page, capture, checks):
+    """Zero at the browser datasource boundary, not a measured hardware value."""
+    url = page.url
+    modified = []
+    def zero(route):
+        payload = route.request.post_data_json or {}
+        references = {query.get('refId') for query in payload.get('queries', [])
+                      if 'telemetry_gpu_utilization_percent' in str(query.get('expr', ''))}
+        if not references:
+            route.continue_()
+            return
+        response = route.fetch()
+        body = response.json()
+        for reference, result in body.get('results', {}).items():
+            if reference not in references:
+                continue
+            for frame in result.get('frames', []):
+                for field, column in zip(frame.get('schema', {}).get('fields', []), frame.get('data', {}).get('values', [])):
+                    if field.get('type') == 'number':
+                        for index, value in enumerate(column):
+                            if value is not None:
+                                column[index] = 0
+                                modified.append(1)
+        route.fulfill(response=response, json=body)
+    page.route('**/api/ds/query*', zero)
+    try:
+        page.goto(url)
+        gpu = page.locator('[data-matrix-cell="rollout × gpu evidence"]')
+        page.wait_for_function("document.querySelector('[data-matrix-cell=\"rollout × gpu evidence\"] b')?.innerText.includes('0%')", timeout=15000)
+        assert modified, 'No actual native GPU response was changed'
+        assert 'No data' not in gpu.inner_text()
+        verify_matrix_accessible_names(page)
+        session = page.context.new_cdp_session(page)
+        try:
+            nodes = session.send('Accessibility.getFullAXTree')['nodes']
+            matches = [node for node in nodes if node.get('role', {}).get('value') == 'button' and
+                       node.get('name', {}).get('value', '').startswith('rollout × gpu evidence · 0%')]
+            assert len(matches) == 1, 'Chrome native accessibility tree lost the displayed measured zero'
+            assert matches[0].get('description', {}).get('value'), 'Native accessibility description missing'
+        finally:
+            session.detach()
+        capture('matrix-accessible-zero')
+        gpu.click()
+        page.locator('.xlt-evidence').get_by_role('button', name='Close', exact=True).wait_for(timeout=5000)
+        page.keyboard.press('Escape')
+    finally:
+        page.unroute('**/api/ds/query*', zero)
+        page.goto(url)
+    checks.append('Chrome native accessibility tree and Matrix names include displayed values, delta and quality; native GPU response zero remains measured zero and evidence opens; datasource boundary fixture, not hardware or screen-reader validation')
+
+
 def verify_worker_clock_boundary(page, capture, checks):
     """Change stored clock proof only; retain real native GPU queries and spans."""
     workers = page.get_by_role('heading', name='Measured Worker Comparison', exact=True).locator('..')
@@ -303,8 +370,8 @@ def multi_worker_journey(args):
         page.wait_for_timeout(700)
         page.get_by_role('button', name=re.compile('Analyze (Step|Trainer update|Observation)')).first.click()
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
-        gpu_cell = page.get_by_role('button', name='rollout × gpu evidence', exact=True)
-        page.wait_for_function('''document.querySelector('[aria-label="rollout × gpu evidence"]')?.innerText.includes('Ambiguous span')''', timeout=15000)
+        gpu_cell = page.locator('[data-matrix-cell="rollout × gpu evidence"]')
+        page.wait_for_function('''document.querySelector('[data-matrix-cell="rollout × gpu evidence"]')?.innerText.includes('Ambiguous span')''', timeout=15000)
         assert gpu_cell.locator('b').inner_text() == '—'
         before = parse_qs(urlparse(page.url).query)
         capture('multi-ambiguous')
@@ -335,8 +402,11 @@ def multi_worker_journey(args):
         assert selected['var-node'] == [key['node']] and selected['var-gpu'] == [str(key['gpu'])]
         for name in ('var-run_id','var-record_id','var-source_node','from','to'):
             assert selected[name] == before[name], (name, selected, before)
-        page.wait_for_function('''document.querySelector('[aria-label="rollout × gpu evidence"]')?.innerText.includes('Sampled') && /[0-9]/.test(document.querySelector('[aria-label="rollout × gpu evidence"] b')?.innerText || '')''', timeout=15000)
+        page.wait_for_function('''document.querySelector('[data-matrix-cell="rollout × gpu evidence"]')?.innerText.includes('Sampled') && /[0-9]/.test(document.querySelector('[data-matrix-cell="rollout × gpu evidence"] b')?.innerText || '')''', timeout=15000)
         assert 'Sampled' in gpu_cell.inner_text()
+        verify_matrix_accessible_names(page)
+        verify_matrix_measured_zero(page, capture, checks)
+        page.wait_for_function("document.querySelector('[data-matrix-cell=\"rollout × gpu evidence\"] b')?.innerText.includes('%')", timeout=15000)
         page.wait_for_timeout(600)
         selected = parse_qs(urlparse(page.url).query)
         capture('multi-selected-worker')
@@ -431,8 +501,8 @@ def main():
         queries.clear()
         page.get_by_role('button',name=re.compile('Analyze (Step|Trainer update|Observation)')).first.click()
         page.get_by_role('heading',name='Phase × Subsystem',exact=True).wait_for()
-        page.get_by_role('button',name='rollout × storage evidence',exact=True).wait_for()
-        page.wait_for_function("document.querySelector('[aria-label=\"rollout × storage evidence\"]')?.innerText.includes('Step evidence')")
+        page.locator('[data-matrix-cell="rollout × storage evidence"]').wait_for()
+        page.wait_for_function("document.querySelector('[data-matrix-cell=\"rollout × storage evidence\"]')?.innerText.includes('Step evidence')")
         page.wait_for_timeout(800)
         saved=parse_qs(urlparse(page.url).query)
         assert saved['var-run_id']==['verl-agent-demo'] and saved['var-source_node']==['gpu-node-0'] and saved['var-node']==['gpu-node-0']
@@ -446,20 +516,21 @@ def main():
         text=page.locator('.xlt').inner_text()
         assert 'System Pressure' in text and 'Outlier worker snapshots' in text
         assert 'Sampled' in page.locator('.xlt-matrix').inner_text()
-        assert re.search(r'\d',page.get_by_role('button',name='rollout × vllm evidence').inner_text()),'Live engine sample missing'
+        assert re.search(r'\d',page.locator('[data-matrix-cell="rollout × vllm evidence"]').inner_text()),'Live engine sample missing'
         for name,needle in [('Storage entity','load_get'),('Ray entity','PENDING_ARGS_AVAIL')]:
             entity=page.get_by_role('combobox',name=name)
             if entity.count():
                 value=next(o.get_attribute('value') for o in entity.locator('option').all() if needle in o.inner_text());entity.select_option(value);page.wait_for_timeout(350)
         if slow:
-            assert 'vs baseline' in page.get_by_role('button',name='rollout × gpu evidence').inner_text()
-            assert 'Rolling' in page.get_by_role('button',name='rollout × storage evidence').inner_text()
-            assert 'Linked tool call' in page.get_by_role('button',name='rollout × sandbox evidence').inner_text()
+            assert 'vs baseline' in page.locator('[data-matrix-cell="rollout × gpu evidence"]').inner_text()
+            assert 'Rolling' in page.locator('[data-matrix-cell="rollout × storage evidence"]').inner_text()
+            assert 'Linked tool call' in page.locator('[data-matrix-cell="rollout × sandbox evidence"]').inner_text()
         assert not any(re.match(r'from-\d+|to-\d+',k) for k in parse_qs(urlparse(page.url).query))
         step_query_count=len(step_requests)
         assert all('$cluster' not in q.get('expr','') and '$node' not in q.get('expr','') for request in matching for q in request.get('queries',[]))
+        verify_matrix_accessible_names(page)
         capture('analyze');checks.append('Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states')
-        page.get_by_role('button',name='rollout × storage evidence',exact=True).click()
+        page.locator('[data-matrix-cell="rollout × storage evidence"]').click()
         detail=page.get_by_role('complementary',name='Evidence detail');detail.wait_for();page.wait_for_timeout(400)
         assert '전체 Step' in detail.inner_text() and 'per_run_3fs_client_bytes' in detail.inner_text()
         assert 'shared-service' in detail.inner_text() and 'causal path' in detail.inner_text()
@@ -477,7 +548,7 @@ def main():
             page.set_viewport_size({'width':width,'height':900});page.wait_for_timeout(400)
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1'),'Page overflows viewport'
             matrix=page.locator('.xlt-matrix');matrix.scroll_into_view_if_needed();capture(f'analyze-{width}')
-            page.get_by_role('button',name='rollout × storage evidence',exact=True).click();detail.wait_for();capture(f'evidence-{width}')
+            page.locator('[data-matrix-cell="rollout × storage evidence"]').click();detail.wait_for();capture(f'evidence-{width}')
             detail.get_by_role('button',name='Close',exact=True).click()
         checks.append('900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable')
         page.set_viewport_size({'width':1440,'height':1000})

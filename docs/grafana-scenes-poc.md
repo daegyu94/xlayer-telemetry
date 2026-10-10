@@ -109,8 +109,14 @@ Gauge의 phase delta는 명시된 baseline span·workload fingerprint·동일 en
 기존 stack과 분리한 live demo를 사용할 수 있습니다. 프로젝트를 설치한 Python 환경과 다음 binary가 필요합니다.
 
 - `--tools` directory: `grafana-v12.1.0/`·`prometheus-3.5.0.linux-amd64/`·`loki-linux-amd64`.
-- 위 절차로 빌드한 App. 첫 baseline/current 비교는 실제 scrape를 기다려 약 90초 뒤에 보입니다.
+- Checkout의 `dist` 또는 보관한 App ZIP/SHA256. `xltel app install`은 임시 build를 설치하며 checkout의 `dist`를 생성한다고 보장하지 않습니다. 첫 baseline/current 비교는 실제 scrape를 기다려 약 90초 뒤에 보입니다.
 - 비어 있는 output 경로와 사용하지 않는 loopback port.
+
+Checkout build 경로:
+
+```bash
+(cd grafana/xlayer-app && npm ci && npm run build)
+```
 
 ```bash
 python grafana/xlayer-app/scripts/live_demo.py \
@@ -118,6 +124,8 @@ python grafana/xlayer-app/scripts/live_demo.py \
   --output artifacts/scenes-demo \
   --grafana-port 23400
 ```
+
+사전 빌드 패키지가 있다면 위 명령에 `--app-package /path/to/xlayer-telemetry-app-0.1.0-unsigned.zip`을 추가해 checkout build를 생략합니다. 같은 경로의 `.zip.sha256` sidecar를 함께 보관합니다. Demo는 bundle 또는 package를 service 시작 전에 검증하며, 누락·손상 시 state와 backend process를 만들지 않고 exit code `2`로 종료합니다.
 
 **정상 결과:** `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. `Cluster=scenes-demo`·`Run=verl-agent-demo`를 선택하면 **Synthetic demo** badge가 보이고 완료된 baseline/current pair가 차례로 추가됩니다. 실행 중인 Step을 완료된 값으로 표시하지 않습니다.
 

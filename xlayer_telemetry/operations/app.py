@@ -22,6 +22,8 @@ APP_ID = 'xlayer-telemetry-app'
 REPOSITORY = 'daegyu94/xlayer-telemetry'
 MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_FILES = 1000
+# Current bundles embed the React 18 JSX runtime; React 19 is not certified.
+GRAFANA_CEILING = (13, 2, 0)
 PROVISIONING = f'apiVersion: 1\napps:\n  - type: {APP_ID}\n    org_id: 1\n    disabled: false\n'
 
 
@@ -31,8 +33,22 @@ class AppError(ConfigError):
 
 
 def semver(value):
-    match = re.match(r'^(\d+)\.(\d+)\.(\d+)', value or '')
+    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:[-+][A-Za-z0-9.-]+)?', value) if isinstance(value, str) else None
     return tuple(map(int,match.groups())) if match else None
+
+
+def dependency_bounds(value):
+    match = re.fullmatch(r'>=(\d+\.\d+\.\d+)(?:\s+<(\d+\.\d+\.\d+))?', value) if isinstance(value, str) else None
+    if not match:
+        return None
+    minimum = semver(match[1])
+    maximum = min(semver(match[2]), GRAFANA_CEILING) if match[2] else GRAFANA_CEILING
+    return (minimum, maximum) if minimum < maximum else None
+
+
+def grafana_compatible(version, dependency):
+    bounds, actual = dependency_bounds(dependency), semver(version)
+    return bool(bounds and actual and bounds[0] <= actual < bounds[1])
 
 
 def detected_version(config):
@@ -133,7 +149,7 @@ def _unpack(archive, destination, digest, allow_unsigned):
             raise AppError('Package plugin identity does not match XLayer Telemetry App.')
         version = metadata.get('info', {}).get('version')
         dependency = metadata.get('dependencies', {}).get('grafanaDependency', '')
-        if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', version or '') or not re.fullmatch(r'>=\d+\.\d+\.\d+', dependency):
+        if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?', version or '') or dependency_bounds(dependency) is None:
             raise AppError('Package version or Grafana dependency is not supported by this installer.')
         for name in ('module.js', 'img/logo.svg'):
             if f'{APP_ID}/{name}' not in seen:
@@ -153,8 +169,8 @@ def install_package(config, archive, sha256, *, allow_unsigned=False, update=Fal
         unpacked = Path(temporary)
         metadata, manifest = _unpack(Path(archive), unpacked, sha256, allow_unsigned)
         version=detected_version(config)
-        if version and semver(version)<semver(metadata['dependencies']['grafanaDependency'][2:]):
-            raise AppError('Grafana version does not meet the plugin minimum; existing files were preserved.')
+        if version and not grafana_compatible(version, metadata['dependencies']['grafanaDependency']):
+            raise AppError('Grafana version is outside the plugin range or React 18 ceiling (<13.2.0); existing files were preserved.')
         with _locked(state):
             receipt_path = state / 'installed.json'
             old = _read(receipt_path)
@@ -302,10 +318,10 @@ def status(config, **paths):
     local = local_state(config, **paths)
     health, loaded, datasources = api(config, '/api/health'), api(config, f'/api/plugins/{APP_ID}/settings'), api(config, '/api/datasources')
     version = health.get('version') if isinstance(health, dict) else None
-    minimum = local['receipt'].get('dependency', '>=12.1.0')[2:]
-    compatible = semver(version) is not None and semver(version) >= semver(minimum)
+    dependency = local['receipt'].get('dependency', '>=12.1.0 <13.2.0')
+    compatible = grafana_compatible(version, dependency)
     checks = [{'component': 'Grafana', 'status': 'pass' if version else 'unknown', 'detail': version or 'API unavailable or access not verified'},
-        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{minimum}+; browser-validated 12.1.0'},
+        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{dependency}; React 18 ceiling <13.2.0; browser-validated 12.1.0'},
         {'component': 'Plugin package integrity', 'status': 'pass' if local['integrity'] == 'verified' else 'fail', 'detail': local['integrity']},
         {'component': 'Plugin enabled', 'status': 'pass' if isinstance(loaded, dict) and loaded.get('enabled') else 'unknown', 'detail': 'Grafana API observation'},
         {'component': 'Datasources', 'status': 'pass' if isinstance(datasources, list) and any(row.get('type') == 'prometheus' for row in datasources) else 'unknown', 'detail': 'Prometheus availability; Loki optional'}]

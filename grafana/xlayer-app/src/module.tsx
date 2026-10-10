@@ -1,3 +1,4 @@
+import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
 import {relatedPanels} from './related-panels';
 import React, { useEffect, useState, useRef } from "react";
@@ -1442,7 +1443,12 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
   const observed=cell.value!==undefined;
   const label=data?.state===LoadingState.Error?'Query error':cell.sample&&cell.value===undefined&&cell.explanation.startsWith('Clock quality is')?'Clock unverified':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
   const quality=s==='ray'?'Session context':cell.binding==='rolling-context'?`Rolling${typeof lookback==='number'?` ${lookback/1000}s`:''} · ${cell.scope==='shared-service'?'Shared':'Node'}`:cell.scope==='shared-service'?'Sampled · Shared':cell.scope==='worker/cgroup'?'Sampled · Worker':'Sampled · Node';
-  return <td key={phase}><button className="xlt-cell" disabled={data?.state===LoadingState.Loading} aria-busy={data?.state===LoadingState.Loading} aria-label={`${phase} × ${s} evidence`} title={displayUiNote(cell.explanation)} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={displayUiNote(comparison.reason)}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?'No change vs baseline':`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}% vs baseline`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
+  return <td key={phase}><MatrixCellButton identity={`${phase} × ${s} evidence`} label={label}
+    quality={observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}
+    comparison={comparison} explanation={displayUiNote(cell.explanation)} comparisonReason={displayUiNote(comparison.reason)}
+    observations={!spec.rolling&&s!=='ray'&&observed?cell.observations:undefined}
+    linkedTool={s==='sandbox'&&window.span!==parent.span} stepEvidence={phase==='rollout'&&!!stepCell.evidence?.length}
+    loading={data?.state===LoadingState.Loading} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}/></td>;
  })}</tr>;
 }
 
