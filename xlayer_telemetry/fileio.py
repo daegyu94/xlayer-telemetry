@@ -61,13 +61,23 @@ def append_jsonl(path: Path, line: str, *, mode: int = 0o666) -> None:
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
-def json_objects(path: Path) -> Iterator[dict[str, Any]]:
-    """Stream JSONL objects, skipping malformed lines and other JSON values."""
+class IncompleteJSONL(ValueError):
+    """A source cannot establish complete observation coverage."""
+
+
+def json_objects(path: Path, *, strict: bool = False) -> Iterator[dict[str, Any]]:
+    """Stream objects; opt-in strict readers require complete, valid rows."""
     with path.open("rb") as stream:
         for line in stream:
+            if strict and not line.endswith(b"\n"):
+                raise IncompleteJSONL("unterminated_jsonl_record")
             try:
                 value = json.loads(line.decode("utf-8"))
-            except ValueError:
+            except (ValueError, RecursionError):
+                if strict:
+                    raise IncompleteJSONL("invalid_jsonl_record") from None
                 continue
             if isinstance(value, dict):
                 yield value
+            elif strict:
+                raise IncompleteJSONL("non_object_jsonl_record")

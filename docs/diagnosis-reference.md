@@ -537,6 +537,7 @@ observer.replica_state("replica-0", "rollout-a:8000", "sleeping", generation="ve
 - Current와 baseline 구간 내부에서 각각 policy나 workload가 바뀌어 양쪽 요약 값이 Unknown이 되어도 비교를 허용하지 않습니다. 변경·stale/gap·유효하지 않은 명시 관측은 `quality_issues`에 보존하며 해당 Replica signal의 delta를 보류합니다. 미설정 optional 관측을 같은 조건이 검증되었다는 뜻으로 해석하지 않습니다.
 - 구간 직전의 유효한 inactive 관측에서 구간 중 serving으로 전환된 경우도 sampled inactive overlap으로 남깁니다. GPU idle을 강한 starvation으로 해석하지 않으며, stale 관측으로 휴면 상태를 추정하지 않습니다.
 - 읽기는 최대 32 JSONL file·file당 1 MiB·8,192 record로 제한합니다. Limit/partial source는 Unknown이며 0으로 채우지 않습니다. Metric query 수는 추가하지 않습니다.
+- 잘린 마지막 행·유효하지 않은 JSON/UTF-8·object가 아닌 행은 `observation_input_incomplete`로 남깁니다. 손상된 행의 Replica·시각을 확인할 수 없으므로 설정한 observation source 전체의 lifecycle·membership·workload·policy를 Unknown으로 처리하고 baseline delta를 보류합니다. Raw engine metric은 유지하며 이전 sleeping 기록으로 pressure를 낮추지 않습니다. 재시작 append만으로 손상된 행을 복구한 것으로 간주하지 않으며, 행을 완성하거나 source를 정상 파일로 교체한 뒤 다시 검사합니다.
 
 Worker Comparison은 같은 명시 fingerprint라도 보고된 prompt/output token·turn/tool·concurrency·applied policy·generation·execution mode·model·state가 다르면 같은 cohort로 묶지 않습니다. 미보고 차원은 검증하지 못한 조건이며 fingerprint 자체도 producer의 선언입니다.
 

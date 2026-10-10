@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..fileio import json_objects
+from ..fileio import IncompleteJSONL, json_objects
 from ..time_alignment import event_window, alignment_metadata
 from ..adapters.rollout import STATES, WORKLOAD_FIELDS, text
 
@@ -40,7 +40,9 @@ def load_serving_context(config, window, clock, *, reader=None):
         count = 0
         nodes = clock.get('system_clock_screening', clock).get('nodes', {})
         for path in files:
-            for row in (reader or json_objects)(path):
+            # A lost transition has unknown identity/time, so no earlier state
+            # in this configured source set can prove interval coverage.
+            for row in (reader or json_objects)(path, strict=True):
                 count += 1
                 if count > 8192:
                     raise ValueError('observation_record_limit')
@@ -54,6 +56,8 @@ def load_serving_context(config, window, clock, *, reader=None):
                     reference_session=alignment_metadata(window).get('reference_session'))
                 if start is not None and start == end and start <= window['end']:
                     events.append((start, row, attrs))
+    except IncompleteJSONL:
+        return {row['id']: _unknown(['observation_input_incomplete']) for row in replicas}
     except (OSError, ValueError, TypeError):
         return {row['id']: _unknown(['observation_read_or_limit_failure']) for row in replicas}
     events.sort(key=lambda item: item[0])
@@ -143,7 +147,8 @@ def comparison_issues(current, baseline):
     for role, context in (('current', current), ('baseline', baseline)):
         for issue in context.get('quality_issues', []):
             if issue.startswith(('workload_', 'applied_policy_version_')) or issue in {
-                    'lifecycle_changed_during_interval', 'router_changed_or_unavailable', 'observation_read_or_limit_failure'}:
+                    'lifecycle_changed_during_interval', 'router_changed_or_unavailable', 'observation_read_or_limit_failure',
+                    'observation_input_incomplete'}:
                 issues.append('replica_'+role+'_'+issue)
     for field in ('generation', 'workload', 'applied_policy_version', 'serving_state', 'router_registered'):
         a, b = current.get(field), baseline.get(field)

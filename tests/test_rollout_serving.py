@@ -196,3 +196,64 @@ def test_inactive_replica_on_gpu_node_caps_mixed_starvation_without_hiding_other
     assert candidate['state']!='strong_signal'
     assert candidate['context_status']=='inactive_replica_on_gpu_node'
     assert any(c['id']=='kv_cache_pressure' for c in result['candidates'])
+
+
+@pytest.mark.parametrize('cache_enabled', [True, False])
+def test_truncated_lifecycle_and_restart_cannot_hide_observed_engine_pressure(tmp_path, cache_enabled):
+    stamp=[99];o=observer(tmp_path,stamp)
+    o.replica_state('replica-1','b:8000','sleeping',generation='g1')
+    path=o.recorder.path
+    initial=path.read_bytes()
+    # A serving transition was being written when its producer stopped.
+    with path.open('ab') as stream:
+        stream.write(b'{"record_type":"event","name":"rollout.replica.state","attributes":')
+    settings=config(tmp_path);settings['jsonl_cache']={'enabled':cache_enabled}
+    engine=DiagnosticEngine(settings,prometheus=Replicas(missing_preemption=False))
+    now,before=records()
+    for restarted in (False, True):
+        if restarted:
+            stamp[0]=111
+            observer(tmp_path,stamp).replica_state('replica-1','b:8000','serving',generation='g1')
+        result=engine.analyze(now,[before])
+        state=result['rollout_replicas'][1]['serving_context']['current']
+        assert state['serving_state']=='unknown' and state['inactive_observed'] is False
+        assert 'observation_input_incomplete' in state['quality_issues']
+        candidate=next(c for c in result['candidates'] if c['id']=='rollout_queue_backlog')
+        assert candidate.get('context_status')!='intentional_inactive'
+        assert 'replica_serving_state_unverified' in candidate['missing_evidence']
+        # Raw observations survive; corrupt lifecycle cannot qualify a baseline.
+        signal=result['rollout_replicas'][1]['signals']['vllm_requests_waiting']
+        assert signal['current']==18 and signal['baseline']==18
+        assert signal['delta'] is None and signal['comparison_status']=='replica_context_changed'
+
+    # An explicitly repaired/replaced source must invalidate any cached damage.
+    serving_record=path.read_bytes().splitlines()[-1]
+    replacement=tmp_path/'repaired.tmp'
+    replacement.write_bytes(initial+serving_record+b'\n')
+    replacement.replace(path)
+    assert context(tmp_path)['serving_state']=='unknown'  # Real sleep/wake overlap remains.
+    clean=engine.analyze(now,[before])['rollout_replicas'][1]['serving_context']['current']
+    assert 'observation_input_incomplete' not in clean['quality_issues']
+    assert 'lifecycle_changed_during_interval' in clean['quality_issues']
+
+
+@pytest.mark.parametrize('cache_enabled', [True, False])
+def test_split_lifecycle_transition_recovers_only_after_complete_append(tmp_path, cache_enabled):
+    from xlayer_telemetry.analysis.jsonl_cache import JSONLCache
+    stamp=[99];o=observer(tmp_path,stamp)
+    o.replica_state('replica-0','a:8000','sleeping',generation='g1')
+    prefix=o.recorder.path.read_bytes()
+    stamp[0]=110;o.replica_state('replica-0','a:8000','serving',generation='g1')
+    transition=o.recorder.path.read_bytes()[len(prefix):]
+    split=len(transition)//2
+    o.recorder.path.write_bytes(prefix+transition[:split])
+    reader=JSONLCache().read if cache_enabled else None
+    clocks={'nodes':{'trainer':{'status':'aligned'}}}
+    first=load_serving_context(config(tmp_path),{'start':100,'end':120},clocks,reader=reader)['replica-0']
+    assert first['serving_state']=='unknown' and first['inactive_observed'] is False
+    assert 'observation_input_incomplete' in first['quality_issues']
+    with o.recorder.path.open('ab') as stream:
+        stream.write(transition[split:])
+    recovered=load_serving_context(config(tmp_path),{'start':121,'end':140},clocks,reader=reader)['replica-0']
+    assert recovered['serving_state']=='serving' and recovered['inactive_observed'] is False
+    assert 'observation_input_incomplete' not in recovered['quality_issues']

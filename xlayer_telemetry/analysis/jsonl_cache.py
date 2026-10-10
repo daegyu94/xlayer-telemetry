@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Iterator
 
+from ..fileio import IncompleteJSONL
+
 
 @dataclass
 class _Entry:
@@ -18,6 +20,7 @@ class _Entry:
     prefix: bytes
     tail: bytes
     records: list[dict]
+    invalid_records: int
 
 
 class JSONLCache:
@@ -36,7 +39,7 @@ class JSONLCache:
         self._entries: OrderedDict[Path, _Entry] = OrderedDict()
         self.parsed_bytes = self.cache_hits = self.reloads = self.uncached_scans = 0
 
-    def _objects(self, stream) -> Iterator[dict]:
+    def _objects(self, stream, quality) -> Iterator[dict]:
         while True:
             offset = stream.tell()
             line = stream.readline()
@@ -44,16 +47,27 @@ class JSONLCache:
                 return
             if not line.endswith(b"\n"):
                 stream.seek(offset)
+                quality['incomplete_tail'] = True
                 return  # A split record is read again after its newline arrives.
             self.parsed_bytes += len(line)
             try:
                 record = json.loads(line.decode("utf-8"))
-            except ValueError:
+            except (ValueError, RecursionError):
+                quality['invalid_records'] += 1
                 continue
             if isinstance(record, dict):
                 yield record
+            else:
+                quality['invalid_records'] += 1
 
-    def read(self, path: Path) -> Iterator[dict]:
+    def read(self, path: Path, *, strict: bool = False) -> Iterator[dict]:
+        """Keep ordinary recovery; strict coverage also checks skipped rows/tail."""
+        quality = {'invalid_records': 0, 'incomplete_tail': False}
+
+        def check_quality():
+            if strict and (quality['invalid_records'] or quality['incomplete_tail']):
+                raise IncompleteJSONL("incomplete_jsonl_input")
+
         path = Path(path).absolute()
         try:
             stream = path.open("rb")
@@ -66,7 +80,8 @@ class JSONLCache:
             identity, stamp = (stat.st_dev, stat.st_ino), (stat.st_mtime_ns, stat.st_ctime_ns)
             if stat.st_size > self.max_bytes:
                 self.uncached_scans += 1
-                yield from self._objects(stream)
+                yield from self._objects(stream, quality)
+                check_quality()
                 return
             valid = entry is not None and entry.identity == identity and stat.st_size >= entry.size
             if valid and stat.st_size == entry.size and stamp != entry.stamp:
@@ -78,12 +93,13 @@ class JSONLCache:
             if valid:
                 stream.seek(entry.offset)
                 records = entry.records
+                quality['invalid_records'] = entry.invalid_records
                 self.cache_hits += 1
             else:
                 stream.seek(0)
                 records = []
                 self.reloads += 1
-            for record in self._objects(stream):
+            for record in self._objects(stream, quality):
                 if valid and records is entry.records:
                     # Published lists stay immutable so an in-progress reader
                     # keeps its snapshot when another read observes an append.
@@ -92,7 +108,8 @@ class JSONLCache:
                 if len(records) > self.max_records:
                     self.uncached_scans += 1
                     yield from records
-                    yield from self._objects(stream)
+                    yield from self._objects(stream, quality)
+                    check_quality()
                     return
             offset = stream.tell()
             stream.seek(0)
@@ -102,15 +119,17 @@ class JSONLCache:
         size = max(stat.st_size, offset)  # Include appends observed during parsing.
         if size > self.max_bytes:
             self.uncached_scans += 1
+            check_quality()
             yield from records
             return
-        entry = _Entry(identity, size, stamp, offset, prefix, tail, records)
+        entry = _Entry(identity, size, stamp, offset, prefix, tail, records, quality['invalid_records'])
         # Evict older files, not records within a file: every query remains complete.
         while self._entries and (len(self._entries) >= self.max_files
                 or sum(len(e.records) for e in self._entries.values()) + len(records) > self.max_records
                 or sum(e.size for e in self._entries.values()) + entry.size > self.max_bytes):
             self._entries.popitem(last=False)
         self._entries[path] = entry
+        check_quality()
         yield from records
 
     def stats(self) -> dict:

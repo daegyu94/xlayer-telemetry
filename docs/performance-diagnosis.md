@@ -124,7 +124,7 @@ graph = build_graph(records, run_id=report["run_id"], clock_quality=clocks)
 path = critical_path(graph, (trace_id, span_id))
 ```
 
-Clock uncertainty 때문에 dependency 순서나 마지막 완료 branch가 구분되지 않으면 raw relation을 유지하고 path는 `unknown`입니다. 단일 Node의 exact span은 remote NTP 검사 없이 분석할 수 있습니다. CLI는 저장된 SDK record만 읽으므로 remote clock을 자동 조회하거나 과거 report를 임의로 재사용하지 않습니다.
+Clock uncertainty 때문에 dependency 순서나 마지막 완료 branch가 구분되지 않으면 raw relation을 유지하고 path는 `unknown`입니다. 같은 Node의 calibration 갱신이 원본 branch 종료 순서를 뒤집거나 다른 종료 시각을 같은 시각으로 바꾸는 경우도 path와 delay candidate를 보류합니다. 단일 Node의 exact span은 remote NTP 검사 없이 분석할 수 있으며, CLI는 저장된 SDK record만 읽으므로 remote clock을 자동 조회하거나 과거 report를 임의로 재사용하지 않습니다.
 
 Long-tail은 `compare_paths(current, references)`에 명시 `sequence`·`workload`와 complete path history를 전달합니다. 같은 Run·producer·role·Node·Worker context와 정확히 같은 workload의 최소 다섯 reference만 사용하며, 중복·미완성·다른 Job·다른 workload는 비교하지 않습니다. 일반 Worker Comparison이나 시간상 겹친 async Trainer Step을 trajectory ownership으로 승격하지 않습니다.
 

@@ -116,3 +116,43 @@ def test_cached_tool_lookup_preserves_tool_baseline_filter(tmp_path):
 def test_cache_config_limits_are_validated(settings):
     with pytest.raises(ValueError):
         from_config({'jsonl_cache': settings})
+
+
+@pytest.mark.parametrize('invalid', [b'not-json\n', b'[]\n', b'\xff\n', b'{"x":',
+                                    b'{"x":2}', b'['*1200+b'0'+b']'*1200+b'\n'])
+@pytest.mark.parametrize('limits', [{}, {'max_bytes': 1}, {'max_records': 1}])
+def test_strict_cache_preserves_damage_across_hits_and_capacity_fallback(tmp_path, invalid, limits):
+    from xlayer_telemetry.fileio import IncompleteJSONL, json_objects
+    path = tmp_path/'stream.jsonl'
+    path.write_bytes(b'{"x":1}\n{"x":3}\n'+invalid)
+    cache = JSONLCache(**limits)
+    # Ordinary artifact recovery remains permissive, while strict coverage
+    # cannot treat its recovered subset as a complete lifecycle history.
+    list(cache.read(path))
+    parsed = cache.stats()['parsed_bytes']
+    for _ in range(2):
+        with pytest.raises(IncompleteJSONL):
+            list(cache.read(path, strict=True))
+        with pytest.raises(IncompleteJSONL):
+            list(json_objects(path, strict=True))
+    if not limits:
+        assert cache.stats()['parsed_bytes'] == parsed
+    assert list(cache.read(path))[0] == {'x': 1}
+    replacement = tmp_path/'replacement'
+    replacement.write_bytes(b'{"x":0}\n')
+    replacement.replace(path)
+    assert list(cache.read(path, strict=True)) == [{'x': 0}]
+
+
+def test_strict_cache_recovers_a_split_row_without_reparsing_complete_prefix(tmp_path):
+    from xlayer_telemetry.fileio import IncompleteJSONL
+    path = tmp_path/'stream.jsonl'
+    prefix = b'{"x":1}\n'
+    path.write_bytes(prefix+b'{"x":')
+    cache = JSONLCache()
+    with pytest.raises(IncompleteJSONL):
+        list(cache.read(path, strict=True))
+    with path.open('ab') as stream:
+        stream.write(b'0}\n')
+    assert list(cache.read(path, strict=True)) == [{'x': 1}, {'x': 0}]
+    assert cache.stats()['parsed_bytes'] == path.stat().st_size

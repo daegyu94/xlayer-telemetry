@@ -118,8 +118,18 @@ def critical_path(graph, root):
                 margin = (peer['interval']['uncertainty_seconds'] + last['interval']['uncertainty_seconds']) * 1e9
                 if last['interval']['end_ns'] - peer['interval']['end_ns'] <= margin:
                     return unknown('last_completion_ambiguous_with_clock_uncertainty')
-            elif peer['interval']['end_ns'] == last['interval']['end_ns']:
-                equivalent += 1
+            else:
+                x, y = last['interval'], peer['interval']
+                if x['accuracy'] == y['accuracy'] == 'calibrated':
+                    # Refreshes may change offsets without changing either
+                    # span's duration. Do not let them reverse a node-local
+                    # completion order or turn distinct completions into ties.
+                    mapped_order = (x['end_ns'] > y['end_ns']) - (x['end_ns'] < y['end_ns'])
+                    original_order = (x['original_end_ns'] > y['original_end_ns']) - (x['original_end_ns'] < y['original_end_ns'])
+                    if mapped_order != original_order:
+                        return unknown('original_node_completion_order_conflicts_with_mapping')
+                if x['end_ns'] == y['end_ns']:
+                    equivalent += 1
         previous[key] = chosen
     path, cursor = [], completion
     while cursor is not None:

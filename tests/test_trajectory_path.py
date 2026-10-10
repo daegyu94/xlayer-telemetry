@@ -131,3 +131,35 @@ def test_declared_relations_and_wrong_clock_window_never_certify_path():
     clocks = {'status': 'aligned', 'window': {'start': 2, 'end': 3},
               'nodes': {'n': {'status': 'aligned'}, 'remote': {'status': 'aligned'}}}
     assert not aligned(a, b, clocks)
+
+
+@pytest.mark.parametrize('earlier_offset', [.02, .01])
+def test_calibration_refresh_cannot_reverse_or_erase_same_node_completion_order(earlier_offset):
+    records = [span('root', 10, 15, execution_contract='dependency_dag', children_complete=True,
+                    completion_span_id='finish'),
+               span('earlier', 10.1, 12, parent='root'),
+               span('later', 10.1, 12.01, parent='root'),
+               span('finish', 13, 15, parent='root', links=[link('earlier'), link('later')])]
+    for row in records:
+        offset = earlier_offset if row['span_id'] == 'earlier' else 0.
+        row.update(boundary_accuracy='calibrated', time_reference='monitor', time_uncertainty_seconds=.001,
+            correlation_start_time_unix_nano=row['start_time_unix_nano']+round(offset*1e9),
+            correlation_end_time_unix_nano=row['end_time_unix_nano']+round(offset*1e9))
+        row['time_alignment'] = {'status': 'aligned', 'method': 'four_timestamp', 'node': row['node'],
+            'reference_id': 'monitor', 'offset_seconds': offset, 'uncertainty_seconds': .001,
+            'exchange_uncertainty_seconds': .001, 'round_trip_seconds': .002,
+            'valid_from': 0., 'valid_until': 20., 'local_anchor': 0., 'drift_ppm': 0.,
+            'raw_window': {'start': row['start_time_unix_nano']/1e9, 'end': row['end_time_unix_nano']/1e9}}
+    dependency_graph = graph(records)
+    assert all(node['interval']['valid'] for node in dependency_graph['nodes'])
+    assert all(edge['timing_status'] == 'aligned' for edge in dependency_graph['edges'])
+    result = analyze(records)
+    assert result['status'] == 'unknown'
+    assert result['path'] == [] and result['delay_candidates'] == []
+    assert 'original_node_completion_order_conflicts_with_mapping' in result['missing_evidence']
+
+    # A refresh that preserves ordering still permits the existing path.
+    records[1]['correlation_start_time_unix_nano'] = records[1]['start_time_unix_nano']
+    records[1]['correlation_end_time_unix_nano'] = records[1]['end_time_unix_nano']
+    records[1]['time_alignment']['offset_seconds'] = 0.
+    assert analyze(records)['path'] == [['trace', 'later'], ['trace', 'finish']]
