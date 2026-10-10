@@ -120,7 +120,11 @@ class Series:
         self.calls.append((query, start, end))
         if 'node_time_seconds' in query or 'node_timex' in query:
             value=1 if 'node_timex_sync_status' in query else 0
-            return {'aggregate':dict(min=value,max=value,mean=value,last=value,sample_count=3),'series':[]}
+            import re
+            current = dict(min=value,max=value,mean=value,last=value,sample_count=3)
+            identity = dict(job='telemetry', cluster='lab.prod',
+                            instance=re.search(r'instance="([^"]+)"', query).group(1))
+            return {'aggregate':current,'series':[{'labels':identity,'stats':current}]}
         if "mooncake" not in query:
             return {"aggregate": None, "series": []}
         if self.failure and "mooncake_dfs_write_latency_us" in query:
@@ -189,7 +193,7 @@ def test_normal_or_missing_client_signal_is_neither_zero_filled_nor_a_storage_ca
             data = super().query_range_detail(query, start, end, step)
             if "mooncake_dfs_read_errors_total" in query:
                 return {"aggregate": None, "series": []}
-            for row in data["series"]:
+            for row in data["series"] if "mooncake" in query else []:
                 row["stats"] = {key: 2 for key in ("min", "max", "mean", "last")}
             return data
     result = report(Normal())

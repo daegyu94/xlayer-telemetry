@@ -113,6 +113,19 @@ def series_stats(series: Iterable[Mapping[str, Any]]) -> dict[str, float | None]
             'sample_count': float(len(values))}
 
 
+def range_summary(detail: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Keep source multiplicity and safe response-quality counts with aggregates."""
+    aggregate = detail.get('aggregate')
+    if aggregate is None:
+        return None
+    series = detail.get('series', [])
+    return {**aggregate, 'series_count': len(series),
+            'min_series_sample_count': min((_number((item.get('stats') or {}).get('sample_count')) or 0 for item in series), default=0),
+            'series_identities': [{key: value for key, value in item['labels'].items() if key != '__name__'}
+                                  for item in series],
+            'query_result': detail.get('result_quality', {})}
+
+
 def _read_json(request: Request, timeout: float) -> Any:
     try:
         with urlopen(request, timeout=timeout) as response:
@@ -135,8 +148,8 @@ class PrometheusClient:
         # Rule analysis already has an outer process/deadline boundary.
         return _read_json(request, self.timeout)
 
-    def query_range(self, query: str, start: float, end: float, step: float) -> dict[str, float | None] | None:
-        return self.query_range_detail(query, start, end, step)['aggregate']
+    def query_range(self, query: str, start: float, end: float, step: float) -> dict[str, Any] | None:
+        return range_summary(self.query_range_detail(query, start, end, step))
 
     def query_range_detail(self, query: str, start: float, end: float, step: float) -> dict[str, Any]:
         params = urlencode({'query': query, 'start': start, 'end': end, 'step': step})

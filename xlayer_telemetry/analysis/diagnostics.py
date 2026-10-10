@@ -686,7 +686,8 @@ class DiagnosticEngine:
         def clock_query(expression, start, end, query_step):
             if hasattr(prometheus,'query_range'):
                 return prometheus.query_range(expression,start,end,query_step)
-            return prometheus.query_range_detail(expression,start,end,query_step)['aggregate']
+            from ..prometheus import range_summary
+            return range_summary(prometheus.query_range_detail(expression,start,end,query_step))
         clock_quality = {"status": "unchecked", "nodes": {}}
         inventory = clock_inventory(self.config, node)
         clock_nodes = set(inventory["nodes"])
@@ -1338,7 +1339,8 @@ class DiagnosticEngine:
             "query_execution": budget.summary(),
             "storage_overview": storage_overview(comparison, signal_queries, missing,
                 unsafe_clock=unsafe_timing, threefs_configured=threefs is not None,
-                threefs_rows=threefs_rows if current_3fs_samples else [], profiles=profiles),
+                threefs_rows=threefs_rows if current_3fs_samples else [], profiles=profiles,
+                sampling_quality=sampling_quality),
             **({"storage_series": storage_series} if storage_series is not None else {}),
             "sandbox_device_mapping": sandbox_device_mapping,
             "diagnosis_method": "rule",

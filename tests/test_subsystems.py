@@ -62,7 +62,7 @@ def test_native_status_matches_cluster_component_and_endpoint(backend):
     groups[0]['labels']['cluster'] = 'ignored-by-server-relabel'
     state['payload']['data']['activeTargets'] = [
         {'labels': {'job': 'native', 'cluster': cluster, 'component': name, 'telemetry_source': 'ray',
-                    'instance': f'node:{port}'}, 'health': health, 'lastScrape': '2026-10-02T00:00:00Z'}
+                    'instance': f'node:{port}'}, 'health': health, 'scrapeUrl': f'http://node:{port}/metrics', 'lastScrape': '2026-10-02T00:00:00Z'}
         for cluster, name, port, health in [('a', 'up', 8000, 'up'), ('a', 'down', 8001, 'down'),
                                           ('b', 'missing', 8002, 'up')]]
     result = inspect_sources(groups, url, 'http://grafana/subpath', 'a')
@@ -185,7 +185,7 @@ def test_aggregate_health_reuses_one_target_snapshot_and_isolates_config_error(t
     config, _ = load_config(path)
     state['payload']['data']['activeTargets'] = [{"labels": {
         "job": "native", "cluster": "training-cluster", "telemetry_source": "vllm",
-        "component": "engine", "instance": "node:8000"}, "health": "up"}]
+        "component": "engine", "instance": "node:8000"}, "health": "up", "scrapeUrl": "http://node:8000/metrics"}]
     result = status(config)
     assert result["native_sources"]["sources"][0]["status"] == "up"
     assert requests.count('/api/v1/targets?state=active') == 1

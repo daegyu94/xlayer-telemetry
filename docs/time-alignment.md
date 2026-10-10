@@ -50,6 +50,8 @@ chronyc waitsync 10 0.01 0 1
 
 `clock.nodes`는 실제 별도 관측 host가 있을 때만 지정합니다. 최대 32개 host를 검사하며 query는 기존 30초 budget을 공유합니다. Monitoring과 collector를 시작한 뒤 사전 검사를 실행합니다. 설치 전에 쓰는 기본 doctor는 바뀌지 않습니다.
 
+Clock query는 metric별 series 수·출처 label·출처별 evaluation 수와 backend warning/info·폐기된 sample을 보존합니다. Production Prometheus 응답에서 한 출처의 충분한 evaluation과 metric 간 동일 출처를 확인하지 못하면 raw 값은 유지하고 `unknown`으로 보류합니다. 두 evaluation은 실제 두 scrape나 연속 coverage를 보장하지 않습니다.
+
 ### 3. Doctor로 검증
 
 ```bash
@@ -61,7 +63,7 @@ xltel doctor --correlation
 | Preflight 결과 | 의미 / 행동 |
 | --- | --- |
 | `pass` | 선언된 host의 sampled clock screening 통과; 이후 각 Step/Phase는 다시 검사 |
-| `needs_attention` | Target·clock metric·monitor identity·evaluation 부족 확인 |
+| `needs_attention` | Target·clock metric·monitor identity·evaluation 부족·복수 출처·부분 query 응답 확인 |
 | `blocked` | Unsynchronized·큰 offset/uncertainty·stale/clock variation 해결 후 재검사 |
 | `not_configured` | `DIAGNOSTICS_CONFIG` 또는 명시한 JSON 설정 필요 |
 

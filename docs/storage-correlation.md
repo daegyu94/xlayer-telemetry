@@ -37,6 +37,8 @@
 
 `storage_overview.backend.status=not_reported`는 실제 adapter 정보가 없다는 뜻입니다. ClickHouse 접속 설정·DFS metric·3FS source의 `observed` 상태만으로 Mooncake가 그 backend를 사용했다고 표시하지 않습니다. Runtime 지원 capability와 현재 source availability도 구분합니다.
 
+Mooncake 공통 Overview의 `status`는 Current 조회 상태이며 `baseline_status`는 Baseline 관측·누락·entity 비교 제한을 별도로 나타냅니다. Baseline이 비어 있어도 성공한 Current 조회를 query 실패로 표시하지 않습니다.
+
 ### Candidate / Deep Dive
 
 1. 느린 completed Step/Update의 comparable baseline을 선택합니다.

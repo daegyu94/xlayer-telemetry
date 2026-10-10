@@ -435,7 +435,7 @@ def test_prometheus_client_parses_matrix_and_counter_delta(monkeypatch) -> None:
         "metric_name", 90, 100, 2
     )
 
-    assert stats == {
+    assert {key: stats[key] for key in ("min", "mean", "max", "last", "max_series_delta", "sample_count")} == {
         "min": 1.0,
         "mean": 3.75,
         "max": 8.0,
@@ -444,6 +444,9 @@ def test_prometheus_client_parses_matrix_and_counter_delta(monkeypatch) -> None:
         "sample_count": 4.0,
     }
     assert "/api/v1/query_range?" in requests[0][0].full_url
+    assert stats["series_count"] == 2
+    assert stats["min_series_sample_count"] == 2
+    assert stats["series_identities"] == [{"gpu": "0"}, {"gpu": "1"}]
     assert requests[0][1] == 3
     detail = PrometheusClient("http://prometheus", timeout=3).query_range_detail(
         "metric_name", 90, 100, 2

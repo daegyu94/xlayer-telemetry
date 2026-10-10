@@ -1,5 +1,6 @@
 """Replica evidence stays separate even under partial collection and clocks."""
 import copy
+import re
 
 import pytest
 
@@ -27,7 +28,9 @@ class Replicas:
             value = 1 if 'sync_status' in query else .001
             if self.bad_clock and f'instance="{self.bad_clock}"' in query and 'sync_status' in query:
                 value = 0
-            return {'aggregate': stats(value), 'series': []}
+            identity = {'job': 'telemetry', 'cluster': 'lab',
+                        'instance': re.search(r'instance="([^"]+)"', query).group(1)}
+            return {'aggregate': stats(value), 'series': [{'labels': identity, 'stats': stats(value)}]}
         name = next((name for name in ('num_requests_waiting', 'kv_cache_usage_perc', 'num_preemptions_total') if name in query), None)
         if not name:
             return {'aggregate': None, 'series': []}

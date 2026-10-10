@@ -57,7 +57,7 @@ GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 �
 `telemetry_gpu_process_sample_timestamp_seconds`는 opt-in process memory 관측값이 하나 이상 있을 때만 노출하며, 실제 측정값 `0`과 일부 행 오류가 있어도 남은 유효한 관측은 보존합니다.
 Process 수집 비활성화·전체 실패·관측값 없음에서는 이 시각을 생략하며 device 수집 성공 시각과 독립적으로 freshness를 판단합니다.
 Compute & Communication의 process-memory panel은 이 시각을 우선하고, 이 metric이 없는 이전 collector·저장된 data에서만 device 시각으로 대체합니다.
-Process 시각이 존재하지만 stale이면 fresh device 시각으로 우회하지 않으며, 두 경로 모두 기존 node·instance·GPU selector와 30초 freshness 조건을 유지합니다.
+Process 시각이 존재하지만 stale이면 fresh device 시각으로 우회하지 않으며, 두 경로 모두 기존 node·instance·GPU selector와 `0 ≤ age < 30s` freshness 조건을 유지합니다. 미래 timestamp와 만료된 관측은 숨기며 실제 측정값 `0`은 보존합니다.
 Device memory와 process memory를 합산하거나 run 소유량으로 해석하지 않습니다.
 
 `telemetry_gpu_collection_success`는 가장 최근 device 수집의 성공 여부이며 GPU 수집 설정과 별개입니다.

@@ -56,7 +56,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "label_join((telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)), \"node\", \"/\", \"cluster\", \"nodename\")",
+          "expr": "label_join((telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))), \"node\", \"/\", \"cluster\", \"nodename\")",
           "format": "table",
           "instant": true
         }
@@ -115,7 +115,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_utilization_percent{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -171,7 +171,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_power_watts{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_power_watts{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -218,7 +218,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_temperature_celsius{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_temperature_celsius{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -265,7 +265,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_sm_clock_mhz{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_sm_clock_mhz{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{cluster}}/{{instance}} GPU {{gpu}}"
         }
       ],
@@ -313,17 +313,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) or on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) unless on(cluster, instance) telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}))",
+          "expr": "(telemetry_gpu_process_memory_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (((time() - telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0)) or on(cluster, instance) (((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0)) unless on(cluster, instance) telemetry_gpu_process_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}))",
           "legendFormat": "{{instance}} GPU {{gpu}} PID {{pid}}"
         },
         {
           "refId": "B",
-          "expr": "(telemetry_gpu_memory_used_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_memory_used_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{instance}} GPU {{gpu}} used"
         },
         {
           "refId": "C",
-          "expr": "(telemetry_gpu_memory_total_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30)",
+          "expr": "(telemetry_gpu_memory_total_bytes{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}) and on(cluster, instance) ((time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
           "legendFormat": "{{instance}} GPU {{gpu}} capacity"
         }
       ],

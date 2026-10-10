@@ -103,7 +103,7 @@ def _target_configuration(address, targets):
     try:
         parsed = urlsplit(targets[0].get('scrapeUrl', ''))
         actual = parsed.hostname
-        if not actual or parsed.port != 19100 or parsed.path != '/metrics':
+        if parsed.scheme != 'http' or not actual or parsed.port != 19100 or parsed.path != '/metrics' or parsed.query or parsed.fragment:
             return 'unknown'
         if actual.casefold() == address.casefold():
             return 'matched'

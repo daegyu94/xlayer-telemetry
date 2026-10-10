@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import time
 from typing import Mapping
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from ._http_transport import _ResponseTooLarge, request_bytes
 from .prometheus import escape_label
@@ -52,6 +52,24 @@ def inspect_sources(groups: list[dict], prometheus: str, grafana: str, cluster: 
     return summarize_sources(groups, targets, grafana, cluster, backend_error=error)
 
 
+def _source_configuration(group: dict, matches: list[dict]) -> str:
+    if len(matches) != 1:
+        return 'ambiguous' if matches else 'unknown'
+    labels = group['labels']
+    expected = urlsplit(labels.get('__scheme__', 'http') + '://' + group['targets'][0] +
+                        labels.get('__metrics_path__', '/metrics'))
+    try:
+        actual = urlsplit(matches[0].get('scrapeUrl', ''))
+        if not actual.hostname or not actual.scheme:
+            return 'unknown'
+        def route(url):
+            return (url.scheme.lower(), url.hostname.lower(),
+                    url.port or (443 if url.scheme == 'https' else 80), url.path)
+        return 'matched' if route(actual) == route(expected) and not actual.query and not actual.fragment else 'mismatch'
+    except (TypeError, ValueError):
+        return 'unknown'
+
+
 def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
                       cluster: str, *, backend_error: str | None = None) -> dict:
     """Match stable source identities against one discovery snapshot, without I/O."""
@@ -71,8 +89,13 @@ def summarize_sources(groups: list[dict], targets: list[dict], grafana: str,
         status = ('unavailable' if backend_error else 'not_discovered' if not matches else
                   'up' if all(t.get('health') == 'up' for t in matches) else
                   'down' if any(t.get('health') == 'down' for t in matches) else 'unknown')
+        scrape_health = status
+        configuration = _source_configuration(group, matches)
+        if matches and not backend_error and configuration != 'matched':
+            status = 'configuration_' + configuration
         selector = '{' + ','.join(f'{k}="{escape_label(v)}"' for k, v in identity.items()) + '}'
-        rows.append({**identity, 'status': status, 'scope': 'endpoint/shared-service',
+        rows.append({**identity, 'status': status, 'scrape_health': scrape_health,
+                     'configuration_status': configuration, 'scope': 'endpoint/shared-service',
                      'last_scrape': [t.get('lastScrape') for t in matches],
                      'metrics_url': explore_url(grafana, selector)})
     return {'backend_error': backend_error, 'sources': rows}

@@ -213,6 +213,65 @@ def loading_context_check(page, url, checks, capture):
         page.unroute_all(behavior='wait')
 
 
+def verify_worker_clock_boundary(page, capture, checks):
+    """Change stored clock proof only; retain real native GPU queries and spans."""
+    workers = page.get_by_role('heading', name='Measured Worker Comparison', exact=True).locator('..')
+    def calls():
+        return workers.locator('tbody tr').evaluate_all('(rows) => rows.map(row => row.cells[2].innerText)')
+    durations = calls()
+    gpu_values = workers.locator('tbody tr td:nth-child(5)').all_inner_texts()
+    url = page.url
+    condition = {'status': 'unsafe'}
+    def fixture(route):
+        response = route.fetch()
+        try:
+            body = response.json()
+        except ValueError:
+            route.fulfill(response=response)
+            return
+        for result in body.get('results', {}).values():
+            for frame in result.get('frames', []):
+                for field, column in zip(frame.get('schema', {}).get('fields', []), frame.get('data', {}).get('values', [])):
+                    if field.get('name') != 'Line':
+                        continue
+                    for index, text in enumerate(column):
+                        try:
+                            record = json.loads(text)
+                        except (ValueError, TypeError):
+                            continue
+                        row = record.get('record', record)
+                        if isinstance(row, dict) and row.get('row_kind') == 'summary':
+                            row['correlation_clock_status'] = condition['status']
+                            if condition['status'] == 'aligned':
+                                row['clock_required_nodes'] = []
+                            column[index] = json.dumps(record)
+        route.fulfill(response=response, json=body)
+    page.route('**/api/ds/query*', fixture)
+    try:
+        for status in ('unsafe', 'unknown', 'aligned'):
+            condition['status'] = status
+            page.goto(url)
+            page.get_by_label('Correlation clock quality').get_by_text(status, exact=True).wait_for(timeout=15000)
+            page.get_by_role('button', name='Worker Comparison', exact=True).click()
+            workers.locator('tbody tr').nth(3).wait_for(timeout=15000)
+            assert calls() == durations, 'Clock uncertainty erased independent measured call durations'
+            gpu_cells = workers.locator('tbody tr td:nth-child(5)')
+            proof_status = 'source_node_not_screened' if status == 'aligned' else status
+            workers.locator(f'td:nth-child(5)[title*="Clock quality is {proof_status}"]').first.wait_for(timeout=15000)
+            assert all('sampled' not in cell.inner_text() for cell in gpu_cells.all()), 'Clock-unverified phase GPU was rendered'
+            if status == 'aligned':
+                assert any('source_node_not_screened' in (cell.get_attribute('title') or '') for cell in gpu_cells.all())
+            capture('worker-clock-' + status)
+    finally:
+        page.unroute('**/api/ds/query*', fixture)
+        page.goto(url)
+        page.get_by_role('button', name='Worker Comparison', exact=True).click()
+        workers.locator('tbody tr').nth(3).wait_for(timeout=15000)
+        page.wait_for_function('(expected) => JSON.stringify(Array.from(document.querySelectorAll(".xlt-scroll tbody tr td:nth-child(5)")).filter(cell => cell.closest("section")?.querySelector("h3")?.innerText === "Measured Worker Comparison").map(cell => cell.innerText)) === JSON.stringify(expected)', arg=gpu_values, timeout=15000)
+        capture('worker-clock-recovered')
+    checks.append('Unsafe, unknown and unscreened stored clock proof withholds Worker phase GPU while preserving measured durations; native queries remain real, clock fault is a browser boundary fixture')
+
+
 def multi_worker_journey(args):
     errors, checks, queries, transitions = [], [], [], []
     with sync_playwright() as playwright:
@@ -267,6 +326,7 @@ def multi_worker_journey(args):
         assert 'sampled' in workers.inner_text() or 'sample unavailable' in workers.inner_text()
         capture('multi-worker-comparison')
         workers.screenshot(path=str(args.output / f'{args.label}-worker-comparison-section.png'))
+        verify_worker_clock_boundary(page, capture, checks)
         outlier.get_by_role('button', name='Inspect worker →', exact=True).click()
         page.wait_for_function("new URLSearchParams(window.location.search).has('var-phase_worker')")
         selected = parse_qs(urlparse(page.url).query)

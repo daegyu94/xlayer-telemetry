@@ -131,6 +131,29 @@ def assess_clocks(
             if entry["status"] == "aligned":
                 entry["status"] = "unknown"
             entry["issues"].append("insufficient_or_ambiguous_clock_evaluations")
+        # Production range summaries preserve each scrape source and parser
+        # limitations. A sum of evaluations is not proof for one clock source.
+        required = [entry.get(key) or {} for key in expressions if key != 'sync_status' or require_sync]
+        identities = [stats.get('series_identities') for stats in required]
+        identity_known = [value for value in identities if value is not None]
+        partial = any(any((stats.get('query_result') or {}).get(field, 0) for field in
+                      ('warning_count', 'info_count', 'discarded_sample_count', 'discarded_series_count'))
+                      for stats in required)
+        ambiguous = any(stats.get('min_series_sample_count', 2) < 2 for stats in required)
+        inconsistent = bool(identity_known) and (len(identity_known) != len(required) or
+            any(len(value) != 1 for value in identity_known) or
+            any(value != identity_known[0] for value in identity_known) or
+            any(any(identity.get(key) != expected for key, expected in
+                    (('job', 'telemetry'), ('cluster', cluster), ('instance', node)))
+                for value in identity_known for identity in value))
+        if partial or ambiguous or inconsistent:
+            if entry['status'] == 'aligned':
+                entry['status'] = 'unknown'
+            if partial:
+                entry['issues'].append('partial_clock_query_response')
+            if ambiguous or inconsistent:
+                entry['issues'].append('clock_source_identity_unverified')
+        entry['source_identity_quality'] = 'reported' if identity_known else 'not_reported'
         if error is not None and error >= 0 and error > limit:
             entry["status"] = "unsafe"
             entry["issues"].append("clock_uncertainty_exceeds_interval_budget")

@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {executionKey,executionChoices,selectExecution,observedPhases,measuredWorkers,pressureOrder,appliedPolicies,stepProjection,workerContext,resourceContext} from '../src/distributed';
+import {executionKey,executionChoices,selectExecution,observedPhases,measuredWorkers,workerGpuCell,pressureOrder,appliedPolicies,stepProjection,workerContext,resourceContext} from '../src/distributed';
 const step={cluster:'c',run_id:'r',node:'n',step:42,window_start_ms:1000,window_end_ms:20000};
 const span={...step,record_type:'span',node:'n',producer:'sdk',role:'rollout',worker_id:'w0',trace_id:'t',span_id:'s',phase:'rollout',name:'generate',boundary_accuracy:'exact',start_time_ms:2000,end_time_ms:10000,duration_seconds:8,duration_source:'monotonic',attributes:{workload_fingerprint:'f',boundary_scope:'worker_call'}};
 test('execution selection separates same worker IDs across nodes and sources',()=>{
@@ -72,4 +72,19 @@ test('duplicate span IDs cannot overwrite workload, duration or resource provena
   if(rows.length===1){assert.equal(rows[0].window.status,'ambiguous');assert.equal(rows[0].duration,undefined);}
   else assert.equal(rows.length,2);
  }
+});
+
+test('Worker GPU phase samples use Matrix clock screening; call duration survives uncertainty',()=>{
+ const row=measuredWorkers([{...span,gpu:'0'}],step)[0];
+ const samples=[5000,6000].map(time=>({time,value:0,unit:'percent',labels:{cluster:'c',node:'n',gpu:'0'}}));
+ const proof={nodes:['n'],uncertainty:0.01,sampleAge:1};
+ assert.equal(workerGpuCell(row,samples,'aligned',proof).value,0);
+ for(const status of ['unsafe','unknown','unchecked']){
+  assert.equal(workerGpuCell(row,samples,status,proof).value,undefined);
+  assert.equal(row.duration,8);
+ }
+ assert.equal(workerGpuCell(row,samples,'aligned',{...proof,nodes:['other']}).value,undefined);
+ assert.equal(workerGpuCell(row,samples,'aligned').value,undefined);
+ assert.equal(workerGpuCell(row,samples,'aligned',{...proof,uncertainty:2}).value,undefined);
+ assert.equal(workerGpuCell(row,samples,'aligned',{...proof,sampleAge:30}).value,undefined);
 });

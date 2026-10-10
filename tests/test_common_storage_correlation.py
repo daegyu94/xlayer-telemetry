@@ -22,7 +22,10 @@ class Native:
         self.calls.append(query)
         if 'node_time_seconds' in query or 'node_timex' in query:
             value = (0 if self.unsafe else 1) if 'sync_status' in query else .001
-            return {'aggregate': dict(min=value, max=value, mean=value, last=value, sample_count=3), 'series': []}
+            stats = dict(min=value, max=value, mean=value, last=value, sample_count=3)
+            import re
+            node = re.search(r'instance="([^"]+)"', query).group(1)
+            return {'aggregate': stats, 'series': [{'labels': dict(job='telemetry', cluster='lab', instance=node), 'stats': stats}]}
         if 'mooncake' not in query:
             return {'aggregate': None, 'series': []}
         if self.failed and end == 100:

@@ -126,6 +126,9 @@ def test_actual_process_panel_query_preserves_freshness_fallback_and_scope(tmp_p
         ("older-collector-stale", None, 0, False, 512),
         ("missing-freshness", None, None, False, 512),
         ("observed-zero", 290, None, True, 0),
+        ("future-process", 310, 290, False, 512),
+        ("future-legacy-device", None, 310, False, 512),
+        ("age-zero-measured-zero", 300, None, True, 0),
     ]:
         inputs = [series(PROCESS_METRIC, memory, process_labels)]
         if process_time is not None:
@@ -157,4 +160,32 @@ def test_actual_process_panel_query_preserves_freshness_fallback_and_scope(tmp_p
     fixture.write_text(json.dumps({"evaluation_interval": "1m", "tests": fixtures}))
     result = subprocess.run([tool, "test", "rules", str(fixture)],
                             capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_actual_gpu_device_queries_reject_future_timestamp_and_preserve_zero(tmp_path):
+    tool = os.environ.get('PROMTOOL') or shutil.which('promtool')
+    if not tool:
+        pytest.skip('set PROMTOOL to evaluate canonical GPU queries')
+    labels = {'job': 'telemetry', 'cluster': 'lab', 'nodename': 'node-a', 'instance': 'node-a:19100'}
+    def encoded(values):
+        return '{' + ','.join(f'{key}="{value}"' for key, value in values.items()) + '}'
+    metric = 'telemetry_gpu_utilization_percent'
+    gpu_labels = {**labels, 'gpu': '0'}
+    fixtures = []
+    for name, panel_id in [('compute-communication', 2), ('agent-rl-stages', 6), ('cross-layer-timeline', 4)]:
+        dashboard = json.loads((ROOT / f'examples/dashboards/{name}.json').read_text())
+        panel = next(panel for panel in dashboard['panels'] if panel['id'] == panel_id)
+        query = panel['targets'][0]['expr'].replace('$gpu', '0').replace('$cluster', 'lab').replace('$node', 'node-a')
+        for case, timestamp, value, expected in [('future', 310, 95, False), ('expired', 250, 95, False),
+                                                  ('normal', 290, 75, True), ('zero', 300, 0, True)]:
+            fixtures.append({'name': f'{name}-{case}', 'interval': '1m', 'input_series': [
+                {'series': metric + encoded(gpu_labels), 'values': f'{value}+0x5'},
+                {'series': DEVICE_TIME + encoded(labels), 'values': f'{timestamp}+0x5'},
+            ], 'promql_expr_test': [{'expr': query, 'eval_time': '5m', 'exp_samples': [
+                {'labels': metric + encoded(gpu_labels), 'value': value},
+            ] if expected else []}]})
+    path = tmp_path / 'gpu-device-freshness.json'
+    path.write_text(json.dumps({'evaluation_interval': '1m', 'tests': fixtures}))
+    result = subprocess.run([tool, 'test', 'rules', str(path)], capture_output=True, text=True, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr

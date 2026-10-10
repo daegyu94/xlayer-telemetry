@@ -1,6 +1,6 @@
 import { numeric, type RecordRow, type Context } from './context';
 import { latestEntitySamples, eventTime } from './mockup';
-import { PHASES, phaseWindow, type Sample } from './semantics';
+import { PHASES, phaseWindow, gaugeSummary, metricCell, clockQualifiedCell, type ClockProof, type Sample } from './semantics';
 
 const attrs = (row: RecordRow): RecordRow =>
   row.attributes && typeof row.attributes === 'object' && !Array.isArray(row.attributes)
@@ -74,6 +74,18 @@ export function measuredWorkers(rows: RecordRow[], step: RecordRow) {
     const median = sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
     return {...row, peers: peers.length, median, delta: median > 0 ? 100 * (row.duration - median) / median : undefined};
   });
+}
+
+export function workerGpuCell(row: ReturnType<typeof measuredWorkers>[number], samples: Sample[],
+                              status: string, proof?: ClockProof) {
+  const gpu = row.window.span?.gpu;
+  const chosen = gpu === undefined ? undefined :
+    gaugeSummary(samples.filter(sample => sample.labels.gpu === String(gpu)), row.window).sample;
+  const cell = clockQualifiedCell(metricCell(chosen, row.window, 'device', 0),
+    status === 'aligned' && !proof ? 'unknown' : status, proof, row.window);
+  // A rolling observation remains available elsewhere; this column is a phase
+  // mean and cannot present that context as a precisely aligned measurement.
+  return cell.binding === 'phase-window' ? cell : {...cell, value: undefined};
 }
 
 export type PressureOptions = {

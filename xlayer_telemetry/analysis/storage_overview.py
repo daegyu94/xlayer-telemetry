@@ -5,7 +5,7 @@ from .evidence_quality import RESOLUTION_BLOCKERS, correlation_quality_issues
 from .metric_queries import METRIC_PROFILES, PROFILE_SIGNALS
 
 
-def storage_overview(comparison, queries, missing, *, unsafe_clock, threefs_configured, threefs_rows, profiles=()):
+def storage_overview(comparison, queries, missing, *, unsafe_clock, threefs_configured, threefs_rows, profiles=(), sampling_quality=None):
     rows = {row['signal']: row for row in comparison.get('signals', [])}
     signals = []
     configured = {name for profile in profiles for name in METRIC_PROFILES.get(profile, {})}
@@ -13,13 +13,14 @@ def storage_overview(comparison, queries, missing, *, unsafe_clock, threefs_conf
         if not name.startswith('mooncake_') or name not in configured and name not in queries:
             continue
         row = rows.get(name, {})
-        qualities = row.get('sampling_quality') or {}
+        qualities = row.get('sampling_quality') or (sampling_quality or {}).get(name, {})
         current_quality = qualities.get('current', {})
         issues = sorted(set(correlation_quality_issues(current_quality)))
         status = 'observed'
         if name not in queries:
             status = 'not_configured'
-        elif row.get('current') is None and any(item.startswith('prometheus:' + name + ':') and not item.endswith('baseline_entity_match') for item in missing):
+        elif row.get('current') is None and 'current' not in qualities and any(item.startswith('prometheus:' + name + ':') and
+                ('Error' in item or 'budget_exhausted' in item) and ':baseline_' not in item for item in missing):
             status = 'query_failed'
         elif row.get('current') is None:
             status = 'no_data'
@@ -31,7 +32,12 @@ def storage_overview(comparison, queries, missing, *, unsafe_clock, threefs_conf
             status = 'clock_unverified'
         elif RESOLUTION_BLOCKERS.intersection(issues):
             status = 'insufficient_sampling'
-        signals.append({'signal': name, 'current': row.get('current'), 'baseline': row.get('baseline'),
+        baseline_status = ('observed' if row.get('baseline') is not None else
+            'no_data' if f'prometheus:{name}:baseline_no_data' in missing else
+            'incomparable' if f'prometheus:{name}:baseline_entity_match' in missing else
+            'query_failed' if 'current' in qualities and any(item.startswith(f'prometheus:{name}:') and
+                ('Error' in item or 'budget_exhausted' in item) for item in missing) else 'unavailable')
+        signals.append({'baseline_status': baseline_status, 'signal': name, 'current': row.get('current'), 'baseline': row.get('baseline'),
             'delta_percent': row.get('delta_percent') if status == 'observed' else None,
             'comparison_status': row.get('comparison_status', 'not_reported'),
             'scope': row.get('scope', spec.scope), 'unit': spec.unit, 'statistic': spec.statistic,

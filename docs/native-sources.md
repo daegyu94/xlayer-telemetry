@@ -67,7 +67,7 @@ xltel restart --role server
 xltel sources
 ```
 
-**정상 결과:** 등록한 endpoint마다 `up`과 Explore 링크가 나옵니다. 설정 검증과 실제 scrape 성공은 별도로 확인합니다.
+**정상 결과:** 등록한 endpoint마다 `up`과 Explore 링크가 나옵니다. 논리 label뿐 아니라 scheme·host·port·path가 현재 설정과 일치해야 `up`으로 표시합니다. `scrape_health`는 실제 endpoint 응답 상태이며 `configuration_status`와 별도로 보존합니다.
 
 이미 native job이 있다면 파일 수정 후 target만 갱신합니다.
 
@@ -96,6 +96,8 @@ curl --fail --silent http://10.0.0.11:8000/metrics   | rg 'vllm:num_requests_wai
 
 | 상태 | 확인할 것 |
 | --- | --- |
+| `configuration_mismatch` | 실제 scrape URL과 설정의 scheme·host·port·path를 대조하고 target 갱신 확인 |
+| `configuration_unknown` / `configuration_ambiguous` | Scrape URL 누락 또는 같은 identity의 중복 target 확인; 정상 적용을 확정하지 않음 |
 | Target Down | 실제 port·endpoint·firewall·process 종료 여부 |
 | Up + No data | Metric 이름/version·engine/model filter |
 | 새 endpoint가 없음 | 첫 native job 추가 시 server 재시작 여부 |
