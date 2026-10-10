@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { buildNativeWorkspace, NATIVE_PAGES, NativeWorkspace } from '../src/native-workspace';
 import type { NativeDestination } from '../src/native-workspace';
 import type { Catalog, Panel } from '../src/catalog';
+import { WORKSPACE_PAGES } from '../src/navigation';
 
 function sourcePanels(panels: Panel[]): Panel[] {
   return panels.flatMap(panel => [
@@ -79,8 +80,8 @@ test('optional missing diagnosis dashboard remains unavailable without substitut
   assert.deepEqual(workspace.panels, []);
   assert.deepEqual(visibleIndices(workspace), []);
   const markup = renderToStaticMarkup(React.createElement(NativeWorkspace, { workspace, panels: [] }));
-  assert.match(markup, /Canonical dashboard unavailable/);
-  assert.match(markup, /not a measured zero/);
+  assert.match(markup, /기존 Dashboard를 사용할 수 없습니다/);
+  assert.match(markup, /측정값 0/);
 });
 
 test('native navigation has one route per canonical destination and no UI-version paths', () => {
@@ -88,4 +89,13 @@ test('native navigation has one route per canonical destination and no UI-versio
   assert.equal(new Set(NATIVE_PAGES.map(page => page.route)).size, 6);
   assert.equal(new Set(NATIVE_PAGES.map(page => page.destination)).size, 6);
   assert.ok(NATIVE_PAGES.every(page => !/^v[12]\//.test(page.route)));
+});
+
+test('workspace and native page guidance is Korean while technical titles and routes remain English', () => {
+  for (const page of [...WORKSPACE_PAGES, ...NATIVE_PAGES]) {
+    assert.match(page.description, /[가-힣]/);
+    assert.doesNotMatch(page.title, /[가-힣]/);
+    assert.match(page.route, /^[a-z-]+$/);
+  }
+  for (const page of NATIVE_PAGES) assert.match(page.notice, /[가-힣]/);
 });

@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-10",
+  "source_base": "849e4521a443c9bec722383b68a7de2c621b8993",
+  "design_reference": "grafana/xlayer-app/design/topology-compact.html",
+  "reference_sha256": "294306792c4edeb4ee64b25c57ce77538844e71a382f77464114004e70e99d35",
+  "scope": "Actual Grafana 12.1.0 / Scenes 6.20.0 with synthetic Prometheus/Loki/SDK fixtures; no physical GPU/3FS cluster",
+  "before": {
+    "light_muted_on_white": 3.843,
+    "font_sizes": "Custom descriptions, scope, table and legend included 9–11px text"
+  },
+  "loops": [
+    {
+      "iteration": 1,
+      "captures": 78,
+      "navigation_context_failures": 0,
+      "qualified_contrast_below_threshold": 28,
+      "text_below_12px": 0
+    },
+    {
+      "iteration": 2,
+      "captures": 78,
+      "navigation_context_failures": 0,
+      "qualified_contrast_below_threshold": 0,
+      "text_below_12px": 0
+    },
+    {
+      "iteration": 3,
+      "captures": 78,
+      "navigation_context_failures": 0,
+      "qualified_contrast_below_threshold": 0,
+      "text_below_12px": 0
+    },
+    {
+      "iteration": 4,
+      "captures": 78,
+      "navigation_context_failures": 0,
+      "qualified_contrast_below_threshold": 0,
+      "text_below_12px": 0
+    }
+  ],
+  "topology": {
+    "compute_two_columns": true,
+    "mds_ds_unknown_separate": true,
+    "same_name_fabric_namespace_not_merged": true,
+    "compact_expanded_selected_resource_retained": true,
+    "physical_hops_or_run_ownership_inferred": false,
+    "resource_journey": {
+      "browser_errors": [],
+      "widths": [
+        1440,
+        390
+      ],
+      "resource_context_preserved": true,
+      "node_gpu_nic_ssd_selection": true,
+      "canonical_metrics_reused": true,
+      "topology_query_failure_and_logs_unavailable": true,
+      "scope": "Configured synthetic topology and actual Prometheus/Loki/Grafana; no physical connectivity, GPU or 3FS verification"
+    }
+  },
+  "native_routes": {
+    "captures": 18,
+    "rendering_errors": 0,
+    "sampled_table_header_legend_font_min_px": 12,
+    "vendor_defaults": "582 inspected elements were 14px and 22 were 12px; vendor controls remain Grafana-owned"
+  },
+  "tooltip_and_keyboard": {
+    "hover_tooltips": [
+      {
+        "theme": "light",
+        "tooltip": {
+          "font": 12,
+          "color": "rgb(30, 41, 59)",
+          "text": "Device별 GPU utilization입니다. Worker allocation과 함께 보며 특정 Run의 사용량으로 자동 귀속하지 않습니다."
+        },
+        "query_expression_unchanged": true
+      },
+      {
+        "theme": "dark",
+        "tooltip": {
+          "font": 12,
+          "color": "rgb(230, 236, 245)",
+          "text": "Device별 GPU utilization입니다. Worker allocation과 함께 보며 특정 Run의 사용량으로 자동 귀속하지 않습니다."
+        },
+        "query_expression_unchanged": true
+      }
+    ],
+    "keyboard_node_selection": true,
+    "scope": "UI interactions on synthetic sources; no physical hardware test"
+  },
+  "localization": {
+    "english_preserved": [
+      "Menus",
+      "Panel titles",
+      "KPI names",
+      "Metric/label/API/JSON keys",
+      "Units",
+      "Internal states",
+      "Unknown upstream/LLM messages",
+      "Grafana vendor controls / raw datasource errors"
+    ],
+    "korean_display": [
+      "Descriptions",
+      "Source/scope explanations",
+      "Clock/missing/uncertainty notices",
+      "Tooltip explanations",
+      "Known candidate summaries through canonical mapping"
+    ],
+    "runtime_record_mutated": false,
+    "maximum_reported_p99_not_reinterpreted": true
+  },
+  "contracts": {
+    "queries_datasources_transformations_units_unchanged": true,
+    "diagnosis_rules_unchanged": true,
+    "native_mappings_only_color_and_text_cues": true
+  },
+  "tests": {
+    "cpu_passed": 1622,
+    "cpu_skipped": 6,
+    "skip_reason": "Optional real ClickHouse service is not configured",
+    "frontend_passed": 139,
+    "typecheck": true,
+    "build": true,
+    "documentation_build": true,
+    "single_stack_all_validators": true
+  },
+  "limits": [
+    "Qualified visible DOM samples are not a complete WCAG certification",
+    "Canvas and complex paint are manual review; inactive control exceptions excluded",
+    "Source availability does not establish hardware health, physical connectivity, attribution or causality"
+  ],
+  "cleanup": "Owned demo processes and state directories cleaned; bounded screenshots retained in ignored artifacts. Existing user services, tools and browser environment preserved.",
+  "qualified_dom_counts": {
+    "sampled": 10937,
+    "qualified": 10937
+  },
+  "multi_job_localization": {
+    "passed": true,
+    "runs": [
+      "demo-deepseek",
+      "demo-llama",
+      "demo-qwen"
+    ],
+    "raw_run_engine_baseline_identity_preserved": true
+  },
+  "single_job_current": {
+    "passed": true,
+    "checks": [
+      "Native plugin entry / Scenes Run variables / KPI and measured timeline render with live synthetic data",
+      "Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states",
+      "Storage cell opens supporting / against / missing evidence without asserting phase attribution",
+      "Existing Data & Storage keeps Run/Step/observer/resource/GPU/phase/time; Browser Back restores investigation",
+      "900px and 390px layout: page contained; Matrix/table scroll locally; evidence remains usable",
+      "Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs",
+      "Analyze → baseline / candidates → evidence → measured timeline keeps Step; Compute pivot and Escape restore focus",
+      "App Timeline / Deep Dive routing preserves investigation context",
+      "Unknown Run stays selected and displays no-data rather than inferred healthy/zero values",
+      "Structured Grafana /api/ds/query GPU error fixture preserves actual Loki Step navigation and exposes Query Coverage; browser boundary simulation, not a backend outage",
+      "Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement",
+      "Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate",
+      "Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation"
+    ],
+    "query_window_match": "22/22",
+    "scope": "Actual synthetic stack, browser datasource error/delay fixtures; not hardware/backend outage validation"
+  },
+  "ci_design": {
+    "captures": 52,
+    "failures": 0
+  },
+  "ci_readability": {
+    "captures": 24,
+    "failures": 0,
+    "contrast_below_threshold": 0,
+    "text_below_12px": 0,
+    "owned_stack_reused": true
+  }
+}

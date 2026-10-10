@@ -32,13 +32,13 @@ with sync_playwright() as p:
  page.get_by_role('combobox',name='Storage metric').wait_for(timeout=15000)
  page.wait_for_timeout(800)
  page.get_by_role('combobox',name='Storage metric').select_option('storage_client.overall_latency')
- try:page.get_by_text(re.compile('Current collection points')).wait_for(timeout=8000)
+ try:page.get_by_text(re.compile('Current collection point')).wait_for(timeout=8000)
  except Exception:
   page.screenshot(path=str(out/'selection-failure.png'),full_page=True);(out/'failure-body.txt').write_text(page.locator('body').inner_text());raise
  page.wait_for_timeout(900)
  section=page.get_by_role('region',name='3FS collection context')
  assert 'Collection interval' in section.inner_text()
- assert 'phase or Run usage' in section.inner_text()
+ assert 'Phase 또는 Run별 사용량이 아닙니다' in section.inner_text()
  assert 'Baseline' in section.inner_text()
  plot=section.locator('.xlt-panel').first
  assert 'No data' not in plot.inner_text() and 'N/A' not in plot.inner_text(),plot.inner_text()
@@ -49,7 +49,7 @@ with sync_playwright() as p:
   page.screenshot(path=str(out/f'series-{width}.png'),full_page=True)
  page.set_viewport_size({'width':1440,'height':1000})
  page.get_by_role('combobox',name='Storage metric').select_option('storage_client.data_payload_bytes')
- page.get_by_text(re.compile('Current collection points')).wait_for();page.wait_for_timeout(700)
+ page.get_by_text(re.compile('Current collection point')).wait_for();page.wait_for_timeout(700)
  assert 'bytes' in section.inner_text()
  assert 'ms' not in section.locator('.xlt-panel').first.inner_text(), 'Previous latency frame was reused for a byte amount'
  assert 'N/A' not in section.locator('.xlt-panel').first.inner_text()

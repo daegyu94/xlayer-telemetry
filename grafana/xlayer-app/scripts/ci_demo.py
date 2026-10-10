@@ -125,7 +125,12 @@ def run(args):
                 design = [sys.executable, str(SCRIPTS / 'design_validate.py'), '--url', connection['grafana'],
                     '--context',str(args.output/'ci-validation.json'), '--output',str(args.output/'design'),
                     '--iteration','1','--mockup',str(SCRIPTS.parent/'design/dashboard-preview.html'), *(['--browser',args.browser] if args.browser else [])]
-                validators += (design,)
+                readability = [sys.executable,str(SCRIPTS/'readability_validate.py'),'--url',connection['grafana'],
+                    '--context',str(args.output/'ci-validation.json'),'--output',str(args.output/'readability'),
+                    '--iteration','1','--screens','infrastructure,investigate,bottleneck-summary,signals',
+                    '--mockup',str(SCRIPTS.parent/'design/topology-compact.html'),'--require-contrast',
+                    *(['--browser',args.browser] if args.browser else [])]
+                validators += (design,readability)
             if args.multi_job:
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),

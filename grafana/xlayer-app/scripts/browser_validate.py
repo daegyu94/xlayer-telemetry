@@ -198,7 +198,7 @@ def loading_context_check(page, url, checks, capture):
                 break
         page.keyboard.press('Escape');page.keyboard.press('Tab')
         page.wait_for_function("new URLSearchParams(window.location.search).getAll('var-run_id').includes('not-a-real-run') && !new URLSearchParams(window.location.search).getAll('var-run_id').includes('verl-agent-demo')", timeout=15000)
-        page.get_by_text('No completed Step in this range. Select a Run/time range; Loki step history is optional.', exact=True).wait_for(state='attached', timeout=15000)
+        page.get_by_text('이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.', exact=True).wait_for(state='attached', timeout=15000)
         page.unroute_all(behavior='wait')
         relevant = [snapshot for snapshot in snapshots if snapshot['runs']==['not-a-real-run']]
         assert relevant, 'A native Run transition must issue delayed unknown-Run queries'
@@ -401,7 +401,7 @@ def main():
         capture('analyze');checks.append('Completed Step fixes identity and native query/time-picker interval; Matrix contains observed gauge / rolling / N/A / MFU missing states')
         page.get_by_role('button',name='rollout × storage evidence',exact=True).click()
         detail=page.get_by_role('complementary',name='Evidence detail');detail.wait_for();page.wait_for_timeout(400)
-        assert 'full Step' in detail.inner_text() and 'per_run_3fs_client_bytes' in detail.inner_text()
+        assert '전체 Step' in detail.inner_text() and 'per_run_3fs_client_bytes' in detail.inner_text()
         assert 'shared-service' in detail.inner_text() and 'causal path' in detail.inner_text()
         capture('evidence');checks.append('Storage cell opens supporting / against / missing evidence without asserting phase attribution')
         detail.get_by_role('link',name='storage ↗',exact=True).click();page.wait_for_url('**/d/xlayer-data-storage?**');page.wait_for_timeout(1800)
@@ -454,7 +454,7 @@ def main():
         assert 'Choose a subsystem' in page.locator('.xlt').inner_text();capture('deep-dive')
         checks.append('App Timeline / Deep Dive routing preserves investigation context')
         page.goto(url.replace('verl-agent-demo','not-a-real-run'));page.wait_for_timeout(1800)
-        assert 'No completed Step' in page.locator('.xlt').inner_text();capture('no-data')
+        assert '완료된 Step이 없습니다' in page.locator('.xlt').inner_text();capture('no-data')
         checks.append('Unknown Run stays selected and displays no-data rather than inferred healthy/zero values')
         datasource_boundary_checks(page,url,checks,capture)
         # Optional dashboard availability is deliberately removed at Grafana's
@@ -463,7 +463,7 @@ def main():
         page.route('**/api/dashboards/uid/xlayer-cross-layer-timeline',lambda route:route.fulfill(status=404,json={'message':'Dashboard not found'}))
         page.route('**/api/dashboards/uid/xlayer-run-logs',lambda route:route.fulfill(status=404,json={'message':'Dashboard not found'}))
         page.goto(url);page.wait_for_timeout(1800)
-        assert 'Loki timeline unavailable' in page.locator('.xlt').inner_text();capture('optional-unavailable')
+        assert 'Loki Timeline을 사용할 수 없습니다' in page.locator('.xlt').inner_text();capture('optional-unavailable')
         checks.append('Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation')
         assert not errors,errors
         report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','browser_version':browser.version,'playwright_version':version('playwright'),'browser_locale':'en-US','browser_timezone':'UTC','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}

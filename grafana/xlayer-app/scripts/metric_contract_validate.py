@@ -65,7 +65,7 @@ with sync_playwright() as p:
  except Exception:
   page.screenshot(path=str(root/'async-failure.png'),full_page=True);raise
  assert page.get_by_text('Update time',exact=True).count()>0
- assert page.get_by_text(re.compile('rollout/tool execution')).count()>0
+ assert page.get_by_text(re.compile('rollout/tool 실행')).count()>0
  report['async_scope']={'update_time_visible':True,'scope_notice_visible':True}
  page.screenshot(path=str(root/'async-update.png'),full_page=True)
  page.unroute('**/api/ds/query*',async_scope)
@@ -109,7 +109,7 @@ with sync_playwright() as p:
  assert page.get_by_text('3FS · saved service observations',exact=True).count()==1
  common=page.locator('.xlt-common-storage')
  assert 'Backend / adapter not reported' in common.inner_text()
- assert 'No saved common-storage coverage' not in common.inner_text()
+ assert '저장된 Common Storage coverage가 없습니다' not in common.inner_text()
  common.get_by_text('Source coverage · values, scope, entity and quality',exact=True).click()
  assert 'mooncake_dfs_read_p95_seconds' in common.inner_text()
  assert 'mooncake_master_allocated_bytes' in common.inner_text()

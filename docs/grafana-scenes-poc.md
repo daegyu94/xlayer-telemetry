@@ -235,7 +235,7 @@ Workspace에는 Overview·Analyze·Investigate·Timeline·Deep Dive·Infrastruct
 
 - 상단 filter: Cluster·Run·완료 Step·Grafana time/refresh picker. Observer·resource와 상세 native filter는 펼쳐서 선택합니다.
 - Light/Dark: 헤더의 theme 버튼. URL의 `theme`과 기존 context를 함께 유지하며 Grafana panel에도 같은 배색을 적용합니다.
-- Infrastructure: 목업과 같은 Compute 왼쪽 → Fabric 가운데 → Storage 오른쪽의 compact card와 곡선 연결. 선언된 관계는 점선이며 미확인 endpoint나 표시 한도 밖 관계는 Relationship Ledger에서 확인합니다.
+- Infrastructure: B2 Compact Layered Cluster Map. Compute 2열·Network identity·Storage MDS/DS를 구분하고 Compact / Expanded에서 실제 inventory를 선택합니다. 계층 연결 표시는 배치용 구분이며 실제 선언 edge와 미확인 endpoint는 Relationship Ledger에서 확인합니다.
 - 상세 native row: 필요한 그룹만 펼칩니다. 숨겨진 source를 조회하지 않은 상태를 정상 또는 측정값 `0`으로 해석하지 않습니다.
 
 ![상단 context와 공통 sidebar를 사용하는 실제 Synthetic Overview](figures/grafana-app-context-overview.png)

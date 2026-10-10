@@ -9,38 +9,38 @@ export const NATIVE_PAGES = [
   {
     route: 'start-here', destination: 'start', title: 'Start Here · Collection Health',
     kicker: 'GET STARTED',
-    description: 'Verify connected sources and sample freshness before investigating a Run.',
-    notice: 'Collector availability is exporter reachability, not application health. Missing metrics and stale samples remain distinct from measured zero.',
+    description: 'Run을 조사하기 전에 연결된 source와 sample freshness를 확인합니다.',
+    notice: 'Collector availability는 exporter에 접근할 수 있는지를 뜻하며 Application 정상 상태를 보장하지 않습니다. Missing metric과 stale sample은 측정값 0과 구분합니다.',
   },
   {
     route: 'stage-correlation', destination: 'stage', title: 'Agent RL Stage Correlation',
     kicker: 'SUBSYSTEM / TRAINING',
-    description: 'Compare reported stages with serving, orchestration, KV storage and optional Sandbox observations.',
-    notice: 'Completed stage duration is a reported scalar. vLLM, Ray and Mooncake retain their own engine, session and service scope; overlap does not establish phase ownership.',
+    description: '보고된 stage를 Serving, Orchestration, KV Storage, optional Sandbox 관측과 비교합니다.',
+    notice: '완료 stage duration은 reported scalar입니다. vLLM / Ray / Mooncake의 engine / session / service scope는 구분하며, 시간 중첩만으로 phase의 resource ownership을 판단하지 않습니다.',
   },
   {
     route: 'bottleneck-summary', destination: 'summary', title: 'Bottleneck Summary',
     kicker: 'NATIVE / DIAGNOSIS',
-    description: 'Review saved Current / Baseline comparisons, candidates and the evidence ledger.',
-    notice: 'These are saved diagnosis projections for the selected investigation. Current live resource metrics do not replace historical Step evidence or missing clock and baseline proof.',
+    description: '저장된 Current / Baseline 비교, Candidate와 Evidence Ledger를 확인합니다.',
+    notice: '선택한 조사에 저장된 diagnosis 결과입니다. 현재 live metric으로 과거 Step의 Evidence를 대체하거나, 확인되지 않은 clock / baseline 조건을 보완하지 않습니다.',
   },
   {
     route: 'compute', destination: 'compute', title: 'Compute & Communication',
     kicker: 'SUBSYSTEM / COMPUTE',
-    description: 'Inspect device activity, host pressure and interface / RDMA observations.',
-    notice: 'GPU observations have device scope; host pressure has node scope; NIC / RDMA observations have interface or port scope. They do not establish per-Run resource ownership or endpoint-pair traffic.',
+    description: 'Device activity, host pressure와 interface / RDMA 관측을 확인합니다.',
+    notice: 'GPU는 device, host pressure는 node, NIC / RDMA는 interface 또는 port scope로 관측합니다. 이 값만으로 Run별 resource ownership이나 endpoint pair 간 traffic을 판단하지 않습니다.',
   },
   {
     route: 'storage', destination: 'storage', title: 'Data & Storage',
     kicker: 'SUBSYSTEM / STORAGE',
-    description: 'Keep declared Storage Cluster resources, local device I/O and service collection evidence separate.',
-    notice: 'DS / MDS mappings describe declared deployment. Device I/O is host / device-wide. Local mean latency and maximum reported 3FS p99 have different statistics and populations; pNFS Deep Dive remains TBD.',
+    description: '선언된 Storage Cluster, local device I/O와 service collection Evidence를 구분해 확인합니다.',
+    notice: 'DS / MDS mapping은 선언된 배치이며 device I/O는 host / device 전체 관측입니다. Local mean latency와 maximum reported 3FS p99는 통계와 관측 모집단이 다릅니다. pNFS Deep Dive는 TBD입니다.',
   },
   {
     route: 'signals', destination: 'signals', title: 'Cross-Layer Signals',
     kicker: 'CROSS-LAYER / RESOURCE',
-    description: 'Compare workload and serving signals alongside shared hardware observations.',
-    notice: 'Each panel preserves its producer, entity and observation scope. Related signals are neither Run attribution nor a causal conclusion.',
+    description: 'Workload / Serving signal과 shared hardware 관측을 함께 비교합니다.',
+    notice: '각 panel의 producer, entity와 observation scope를 유지합니다. Signal의 연관성을 Run attribution이나 causality로 해석하지 않습니다.',
   },
 ] as const;
 
@@ -153,7 +153,7 @@ function NativePanel({ source, panel }: { source: Panel; panel?: VizPanel }) {
     data-panel-type={source.type}
     style={{ height: stat ? 126 : text ? undefined : source.type === 'table' ? 290 : 270 }}
   >
-    {panel ? <panel.Component model={panel} /> : <p className="xlt-empty">Canonical panel unavailable · {source.title}</p>}
+    {panel ? <panel.Component model={panel} /> : <p className="xlt-empty">기존 panel을 사용할 수 없습니다 · {source.title}</p>}
   </div>;
 }
 
@@ -165,7 +165,7 @@ function NativeGroup({ group, workspace, panels }: {
   const [open, setOpen] = useState(false);
   if (!group.panelIndices.length) return null;
   return <details className="xlt-native-group" onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>{group.title}<span className="xlt-native-group-count">{group.panelIndices.length} panels</span></summary>
+    <summary>{group.title}<span className="xlt-native-group-count">panel {group.panelIndices.length}개</span></summary>
     {open && <div className="xlt-native-grid">
       {group.panelIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} />)}
     </div>}
@@ -178,7 +178,7 @@ export function NativeWorkspace({ workspace, panels, context }: {
   context?: Context;
 }) {
   if (!workspace.available) return <section className="xlt-native-workspace">
-    <p className="xlt-empty">Canonical dashboard unavailable. An optional source may be disabled or its dashboard may not be provisioned; this is not a measured zero or an empty successful query.</p>
+    <p className="xlt-empty">기존 Dashboard를 사용할 수 없습니다. Optional source가 비활성화되어 있거나 Dashboard가 provisioning되지 않았을 수 있습니다. 측정값 0이나 성공한 query의 빈 결과가 아닙니다.</p>
   </section>;
   return <div className="xlt-native-workspace" data-native-destination={workspace.destination}>
     {!!workspace.statIndices.length && <div className="xlt-native-kpis">
@@ -191,8 +191,8 @@ export function NativeWorkspace({ workspace, panels, context }: {
       {workspace.groups.map(group => <NativeGroup key={`${workspace.destination}:${group.id}`} group={group} workspace={workspace} panels={panels} />)}
     </div>
     {context && <div className="xlt-actions xlt-native-footer">
-      <a className="xlt-link" href={dashboardLink(workspace.destination as Destination, context)}>Open full Grafana dashboard ↗</a>
-      <span className="xlt-muted">Canonical queries, units, transformations and data links are preserved.</span>
+      <a className="xlt-link" href={dashboardLink(workspace.destination as Destination, context)}>전체 Grafana Dashboard 열기 ↗</a>
+      <span className="xlt-muted">기존 query, unit, transformation과 data link를 유지합니다.</span>
     </div>}
   </div>;
 }

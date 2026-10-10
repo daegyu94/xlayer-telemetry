@@ -54,7 +54,7 @@ def main():
             page.get_by_role('link',name=re.compile('^Full resource metrics')).click();page.wait_for_url('**/d/xlayer-data-storage**')
             native=parse_qs(urlparse(page.url).query);assert native['var-device']==['nvme0n1']
             native_dashboard_back(page,args.url)
-            page.get_by_role('link',name='Investigate selected Step →',exact=True).click()
+            page.get_by_role('link',name='선택한 Step 조사 →',exact=True).click()
             page.get_by_role('heading',name=re.compile('Step Investigation')).wait_for()
             page.get_by_role('link',name='Deep Dive',exact=True).click()
             page.get_by_role('link',name='Logs & Events',exact=True).click()
@@ -73,13 +73,13 @@ def main():
                 else:route.continue_()
             page.route('**/api/ds/query*',query_error)
             page.goto(args.url+'/a/xlayer-telemetry-app/infrastructure?'+urlencode(params,doseq=True))
-            page.get_by_text('Query failure · inventory is unavailable; no healthy state is inferred.',exact=True).wait_for(timeout=30000)
+            page.get_by_text('Query failure · inventory를 확인할 수 없습니다. 정상 상태를 추정하지 않습니다.',exact=True).wait_for(timeout=30000)
             assert page.get_by_role('button',name='Inspect gpu-node-0',exact=True).count()==0
             page.screenshot(path=str(args.output/'infrastructure-query-failure.png'),full_page=True)
             page.unroute('**/api/ds/query*',query_error)
             page.route('**/api/dashboards/uid/xlayer-run-logs',lambda route:route.fulfill(status=404,content_type='application/json',body='{}'))
             page.goto(args.url+'/a/xlayer-telemetry-app/logs?'+urlencode(params,doseq=True))
-            page.get_by_text('Loki / canonical Run Logs is unavailable. This is not an empty successful log query.',exact=True).wait_for(timeout=30000)
+            page.get_by_text('Loki / Canonical Run Logs를 사용할 수 없습니다. 성공한 query의 결과가 비어 있다는 뜻은 아닙니다.',exact=True).wait_for(timeout=30000)
             page.screenshot(path=str(args.output/'logs-unavailable.png'),full_page=True)
         except Exception as error:
             diagnostics.fail(error);raise

@@ -149,3 +149,16 @@ python grafana/xlayer-app/scripts/design_validate.py \
 ```
 
 정상 결과: `iteration-1/validation.json`의 `failures`가 비어 있고 `comparison.html`에서 원본과 실제 screenshot을 나란히 확인할 수 있습니다. 1440×1000 / 390×844, Light/Dark를 확인하며 pixel equality나 실제 GPU/Storage 성능 검증을 주장하지 않습니다. 원본 native panel의 query·unit·transform·link는 유지하고 추가 row는 펼칠 때 활성화합니다.
+
+## Readability / 한국어 안내
+
+Infrastructure는 `design/topology-compact.html`의 B2 계층 Map을 사용합니다. 기술 이름·KPI·unit은 영어로 유지하고 Source·Scope·Missing·Clock 안내는 한국어로 표시합니다. Native diagnosis의 warning/missing 값에는 명시 state icon과 theme-adaptive text를 사용합니다.
+
+```bash
+python grafana/xlayer-app/scripts/readability_validate.py \
+  --url http://127.0.0.1:23400 \
+  --mockup grafana/xlayer-app/design/topology-compact.html \
+  --output artifacts/readability --iteration 1 --require-contrast
+```
+
+정상 결과: 13개 화면 × Desktop/Tablet/Mobile × Light/Dark의 `validation.json`에서 navigation/context 실패와 qualified DOM contrast 미달이 0건입니다. Canvas·복잡한 paint·비활성 control의 예외는 별도로 기록하며 실제 GPU/3FS 성능이나 전체 WCAG 인증을 의미하지 않습니다.

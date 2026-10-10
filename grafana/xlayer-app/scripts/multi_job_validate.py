@@ -152,9 +152,9 @@ def main():
                 page.get_by_role('heading', name=re.compile('Step Investigation')).wait_for(timeout=30000)
                 page.wait_for_timeout(1200)
                 body=page.locator('body').inner_text()
-                assert 'reported Run metadata' in body
+                assert 'Run metadata에 보고된 값' in body
                 if run != 'demo-qwen':
-                    assert 'Run relation' in body or 'Not linked to selected Run' in body
+                    assert '소유 관계는 검증되지 않았습니다' in body or '관계가 미확인' in body or '연결이 확인되지 않은 Shared signal' in body
                     page.locator('.xlt-candidates article').get_by_role('button', name='Open Evidence →', exact=True).first.click()
                     page.get_by_text('run_resource_attribution_unverified', exact=True).wait_for(timeout=10000)
                     page.locator('.xlt-candidates article').get_by_role('button', name='Deep Dive →', exact=True).first.click()

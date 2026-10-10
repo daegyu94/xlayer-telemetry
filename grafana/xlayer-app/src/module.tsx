@@ -75,6 +75,7 @@ import { replicaRows } from './replicas';
 import { tableRows } from './data';
 import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './infrastructure';
 import { InfrastructureView } from './InfrastructureView';
+import {displaySummary,displayUiNote} from './ui-copy';
 
 function AsyncDecision({summary}:{summary?:RecordRow}) {
  let value:RecordRow;try{value=JSON.parse(String(summary?.async_decision||'null'));}catch{return null;}
@@ -82,18 +83,18 @@ function AsyncDecision({summary}:{summary?:RecordRow}) {
  const fields=[['sampleable_count','Sampleable samples'],['remaining','Next-update sample gap'],['should_switch_to_rollout','Switch decision (0/1)'],['effective_switch_cost_seconds','Estimated switch cost (s)']];
  const valid=fields.filter(([key])=>typeof value[key]==='number'&&Number.isFinite(value[key])&&Number(value[key])>=0);
  if(!valid.length)return null;
- return <details className="xlt-completed-detail"><summary>Reported Async Trainer Decision</summary><p className="xlt-muted">Saved next-update replay-buffer decision. It does not prove this Step waited for samples, an engine bottleneck, or a completed sleep/wake transition.</p>{valid.map(([key,label])=><p key={key}>{label}: <b>{format(value[key])}</b></p>)}</details>;
+ return <details className="xlt-completed-detail"><summary>Reported Async Trainer Decision</summary><p className="xlt-muted">다음 update를 위한 replay-buffer decision 기록입니다. 이 Step의 sample 대기, engine 병목 또는 sleep/wake 완료를 증명하지 않습니다.</p>{valid.map(([key,label])=><p key={key}>{label}: <b>{format(value[key])}</b></p>)}</details>;
 }
 
 function RolloutReplicas({summary,context,catalog}:{summary?:RecordRow;context:Context;catalog:Catalog}) {
  const rows=replicaRows(summary);
  if(!rows.length)return null;
- return <section><h3>Rollout Replica Coverage</h3><p className="xlt-muted">Configured placement, not request routing or resource ownership. Each engine retains its own samples, baseline and clock checks. Missing metrics are not zero.</p>
+ return <section><h3>Rollout Replica Coverage</h3><p className="xlt-muted">설정된 배치를 보여줍니다. Request routing이나 resource 소유 관계를 뜻하지 않으며, engine별 sample·baseline·clock 검사를 유지합니다. 누락된 metric은 0이 아닙니다.</p>
   <div className="xlt-scroll"><table><thead><tr><th scope="col">Replica / engine</th><th scope="col">Queue / KV</th><th scope="col">Evidence quality</th><th scope="col">Observations / Next</th></tr></thead><tbody>{rows.map((r,i)=><tr key={`${r.id}-${i}`}>
    <td><b>{r.id}</b><small className="xlt-entity" title={r.instance}>{r.instance} · engine {scalar(r.identity?.engine,'not reported')}</small><small>{r.nodes.join(', ')} · configured</small><small>Serving: {r.serving.state} · sampled context</small><small>Router: {r.serving.registered===undefined?'Unknown':r.serving.registered?'Registered':'Not registered'} · in-flight {format(r.serving.inflight)}</small><small>Applied policy: {r.serving.applied===undefined||r.serving.applied===null?'Unknown':`v${scalar(r.serving.applied)}`} · worker report</small>{Object.keys(r.serving.workload).length>0&&<details><summary>Reported workload / generation</summary><small>{JSON.stringify(r.serving.workload)}</small><small>Generation: {scalar(r.serving.generation,'Unknown')}</small></details>}</td>
    <td>{format(r.signals.vllm_requests_waiting?.current)} requests<br/>{format(typeof r.signals.vllm_kv_cache_usage?.current==='number'?r.signals.vllm_kv_cache_usage.current*100:undefined,'%')} KV<small>per engine · shared service</small></td>
-   <td>{r.status.replace(/_/g,' ')}<small>Clock: {r.clock} / baseline {r.baselineClock}</small><details><summary>Coverage · {r.missing.length} issues</summary>{r.missing.length?r.missing.map((issue,j)=><small key={j}>{issue}</small>):<small>Returned source coverage; not full scrape or replica lifecycle proof.</small>}</details></td>
-   <td>{r.candidates.length?r.candidates.map((c,j)=><small key={j}>{scalar(c.id)} · {scalar(c.state).replace(/_/g,' ')}</small>):<small>{r.status==='observed'?'No anomaly observed':'Evidence incomplete or correlation withheld'}</small>}<Link to="stage" context={resourceContext(context,{node:r.endpoint_node,engine:r.instance})} catalog={catalog}>Inspect endpoint →</Link></td>
+   <td>{r.status.replace(/_/g,' ')}<small>Clock: {r.clock} / baseline {r.baselineClock}</small><details><summary>Coverage · {r.missing.length} issues</summary>{r.missing.length?r.missing.map((issue,j)=><small key={j}>{issue}</small>):<small>응답에 포함된 source coverage입니다. 전체 scrape나 Replica lifecycle을 증명하지 않습니다.</small>}</details></td>
+   <td>{r.candidates.length?r.candidates.map((c,j)=><small key={j}>{scalar(c.id)} · {scalar(c.state).replace(/_/g,' ')}</small>):<small>{r.status==='observed'?'관측된 이상이 없습니다':'판단 근거가 부족하거나 correlation이 보류됐습니다'}</small>}<Link to="stage" context={resourceContext(context,{node:r.endpoint_node,engine:r.instance})} catalog={catalog}>Inspect endpoint →</Link></td>
   </tr>)}</tbody></table></div></section>;
 }
 import { ComparisonWindow } from "./comparison-window";
@@ -189,7 +190,7 @@ const KPI_SPECS: KpiSpec[] = [
     id: 2,
     refs: ["A"],
     unit: "",
-    description: "Run / worker sample · freshness below",
+    description: "Run / Worker sample입니다. 아래 freshness 상태를 확인하세요.",
   },
   {
     name: "Step time",
@@ -197,14 +198,14 @@ const KPI_SPECS: KpiSpec[] = [
     source: "overview",
     id: 30,
     unit: "s",
-    description: "Completed observation · run / worker",
+    description: "Run / Worker에서 완료된 observation입니다.",
   },
   {
     name: "Worker throughput",
     source: "overview",
     id: 31,
     unit: "tok/s",
-    description: "SDK sample · worker",
+    description: "SDK가 기록한 Worker sample입니다.",
   },
   {
     name: "Reported rollout",
@@ -213,7 +214,7 @@ const KPI_SPECS: KpiSpec[] = [
     refs: ["A"],
     phase: "rollout",
     unit: "s",
-    description: "Reported completed stage · not an execution boundary",
+    description: "완료된 stage의 Reported duration입니다. 실제 execution boundary가 아닙니다.",
   },
   {
     name: "GPU utilization",
@@ -221,7 +222,7 @@ const KPI_SPECS: KpiSpec[] = [
     source: "overview",
     id: 33,
     unit: "%",
-    description: "Busiest sampled device · node scope",
+    description: "관측한 device 중 utilization이 가장 높은 값입니다. Node scope이며 Run별 사용률이 아닙니다.",
   },
   {
     name: "KV token hit",
@@ -230,13 +231,13 @@ const KPI_SPECS: KpiSpec[] = [
     refs: ["A"],
     scale: 100,
     unit: "%",
-    description: "Local prefix TOKEN hit · rolling / shared engine",
+    description: "Local prefix TOKEN hit입니다. Rolling / Shared engine 관측이며 Mooncake DFS hit와 다릅니다.",
   },
   {
     name: "3FS latency",
     key: "threefs_p99_latency",
     unit: "ms",
-    description: "Maximum reported per-entity p99 · shared-service diagnosis evidence; not RPC p95 or disk mean",
+    description: "Entity별 reported p99의 최댓값입니다. Shared-service evidence이며 전체 요청의 p99, RPC p95 또는 disk mean이 아닙니다.",
   },
 ];
 const PRESSURE_SPECS: {
@@ -254,7 +255,7 @@ const PRESSURE_SPECS: {
     panel: 9,
     refs: ["A"],
     unit: "requests",
-    scope: "Shared engine · sampled queue",
+    scope: "Shared engine의 queue를 Sampled로 관측한 값입니다.",
   },
   {
     name: "Ray task states",
@@ -262,7 +263,7 @@ const PRESSURE_SPECS: {
     panel: 22,
     refs: ["A"],
     unit: "tasks",
-    scope: "Session aggregation · node identity unavailable",
+    scope: "Session 단위 집계입니다. Node identity는 제공되지 않습니다.",
   },
   {
     name: "Sandbox I/O PSI",
@@ -271,7 +272,7 @@ const PRESSURE_SPECS: {
     refs: ["A"],
     unit: "%",
     scale: 100,
-    scope: "Worker/cgroup sample · no phase attribution",
+    scope: "Worker/cgroup sample입니다. Phase별 사용량으로 귀속하지 않습니다.",
   },
   {
     name: "RDMA tx wait",
@@ -279,7 +280,7 @@ const PRESSURE_SPECS: {
     panel: 43,
     refs: ["A"],
     unit: "ticks/s",
-    scope: "Port counter rate · not latency",
+    scope: "Port counter rate입니다. Latency 단위가 아닙니다.",
   },
   {
     name: "Storage busy",
@@ -288,7 +289,7 @@ const PRESSURE_SPECS: {
     refs: ["A"],
     unit: "%",
     scale: 100,
-    scope: "Node/device · rolling busy ratio",
+    scope: "Node/device의 Rolling busy ratio입니다.",
   },
   {
     name: "GPU utilization",
@@ -296,7 +297,7 @@ const PRESSURE_SPECS: {
     panel: 2,
     refs: ["A"],
     unit: "%",
-    scope: "Node/device · sampled",
+    scope: "Node/device의 Sampled 관측값입니다.",
   },
 ];
 function makeScene(page: Page, catalog: Catalog) {
@@ -457,7 +458,7 @@ function Ready() {
     </Router>
   );
 }
-const dashboardThemes={light:createTheme({colors:{mode:'light'}}),dark:createTheme({colors:{mode:'dark'}})};
+const dashboardThemes={light:createTheme({colors:{mode:'light',text:{primary:'#1e293b',secondary:'#526174',link:'#4c67b9'}},typography:{fontSize:14}}),dark:createTheme({colors:{mode:'dark',text:{primary:'#e6ecf5',secondary:'#b4c2d1',link:'#9bb0f2'}},typography:{fontSize:14}})};
 function Root() {
   const inheritedTheme=useTheme2();
   const [visualTheme,setVisualTheme]=useState(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'));
@@ -495,8 +496,8 @@ function Root() {
     <div className="xlt">
       <p>
         {status === "loading"
-          ? "Loading provisioned XLayer dashboards…"
-          : error}
+          ? "Provisioning된 XLayer Dashboard를 불러오는 중입니다…"
+          : `Dashboard를 불러오지 못했습니다. ${displayUiNote(error)}`}
       </p>
     </div>
   );
@@ -524,7 +525,7 @@ function Native({ panel }: { panel?: VizPanel }) {
     </div>
   ) : (
     <div className="xlt-empty">
-      Loki timeline unavailable. Open Stage Correlation for completed durations.
+      Loki Timeline을 사용할 수 없습니다. 완료된 duration은 Stage Correlation에서 확인하세요.
     </div>
   );
 }
@@ -549,7 +550,7 @@ function Delta({ row }: { row?: RecordRow }) {
     <span
       title={
         delta === undefined
-          ? "No usable relative delta in the saved comparable-window projection"
+          ? "저장된 비교 구간에서 유효한 relative delta를 계산할 수 없습니다."
           : `${delta}% vs saved baseline`
       }
       className={
@@ -573,20 +574,19 @@ function DataStatus({ provider }: { provider?: SceneQueryRunner }) {
   if (!provider)
     return (
       <p className="xlt-empty">
-        Loki / diagnosis projection is not provisioned. Metrics and Deep Dive
-        remain available.
+        Loki / diagnosis projection이 설정되지 않았습니다. Metrics와 Deep Dive는 계속 사용할 수 있습니다.
       </p>
     );
   if (data?.state === LoadingState.Error)
     return (
       <p role="alert" className="xlt-error">
-        Query failed:{" "}
-        {data.error?.message || data.errors?.map((e) => e.message).join(";")}.
-        No data is not a measured zero.
+        Query failure: {" "}
+        {displayUiNote(data.error?.message || data.errors?.map((e) => e.message).join(";") || "상세 오류가 보고되지 않았습니다")}.
+        데이터가 없다는 것은 측정값 0과 다릅니다.
       </p>
     );
   if (!data || data.state === LoadingState.Loading)
-    return <p className="xlt-muted">Loading…</p>;
+    return <p className="xlt-muted">불러오는 중입니다…</p>;
   return null;
 }
 function Link({
@@ -698,7 +698,7 @@ function ShellView({ model }: { model: Shell }) {
         <details className="xlt-filters"><summary>Resource and native panel filters</summary><div>{state.catalog[state.nativeWorkspace.destination]?.templating.list.filter(v=>VARIABLE_NAMES.includes(v.name)&&!['cluster','run_id'].includes(v.name)).map(v=>{const variable=sceneGraph.lookupVariable(v.name,model);return variable?<VariableValueSelectWrapper key={v.name} variable={variable} showAlways/>:null;})}</div></details>
         <NativeHighlights destination={state.nativeWorkspace.destination} sources={state.nativeWorkspace.panels} panels={state.nativePanels||[]}/>
         <NativeWorkspace workspace={state.nativeWorkspace} panels={state.nativePanels||[]} context={context}/>
-        <footer>Correlation ≠ attribution ≠ causality. No data ≠ measured zero.</footer>
+        <footer>Correlation ≠ Attribution ≠ Causality. 상관관계만으로 소유 관계나 원인을 단정할 수 없습니다. No data는 측정값 0과 다릅니다.</footer>
       </>}
       {!state.nativeWorkspace&&<>
       <header className="xlt-header">
@@ -719,7 +719,7 @@ function ShellView({ model }: { model: Shell }) {
                   : state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
           <p className="xlt-page-description">{WORKSPACE_PAGES.find(p=>p.route===state.page)?.description}</p>
-          {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · reported Run metadata, weights/runtime not verified</p>}
+          {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · Run metadata에 보고된 값입니다. 실제 weights/runtime은 검증되지 않았습니다.</p>}
           <details className="xlt-header-details"><summary>Selected observation details</summary><p>
             <b>
               {scalar(
@@ -732,12 +732,12 @@ function ShellView({ model }: { model: Shell }) {
             {scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):policySamples.length>1?'multiple sources':'not reported')} · Wrapped command{" "}
             {activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):activeWorkloads.length>1?'multiple reports':'not reported'}
           </p>
-          {(policySamples.length||activeWorkloads.length)>0&&<p className="xlt-muted">Policy: producer-reported trainer version · Status: latest wrapper node-clock report, not full async Run completion.</p>}
-          {selected&&boundary.note&&<p className="xlt-muted">{boundary.note}</p>}
+          {(policySamples.length||activeWorkloads.length)>0&&<p className="xlt-muted">Policy는 producer가 보고한 Trainer version입니다. Status는 node clock 기준 최신 wrapper 보고이며 Async Run 전체의 완료를 뜻하지 않습니다.</p>}
+          {selected&&boundary.note&&<p className="xlt-muted">{displayUiNote(boundary.note)}</p>}
           {selected && (context.variables.run_id?.length!==1||context.variables.run_id[0]!==selected.run_id) && (
             <p className="xlt-muted">
               Run filter: {context.variables.run_id?.join(", ") || "All"} · this
-              diagnosed Step belongs to {scalar(selected.run_id)}
+              diagnosis가 선택한 Step의 Run은 {scalar(selected.run_id)}입니다.
             </p>
           )}
           </details>
@@ -755,7 +755,7 @@ function ShellView({ model }: { model: Shell }) {
           </Link>
         </div>
       </header>
-      {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · precise phase correlation and deltas withheld; raw metrics remain available'}</p>}
+      {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · 정밀한 Phase correlation과 delta는 보류됩니다. Raw metrics는 계속 확인할 수 있습니다.'}</p>}
 
       <details className="xlt-filters">
         <summary>Trace, GPU, engine and evidence filters</summary>
@@ -783,7 +783,7 @@ function ShellView({ model }: { model: Shell }) {
       </details>
       {state.page === "overview" && (
         <>
-          {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">No completed Step in this interval. Select a Run/time range; missing history is not a healthy verdict.</p>}
+          {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. 이력 누락을 정상 상태로 해석하지 않습니다.</p>}
           <div className="xlt-kpis">
             {KPI_SPECS.map((spec, index) => (
               <Kpi
@@ -822,7 +822,7 @@ function ShellView({ model }: { model: Shell }) {
             ))}
             <ErrorKpi spans={spans} data={spanData} />
           </div>
-          {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework-reported MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · completed logger observation</p>}
+          {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework가 보고한 MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · 완료된 logger observation</p>}
           <AsyncDecision summary={comparisonMeta}/>
           <section className="xlt-overview-top"><div>
             <div className="xlt-section">
@@ -832,8 +832,7 @@ function ShellView({ model }: { model: Shell }) {
               </button>
             </div>
             <p className="xlt-muted">
-              Exact / calibrated application spans. Events without an interval
-              are not phase durations.
+              Exact / Calibrated application span입니다. 시간 구간이 없는 Event는 Phase duration이 아닙니다.
             </p>
             <div className="xlt-phase-legend">{Object.entries(PHASE_COLORS).map(([name,color])=><span key={name}><i style={{background:color}}/>{name.replace(/_/g," ")}</span>)}</div>
             <Native panel={state.timeline} />
@@ -851,13 +850,12 @@ function ShellView({ model }: { model: Shell }) {
             <div>
               <h3><Icon name="chart-line"/> Related Metrics</h3>
               <p className="xlt-muted">
-                Same time range · sampled/shared signals are correlation, not
-                attribution.
+                같은 Time range의 Sampled / Shared signal을 비교합니다. 시간적 correlation이며 resource 소유 관계를 뜻하지 않습니다.
               </p>
               <RelatedTabs panels={state.related}/>
             </div>
             <div>
-              <h3><Icon name="info-circle"/> System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">Saved diagnosis signals, not collector-UP health.</p></div>
+              <h3><Icon name="info-circle"/> System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">저장된 diagnosis signal입니다. Collector UP을 의미하는 health 상태가 아닙니다.</p></div>
           </section>
           <PolicyLifecycle events={events} context={context} catalog={state.catalog}/>
           <details className="xlt-completed-detail">
@@ -865,7 +863,7 @@ function ShellView({ model }: { model: Shell }) {
             <section>
               <div className="xlt-section">
                 <h3>Find a slow Step</h3>
-                <span>Completed observations · select a Step to compare</span>
+                <span>완료된 observation입니다. 비교할 Step을 선택하세요.</span>
               </div>
               <DataStatus provider={state.steps} />
               <Steps
@@ -901,7 +899,7 @@ function ShellView({ model }: { model: Shell }) {
                 </button>
               </div>
               <p className="xlt-muted">
-                Observations during measured phases. Sampled means and shared rolling windows are context, not phase resource consumption.
+                Measured phase 구간에서 관측한 값입니다. Sampled mean과 Shared rolling window는 참고 context이며 Phase별 resource 사용량이 아닙니다.
               </p>
               <Matrix
                 model={model}
@@ -946,13 +944,12 @@ function ShellView({ model }: { model: Shell }) {
                   </Link>
                 </div>
                 <p className="xlt-muted">
-                  Saved {boundary.label} window · workload comparability:{" "}
+                  저장된 {boundary.label} 구간 · Workload comparability: {" "}
                   {scalar(
                     matching(summaries)[0]?.workload_comparability,
                     "unverified",
                   )}
-                  . Units / statistic / entity missing from the projection stay
-                  unknown.
+                  . 기록에 없는 unit / statistic / entity는 Unknown으로 유지합니다.
                 </p>
                 <DataStatus provider={state.comparison} />
                 <div className="xlt-scroll">
@@ -992,8 +989,7 @@ function ShellView({ model }: { model: Shell }) {
                 </div>
                 {!current.length && (
                   <p className="xlt-empty">
-                    No comparable baseline projection in this interval. No
-                    comparison is inferred.
+                    이 구간에 비교 가능한 Baseline 기록이 없습니다. 비교 결과를 임의로 추정하지 않습니다.
                   </p>
                 )}
               </section>
@@ -1023,8 +1019,8 @@ function ShellView({ model }: { model: Shell }) {
                           {scalar(c.state).replace(/_/g, " ")} · candidate
                         </span>
                         <h4>{scalar(c.component)}</h4>
-                        {(c.run_relation || c.resource_attribution === 'not_established') && <p className="xlt-muted">{c.run_relation === 'configured' ? 'Run relation: configured endpoint · ownership unverified' : c.run_relation === 'unlinked' ? 'Not linked to selected Run · shared signal' : 'Run relation unverified · shared context'}</p>}
-                        <p>{scalar(c.summary)}</p>
+                        {(c.run_relation || c.resource_attribution === 'not_established') && <p className="xlt-muted">{c.run_relation === 'configured' ? 'Run relation: 설정된 endpoint입니다. 소유 관계는 검증되지 않았습니다.' : c.run_relation === 'unlinked' ? '선택한 Run과의 연결이 확인되지 않은 Shared signal입니다.' : 'Run과의 관계가 미확인인 Shared context입니다.'}</p>}
+                        <p>{displaySummary(findPanel(state.catalog.summary,3),c.summary)}</p>
                         <p className="xlt-muted">
                           Supporting{" "}
                           {
@@ -1052,10 +1048,9 @@ function ShellView({ model }: { model: Shell }) {
                           }
                         </p>
                         <p className="xlt-muted">
-                          {scalar(c.observation_scope)} · confidence is not a
-                          probability of causality
+                          {scalar(c.observation_scope)} · Confidence는 원인일 확률이 아닙니다.
                         </p>
-                        {Boolean(c.context_status)&&<p className="xlt-notice">Replica context: {scalar(c.context_status).replace(/_/g,' ')} · observed lifecycle/eligibility, not resource ownership</p>}
+                        {Boolean(c.context_status)&&<p className="xlt-notice">Replica context: {scalar(c.context_status).replace(/_/g,' ')} · 관측한 lifecycle / eligibility입니다. Resource 소유 관계를 뜻하지 않습니다.</p>}
                         <button
                           onClick={() =>
                             model.setState({
@@ -1120,8 +1115,7 @@ function ShellView({ model }: { model: Shell }) {
                 </div>
                 {!diagnosis.length && (
                   <p className="xlt-empty">
-                    No saved candidate. A missing diagnosis is not a healthy
-                    verdict.
+                    저장된 Candidate가 없습니다. Diagnosis 누락을 정상 상태로 해석하지 않습니다.
                   </p>
                 )}
               </section>
@@ -1170,7 +1164,7 @@ function ShellView({ model }: { model: Shell }) {
                   {label}
                 </Link>
                 <p className="xlt-muted">
-                  Native dashboard · current Run / Step / time context
+                  Native Dashboard에서 현재 Run / Step / Time context를 유지합니다.
                 </p>
               </article>
             ))}
@@ -1178,21 +1172,20 @@ function ShellView({ model }: { model: Shell }) {
         </details>
       )}
       {state.page==='infrastructure'&&<InfrastructureView data={infrastructure(tableRows(infraComponents),tableRows(infraEdges),tableRows(infraAvailability),Date.now())} context={context}
-        unavailable={infraComponents?.state===LoadingState.Error?'Query failure':!state.infraComponents?'Canonical topology panel unavailable':undefined}
+        unavailable={infraComponents?.state===LoadingState.Error?'Query failure':!state.infraComponents?'Canonical Topology panel을 사용할 수 없습니다':undefined}
         onSelect={node=>{const c=node.mapping==='configured'?resourceSelection(context,node):{...context,variables:{...context.variables,infra_component:[node.key]}};navigate('infrastructure',c);model.setState({infraSelectionVersion:(state.infraSelectionVersion||0)+1});}}
         links={(node,c)=><><Link to={node.kind==='storage'?'storage':'compute'} context={c} catalog={state.catalog}>Full resource metrics</Link><a href={appLink('deep-dive',{...c,variables:{...c.variables,candidate_id:[],detail_tab:[node.kind==='storage'?'Local I/O mean':'GPU']}})}>Deep Dive →</a></>}
-        metrics={node=>{const indices=node.type==='gpu'?[2,3]:node.type==='ssd'?[6,7,8,9]:node.type==='nic'?[4]:node.kind==='storage'?[0,1,4,5,6,8]:[0,1,2,4,5];return indices.map(index=>state.infraMetrics?.[index]?<Native key={index} panel={state.infraMetrics[index]}/>:<p key={index} className="xlt-empty">Canonical resource panel unavailable</p>);}}/>}
-      {state.page==='logs'&&<><section><h3>Log Search</h3><p className="xlt-notice">Application Run context is preserved. The log payload/directory filter is independent; selecting a Run does not establish ownership of every node-local log.</p><div className="xlt-actions">{['log_run_id','workload','node','trace_id'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}<Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logsPanel?<Native panel={state.logsPanel}/>:<p className="xlt-empty">Loki / canonical Run Logs is unavailable. This is not an empty successful log query.</p>}</section><section><h3>Recorded Events</h3>{state.logEvents?<Native panel={state.logEvents}/>:<p className="xlt-empty">Event source unavailable · enable Loki and explicit event collection</p>}</section></>}
+        metrics={node=>{const indices=node.type==='gpu'?[2,3]:node.type==='ssd'?[6,7,8,9]:node.type==='nic'?[4]:node.kind==='storage'?[0,1,4,5,6,8]:[0,1,2,4,5];return indices.map(index=>state.infraMetrics?.[index]?<Native key={index} panel={state.infraMetrics[index]}/>:<p key={index} className="xlt-empty">Canonical resource panel을 사용할 수 없습니다.</p>);}}/>}
+      {state.page==='logs'&&<><section><h3>Log Search</h3><p className="xlt-notice">Application Run context는 유지됩니다. Log payload / directory filter는 독립적이며, Run을 선택해도 모든 node-local log가 해당 Run에 귀속되는 것은 아닙니다.</p><div className="xlt-actions">{['log_run_id','workload','node','trace_id'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}<Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logsPanel?<Native panel={state.logsPanel}/>:<p className="xlt-empty">Loki / Canonical Run Logs를 사용할 수 없습니다. 성공한 query의 결과가 비어 있다는 뜻은 아닙니다.</p>}</section><section><h3>Recorded Events</h3>{state.logEvents?<Native panel={state.logEvents}/>:<p className="xlt-empty">Event source를 사용할 수 없습니다. Loki와 명시적인 Event 수집을 활성화하세요.</p>}</section></>}
       {state.page === "deep-dive" && (
-        <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">Execution intervals share the selected Step time range. Overlap does not establish phase resource ownership.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
+        <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">선택한 Step과 같은 Time range의 execution interval입니다. 구간이 겹친다고 Phase의 resource 소유 관계가 확인되는 것은 아닙니다.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>
       )}
       {state.selectedCell && (
         <div className="xlt-evidence-layout">
           <div>
             <Native panel={state.timeline} />
             <p className="xlt-muted">
-              Measured span boundaries in this interval; resource signals remain
-              sampled.
+              이 구간의 Measured span boundary입니다. Resource signal은 여전히 Sampled 관측입니다.
             </p>
           </div>
           <EvidenceDetail
@@ -1205,7 +1198,7 @@ function ShellView({ model }: { model: Shell }) {
       )}
       <Coverage model={model}/>
       <footer className="xlt-muted">
-        Correlation ≠ attribution ≠ causality. No data ≠ measured zero.{" "}
+        Correlation ≠ Attribution ≠ Causality. 상관관계만으로 소유 관계나 원인을 단정할 수 없습니다. No data는 측정값 0과 다릅니다.{" "}
       </footer>
       </>}
     </DashboardChrome>
@@ -1217,7 +1210,7 @@ function NativeHighlights({destination,sources,panels}:{destination:Destination;
 }
 function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:VizPanel}){
  const data=useData(panel.state.$data),result=nativeHighlight(data);
- return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entities · select node/device`:'Latest returned evaluation · source scope'}</small><small>Producer freshness is not established by this summary.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source; not Run-attributed'}</small></article>;
+ return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entity · Node / Device를 선택하세요`:'반환된 최신 query evaluation입니다. Source scope를 유지합니다.'}</small><small>이 summary만으로 producer freshness가 확인되지는 않습니다.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</small></article>;
 }
 function Steps({
   rows,
@@ -1280,8 +1273,7 @@ function Steps({
       </table>
       {!unique.length && (
         <p className="xlt-empty">
-          No completed Step in this range. Select a Run/time range; Loki step
-          history is optional.
+          이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.
         </p>
       )}
     </div>
@@ -1363,7 +1355,7 @@ function Kpi({
       </strong>
       <Delta row={comparison} />
       {numeric(comparison?.baseline)!==undefined&&<small>vs baseline {format(comparison?.baseline,scalar(comparison?.unit,''))}</small>}
-      {(projected||selection.state==='observed')&&trend.length>1&&<div className="xlt-spark" title={projected?'Saved Step observations, not a causal model':'Sampled trend for the displayed entity'}>
+      {(projected||selection.state==='observed')&&trend.length>1&&<div className="xlt-spark" title={projected?'저장된 Step observation이며 causal model이 아닙니다.':'표시한 entity의 Sampled 추이입니다.'}>
         <Sparkline theme={theme} width={110} height={25} sparkline={{
           x:{name:'Time',type:FieldType.time,values:trend.map(p=>p.time),config:{}},
           y:{name:spec.name,type:FieldType.number,values:trend.map(p=>p.value),config:{color:{mode:'fixed',fixedColor:'#4566d5'}},state:{range:{min:Math.min(...trend.map(p=>p.value)),max:Math.max(...trend.map(p=>p.value)),delta:Math.max(...trend.map(p=>p.value))-Math.min(...trend.map(p=>p.value))}}}
@@ -1378,11 +1370,11 @@ function Kpi({
               : `Sample age ${format(age, "s")}`}
         </small>
       )}
-      {!projected&&reported===undefined&&selection.state!=='observed'&&<small title={selection.reason}>{selection.state==='multiple'?`${selection.entities.length} entities · ${entitySelectionHint(selection.entities.map(s=>s.labels))}`:selection.state==='freshness-unknown'?'Matching age unavailable':selection.state==='stale'?'Producer age exceeds limit':selection.state==='invalid'?'Conflicting source data':'No matching observation'}</small>}
+      {!projected&&reported===undefined&&selection.state!=='observed'&&<small title={displayUiNote(selection.reason)}>{selection.state==='multiple'?`${selection.entities.length} entities · ${displayUiNote(entitySelectionHint(selection.entities.map(s=>s.labels)))}`:selection.state==='freshness-unknown'?'일치하는 producer age를 확인할 수 없습니다':selection.state==='stale'?'Producer age가 허용 범위를 초과했습니다':selection.state==='invalid'?'서로 충돌하는 source data입니다':'일치하는 observation이 없습니다'}</small>}
       {reported !== undefined && (
         <small>Selected {boundary.label} · reported duration</small>
       )}
-      {projected && !unit && <small>Unit not reported</small>}
+      {projected && !unit && <small>Unit이 보고되지 않았습니다</small>}
       <small title={spec.description} className="xlt-kpi-scope">
         {comparison || evidence
           ? `${boundary.label} · ${scalar(comparison?.observation_scope || evidence?.observation_scope)}`
@@ -1416,8 +1408,8 @@ function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,compar
  const ctx=readContext(window.location.search),workerKey=ctx.variables.phase_worker?.[0];
  const choices=executionChoices(spans,selected),ownSpans=selectExecution(spans,workerKey),ownBaseline=selectExecution(baselineSpans,workerKey),phases=observedPhases(spans,selected,workerKey);
  const phaseName=(name:string)=>({actor_update:'Training · actor',weight_sync:'Weight Sync',checkpoint_save:'Checkpoint',critic_update:'Training · critic',reference_log_prob:'Reference log prob',reference:'Reference',checkpoint_load:'Checkpoint load',rollout:'Rollout',reward:'Reward'}[name]||name);
- return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · choose worker if ambiguous</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>Selected worker outside range</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
-                baselineClockProof={baselineClockProof}/>)}</tbody></table></div>}{!phases.length&&<p className="xlt-empty">No comparable phase window for this worker. Check Step/span clock reference and uncertainty; call duration remains available in Worker Comparison.</p>}<div className="xlt-matrix-legend"><span>Sampled = query observations</span><span>Shared / Session = context, not ownership</span><span>Rolling = lookback beyond phase</span><span>— = no linked observation</span></div><p className="xlt-muted">Delta compares gauge window means only when declared workload fields, instrumented phase and entity match. Rolling/session values have no phase delta. Actor and critic updates remain separate.</p></>;
+ return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · 구간이 모호하면 Worker를 선택하세요</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>선택한 Worker가 현재 구간에 없습니다</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
+                baselineClockProof={baselineClockProof}/>)}</tbody></table></div>}{!phases.length&&<p className="xlt-empty">이 Worker에 비교 가능한 Phase window가 없습니다. Step/span의 clock reference와 uncertainty를 확인하세요. Call duration은 Worker Comparison에서 확인할 수 있습니다.</p>}<div className="xlt-matrix-legend"><span>Sampled = Query로 관측한 값</span><span>Shared / Session = 소유 관계가 아닌 참고 context</span><span>Rolling = Phase 바깥까지 포함한 lookback</span><span>— = 연결이 확인된 observation 없음</span></div><p className="xlt-muted">Delta는 선언된 Workload field, 계측된 Phase와 entity가 일치할 때만 gauge window mean을 비교합니다. Rolling / Session 값에는 Phase delta가 없으며 Actor와 Critic update를 구분합니다.</p></>;
 }
 function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{subsystem:string;phases:string[];model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
  const index=SUBSYSTEMS.indexOf(s as (typeof SUBSYSTEMS)[number]);
@@ -1430,7 +1422,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
  const title=({gpu:'GPU',vllm:'vLLM',kv:'KV Cache',ray:'Ray',network:'Network',storage:'Storage',sandbox:'Sandbox'} as Record<string,string>)[s];
  const describe=(labels:Record<string,string>)=>s==='gpu'?`GPU ${labels.gpu||labels.gpu_uuid||'?'} · ${labels.nodename||labels.node||''}`:s==='ray'?`${labels.SessionName||'Session'} · ${labels.State||'State'}`:[labels.operation,labels.status,labels.engine_id||labels.engine,labels.device,labels.port,labels.worker_id].filter(Boolean).join(' · ')||labels.instance||'Observed entity';
  const expr=(data?.series||[]).map(frame=>String(frame.meta?.executedQueryString||''));const lookback=spec.rolling?matrixLookback(expr):0;
- return <tr><th><i className="xlt-subsystem-dot" style={{background:SUBSYSTEM_COLORS[s]}}/>{title}<small>{spec.label}</small>{entities.length>1&&<select className="xlt-entity-select" aria-label={`${title} entity`} value={selectedKey||''} onChange={event=>{locationService.push(appLink(model.state.page,{...context,variables:{...context.variables,[variable]:event.target.value?[event.target.value]:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Choose entity ({entities.length})</option>{selectedKey&&!entities.some(e=>e.key===selectedKey)&&<option value={selectedKey}>Selection outside range</option>}{entities.map(e=><option key={e.key} value={e.key}>{describe(e.labels)}</option>)}</select>}</th>{phases.map(phase=>{
+ return <tr><th><i className="xlt-subsystem-dot" style={{background:SUBSYSTEM_COLORS[s]}}/>{title}<small>{spec.label}</small>{entities.length>1&&<select className="xlt-entity-select" aria-label={`${title} entity`} value={selectedKey||''} onChange={event=>{locationService.push(appLink(model.state.page,{...context,variables:{...context.variables,[variable]:event.target.value?[event.target.value]:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Entity를 선택하세요 ({entities.length})</option>{selectedKey&&!entities.some(e=>e.key===selectedKey)&&<option value={selectedKey}>선택한 Entity가 현재 구간에 없습니다</option>}{entities.map(e=><option key={e.key} value={e.key}>{describe(e.labels)}</option>)}</select>}</th>{phases.map(phase=>{
   const parent=phaseWindow(spans,selected,phase),window=relatedPhaseWindow(spans,selected,parent,s);
   const choice=s==='ray'?contextSample(chosen,window):spec.rolling?selectPhaseSample(chosen,window):gaugeSummary(chosen,window);
   let cell:Cell=s==='ray'?{binding:'rolling-context',state:choice.sample?'observed':'missing',scope:'shared-service',type:'session sampled context',sample:choice.sample,value:choice.sample?.value,unit,explanation:'Session / State count at this time. Node identity was aggregated; this is not phase usage or a phase baseline.'}:metricCell(choice.sample?{...choice.sample,unit}:undefined,window,spec.scope,lookback);
@@ -1446,7 +1438,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
   const observed=cell.value!==undefined;
   const label=data?.state===LoadingState.Error?'Query error':cell.sample&&cell.value===undefined&&cell.explanation.startsWith('Clock quality is')?'Clock unverified':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
   const quality=s==='ray'?'Session context':cell.binding==='rolling-context'?`Rolling${typeof lookback==='number'?` ${lookback/1000}s`:''} · ${cell.scope==='shared-service'?'Shared':'Node'}`:cell.scope==='shared-service'?'Sampled · Shared':cell.scope==='worker/cgroup'?'Sampled · Worker':'Sampled · Node';
-  return <td key={phase}><button className="xlt-cell" disabled={data?.state===LoadingState.Loading} aria-busy={data?.state===LoadingState.Loading} aria-label={`${phase} × ${s} evidence`} title={cell.explanation} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={comparison.reason}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?'No change vs baseline':`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}% vs baseline`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
+  return <td key={phase}><button className="xlt-cell" disabled={data?.state===LoadingState.Loading} aria-busy={data?.state===LoadingState.Loading} aria-label={`${phase} × ${s} evidence`} title={displayUiNote(cell.explanation)} onClick={()=>{model.setState({selectedCell:{contextKey:investigationKey(context),phase,subsystem:s,cell,window}});setTimeout(()=>document.querySelector('.xlt-evidence')?.scrollIntoView({behavior:'smooth',block:'start'}),0);}}><b>{label}</b>{comparison.comparable&&<span className={`xlt-matrix-delta ${comparison.delta===0?"xlt-delta-flat":comparison.delta&&comparison.delta>0?"xlt-delta-up":"xlt-delta-down"}`} title={displayUiNote(comparison.reason)}>{comparison.delta===undefined?'Δ unavailable · baseline 0':comparison.delta===0?'No change vs baseline':`${comparison.delta>0?'↑ +':'↓ '}${Math.abs(comparison.delta).toFixed(1)}% vs baseline`}</span>}<small>{observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}</small>{!spec.rolling&&s!=='ray'&&observed&&<small>{cell.observations} query observations · mean</small>}{s==='sandbox'&&window.span!==parent.span&&<small>Linked tool call</small>}{phase==='rollout'&&!!stepCell.evidence?.length&&<span className="xlt-step-evidence">Step evidence →</span>}</button></td>;
  })}</tr>;
 }
 
@@ -1501,13 +1493,13 @@ function EvidenceDetail({
       <p>
         <b>{cell.scope}</b> · {cell.type} · {cell.binding}
       </p>
-      <p>{cell.explanation}</p>
+      <p>{displayUiNote(cell.explanation)}</p>
       <p className="xlt-muted">
         Phase boundary: {window.status}
         {window.accuracy
           ? ` · ${window.accuracy} · ${window.reference} · uncertainty ${format(window.uncertainty, "s")}`
           : ""}
-        . MFU, phase-specific p99 and phase baselines are not inferred.
+        . MFU, Phase별 p99와 Phase baseline은 추정하지 않습니다.
       </p>
       {["supporting", "counter", "missing"].map((type) => (
         <div key={type}>
@@ -1533,13 +1525,12 @@ function EvidenceDetail({
               </p>
             ))}
           {!cell.evidence?.some((e) => e.evidence_type === type) && (
-            <p className="xlt-muted">Not reported in the saved projection.</p>
+            <p className="xlt-muted">저장된 기록에 보고되지 않았습니다.</p>
           )}
         </div>
       ))}
       <p className="xlt-notice">
-        Shared / node-wide evidence is time correlation. Per-run ownership and a
-        causal path are not established.
+        Shared / Node-wide evidence는 시간적 correlation입니다. Run별 resource 소유 관계나 causal path는 확인되지 않았습니다.
       </p>
       <div className="xlt-actions">
         {(
@@ -1572,12 +1563,12 @@ function ErrorKpi({
             ? "N/A"
             : format(status.count)}
       </strong>
-      <span className="xlt-muted">Observed span records</span>
+      <span className="xlt-muted">관측된 Span record</span>
       <small>
         Status coverage {status.observed}/{status.total} · limit 5,000
         {status.limited ? " reached" : ""}
       </small>
-      <small title="Returned records do not establish the full workload error rate">
+      <small title="반환된 record만으로 전체 Workload error rate를 판단할 수 없습니다.">
         Coverage limited
       </small>
     </article>
@@ -1633,7 +1624,7 @@ function RecentEvents({
                 </td>
                 <td>
                   Step {scalar(r.step)}
-                  <small className="xlt-muted" title={resolution.reason}>{resolution.state==='matched'?`Linked · ${scalar(resolution.step?.worker_id)}`:resolution.state==='ambiguous'?`${resolution.candidates.length} candidates`:'Step link unavailable'}</small>
+                  <small className="xlt-muted" title={displayUiNote(resolution.reason)}>{resolution.state==='matched'?`Linked · ${scalar(resolution.step?.worker_id)}`:resolution.state==='ambiguous'?`${resolution.candidates.length} candidates`:'Step과의 연결이 확인되지 않았습니다'}</small>
                   {resolution.state==='ambiguous'&&<details><summary>Choose Step</summary>{resolution.candidates.map((row,index)=><p key={index}><a href={appLink('investigate',selectStep(row,context))}>{scalar(row.node)} / {scalar(row.worker_id)} · {scalar(row.record_id)}</a></p>)}</details>}
                   <small>
                     {scalar(r.phase)} · {scalar(r.node)} · {scalar(r.worker_id)}
@@ -1646,8 +1637,7 @@ function RecentEvents({
       </table>
       {!recent.length && (
         <p className="xlt-empty">
-          No EventRecorder events in this interval. Counter changes are not
-          event records.
+          이 구간에 EventRecorder Event가 없습니다. Counter 변화는 Event record가 아닙니다.
         </p>
       )}
     </div>
@@ -1670,7 +1660,7 @@ function Pressure({
     <section className="xlt-pressure">
       <div className="xlt-section">
         <h3>System Pressure · priority entities</h3>
-        <span>Range-end observations · no cause verdict</span>
+        <span>구간 끝 시점의 관측값입니다. 원인을 판정한 결과가 아닙니다.</span>
       </div>
       <div className="xlt-pressure-grid">
         {PRESSURE_SPECS.map((spec, index) => (
@@ -1689,8 +1679,7 @@ function Pressure({
         {spanData?.state === LoadingState.Error
           ? "Query error"
           : format(errors.count)}{" "}
-        · known status {errors.observed}/{errors.total} · 5,000 record query
-        limit. Missing records are not zero errors.
+        · known status {errors.observed}/{errors.total} · 5,000 record query 상한입니다. Record가 없다는 것은 error가 0이라는 뜻이 아닙니다.
       </p>
     </section>
   );
@@ -1725,13 +1714,13 @@ function PressureCard({
           <div className="xlt-pressure-value" key={i}>
             <strong>{format(s.value * (spec.scale || 1), spec.unit)}</strong>
             <small className="xlt-entity" title={JSON.stringify(s.labels)}>{compactEntity(s.labels)}</small>
-            <small>{row.supporting?'Explicit Step evidence match':spec.name==='GPU utilization'?'Utilization range · no fault verdict':spec.name==='Ray task states'?'State priority · no aggregation':'Highest observed signal · not cause'}</small>
+            <small>{row.supporting?'명시적인 Step evidence와 일치합니다':spec.name==='GPU utilization'?'Utilization 관측이며 fault 판정이 아닙니다':spec.name==='Ray task states'?'State 우선순위이며 자동 합산하지 않습니다':'관측된 signal이 가장 높으며 원인 판정은 아닙니다'}</small>
             <Link to={spec.dashboard} context={resourceContext(context,{...s.labels,...(spec.name==='vLLM waiting'&&s.labels.instance?{engine:s.labels.instance}:{})})} catalog={catalog}>Inspect entity →</Link>
           </div>
         );})
       )}
       {entities.length > 2 && (
-        <small>+{entities.length - 2} other entities · open details</small>
+        <small>+{entities.length - 2} 추가 entity · Details에서 확인하세요</small>
       )}
       <p className="xlt-muted">{spec.scope}</p>
       <Link to={spec.dashboard} context={context} catalog={catalog}>
@@ -1764,9 +1753,7 @@ function WorkerOutliers({
     <section>
       <h3>Outlier worker snapshots</h3>
       <p className="xlt-muted">
-        Same Run / producer / role / phase / node / reported step cohort. Peer
-        difference is an investigation candidate; workload comparability remains
-        unverified. Snapshot step may differ from selected Step{" "}
+        같은 Run / producer / role / phase / node / Reported step cohort입니다. Peer 차이는 조사 후보이며 Workload comparability는 미확인입니다. Snapshot Step은 선택한 Step과 다를 수 있습니다: {" "}
         {scalar(selected?.step)}.
       </p>
       <div className="xlt-scroll">
@@ -1812,8 +1799,7 @@ function WorkerOutliers({
         </table>
         {!rows.length && (
           <p className="xlt-empty">
-            No worker-level rollout observations. Driver phase totals are not
-            worker outliers.
+            Worker별 rollout observation이 없습니다. Driver의 Phase 합계를 Worker outlier로 해석하지 않습니다.
           </p>
         )}
       </div>
@@ -1823,21 +1809,21 @@ function WorkerOutliers({
 
 function HealthSummary({candidates}:{candidates:RecordRow[]}) {
   const definitions=[['GPU','compute'],['vLLM','rollout'],['Storage','storage'],['Network','communication'],['Ray','ray'],['Sandbox','sandbox']];
-  return <div className="xlt-health-grid">{definitions.map(([name,component])=>{const rows=candidates.filter(c=>c.component===component),strong=rows.some(c=>c.state==='strong_signal');return <article className="xlt-card" key={name}><b>{name}</b><span className={strong?'xlt-attention':'xlt-muted'}>{strong?'Strong signal':rows.some(c=>c.state==='supporting_signal')?'Supporting signal':rows.length?'Weak signal':'Not assessed'}</span><small>{rows.length?'Saved Step candidate':'No subsystem verdict'}</small></article>;})}</div>;
+  return <div className="xlt-health-grid">{definitions.map(([name,component])=>{const rows=candidates.filter(c=>c.component===component),strong=rows.some(c=>c.state==='strong_signal');return <article className="xlt-card" key={name}><b>{name}</b><span className={strong?'xlt-attention':'xlt-muted'}>{strong?'Strong signal':rows.some(c=>c.state==='supporting_signal')?'Supporting signal':rows.length?'Weak signal':'Not assessed'}</span><small>{rows.length?'저장된 Step candidate':'Subsystem 판단 기록이 없습니다'}</small></article>;})}</div>;
 }
 function TopChanges({rows}:{rows:RecordRow[]}) {
-  return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">Saved comparison window, not a phase resource attribution. Workload comparability remains source-defined.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
+  return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">저장된 비교 구간이며 Phase별 resource 사용량으로 귀속하지 않습니다. Workload comparability는 source가 제공한 기준을 유지합니다.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
 function CommonStorageOverview({model,summary,context,onThreeFS}:{model:Shell;summary?:RecordRow;context:Context;onThreeFS:()=>void}){
  const state=model.useState(),value=parseStorageOverview(summary?.storage_overview);
  const groups=[['connector','Connector RPC'],['dfs_client','Mooncake DFS client'],['master_memory','Master memory']] as const;
  return <div className="xlt-common-storage"><div className="xlt-section"><h3>Common Storage Overview</h3><span className="xlt-badge">Backend / adapter not reported</span></div>
- <DataStatus provider={state.summary}/><p className="xlt-muted">Step / Phase → KV operation → Connector / DFS client → backend is an investigation path, not an observed execution dependency.</p>
- {!value?<p className="xlt-empty">No saved common-storage coverage for this selection. Native metric tabs remain available; a configured 3FS source does not identify the workload backend.</p>:<>
+ <DataStatus provider={state.summary}/><p className="xlt-muted">Step / Phase → KV operation → Connector / DFS client → Backend는 조사 경로입니다. 실제로 관측된 execution dependency가 아닙니다.</p>
+ {!value?<p className="xlt-empty">선택한 context에 저장된 Common Storage coverage가 없습니다. Native Metric tab은 사용할 수 있으며, 3FS source가 설정돼 있다는 것만으로 Workload backend를 특정하지 않습니다.</p>:<>
  <div className="xlt-health-grid">{groups.map(([layer,title])=>{const entries=value.signals.filter(row=>row.layer===layer),observed=entries.filter(row=>row.current!==null);return <article className="xlt-card" key={layer}><b>{title}</b><span>{observed.length} / {entries.length} reported signals</span><small>{entries.every(row=>row.status==='not_configured')?'Profile not configured':'Shared service · sampled / rolling'}</small></article>;})}</div>
- <details><summary>Source coverage · values, scope, entity and quality</summary><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current / Baseline</th><th>State / Scope</th><th>Entity / Quality</th></tr></thead><tbody>{value.signals.map(row=><tr key={row.signal}><td>{row.signal}<small>{row.unit} · {row.statistic}</small></td><td>{format(row.current,row.unit==='seconds'?'s':row.unit)} / {format(row.baseline,row.unit==='seconds'?'s':row.unit)}</td><td>{row.status.replace(/_/g,' ')}<small>{row.scope}</small></td><td title={JSON.stringify(row.entity)}>{compactEntity(row.entity)}<small>{row.quality_issues.join(', ')||'No additional quality annotations'}</small>{row.entity.node&&<Link to="stage" context={storageSourceContext(context,row)} catalog={state.catalog}>Source metrics</Link>}</td></tr>)}</tbody></table></div></details>
- <p className="xlt-muted">3FS source: {value.threefs.status.replace(/_/g,' ')} · shared-service. Connection to this Mooncake client is not established.</p></>}
- <button onClick={onThreeFS}>3FS Deep Dive →</button><p className="xlt-notice">Missing native metrics may be disabled, idle, unsupported or unavailable. Delivered DFS keys/bytes can overlap checksum failures; rates are not physical IOPS or an operation failure probability.</p>
+ <details><summary>Source coverage · values, scope, entity and quality</summary><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current / Baseline</th><th>State / Scope</th><th>Entity / Quality</th></tr></thead><tbody>{value.signals.map(row=><tr key={row.signal}><td>{row.signal}<small>{row.unit} · {row.statistic}</small></td><td>{format(row.current,row.unit==='seconds'?'s':row.unit)} / {format(row.baseline,row.unit==='seconds'?'s':row.unit)}</td><td>{row.status.replace(/_/g,' ')}<small>{row.scope}</small></td><td title={JSON.stringify(row.entity)}>{compactEntity(row.entity)}<small>{row.quality_issues.join(', ')||'추가 품질 안내가 없습니다'}</small>{row.entity.node&&<Link to="stage" context={storageSourceContext(context,row)} catalog={state.catalog}>Source metrics</Link>}</td></tr>)}</tbody></table></div></details>
+ <p className="xlt-muted">3FS source: {value.threefs.status.replace(/_/g,' ')} · Shared-service 관측입니다. 이 Mooncake client와의 연결은 확인되지 않았습니다.</p></>}
+ <button onClick={onThreeFS}>3FS Deep Dive →</button><p className="xlt-notice">Native Metric 누락은 비활성화, idle, 미지원 또는 source 장애 때문일 수 있습니다. 전달된 DFS keys/bytes에는 checksum failure가 겹칠 수 있으며, rate는 물리 IOPS나 operation 실패 확률이 아닙니다.</p>
  </div>;
 }
 function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}:{model:Shell;summary?:RecordRow;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
@@ -1845,14 +1831,14 @@ function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}
  const[clusterOpen,setClusterOpen]=useState(false),state=model.useState();
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  const groups=storageDetailGroups(DEEP_DIVE_SPECS);
- return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">Explicit resource-node mappings only. Exporter availability is not node health or an observed service-to-device path. GPU-host sandbox local I/O remains separate from backend DS/MDS resources.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div>
-  <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{scalar(candidate.summary)}</p>
+ return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">명시적인 Resource node mapping만 사용합니다. Exporter 가용성은 Node health나 service-to-device 경로의 증거가 아닙니다. GPU host의 Sandbox Local I/O는 Backend DS/MDS resource와 구분합니다.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div>
+  <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{displaySummary(findPanel(catalog.summary,3),candidate.summary)}</p>
   {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
-  <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Choose a candidate in Investigate to keep its supporting, against and missing evidence in this workspace.</p>}
-  <p className="xlt-notice">Shared evidence is correlation; per-run ownership and a causal path are not established.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
+  <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Investigate에서 Candidate를 선택하세요. 이 workspace에서 Supporting / Counter / Missing evidence를 함께 확인할 수 있습니다.</p>}
+  <p className="xlt-notice">Shared evidence는 correlation입니다. Run별 소유 관계나 causal path는 확인되지 않았습니다.</p><Link to="timeline" context={context} catalog={catalog}>Detailed Timeline</Link>
  </div><div><h3>Detailed Metrics</h3>{([['Common storage',groups.common],['Backend-specific · implemented',groups.backend],['Related subsystem context',groups.context]] as const).map(([title,items])=><div key={title}><h4>{title}</h4><div className="xlt-chips">{items.map(s=>{const index=detailTabIndex(s.label);return <button key={s.label} aria-pressed={tab===index} onClick={()=>setTab(index)}>{s.label}</button>;})}</div></div>)}
-  {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit not reported</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">No saved 3FS evidence in this interval. RPC p95 and disk mean cannot replace it.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">Canonical panel unavailable for this source.</p>}
-  <p className="xlt-muted">{spec.note}</p><p className="xlt-muted">Connector / DFS client observations are backend independent. 3FS service evidence is an optional separate source; node-device observations remain context without a verified path.</p>
+  {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit이 보고되지 않았습니다</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">이 구간에 저장된 3FS evidence가 없습니다. RPC p95나 disk mean으로 대체하지 않습니다.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">이 Source의 Canonical panel을 사용할 수 없습니다.</p>}
+  <p className="xlt-muted">{displayUiNote(spec.note)}</p><p className="xlt-muted">Connector / DFS client 관측은 Backend에 종속되지 않습니다. 3FS Service evidence는 선택적인 별도 Source이며, 경로가 확인되지 않은 Node/device 관측은 참고 context로 유지합니다.</p>
   <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
  </div></div></section>;
 }
@@ -1880,25 +1866,25 @@ function StorageCollectionView({model,context}:{model:Shell;context:Context}) {
     }
   },[state.storagePlot,selection.unit,metric]);
   const messages:Record<string,string>={
-    'select-metric':'Choose one literal metric for the current collection-point plot.',
-    'no-data':'No finite unambiguous current collection points for this metric. Missing values are not measured zero.',
-    'mixed-source':'This metric occurs in multiple source tables. Plot withheld; inspect the original records below.',
-    'mixed-unit':'Returned records disagree on source unit. Plot withheld; values are not converted or combined.',
-    'multiple-owner':'Multiple owner observations are selected. Choose one completed observation before plotting.'};
+    'select-metric':'Current collection-point chart에 표시할 Metric을 하나 선택하세요.',
+    'no-data':'이 Metric에 유효하고 고유한 Current collection point가 없습니다. 누락된 값은 측정값 0이 아닙니다.',
+    'mixed-source':'이 Metric이 여러 Source table에 있습니다. Chart 표시를 보류했습니다. 아래 원본 record를 확인하세요.',
+    'mixed-unit':'반환된 record의 Source unit이 서로 다릅니다. Chart 표시를 보류했으며 값을 변환하거나 합치지 않습니다.',
+    'multiple-owner':'여러 Owner observation이 선택됐습니다. Chart를 확인하려면 완료된 observation을 하나 선택하세요.'};
   return <section aria-label="3FS collection context">
     <h4>3FS collection context</h4>
-    <p className="xlt-notice">Shared-service reports, not phase or Run usage. Source DateTime resolution is 1 second. Collection interval and per-host clock coverage remain source-reported; no interpolation or phase attribution is inferred.</p>
+    <p className="xlt-notice">Shared-service 보고이며 Phase 또는 Run별 사용량이 아닙니다. Source DateTime의 해상도는 1초입니다. Collection interval과 host별 clock coverage는 보고된 값만 사용하고 보간이나 Phase attribution을 추정하지 않습니다.</p>
     <DataStatus provider={state.storageSamples}/>
     <label>Storage metric <select className="xlt-storage-metric" aria-label="Storage metric" value={metric||''} onChange={event=>{variable.setState({value:event.target.value});(sceneGraph.lookupVariable('detail_tab',model) as TextBoxVariable).setState({value:'3FS evidence'});}}>
       <option value="">Choose metric</option>
-      {metric&&!options.includes(metric)&&<option value={metric}>Selected metric outside returned records</option>}
+      {metric&&!options.includes(metric)&&<option value={metric}>선택한 Metric이 반환된 record에 없습니다</option>}
       {options.map(name=><option key={name} value={name}>{name}</option>)}
     </select></label>
-    {selection.state==='ready'&&state.storagePlot?<><p className="xlt-muted">Current collection points · original source timestamp · unit {selection.unit||'not reported (raw)'} · {selection.points.length} returned points. Baseline timestamps remain unchanged in the records table.</p><Native panel={state.storagePlot}/></>:<p className="xlt-empty">{messages[selection.state]||'Collection-point panel unavailable.'}</p>}
+    {selection.state==='ready'&&state.storagePlot?<><p className="xlt-muted">Current collection point는 원본 Source timestamp를 유지합니다. Unit: {selection.unit||'Not reported (raw)'} · {selection.points.length} points. Record table의 Baseline timestamp도 변경하지 않습니다.</p><Native panel={state.storagePlot}/></>:<p className="xlt-empty">{messages[selection.state]||'Collection-point panel을 사용할 수 없습니다.'}</p>}
     {state.storageSampleTable&&<details open><summary>Original collection records · Current / Baseline</summary><Native panel={state.storageSampleTable}/></details>}
-    {state.storageComparison&&<details><summary>Comparable collection windows</summary><p className="xlt-muted">Delta is reported only by the existing diagnosis. Unknown clock/host mapping or collection semantics are not a baseline match.</p><Native panel={state.storageComparison}/></details>}
+    {state.storageComparison&&<details><summary>Comparable collection windows</summary><p className="xlt-muted">Delta는 기존 Diagnosis가 보고한 값만 표시합니다. Clock / Host mapping 또는 collection semantics가 Unknown이면 Baseline이 일치한다고 판단하지 않습니다.</p><Native panel={state.storageComparison}/></details>}
     <details><summary>Saved source coverage · {statuses.length} status records</summary><DataStatus provider={state.storageStatus}/>{state.storageStatusTable&&<Native panel={state.storageStatusTable}/>}</details>
-    {!rows.length&&sampleData?.state===LoadingState.Done&&<p className="xlt-empty">No saved collection points in this interval. The optional source may be unconfigured, failed, empty or unsupported; inspect saved coverage. This is not a healthy verdict.</p>}
+    {!rows.length&&sampleData?.state===LoadingState.Done&&<p className="xlt-empty">이 구간에 저장된 Collection point가 없습니다. 선택적인 Source가 미설정·실패·빈 응답·미지원 상태일 수 있으므로 저장된 Coverage를 확인하세요. 정상 상태를 의미하지 않습니다.</p>}
   </section>;
 }
 
@@ -1911,7 +1897,7 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
   return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
-      <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">Select completed observation</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
+      <label className="xlt-context-step">{boundaryPresentation(selected).label}<select aria-label="Completed Step" value={selected?.record_id?String(selected.record_id):''} onChange={e=>{const row=choices.find(r=>String(r.record_id)===e.target.value);if(row)onStep(row);}}><option value="">완료된 Observation을 선택하세요</option>{choices.map(row=><option key={String(row.record_id)} value={String(row.record_id)}>{boundaryPresentation(row).label} {scalar(row.step)} · {format(row.step_duration_seconds,'s')}</option>)}</select></label>
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
@@ -1922,14 +1908,14 @@ function compactMatrixValue(value:number,unit:string):string{const formatted=get
 
 function WorkerComparison({model,selected,spans}:{model:Shell;selected:RecordRow;spans:RecordRow[]}){
  const data=useData(model.state.matrix[0]),values=samples(data);const rows=measuredWorkers(spans,selected);
- return <section><h3>Measured Worker Comparison</h3><p className="xlt-muted">One declared execution identity per row. Peer duration requires matching operation, scope and workload fingerprint. GPU is a linked sampled device, not worker consumption.</p><div className="xlt-scroll"><table><thead><tr><th>Worker / node</th><th>Phase coverage</th><th>Rollout call</th><th>Peer median / delta</th><th>GPU</th><th>Next</th></tr></thead><tbody>{rows.map(row=>{
+ return <section><h3>Measured Worker Comparison</h3><p className="xlt-muted">행마다 선언된 execution identity를 하나 유지합니다. Peer duration은 operation, scope와 Workload fingerprint가 일치해야 비교합니다. GPU는 연결된 Sampled device이며 Worker 사용량이 아닙니다.</p><div className="xlt-scroll"><table><thead><tr><th>Worker / node</th><th>Phase coverage</th><th>Rollout call</th><th>Peer median / delta</th><th>GPU</th><th>Next</th></tr></thead><tbody>{rows.map(row=>{
   const gpu=row.window.span?.gpu;const device=gpu===undefined?undefined:gaugeSummary(values.filter(value=>value.labels.gpu===String(gpu)),row.window).sample;
-  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity / sample unavailable'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search);locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
+  return <tr key={row.key}><td>{scalar(row.row.worker_id)} · {scalar(row.row.node)}<small>{scalar(row.row.producer)} / {scalar(row.row.role)}</small></td><td>{row.phases} observed phase types · {row.count} spans</td><td>{row.duration!==undefined?`${format(row.duration,'s')}${row.window.status==='observed'?'':' · call only / clock unmapped'}`:row.window.status}</td><td>{row.peers>=3?`${format(row.median,'s')} · ${row.delta===undefined?'Δ unavailable':format(row.delta,'%')}`:'No matched peer cohort'}</td><td>{device?`${format(device.value,'percent')} · sampled`:'GPU identity 또는 Sample을 확인할 수 없습니다'}</td><td><button onClick={()=>{const ctx=readContext(window.location.search);locationService.push(appLink('analyze',workerContext(ctx,row.row,row.key)));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1,matrixView:'phase'});}}>Inspect worker →</button></td></tr>;
  })}</tbody></table></div></section>;
 }
 function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Context;catalog:Catalog}){
  const rows=appliedPolicies(events).filter(row=>!context.variables.run_id?.length||context.variables.run_id.includes('.*')||context.variables.run_id.includes('$__all')||context.variables.run_id.includes(String(row.run_id)));
- return <details className="xlt-completed-detail"><summary>Policy / KV Lifecycle · {new Set(rows.map(row=>`${row.cluster}/${row.run_id}/${row.node}/${row.worker_id}`)).size} workers with applied-version events</summary><p className="xlt-notice">Only weights.applied with producer-reported worker scope is an application boundary. Trainer version and KV counters do not establish applied coverage or causality.</p>{!rows.length?<p className="xlt-empty">No worker-applied policy events in this range. Enable explicit instrumentation after native weight application is confirmed.</p>:<div className="xlt-scroll"><table><thead><tr><th>Applied boundary</th><th>Worker</th><th>Version</th><th>Next</th></tr></thead><tbody>{rows.slice(-12).reverse().map((row,index)=><tr key={index}><td>{new Date(eventTime(row)!).toLocaleTimeString()} · {row.boundary_accuracy==='calibrated'?'calibrated':'node clock'}</td><td>{scalar(row.node)} / {scalar(row.worker_id)}</td><td>v{scalar(row.policy_version)} · producer reported</td><td><Link to="timeline" context={{...context,variables:{...context.variables,run_id:[String(row.run_id)],trace_id:['.*'],record_id:[]}}} catalog={catalog}>Timeline / KV</Link></td></tr>)}</tbody></table></div>}</details>;
+ return <details className="xlt-completed-detail"><summary>Policy / KV Lifecycle · {new Set(rows.map(row=>`${row.cluster}/${row.run_id}/${row.node}/${row.worker_id}`)).size} workers with applied-version events</summary><p className="xlt-notice">Producer가 Worker scope로 보고한 weights.applied만 적용 경계로 사용합니다. Trainer version과 KV counter는 실제 적용 Coverage나 Causality를 증명하지 않습니다.</p>{!rows.length?<p className="xlt-empty">이 구간에 Worker의 Policy 적용 Event가 없습니다. Native weight 적용을 확인한 지점에서 명시적인 계측을 활성화하세요.</p>:<div className="xlt-scroll"><table><thead><tr><th>Applied boundary</th><th>Worker</th><th>Version</th><th>Next</th></tr></thead><tbody>{rows.slice(-12).reverse().map((row,index)=><tr key={index}><td>{new Date(eventTime(row)!).toLocaleTimeString()} · {row.boundary_accuracy==='calibrated'?'calibrated':'node clock'}</td><td>{scalar(row.node)} / {scalar(row.worker_id)}</td><td>v{scalar(row.policy_version)} · producer reported</td><td><Link to="timeline" context={{...context,variables:{...context.variables,run_id:[String(row.run_id)],trace_id:['.*'],record_id:[]}}} catalog={catalog}>Timeline / KV</Link></td></tr>)}</tbody></table></div>}</details>;
 }
 function Coverage({model}:{model:Shell}) {
   const state=model.useState();
@@ -1950,13 +1936,13 @@ function Coverage({model}:{model:Shell}) {
   const loading=data.filter(value=>value?.state===LoadingState.Loading).length;
   const empty=data.filter(value=>value?.state===LoadingState.Done&&!value.series.some(frame=>frame.length)).length;
   return <details className="xlt-completed-detail"><summary>Diagnosis / Query Coverage · {errors} errors · {empty} empty · {unavailable} optional unavailable</summary>
-    <p>{loading} loading · {providers.filter(Boolean).length} native providers. Presence is not freshness or complete telemetry coverage.</p>
+    <p>{loading} loading · {providers.filter(Boolean).length} Native provider입니다. 데이터가 있다는 것만으로 Freshness나 전체 Telemetry coverage가 확인되지는 않습니다.</p>
     <div className="xlt-scroll"><table><thead><tr><th>Native provider</th><th>Status</th><th>Targets</th><th>Latest query elapsed</th></tr></thead><tbody>{providers.filter(Boolean).map((provider,index)=>{
       const value=data[providers.indexOf(provider)],request=value?.request;
       const elapsed=request?.endTime!==undefined&&request.startTime!==undefined&&request.endTime>=request.startTime?request.endTime-request.startTime:undefined;
       return <tr key={index}><td>{provider!.state.key||`Provider ${index+1}`}</td><td>{value?.state||'Not active'}{value?.state===LoadingState.Error&&<small>{value.errors?.map(error=>error.message).join(' · ')||value.error?.message||'Native datasource error'}</small>}</td><td>{provider!.state.queries.length}</td><td>{elapsed===undefined?'Not reported':format(elapsed,'ms')}</td></tr>;
     })}</tbody></table></div>
-    <p className="xlt-muted">Latest Grafana request timing, not backend CPU cost or a cumulative request count. Identical GPU/Ray detail targets share their pressure provider. Additional native panels activate on demand and are not counted in this custom-provider list. Matrix queries use at most 600 points; baseline intervals stay bounded to one hour.</p>
-    <p className="xlt-muted">Ambiguous phases and worker links stay explicit in Matrix. Stale/unknown application age withholds KPI values; measured zero remains a value. Inspect and Explore remain Grafana features.</p>
+    <p className="xlt-muted">최신 Grafana request의 elapsed time이며 Backend CPU 비용이나 누적 request 수가 아닙니다. 동일한 GPU/Ray detail target은 Pressure provider를 공유합니다. 필요할 때 활성화하는 추가 Native panel은 이 목록에 포함되지 않습니다. Matrix query는 최대 600 points, Baseline interval은 최대 1시간으로 제한합니다.</p>
+    <p className="xlt-muted">Matrix에서 모호한 Phase와 Worker 연결 상태를 명시합니다. Application age가 Stale / Unknown이면 KPI를 보류하고, 측정된 0은 값으로 유지합니다. Inspect와 Explore는 Grafana 기능을 사용합니다.</p>
   </details>;
 }

@@ -233,8 +233,14 @@ Route는 모두 `/a/xlayer-telemetry-app` 아래에 있습니다. 기존 `/d/*` 
 - `native-workspace.tsx`는 provisioned JSON의 모든 non-row panel을 한 번씩 보존합니다. 원본 row·추가된 source panel도 catalog에 남고, 펼친 group만 component/query를 활성화합니다.
 - 상세 요약 card는 해당 native panel의 data provider를 공유합니다. 숫자 field·query ref·entity를 구분하며 multi-entity를 대표값으로 바꾸지 않습니다. Producer freshness가 별도로 확인되지 않으면 그 한계를 표시합니다.
 - `DashboardChrome.tsx`와 `style.css`는 공통 navigation·반응형·Light/Dark token을 담당합니다. Canonical graph의 unit·population·transform·data link는 바꾸지 않습니다. Collection-point plot은 원래 no-line 계약을 유지합니다.
-- `topology-layout.ts`는 선언된 inventory를 목업의 Compute / Fabric / Storage 3열 card와 곡선 경로로 배치합니다. Fabric이 없으면 가상 switch를 만들지 않으며 direct Compute→Storage 관계는 Fabric hop으로 바꾸지 않습니다. Graph 한도는 24개 resource·96개 edge이고 미표시 관계는 ledger에 남습니다.
+- `topology-layout.ts`는 선언된 inventory를 B2의 Compute / Fabric / Storage 그룹에 배치합니다. Compute는 2열, Storage는 명시 MDS/DS/Unknown role을 구분하고 Compact/Expanded로 전체 반환 inventory를 탐색합니다. Fabric이 없으면 가상 switch를 만들지 않으며 direct Compute→Storage 관계는 Fabric hop으로 바꾸지 않습니다. 화면 inventory는 최대 256개 component로 제한하며 선택된 resource는 Compact에서도 유지합니다. Device는 명시 owner mapping을 통해 선택하고 실제 선언 edge는 Ledger에 보존합니다.
 
 ### 디자인 검증
 
 `design_validate.py`는 실제 App link와 Browser Back을 사용해 13개 화면 × Desktop/Mobile × Light/Dark를 확인합니다. 원본 HTML과 같은 viewport의 PNG·비교 HTML·bounded query/error metadata를 남기며 수치 차이를 pixel similarity나 diagnosis 정확도 점수로 환산하지 않습니다. Single-worker Grafana CI는 기존 실행 stack에서 이 route 검증을 재사용합니다.
+
+### 안내 문구와 원본 데이터
+
+영어 Menu·KPI·Metric name·unit·label·내부 state는 유지하고 해석 안내는 한국어로 표시합니다. `ui-copy.ts`는 canonical candidate summary mapping과 알려진 UI note만 표시할 때 변환합니다. 원본 record·query·diagnosis result를 수정하지 않으며 미등록 문구는 원문으로 남깁니다.
+
+`readability_validate.py`는 13개 App 화면을 Desktop/Tablet/Mobile, Light/Dark에서 측정합니다. `--require-contrast`는 측정 가능한 DOM 표본의 대비 미달을 실패로 처리하고 unsupported paint·Canvas·inactive control을 별도 기록합니다. Single-job CI는 기존 stack에서 주요 4개 화면의 가독성을 검사합니다.

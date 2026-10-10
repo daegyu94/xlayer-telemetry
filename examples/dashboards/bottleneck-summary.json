@@ -864,28 +864,28 @@
                     "type": "value",
                     "options": {
                       "bottleneck_suspected": {
-                        "text": "bottleneck_suspected",
-                        "color": "orange",
+                        "text": "⚠ bottleneck_suspected",
+                        "color": "text",
                         "index": 0
                       },
                       "no_anomaly_observed": {
-                        "text": "no_anomaly_observed",
-                        "color": "blue",
+                        "text": "○ no_anomaly_observed",
+                        "color": "text",
                         "index": 1
                       },
                       "insufficient_data": {
-                        "text": "insufficient_data",
-                        "color": "gray",
+                        "text": "? insufficient_data",
+                        "color": "text",
                         "index": 2
                       },
                       "insufficient_evidence": {
-                        "text": "insufficient_evidence",
-                        "color": "gray",
+                        "text": "? insufficient_evidence",
+                        "color": "text",
                         "index": 3
                       },
                       "no_issue_observed": {
-                        "text": "no_issue_observed",
-                        "color": "blue",
+                        "text": "○ no_issue_observed",
+                        "color": "text",
                         "index": 4
                       }
                     }
@@ -1919,7 +1919,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -1941,7 +1941,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -1968,7 +1968,7 @@
                       "match": "null",
                       "result": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   },
@@ -1977,7 +1977,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -2004,7 +2004,7 @@
                       "match": "null",
                       "result": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   },
@@ -2013,7 +2013,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -2708,18 +2708,18 @@
                     "type": "value",
                     "options": {
                       "strong_signal": {
-                        "text": "strong_signal",
-                        "color": "orange",
+                        "text": "⚠ strong_signal",
+                        "color": "text",
                         "index": 0
                       },
                       "supporting_signal": {
-                        "text": "supporting_signal",
-                        "color": "yellow",
+                        "text": "△ supporting_signal",
+                        "color": "text",
                         "index": 1
                       },
                       "weak_signal": {
-                        "text": "weak_signal",
-                        "color": "blue",
+                        "text": "○ weak_signal",
+                        "color": "text",
                         "index": 2
                       }
                     }
@@ -3583,18 +3583,18 @@
                     "type": "value",
                     "options": {
                       "supporting": {
-                        "text": "supporting",
-                        "color": "yellow",
+                        "text": "△ supporting",
+                        "color": "text",
                         "index": 0
                       },
                       "counter": {
-                        "text": "counter",
-                        "color": "blue",
+                        "text": "↔ counter",
+                        "color": "text",
                         "index": 1
                       },
                       "missing": {
-                        "text": "missing",
-                        "color": "gray",
+                        "text": "? missing",
+                        "color": "text",
                         "index": 2
                       }
                     }
@@ -3990,7 +3990,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -4012,7 +4012,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -4039,7 +4039,7 @@
                       "match": "null",
                       "result": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   },
@@ -4048,7 +4048,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }
@@ -4075,7 +4075,7 @@
                       "match": "null",
                       "result": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   },
@@ -4084,7 +4084,7 @@
                     "options": {
                       "null": {
                         "text": "Unknown",
-                        "color": "gray"
+                        "color": "text"
                       }
                     }
                   }

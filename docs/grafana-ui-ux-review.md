@@ -13,9 +13,9 @@
 | Light / Dark | White/light-gray 또는 slate 배경, 얇은 border, muted metadata, blue accent |
 | KPI / chart / table | 4열 card, 큰 값, mini trend, compact table와 낮은 fill의 native chart |
 | Investigation | Current/Baseline과 candidate card를 나란히 표시; evidence와 Timeline 유지 |
-| Infrastructure | Compute / Fabric / Storage 3열 compact card와 곡선 연결; resource 선택과 상세 이동 |
+| Infrastructure | B2 계층형 Compact Map·Compute 2열·MDS/DS 구분·Inspector와 상세 metric 연결 |
 
-Infrastructure는 최종 요청에 따라 원본 HTML의 compact card·3열 배치·곡선 연결 스타일을 사용합니다. 실제 inventory에 없는 switch·Prefill/Decode·DeepEP·전송 경로는 추가하지 않습니다.
+`topology-compact.html`의 B2 Compact Layered Cluster Map을 Infrastructure의 기준으로 사용합니다. 계층 사이의 표시는 배치 구분이며 실제 edge는 Relationship Ledger에서 확인합니다. 실제 inventory에 없는 switch·Prefill/Decode·DeepEP·전송 경로는 추가하지 않습니다.
 
 ## Problems in the previous UI
 
@@ -29,11 +29,11 @@ Native Dashboard에는 중요한 source panel이 이미 있으므로 별도 metr
 - `DashboardChrome.tsx`·`style.css`가 공통 sidebar·간격·배색·반응형을 담당합니다. Theme은 URL에 보존하며 investigation identity를 변경하지 않습니다.
 - Native 6개 화면은 provisioned JSON의 모든 non-row panel을 한 번씩 유지합니다. Optional group는 펼칠 때 query를 활성화하고 신규 canonical panel도 catalog에 남습니다.
 - 여러 entity·field·query가 반환되는 요약은 **Multiple entities**로 표시합니다. Producer freshness를 별도로 검증하지 않은 경우 그 한계를 표시하고 대표값·총합을 만들지 않습니다.
-- Infrastructure는 선언된 resource와 관계만 그립니다. 선언된 endpoint 사이를 곡선으로 연결하며, 미확인 endpoint·device 관계·표시 한도 초과 edge는 Relationship Ledger에 남깁니다.
+- Infrastructure는 선언된 resource와 관계만 그립니다. Compute / Network / Storage를 배치 그룹으로 묶고 MDS·DS·Unknown role을 구분합니다. 동일한 이름의 Fabric도 namespace identity가 다르면 합치지 않으며 실제 선언 edge와 미확인 endpoint는 Ledger에 남깁니다.
 
 ## Browser validation
 
-원본 HTML과 실제 Grafana를 1440×1000 / 390×844에서 Light/Dark로 비교했습니다. 세 차례 이상 수정·캡처했으며 첫 loop의 모바일 navigation 실패도 기록에 남습니다. 최종 결과는 [검증 기록](validation/dashboard-design-20261010.json)에 있습니다.
+원본 HTML과 실제 Grafana를 1440×1000 / 1024×1000 / 390×844에서 Light/Dark로 비교했습니다. 세 차례 이상 수정·캡처했으며 첫 loop의 모바일 navigation 실패도 기록에 남습니다. 13개 화면의 디자인 검증은 [이전 기록](validation/dashboard-design-20261010.json), B2·Typography·한국어 안내의 최신 검증은 [가독성 기록](validation/dashboard-readability-20261010.json)에 있습니다.
 
 | 검증 | 범위 |
 | --- | --- |
@@ -61,3 +61,19 @@ Native Dashboard에는 중요한 source panel이 이미 있으므로 별도 metr
 | Infrastructure의 node 수·길이 | 목업의 고정 6개 node 대신 실제 선언된 inventory를 표시; 미확인 연결·Run 소유권은 추정하지 않음 |
 
 이전 native Dashboard UX 검증은 [2026-10-07 기록](validation/dashboards/product-ux-20261007.json)에 보존합니다. 현재 구현과 당시 테스트 결과를 같은 지원 범위로 해석하지 않습니다.
+
+## Typography와 표시 언어
+
+| 항목 | 현재 기준 |
+| --- | --- |
+| 본문 / Page title | 14px / 27px, 좁은 화면 제목은 26px |
+| Panel title / Table body | 15–16px / 최소 13px |
+| Scope / Legend / 보조 설명 | 최소 12px, Light muted `#526174` |
+| Primary / Secondary / Muted | 서로 다른 색상 계층을 유지; 모든 글씨를 검정으로 통일하지 않음 |
+| 상태 설명 | Named status와 icon을 함께 제공; Native diagnosis의 warning/missing 글씨는 theme-adaptive `text` 사용 |
+| 영어 유지 | Menu·Panel title·KPI·metric·label·API·unit·내부 state 식별자 |
+| 한국어 안내 | Source/Scope 해석·누락·clock 불확실성·오류 안내·Tooltip·조사 절차 |
+
+[WCAG Contrast Minimum](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum)의 일반 텍스트 4.5:1, 큰 텍스트 3:1을 기준으로 실제 표시되는 DOM 표본을 확인합니다. Canvas/복잡한 SVG·gradient·비활성 control은 합격 표본에 포함하지 않으며 전체 WCAG 인증으로 보고하지 않습니다.
+
+Candidate 설명은 canonical panel의 한국어 Value mapping을 재사용합니다. 미등록 Upstream/LLM 문구와 원본 datasource 오류는 원문을 보존하고, 3FS의 maximum reported p99를 전체 요청의 pooled p99로 번역하지 않습니다. Grafana 기본 time picker·Inspect 등 vendor UI는 기존 표시를 따릅니다.

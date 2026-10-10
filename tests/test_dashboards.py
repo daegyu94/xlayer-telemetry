@@ -484,9 +484,12 @@ def test_investigation_ui_distinguishes_missing_evidence_and_respects_trace_filt
     verdict = next(item for item in summary['panels'][1]['fieldConfig']['overrides']
                    if item['matcher']['options'] == 'verdict')
     values = next(p['value'] for p in verdict['properties'] if p['id'] == 'mappings')[0]['options']
-    assert values['insufficient_data']['color'] == 'gray'
+    assert values['insufficient_data']['color'] == 'text'
+    assert values['insufficient_data']['text'].startswith('? ')
+    assert values['insufficient_data']['text'].endswith('insufficient_data')
     assert values['no_anomaly_observed']['color'] != 'green'
-    assert all(value['text'] == key for key, value in values.items())
+    assert all(value['text'].endswith(key) and value['text'][0] in {'⚠', '?', '○'}
+               for key, value in values.items())
     timeline = json.loads((ROOT / 'examples/dashboards/cross-layer-timeline.json').read_text())
     for panel in _panels(timeline):
         for target in panel.get('targets', []):

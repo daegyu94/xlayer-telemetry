@@ -114,3 +114,32 @@ def test_unknown_comparison_units_and_candidate_review_remain_inspectable(genera
         assert all(not t.get('options', {}).get('excludeByName') for t in p['transformations'])
         assert 'workload_comparability' in str(p['fieldConfig'])
         assert 'Unknown' in str(p['fieldConfig'])
+
+
+def test_diagnosis_state_and_unknown_unit_labels_use_adaptive_text_with_explicit_state_cues(generated):
+    """Colored words must remain readable in both Grafana themes."""
+    summary = generated['xlayer-bottleneck-summary']
+    state_fields = {'verdict', 'state', 'evidence_type', 'unit', 'window_statistic'}
+    checked = 0
+    for panel in panels(summary['panels']):
+        for override in panel.get('fieldConfig', {}).get('overrides', []):
+            field = override.get('matcher', {}).get('options')
+            if field not in state_fields:
+                continue
+            for prop in override.get('properties', []):
+                if prop['id'] != 'mappings':
+                    continue
+                for mapping in prop['value']:
+                    results = [mapping['options']['result']] if mapping['type'] == 'special' else mapping['options'].values()
+                    for result in results:
+                        if 'color' not in result:
+                            continue
+                        assert result['color'] == 'text', (field, result)
+                        if field in {'verdict', 'state', 'evidence_type'}:
+                            assert result['text'][0] in {'⚠', '△', '↔', '?', '○'}
+                        checked += 1
+    assert checked >= 10
+    signals = generated['xlayer-workspace-overview']
+    busy = next(panel for panel in panels(signals['panels']) if panel['id'] == 6)
+    assert busy['options']['valueMode'] == 'text'
+    assert busy['fieldConfig']['defaults']['color']['fixedColor'] == 'blue', 'bar color and raw metric are unchanged'
