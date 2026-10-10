@@ -4,7 +4,30 @@ VERL 기반 Agent RL의 느린 Step을 GPU·vLLM·Ray·network·storage·sandbox
 
 **[문서 웹사이트](https://daegyu94.github.io/xlayer-telemetry/)** · **[설치](docs/quickstart.md)** · **[GPU 없이 Demo](docs/demo.md)** · **[기존 VERL 연결](docs/verl-quickstart.md)**
 
-## 지금 할 일
+## Development Status
+
+현재 핵심 기능의 PoC 구현과 CPU/Synthetic·제한된 single-node Agent RL validation을 수행한 단계입니다. 다음 핵심 목표는 실제 physical multi-node·concurrent multi-job / rollout replica 환경의 validation입니다. 기능 구현과 분산 실환경 validation 완료는 구분합니다.
+
+| Area | Status | Evidence / Scope |
+| --- | --- | --- |
+| Core Telemetry & Diagnosis | Implemented (PoC) | [Architecture](docs/architecture.md) · [Correlation limitations](docs/correlation-limitations.md) |
+| CPU / Synthetic Validation | Validated (bounded scenarios) | [Validation scope](docs/validation/README.md#current-validation-scope). 실제 모델 동시 학습을 뜻하지 않음 |
+| Single-Node Agent RL Validation | Partially Validated | [기존 실측 기록](docs/real-verl-demo.md#recorded-agent-rl-run). 한 host·한 모델·짧은 실행 |
+| Physical Multi-Node / Multi-Job Agent RL | Pending | [Planned Validation](docs/validation/README.md#planned-validation) |
+| Operational Hardening | In Progress; long-run validation Pending | CPU fault/recovery 회귀 검증은 있음. 분산 운영 안정성 보증은 아님 |
+
+### Next Milestones
+
+- [ ] Physical multi-node에서 clock quality·identity·telemetry 수집·correlation 검증
+- [ ] Concurrent multi-job·multi-model·rollout replica의 격리·coverage·조사 흐름 검증
+- [ ] 실제 Agent RL workload와 Mooncake / 3FS storage 경로의 end-to-end validation
+- [ ] 실제 장애·복구·장시간 실행에서 overhead·query budget·retention·데이터 정확성 검증
+
+완료 기준과 검증 환경은 [Planned Validation](docs/validation/README.md#planned-validation)에서 관리합니다. 기존 backend 개별 실측·VM·Synthetic 결과는 해당 환경의 근거이며 위 Pending 항목을 대신하지 않습니다.
+
+## Get Started
+
+<a id="지금-할-일"></a>
 
 | 상황 | 시작할 곳 | 완료 확인 |
 | --- | --- | --- |
@@ -16,7 +39,9 @@ VERL 기반 Agent RL의 느린 Step을 GPU·vLLM·Ray·network·storage·sandbox
 | Run이 느림 | [Slow Step Investigation](docs/dashboards.md) | Comparable baseline·candidate·같은 구간의 Timeline |
 | No data / 연결 오류 | [문제 해결 Runbook](docs/runbooks.md) | Process → source → age → filter 순서 점검 |
 
-## 설치
+## Installation
+
+<a id="설치"></a>
 
 Python 3.10 이상·Git·`venv`가 필요합니다. Managed monitoring은 Linux ARM64/x86_64에서 실행합니다.
 
@@ -45,7 +70,9 @@ xltel inspect RUN_ID
 
 **정상 결과:** 원래 workload의 종료 코드와 별도로 완료 step·stage·telemetry completeness를 확인할 수 있습니다. [연결 절차와 정상 결과](docs/verl-quickstart.md#3-verify)를 먼저 읽습니다.
 
-## 무엇을 연결할 수 있나
+## Telemetry Coverage
+
+<a id="무엇을-연결할-수-있나"></a>
 
 <a id="what-works-today"></a>
 
@@ -56,12 +83,12 @@ xltel inspect RUN_ID
 | vLLM / Ray | Native queue·latency·cache·task/resource signals | [Native source](docs/native-sources.md). 배포별 metric 지원 확인 |
 | Mooncake / Storage | Connector RPC·DFS·declared DS/MDS·local I/O·선택적 3FS collection evidence | [KV / Storage](docs/kv-storage.md). Client·service·device 통계 구분 |
 | Local / 직접 관리하는 Dedicated Sandbox | 명시 lifecycle span·설정한 worker cgroup CPU/memory/I/O pressure | [Sandbox](docs/sandbox.md). GPU-host local SSD와 shared backend 구분 |
-| Remote Tool / Reward 호출 | 명시 SDK client span·caller가 기록한 outcome/retry event | [V1 지원 경계](docs/sandbox.md#v1-support-boundary). Remote 내부 모니터링·자동 SandboxFusion 연동은 미지원 |
+| Remote Tool / Reward 호출 | 명시 SDK client span·caller가 기록한 outcome/retry event | [Support boundary](docs/sandbox.md#v1-support-boundary). Remote 내부 모니터링·자동 SandboxFusion 연동은 미지원 |
 | Logs / Diagnosis | Loki Step 탐색·Current/Baseline·candidate·evidence | [Logs](docs/logs-events.md) · [Diagnosis](docs/diagnosis.md). Source 설정 필요 |
 
 > **Correlation ≠ attribution ≠ causality.** Shared resource의 동시 변화는 Run 사용량이나 확정 원인이 아닙니다. Exact/calibrated span, approximate step, sampled metric과 missing/zero를 구분합니다. [해석 기준](docs/concepts.md)을 확인하세요.
 
-**Remote Sandbox 내부 모니터링 — Not Supported (V1).** Local/Dedicated resource 관측과 Remote 호출의 client-side telemetry를 구분합니다. SandboxFusion·Managed/External provider의 내부 queue·CPU/memory/I/O·execution lifecycle·cross-service attribution은 지원하지 않습니다. VERL은 외부 서비스를 그대로 사용할 수 있고 기존 SDK로 호출 경계를 기록할 수 있지만, 호출 시간·client error는 remote 서버의 내부 병목이나 작업 성공을 뜻하지 않습니다.
+**Remote Sandbox 내부 모니터링 — Not Supported.** Local/Dedicated resource 관측과 Remote 호출의 client-side telemetry를 구분합니다. SandboxFusion·Managed/External provider의 내부 queue·CPU/memory/I/O·execution lifecycle·cross-service attribution은 지원하지 않습니다. VERL은 외부 서비스를 그대로 사용할 수 있고 기존 SDK로 호출 경계를 기록할 수 있지만, 호출 시간·client error는 remote 서버의 내부 병목이나 작업 성공을 뜻하지 않습니다.
 
 여러 Job의 application metric·log·span은 Run/worker identity로 구분합니다. GPU·host·Ray·Mooncake·storage에는 Run ID가 없거나 공유 scope일 수 있으므로, 같은 시간의 pressure를 특정 Job의 원인으로 단정하지 않습니다. `strong_signal`도 관측된 조건의 강도이며 자원 소유권을 뜻하지 않습니다. GPU 없이 세 Job의 겹침·누락·stale source와 실제 query/diagnosis를 확인하려면 [Multi-job Live Demo](docs/demo.md#multi-job-live-demo)를 사용하세요.
 
@@ -71,7 +98,9 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 
 [선택적 Router / Serving SDK](docs/diagnosis-reference.md#router-membership-and-serving-lifecycle)는 read-only membership과 완료 hook의 sleep/wake·workload·worker-applied policy를 읽습니다. Endpoint UP와 serving 정상은 다르며, 상태가 없으면 Unknown으로 남깁니다. Separate Async의 다음-update sample decision도 보고된 logger key가 있을 때만 표시합니다.
 
-## 어떻게 조사하나
+## Investigation Workflow
+
+<a id="어떻게-조사하나"></a>
 
 <a id="why-cross-layer-telemetry"></a>
 <a id="start-here"></a>
@@ -87,7 +116,9 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 
 3FS ClickHouse는 선택적 심층 진단 source입니다. 원본 report p99·counter·collection time-series는 [Storage Correlation](docs/storage-correlation.md)에서 해석하며, service와 특정 SSD/Run의 실제 요청 경로를 추정하지 않습니다.
 
-## 문서 찾기
+## Documentation
+
+<a id="문서-찾기"></a>
 
 <a id="terms-used-in-this-project"></a>
 <a id="scope-and-layout"></a>
@@ -103,7 +134,9 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 | Clock·backend·attribution 한계 | [Correlation limitations](docs/correlation-limitations.md) |
 | 실제 검증 범위 | [Validation 기록](docs/validation/README.md). Synthetic와 실장비 구분 |
 
-## SDK / 개발
+## SDK & Development
+
+<a id="sdk--개발"></a>
 
 <a id="python-package-usage"></a>
 <a id="local-validation"></a>
