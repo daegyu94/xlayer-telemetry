@@ -11,7 +11,7 @@ import threading
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
-from ci_demo import datasource_error_result, native_dashboard_back
+from ci_demo import assert_policy_lifecycle_text, datasource_error_result, native_dashboard_back
 
 
 
@@ -304,7 +304,7 @@ def multi_worker_journey(args):
         lifecycle.locator('summary').click()
         assert '4 workers with applied-version events' in lifecycle.inner_text()
         assert lifecycle.locator('tbody tr').count() >= 4
-        assert 'producer reported' in lifecycle.inner_text() and 'causality' in lifecycle.inner_text()
+        assert_policy_lifecycle_text(lifecycle.inner_text())
         capture('multi-policy-applied')
         checks.append('Explicit weights.applied events expose worker-applied policy coverage; trainer version and KV changes are not applied-boundary or causal evidence')
         for width in (1280,390):

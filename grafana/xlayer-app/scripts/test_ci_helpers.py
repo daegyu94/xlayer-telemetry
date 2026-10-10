@@ -43,6 +43,25 @@ CI = load('ci_demo')
 PACKAGE = load('package_plugin')
 
 
+@pytest.mark.parametrize('provenance,term', [
+    ('producer reported', 'Causality'), ('Producer Reported', 'causality'),
+    ('PRODUCER\n  REPORTED', 'CAUSALITY'),
+])
+def test_policy_lifecycle_check_accepts_rendered_case_and_wrapping(provenance, term):
+    text = f'Producer가 Worker scope로 보고한 weights.applied만 적용 경계로 사용합니다. ' \
+           f'Trainer version과 KV counter는 실제 적용 Coverage나 {term}를 증명하지 않습니다.\nv7 · {provenance}'
+    CI.assert_policy_lifecycle_text(text)
+
+
+@pytest.mark.parametrize('text,missing', [
+    ('Trainer version과 KV counter는 Causality를 증명하지 않습니다.', 'producer reported'),
+    ('v7 · producer reported', 'causality'),
+])
+def test_policy_lifecycle_check_still_rejects_missing_disclosure(text, missing):
+    with pytest.raises(AssertionError, match=missing):
+        CI.assert_policy_lifecycle_text(text)
+
+
 def distribution(root):
     root.mkdir()
     (root / 'img').mkdir()

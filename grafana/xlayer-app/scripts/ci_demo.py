@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = Path(__file__).resolve().parent
 
 
+def assert_policy_lifecycle_text(text):
+    """Check disclosures without treating capitalization/wrapping as semantics."""
+    normalized = ' '.join(text.casefold().split())
+    for term in ('producer reported', 'causality'):
+        assert term in normalized, f'Policy / KV Lifecycle missing disclosure: {term}'
+
+
 def datasource_error_result(queries, message='Synthetic browser boundary datasource error'):
     """Grafana query-result error fixture; not a real backend outage."""
     return {'results': {str(query.get('refId', 'A')): {
