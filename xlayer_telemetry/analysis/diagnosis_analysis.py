@@ -166,6 +166,8 @@ def validate_baseline_policy(policy: Mapping[str, Any]) -> None:
         raise ValueError("baseline.relative_tolerance must be between 0 and 1")
     if policy.get("normalize_by") not in {None, "perf/total_num_tokens"}:
         raise ValueError("baseline.normalize_by only supports perf/total_num_tokens")
+    from .robust_differential import settings
+    settings(policy)
 
 
 def workload_matches(current: Mapping[str, Any], prior: Mapping[str, Any], policy: Mapping[str, Any]) -> bool:
@@ -216,7 +218,26 @@ def recent_baseline_history(current: Mapping[str, Any], history: Iterable[Mappin
             if stamp is not None and stamp < observed:
                 yield stamp, item
 
-    return [item for _, item in heapq.nlargest(5, eligible(), key=lambda pair: pair[0])]
+    from .robust_differential import settings
+    robust = settings(policy)
+    candidates = [item for _, item in heapq.nlargest(robust['cohort_size'] if robust['enabled'] else 5,
+                                                    eligible(), key=lambda pair: pair[0])]
+    if not robust['enabled']:
+        return candidates
+    # A duplicate/replayed or overlapping observation is not a new exposure.
+    result, seen = [], set()
+    end_limit = current.get('analysis_window', {}).get('start')
+    reference = current.get('analysis_window', {}).get('time_alignment', {}).get('reference_id')
+    for item in candidates:
+        window = item['analysis_window']
+        identity = (item.get('record_id'), window['start'], window['end'])
+        if (identity in seen or finite(end_limit) is None or window['end'] > end_limit
+                or window.get('time_alignment', {}).get('reference_id') != reference):
+            continue
+        seen.add(identity)
+        result.append(item)
+        end_limit = window['start']
+    return result
 
 
 def select_baseline(current: Mapping[str, Any], history: Iterable[Mapping[str, Any]], *, policy: Mapping[str, Any] | None = None) -> dict[str, Any] | None:

@@ -96,6 +96,8 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("command", nargs=argparse.REMAINDER, help="Workload argv after --; otherwise VERL_COMMAND array")
     inspect = commands.add_parser("inspect", help="Inspect saved artifacts, not current service health")
     inspect.add_argument("run", nargs="?", help="Run ID or directory (default: configured/latest run)")
+    inspect.add_argument('--execution-graph', action='store_true', help='Read bounded saved SDK execution relationships as JSON; never infer edges from Step/time')
+    inspect.add_argument('--root-span', metavar='TRACE/SPAN', help='Explicit complete trajectory root for conservative critical-path analysis; requires --execution-graph')
     logs = commands.add_parser("logs", help="Read managed launcher logs")
     logs.add_argument("role", nargs="?", choices=("server", "node"))
     logs.add_argument("--follow", "-f", action="store_true")
@@ -373,6 +375,15 @@ def execute(args) -> int:
             run = latest_run(config)
         if not run or not run.is_dir():
             raise ConfigError("No run artifacts found; run a workload first or pass xltel inspect RUN_DIR.")
+        if args.root_span and not args.execution_graph:
+            raise ConfigError('--root-span requires --execution-graph.')
+        if args.execution_graph:
+            from .operations.execution import inspect_execution
+            root = args.root_span.split('/') if args.root_span else None
+            if root is not None and (len(root) != 2 or any(not part for part in root)):
+                raise ConfigError('--root-span needs TRACE/SPAN from an observed SDK span.')
+            print(json.dumps(inspect_execution(run, root=root), ensure_ascii=False, indent=2, allow_nan=False))
+            return 0
         from .show_run import summarize
         print(summarize(run))
         from .time_alignment import CalibrationCache, reference_now

@@ -103,6 +103,32 @@ class SpanIdentity:
     span_id: str
 
 
+LINK_RELATIONS = frozenset({'associated', 'consumes', 'follows_from', 'depends_on'})
+
+
+@dataclass(frozen=True)
+class SpanLink:
+    """An explicitly instrumented relationship; only depends_on means a wait.
+
+    Pass an existing SpanIdentity across a cooperative boundary. This does not
+    install OTel, intercept framework RPCs or establish resource ownership.
+    """
+
+    identity: SpanIdentity
+    relation: str = 'associated'
+
+    def __post_init__(self):
+        if not isinstance(self.identity, SpanIdentity) or any(
+                not isinstance(value, str) or not _IDENTIFIER.fullmatch(value)
+                for value in (self.identity.trace_id, self.identity.span_id)):
+            raise ValueError('link needs valid trace_id and span_id')
+        if self.relation not in LINK_RELATIONS:
+            raise ValueError('unsupported span link relation')
+
+    def as_dict(self):
+        return {'trace_id': self.identity.trace_id, 'span_id': self.identity.span_id, 'relation': self.relation}
+
+
 class EventRecorder:
     """Append producer-owned phase spans and high-cardinality evidence to JSONL."""
 
@@ -235,8 +261,13 @@ class EventRecorder:
         trace_id: str | None = None,
         parent_span_id: str | None = None,
         policy_version: int | None = None,
+        links: list[SpanLink] | tuple[SpanLink, ...] | None = None,
     ) -> Iterator[SpanIdentity]:
         self._validate(name=name, phase=phase, step=step)
+        if links is not None and (not isinstance(links, (list, tuple)) or len(links) > 16
+                                  or any(not isinstance(link, SpanLink) for link in links)):
+            raise ValueError('span links need at most 16 SpanLink records')
+        link_fields = {'links': [link.as_dict() for link in links]} if links else {}
         policy_fields = self._policy_fields(policy_version)
         identity = SpanIdentity(
             trace_id=trace_id or uuid.uuid4().hex,
@@ -280,6 +311,7 @@ class EventRecorder:
                     "trace_id": identity.trace_id,
                     "span_id": identity.span_id,
                     **({"parent_span_id": parent_span_id} if parent_span_id is not None else {}),
+                    **link_fields,
                     "attributes": final_attributes,
                     **self._aligned_fields(started_ns, ended_ns, discontinuity=discontinuity, phase=phase),
                 }

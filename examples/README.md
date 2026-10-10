@@ -27,6 +27,8 @@ Optional dependency는 해당 예제를 사용할 때만 필요합니다.
 | 실제 Grafana investigation 클릭 검증 | [investigation/validate_user_journey.py](investigation/validate_user_journey.py) | Optional Playwright·Chromium과 Loki 포함 stack, synthetic diagnosis practice Run이 필요합니다. Stack과 fixture는 직접 준비합니다. |
 | JSONL·snapshot cache 비용 확인 | [investigation/validate_runtime.py](investigation/validate_runtime.py) | CPU fixture로 1만·10만 record와 1,000-worker snapshot의 cold/warm 조회를 비교합니다. `warm_parsed_bytes`는 cache 한도 초과 시 재파싱도 포함하며 전체 diagnosis 지연 측정은 아닙니다. |
 | Baseline·signature 정확성과 처리 비용 비교 | [research/system_review_benchmark.py](research/system_review_benchmark.py) | 이전 revision과 같은 synthetic history를 분석합니다. Python 시간·추가 allocation·backend 요청 수를 비교하며 실제 VERL·GPU·storage 성능이 아닙니다. |
+| Robust diagnosis·Graph·Path 평가 | [research/performance_diagnosis_benchmark.py](research/performance_diagnosis_benchmark.py) | 독립 raw-input fault oracle와 실제 engine·SDK 비용 비교. [지원 범위 / 통계 한계](../docs/performance-diagnosis.md)를 확인합니다. |
+| 실제 async SDK dependency 기록 | [research/trajectory_dependency_demo.py](research/trajectory_dependency_demo.py) | CPU generation·queue·parallel tool의 실제 JSONL과 blocking path. GPU·framework 자동 tracing 예제가 아닙니다. |
 | GPU·clock·multi-node correlation 확인 | [multinode/validate_local.py](multinode/validate_local.py) | GPU 2개·Node Exporter·Prometheus가 필요합니다. 한 host의 logical node이며 물리 multi-node 학습 검증이 아닙니다. |
 | 별도 guest kernel·clock·collector 검증 | [multinode/validate_vms.py](multinode/validate_vms.py) | KVM·QEMU·cloud-localds와 Ubuntu cloud image가 필요합니다. GPU 없이 VM 두 개에서 collector와 clock failure/recovery를 검사합니다. |
 | 작은 GPU instrumentation smoke | [verl/gpu_smoke.py](verl/gpu_smoke.py) | PyTorch·CUDA가 필요합니다. 작은 REINFORCE loop이며 실제 VERL benchmark가 아닙니다. |

@@ -23,7 +23,7 @@ from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
 
-PROMPT_VERSION = 12
+PROMPT_VERSION = 13
 REVIEW_PROMPT_VERSION = 3
 INFERENCE_OPTIONS = {
     "num_ctx": 32768, "num_predict": 16384,
@@ -33,7 +33,7 @@ INFERENCE_OPTIONS = {
 OBSERVATION_FIELDS = {
     "id", "signal", "unit", "observation_scope", "labels", "baseline", "current",
     "delta", "delta_percent", "source", "query", "kind", "window_statistic",
-} | {"sampling_quality", "comparison_status"}
+} | {"sampling_quality", "comparison_status", "robust_baseline"}
 STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase", "max_series_delta"}
 
 
@@ -97,6 +97,10 @@ In observation_table_v1, each row follows observation_columns and
 common_observation_fields apply to every row. Null means unavailable.
 Honor comparison_status: withheld deltas or unmatched report populations do not
 establish a latency regression, even when both raw extrema are available.
+When robust_baseline is supplied, insufficient_cohort/workload_unverified cannot
+establish a repeatable regression; within_variation preserves pressure observations
+but does not establish a duration shift. MAD and median intervals are descriptive,
+conditional on comparable independent exposures, not probabilities of a cause.
 Keep different engines, workers, nodes and devices separate. A node/device/shared-service
 signal does not attribute usage to this run. Correlation does not prove causation.
 Do not combine different signals from distinct engines or workers into one cause
@@ -223,7 +227,7 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
         })
         # Preserve the scalar reducer without adding full PromQL to this compact
         # saved-report path. Older reports need not specify one; never infer it.
-        for key in ('window_statistic', 'comparison_status'):
+        for key in ('window_statistic', 'comparison_status', 'robust_baseline'):
             if row.get(key) is not None:
                 observations[-1][key] = row[key]
     return {
@@ -389,6 +393,9 @@ def validate_packet(packet: dict[str, Any]) -> None:
         if "kind" in item and item["kind"] not in ("gauge", "counter", "delta"):
             raise ValueError("observation kind must be gauge, counter or delta")
         validate_quality(item.get("sampling_quality"))
+        if 'robust_baseline' in item:
+            from .robust_differential import validate_summary
+            validate_summary(item['robust_baseline'])
         for key in ("current", "baseline"):
             _validate_measurement(item.get(key))
         for key in ("delta", "delta_percent"):

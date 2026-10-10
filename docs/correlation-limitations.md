@@ -25,12 +25,15 @@ Remote SandboxFusion·Managed/External provider의 내부 queue·CPU/memory/I/O�
 | Bounded 3FS collection time-series | Producer host·report 시각·reset/gauge 계약 보존; 미검증 clock이면 finding/candidate/delta 보류 |
 | Supporting / Counter / Missing·저장 artifact·선택적 profiling | Mixed storage path가 미확인이면 최대 supporting; 운영·query 예산과 workload lifecycle 분리 |
 | Compact signature·local parent/child relation delta | 선택된 worker/boundary 내부의 observed parent만 집계; cross-worker propagation·전역 critical path는 아님 |
+| Explicit SDK execution graph / trajectory path | 선택적 Span Link로 다른 Worker·Trace의 명시 관계를 연결. Complete flat blocking DAG만 분석하며 자동 framework tracing·resource attribution은 아님 |
 
 사용·설정은 [Diagnosis contract](diagnosis-reference.md), [Storage correlation](storage-correlation.md), [Clock prerequisites](time-alignment.md), [기존 signature/triggered profiling](behavior-signature-research.md)을 따릅니다. 위 P0를 다시 구현하거나 새 dashboard·telemetry backend를 만드는 것은 후속 과제가 아닙니다.
 
 소스 기준은 [SDK context/span](https://github.com/daegyu94/xlayer-telemetry/blob/47d8fa0a6e284b7b43b106b5fcabe00d250d6970/xlayer_telemetry/events.py), [window/clock/entity 진단](https://github.com/daegyu94/xlayer-telemetry/blob/47d8fa0a6e284b7b43b106b5fcabe00d250d6970/xlayer_telemetry/analysis/diagnostics.py), [signature relation 모델](https://github.com/daegyu94/xlayer-telemetry/blob/47d8fa0a6e284b7b43b106b5fcabe00d250d6970/xlayer_telemetry/analysis/behavior_signature.py), [native query profiles](https://github.com/daegyu94/xlayer-telemetry/blob/47d8fa0a6e284b7b43b106b5fcabe00d250d6970/xlayer_telemetry/analysis/metric_queries.py)입니다.
 
 ## Limitations
+
+[Execution / Performance Diagnosis](performance-diagnosis.md)는 opt-in cohort uncertainty와 명시 SDK dependency path를 추가합니다. 아래의 native metric·backend·framework 자동 연결 한계는 유지되며, timestamp proximity·일반 parent relation으로 completion dependency를 추정하지 않습니다.
 
 ### Multi-job 관측과 자원 소유권
 

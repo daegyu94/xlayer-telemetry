@@ -42,7 +42,7 @@ xltel down
 | `doctor --correlation` | `--diagnostics-config FILE.json` 또는 `DIAGNOSTICS_CONFIG`; [관측 대상·clock 사전 검사](time-alignment.md#correlation-preflight) |
 | `install-tools`, `up`, `down`, `restart` | `--role all\|server\|node` |
 | `run` | `--mode auto\|sync\|async`, `--run-id ID`, `--output DIR`, `--node NAME`, `-- COMMAND` |
-| `inspect` | `[RUN_ID \| RUN_DIR]` |
+| `inspect` | `[RUN_ID \| RUN_DIR]`; `--execution-graph`, `--root-span TRACE/SPAN`은 [저장 SDK 관계 / trajectory path](performance-diagnosis.md) 조회 |
 | `logs` | `[server\|node]`, `--follow`, `--lines N` |
 | `sources` | `--json`, `refresh`, `threefs --window-seconds N` |
 | `config` | `path`, `show`, `validate`, `migrate --output FILE.toml` |

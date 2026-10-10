@@ -6,6 +6,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [Execution / Performance diagnosis](performance-diagnosis-20261010.json) | 독립 CPU fault oracle·기존 main과의 engine/SDK 비용 비교·bounded Graph/Path 측정. GPU·framework 자동 tracing·물리 multi-node는 제외. |
 | [문서 Runbook / Reference](documentation-ux-20261009.json) | Public Pages·독자 경로·전용 CLI/synthetic smoke·6 viewport·기존 code block/anchor 보존 검증. |
 | [Training·sandbox](sandbox/validation-20260930.json), [async follow-up](async-followup-20261001.json) | 실제 단일 host VERL·vLLM·Docker 실행 범위와 tool/cgroup 연결. 물리 multi-node 학습과 구분합니다. |
 | [3FS·subsystem](subsystem-telemetry-20261003.json), [Mooncake](mooncake-telemetry-20261003.json) | 실제 3FS I/O·ClickHouse·native endpoint 경로와 수집하지 못한 signal. |

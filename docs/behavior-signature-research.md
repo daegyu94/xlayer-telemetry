@@ -10,6 +10,8 @@
 
 ## 얻는 것
 
+명시 cross-worker / cross-trace link와 trajectory blocking path는 [Execution / Performance Diagnosis](performance-diagnosis.md)의 선택적 API를 사용합니다. 기존 signature의 span sum·local parent relation 의미는 유지하며, path 결과와 서로 대체하지 않습니다.
+
 | 결과 | 확인할 것 |
 | --- | --- |
 | Behavior signature | Boundary·entity·workload·event/resource summary와 관측 품질 |

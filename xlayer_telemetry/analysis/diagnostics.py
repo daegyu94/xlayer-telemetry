@@ -40,6 +40,7 @@ from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, valid
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, project_storage_series, project_storage_summary, validate_series_settings
 from .storage_overview import storage_overview
+from .robust_differential import duration_quality, assess as robust_assess, settings as robust_settings, apply_limits as apply_robust_limits
 
 # Keep the existing local opener hook while bounding credential redirects.
 urlopen = build_opener(_CredentialSafeRedirectHandler()).open
@@ -640,7 +641,15 @@ class DiagnosticEngine:
         baseline_policy = self.config.get("baseline", {})
         validate_baseline_policy(baseline_policy)
         comparable_history = recent_baseline_history(current, history, policy=baseline_policy) if current else []
+        robust_quality = duration_quality(current, comparable_history, baseline_policy, self._signals) if current else None
         slow = _slow_stages(current or {}, comparable_history, self.thresholds)
+        if robust_quality is not None:
+            config = robust_settings(baseline_policy)
+            slow = [row for row in slow if baseline_policy.get('match_fields') and robust_assess(row['seconds'],
+                [item['stage_durations_seconds'].get(row['stage']) for item in comparable_history
+                 if isinstance(item.get('stage_durations_seconds'), Mapping)],
+                minimum_cohort=config['minimum_cohort'], z_threshold=config['z_threshold'],
+                relative_floor=config['relative_floor'])['status'] == 'shift_observed']
         evidence: dict[str, Any] = {"slow_stages": slow}
         missing: list[str] = []
         if ("mooncake_storage" in self.config["prometheus"].get("metric_profiles", [])
@@ -1193,6 +1202,7 @@ class DiagnosticEngine:
             "normalization": normalization,
             "current_workload": (current or {}).get("workload", {}),
             "baseline_workload": (baseline_record or {}).get("workload", {}),
+            **({'robust_baseline': robust_quality} if robust_quality is not None else {}),
         }
         if normalization is not None:
             normalized_current, normalized_baseline = normalization["current"], normalization["baseline"]
@@ -1235,9 +1245,12 @@ class DiagnosticEngine:
                     item.update(unit=spec.unit, window_statistic=spec.statistic,
                                 query=signal_queries.get(item["signal"]))
             candidate['signal_strength'] = candidate['state']
+        apply_robust_limits(candidates, robust_quality)
         if serving:
             apply_serving_limits(candidates, self.config['rollout_replicas'], serving['current'])
         for row in comparison["signals"]:
+            if robust_quality is not None and row['signal'] in robust_quality['signals']:
+                row['robust_baseline'] = robust_quality['signals'][row['signal']]
             name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
             row["sampling_quality"] = sampling_quality.get(name)
             if row['signal'] in changed_replica_signals:

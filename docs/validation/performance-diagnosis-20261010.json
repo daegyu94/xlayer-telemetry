@@ -1,0 +1,342 @@
+{
+  "data_origin": "synthetic_fault_injection",
+  "seed": 20261010,
+  "environment": {
+    "python": "3.12.3",
+    "platform": "Linux-6.17.0-35-generic-x86_64-with-glibc2.39"
+  },
+  "diagnosis": {
+    "existing": {
+      "scenarios": {
+        "normal": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "gpu_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "network_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "host_memory": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 32,
+          "detected_signals": 32
+        },
+        "noisy_tail": {
+          "cases": 32,
+          "exact": 0,
+          "false_positive": 32,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "short_cohort": {
+          "cases": 32,
+          "exact": 0,
+          "false_positive": 32,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "workload_shift": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "stale": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "missing": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "multi_job": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        }
+      },
+      "median_analysis_ms": 0.5060136318206787,
+      "p95_analysis_ms": 0.5850167945027351,
+      "queries": {
+        "min": 20,
+        "max": 40,
+        "total": 12160
+      }
+    },
+    "robust": {
+      "scenarios": {
+        "normal": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "gpu_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "network_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "host_memory": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 32,
+          "detected_signals": 32
+        },
+        "noisy_tail": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "short_cohort": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "workload_shift": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "stale": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "missing": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "multi_job": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        }
+      },
+      "median_analysis_ms": 0.7988228462636471,
+      "p95_analysis_ms": 0.8723782375454903,
+      "queries": {
+        "min": 20,
+        "max": 40,
+        "total": 12160
+      }
+    }
+  },
+  "graph": [
+    {
+      "spans": 64,
+      "median_ms": 0.5973754450678825,
+      "peak_traced_bytes": 163200
+    },
+    {
+      "spans": 256,
+      "median_ms": 2.693437971174717,
+      "peak_traced_bytes": 701376
+    },
+    {
+      "spans": 1024,
+      "median_ms": 11.24477107077837,
+      "peak_traced_bytes": 3227540
+    },
+    {
+      "spans": 4096,
+      "median_ms": 62.993467785418034,
+      "peak_traced_bytes": 12910276
+    }
+  ],
+  "sdk": {
+    "existing": {
+      "median_us_per_span": 18.67650542408228,
+      "bytes_per_span": 616.975
+    },
+    "linked": {
+      "median_us_per_span": 21.155327558517456,
+      "bytes_per_span": 695.9
+    }
+  },
+  "limitations": [
+    "No physical cause accuracy, GPU/3FS/Ray/LLM inference measured.",
+    "Query responses injected; measured CPU/JSONL cost is real."
+  ],
+  "baseline_checkout": {
+    "diagnosis": {
+      "scenarios": {
+        "normal": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "gpu_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "network_wait": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 64,
+          "detected_signals": 64
+        },
+        "host_memory": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 32,
+          "detected_signals": 32
+        },
+        "noisy_tail": {
+          "cases": 32,
+          "exact": 0,
+          "false_positive": 32,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "short_cohort": {
+          "cases": 32,
+          "exact": 0,
+          "false_positive": 32,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "workload_shift": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "stale": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "missing": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 32,
+          "expected_signals": 0,
+          "detected_signals": 0
+        },
+        "multi_job": {
+          "cases": 32,
+          "exact": 32,
+          "false_positive": 0,
+          "abstained": 0,
+          "expected_signals": 0,
+          "detected_signals": 0
+        }
+      },
+      "median_analysis_ms": 0.4978715442121029,
+      "p95_analysis_ms": 0.6401995196938515,
+      "queries": {
+        "min": 20,
+        "max": 40,
+        "total": 12160
+      }
+    },
+    "sdk": {
+      "median_us_per_span": 18.72087363153696,
+      "bytes_per_span": 616.77
+    }
+  },
+  "baseline_revision": "5e6c8864be2348b3af1bc111441a58f5b6128a61",
+  "measurement_date": "2026-10-10",
+  "evaluation_target": "strong_pattern_and_supporting_recall_not_physical_root_cause",
+  "abstention_definition": "No strong signal in insufficient-quality cases; supporting/raw observations can remain.",
+  "validation": {
+    "python_312_cpu": {
+      "passed": 1775,
+      "skipped": 6,
+      "reason": "ClickHouse not configured"
+    },
+    "frontend_tests": 144,
+    "frontend_typecheck": "passed",
+    "docs_build": "passed",
+    "python_310": "40 engine analyses and actual async SDK/Graph/Path roundtrip",
+    "hardware_and_real_llm_inference": "not_run",
+    "runtime_ui": "unchanged; no new browser validation required"
+  }
+}

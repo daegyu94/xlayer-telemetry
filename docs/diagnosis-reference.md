@@ -394,6 +394,10 @@ Normalization은 양쪽에 유효한 양수 token 수가 있을 때만 `step_sec
 단위는 `seconds/token`이고 총 step duration의 기존 rule threshold를 대체하지 않습니다.
 Token 수가 같아도 tool mix·sequence 분포·cache 상태까지 동일하다는 보장은 없으므로 `matched_configured_fields`도 비교 조건의 충족만 의미합니다.
 
+### Robust Differential Diagnosis
+
+`baseline.robust.enabled=true`는 같은 workload의 과거 application duration에서 Median/MAD와 cohort 부족 여부를 검사합니다. 분산이 큰 tail·중복 record·겹친 exposure를 강한 회귀 근거로 사용하지 않으며, resource query와 sampling·clock 제한은 그대로 유지합니다. 기본값은 disabled이고 사용 방법·통계 해석·독립 fault 평가 결과는 [Execution / Performance Diagnosis](performance-diagnosis.md)에 있습니다.
+
 ### Read Sampling Quality
 
 Source freshness는 단일 source가 명확한 query에서만 확인합니다.
