@@ -200,14 +200,21 @@ class Demo:
             GaugeSample("node_filesystem_size_bytes", "Synthetic data filesystem size.", 64 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
             GaugeSample("node_filesystem_avail_bytes", "Synthetic data filesystem free space.", 39 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
         ]
+        node_index = self.gpu["gpu_nodes"].index(node)
+        load_scale = 1 - .16 * node_index / max(1, len(self.gpu["gpu_nodes"]) - 1)
+        elapsed = now - self.started
         for rank in range(self.gpu["gpus_per_node"]):
             wobble = math.sin(now / 4 + rank) * 2
+            # Replayable shared-device variation; never a Run ownership signal.
+            # Scaling the wobble by load preserves zero and low idle values.
+            utilization = value["gpu"] * (load_scale + .02 * math.sin(
+                elapsed / (4 + .4 * node_index) + rank + 1.3 * node_index))
             labels = {
                 "run_id": "live-demo", "producer": "synthetic", "role": "trainer",
                 "node": node, "worker_id": str(rank), "local_rank": str(rank),
             }
             samples += [
-                GaugeSample("telemetry_gpu_utilization_percent", "Synthetic GPU utilization.", max(0, min(100, value["gpu"] + wobble)), {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_utilization_percent", "Synthetic GPU utilization.", max(0, min(100, utilization)), {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_power_watts", "Synthetic GPU power.", 820 + value["gpu"] * 3, {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_temperature_celsius", "Synthetic GPU temperature.", 54 + value["gpu"] * .2 + wobble, {"gpu": str(rank)}),
                 GaugeSample("telemetry_gpu_sm_clock_mhz", "Synthetic GPU SM clock.", 1800 + value["gpu"] * 5, {"gpu": str(rank)}),

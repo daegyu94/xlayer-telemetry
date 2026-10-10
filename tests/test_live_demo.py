@@ -172,3 +172,49 @@ def test_agent_demo_peer_cohort_and_explicit_framework_contracts_have_valid_expo
     assert any(s.name=='policy_version' for s in samples)
     states=[s for s in samples if s.name=='telemetry_wrapped_workload_state']
     assert len(states)==3 and sum(s.value for s in states)==1
+
+
+
+def test_gpu_nodes_have_distinct_reproducible_utilization_patterns(monkeypatch):
+    import xlayer_telemetry.demos.live as live
+    demo=Demo(ROOT/'examples/live-demo')
+
+    def patterns(started):
+        exporter=Demo(ROOT/'examples/live-demo')
+        exporter.started=started
+        result={}
+        for elapsed in (1,4,8,12,20):
+            monkeypatch.setattr(live.time,'monotonic',lambda elapsed=elapsed:started+elapsed)
+            for node in exporter.gpu['gpu_nodes']:
+                for sample in exporter.metrics(node):
+                    if sample.name=='telemetry_gpu_utilization_percent':
+                        assert set(sample.labels)=={'gpu'}  # Shared device, not Run ownership.
+                        result.setdefault((node,sample.labels['gpu']),[]).append(sample.value)
+        return result
+
+    observed=patterns(100.)
+    assert len(observed)==32 and len({tuple(values) for values in observed.values()})==32
+    means=[sum(observed[(node,'0')])/5 for node in demo.gpu['gpu_nodes']]
+    assert all(a>b for a,b in zip(means,means[1:]))
+    first,second=(observed[(node,'0')] for node in demo.gpu['gpu_nodes'][:2])
+    # Node differences include changing waveform, not just a fixed offset.
+    gaps=[a-b for a,b in zip(first,second)]
+    assert max(gaps)-min(gaps)>.1
+    # Restarting the exporter at a different uptime preserves relative replay.
+    assert patterns(500.)==observed
+
+
+def test_gpu_utilization_keeps_zero_idle_and_high_load_bounded():
+    from xlayer_telemetry.demos.live import _phase
+    demo=Demo(ROOT/'examples/live-demo')
+    _,values=_phase(1)
+    for base in (0,8,61,94,100):
+        for elapsed in (0,4,20,100):
+            for node in demo.gpu['gpu_nodes']:
+                rows=demo._gpu_node(node,demo.started+elapsed,'idle' if base<=8 else 'training',{**values,'gpu':base})
+                utilization=[s.value for s in rows if s.name=='telemetry_gpu_utilization_percent']
+                assert all(0<=value<=100 for value in utilization)
+                if base==0:
+                    assert utilization==[0]*demo.gpu['gpus_per_node']
+                if base==8:
+                    assert max(utilization)<10

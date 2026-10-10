@@ -177,3 +177,25 @@ def test_phase_rdma_scenario_rates_stay_below_declared_topology(tmp_path):
             values = phase_values(frame, phase)
             assert 0 <= values["rx"] <= capacity
             assert 0 <= values["tx"] <= capacity
+
+
+
+def test_each_gpu_node_keeps_normal_regression_and_idle_phase_order(tmp_path,monkeypatch):
+    import xlayer_telemetry.demos.live as live
+    path,_=scenario_file(tmp_path)
+    demo=Demo(ROOT/'examples/live-demo',scenario_state=path)
+    demo.started=0.
+    observed=[]
+    for wall in (1010,1050,1090):
+        monkeypatch.setattr(live.time,'time',lambda wall=wall:wall)
+        monkeypatch.setattr(live.time,'monotonic',lambda wall=wall:wall-1000)
+        samples={}
+        for node in demo.gpu['gpu_nodes']:
+            for sample in demo.metrics(node):
+                if sample.name=='telemetry_gpu_utilization_percent':
+                    samples[(node,sample.labels['gpu'])]=sample.value
+        observed.append(samples)
+    baseline,current,idle=observed
+    assert len(baseline)==len(current)==len(idle)==32
+    for identity in baseline:
+        assert 0<=idle[identity]<10<current[identity]<baseline[identity]<=100
