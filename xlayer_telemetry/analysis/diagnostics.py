@@ -958,6 +958,7 @@ class DiagnosticEngine:
         # a window maximum. Aggregate-only clients retain unknown-scope values
         # but cannot supply an entity-matched baseline for these signals.
         comparable_profiles = PROFILE_SIGNALS | {
+            "disk_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
             "rdma_bytes_per_second": MetricQuery("", "network-interface", "bytes/s", "mean"),
             "storage_device_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
             "network_utilization_ratio": MetricQuery("", "network-interface", "percentunit", "max"),
@@ -983,7 +984,7 @@ class DiagnosticEngine:
             baseline_signals.pop(name, None)
             matching = [item for item in baseline_series.get(name, [])
                         if selected_identity and profile_identity(item) == selected_identity]
-            if name in {"rdma_bytes_per_second","storage_device_busy_ratio","network_utilization_ratio"} and not (
+            if name in {"disk_busy_ratio","rdma_bytes_per_second","storage_device_busy_ratio","network_utilization_ratio"} and not (
                     any(selected_identity.get(k) for k in ("device","interface","port")) and any(
                         selected_identity.get(key) for key in ("instance", "node", "nodename"))):
                 matching = []
@@ -1423,27 +1424,30 @@ class DiagnosticEngine:
     ) -> list[dict[str, Any]]:
         findings: list[dict[str, Any]] = []
         slow_names = {item["stage"] for item in evidence.get("slow_stages", [])}
-        waiting = evidence.get("vllm_requests_waiting", {}).get("max", 0)
-        kv = evidence.get("vllm_kv_cache_usage", {}).get("max", 0)
-        kv_ratio = kv / 100 if kv > 1 else kv
-        preemptions = evidence.get("vllm_preemptions_total", {}).get("max_series_delta") or 0
-        if waiting >= self.thresholds["vllm_waiting"] or kv_ratio >= self.thresholds["vllm_kv_usage"] or preemptions > 0:
+        waiting = finite(evidence.get("vllm_requests_waiting", {}).get("max"))
+        kv = finite(evidence.get("vllm_kv_cache_usage", {}).get("max"))
+        kv_ratio = kv / 100 if kv is not None and kv > 1 else kv
+        preemptions = finite(evidence.get("vllm_preemptions_total", {}).get("max_series_delta"))
+        if (waiting is not None and waiting >= self.thresholds["vllm_waiting"] or
+                kv_ratio is not None and kv_ratio >= self.thresholds["vllm_kv_usage"] or
+                preemptions is not None and preemptions > 0):
             finding = {"component": "vllm", "candidate": "rollout_capacity_or_kv_pressure", "signals": {"waiting_max": waiting, "kv_usage_max_ratio": kv_ratio, "preemptions_delta": preemptions}}
             if execution_mode == "async":
                 finding["attribution"] = "continuous_window"
             else:
                 finding["correlates_with_slow_stage"] = "gen" in slow_names
             findings.append(finding)
-        pending = evidence.get("ray_pending_tasks", {}).get("max", 0)
-        if pending >= self.thresholds["ray_pending_tasks"]:
+        pending = finite(evidence.get("ray_pending_tasks", {}).get("max"))
+        if pending is not None and pending >= self.thresholds["ray_pending_tasks"]:
             findings.append({"component": "ray", "candidate": "scheduling_backlog", "observation_scope": "cluster/session", "signals": {"pending_tasks_max": pending}})
-        lag = evidence.get("policy_version_lag", {}).get("max", 0)
-        if lag >= self.thresholds["policy_version_lag"]:
+        lag = finite(evidence.get("policy_version_lag", {}).get("max"))
+        if lag is not None and lag >= self.thresholds["policy_version_lag"]:
             findings.append({"component": "verl_async", "candidate": "policy_version_lag", "signals": {"version_lag_max": lag}})
-        memory = evidence.get("host_memory_available_ratio", {}).get("min", 1)
-        disk = evidence.get("disk_busy_ratio", {}).get("max", 0)
-        gpu = evidence.get("gpu_utilization_percent", {}).get("mean", 100)
-        if memory <= self.thresholds["memory_available_ratio"] or disk >= self.thresholds["disk_busy_ratio"]:
+        memory = finite(evidence.get("host_memory_available_ratio", {}).get("min"))
+        disk = finite(evidence.get("disk_busy_ratio", {}).get("max"))
+        gpu = finite(evidence.get("gpu_utilization_percent", {}).get("mean"))
+        if (memory is not None and memory <= self.thresholds["memory_available_ratio"] or
+                disk is not None and disk >= self.thresholds["disk_busy_ratio"]):
             findings.append({"component": "host", "candidate": "memory_or_storage_pressure", "signals": {"memory_available_min_ratio": memory, "disk_busy_max_ratio": disk, "gpu_utilization_mean_percent": gpu}, "correlates_with_slow_stage": bool(slow_names)})
         latency_rows = {identity: row for identity, row in _distribution_index(threefs_rows).items()
                         if _LATENCY_NAME.search(row["metricName"])}

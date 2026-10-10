@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from itertools import islice
 from pathlib import Path
 import time
 import re
@@ -76,7 +77,7 @@ class SandboxRecorder:
                         device: {key: value-devices_before[device][key]
                                  for key, value in values.items()
                                  if key in devices_before.get(device, {}) and value >= devices_before[device][key]}
-                        for device, values in devices_after.items() if device in devices_before
+                        for device, values in devices_after.items()
                     }
                     deltas = {
                         "io_devices": device_deltas,
@@ -119,9 +120,25 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
     observations = []
     observed_devices = set()
     observation_count = 0
-    for path in directory.glob("sandbox*.jsonl"):
+    scanned = 0
+    bytes_seen = 0
+    paths = sorted(islice(directory.glob('*.jsonl'),129))
+    incomplete = len(paths)>128
+    for path in paths[:128]:
         try:
+            size=path.stat().st_size
+            if size>4*1024*1024:
+                incomplete=True
+                continue
+            bytes_seen+=size
+            if bytes_seen>16*1024*1024:
+                incomplete=True
+                break
             for item in (reader or json_objects)(path):
+                scanned+=1
+                if scanned>8192:
+                    incomplete=True
+                    break
                 stamp, _ = event_window(item, reference_id=reference_id, reference_session=reference_session)
                 attributes = item.get("attributes", {})
                 if (item.get("name") != "sandbox.resource_sample" or item.get("run_id") != run_id
@@ -137,9 +154,12 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
                     observations.append({"trace_id": item.get("trace_id"), "span_id": item.get("span_id"),
                                          "io_devices": devices})
         except OSError:
-            continue
+            incomplete=True
+        if scanned>8192:
+            break
     return {"configured_major_minor": configured_major_minor,
-            "status": "unconfigured" if not configured_major_minor else "observed" if configured_major_minor in observed_devices else "unmatched" if observed_devices else "unknown",
+            "status": "unconfigured" if not configured_major_minor else "observed" if configured_major_minor in observed_devices else "unknown" if incomplete else "unmatched" if observed_devices else "unknown",
             "observed_major_minors": sorted(observed_devices), "observations": observations,
-            "observation_count": observation_count, "truncated": observation_count > len(observations),
+            "observation_count": observation_count, "truncated": incomplete or observation_count > len(observations),
+            "read_incomplete": incomplete,
             "scope": "cgroup_event_window", "limitation": "Configured major:minor is supplied by the operator; simultaneous device busy does not prove tool ownership."}

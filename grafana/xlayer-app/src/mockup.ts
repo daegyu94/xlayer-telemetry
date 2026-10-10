@@ -68,11 +68,15 @@ export function workerPeers(
   const key = (s: Sample) =>
     JSON.stringify(
       Object.entries(s.labels)
-        .filter(([k]) => !["__name__", "phase"].includes(k))
+        .filter(([k]) => !["__name__", "phase", "verl_stage", "reported_key"].includes(k))
         .sort(),
     );
-  const stepMap = new Map(latestEntitySamples(steps).map((s) => [key(s), s])),
-    ageMap = new Map(latestEntitySamples(ages).map((s) => [key(s), s]));
+  const unambiguous = (values:Sample[]) => {
+    const groups=new Map<string,Sample|null>();
+    for(const sample of latestEntitySamples(values))groups.set(key(sample),groups.has(key(sample))?null:sample);
+    return new Map([...groups].filter((row):row is [string,Sample]=>row[1]!==null));
+  };
+  const stepMap = unambiguous(steps), ageMap = unambiguous(ages);
   const rows = latestEntitySamples(durations)
     .filter((s) => s.labels.phase === "rollout")
     .map((sample) => ({
@@ -93,6 +97,8 @@ export function workerPeers(
         l.producer,
         l.role,
         l.phase,
+        l.verl_stage,
+        r.sample.unit,
         l.node || l.nodename,
         l.engine,
         r.step,

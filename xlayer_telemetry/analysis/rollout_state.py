@@ -100,6 +100,14 @@ def load_serving_context(config, window, clock, *, reader=None):
             value.update(serving_state=row[2]['serving_state'], generation=row[2].get('replica_generation'))
         value['inactive_observed'] = value['serving_state'] in {'sleeping','weight_update','waking'} or any(
             item[2]['serving_state'] in {'sleeping','weight_update','waking'} and window['start'] <= item[0] <= window['end'] for item in lifecycle)
+        before = [item for item in lifecycle if item[0] <= window['start']]
+        after = [item for item in lifecycle if item[0] > window['start']]
+        if before:
+            prior = before[-1]
+            next_time = after[0][0] if after else window['end']
+            if (prior[2]['serving_state'] in {'sleeping','weight_update','waking'} and
+                    next_time - prior[0] <= max_age):
+                value['inactive_observed'] = True
         for name, field in (('rollout.replica.workload', 'workload'), ('weights.applied', 'applied_policy_version')):
             rows = [item for item in own if item[1]['name'] == name]
             row, errors = stable(rows, lambda item: (item[2].get('workload'), item[2].get('replica_generation')) if field == 'workload'

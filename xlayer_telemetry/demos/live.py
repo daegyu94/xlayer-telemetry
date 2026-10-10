@@ -668,9 +668,9 @@ class Demo:
                         samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": component, "destination": f"{node}/gpu-{peer}", "relation": self.gpu["intra_node_interconnect"]}))
             samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": node, "destination": "roce-fabric", "relation": self.network}))
             samples.append(GaugeSample('telemetry_topology_component_info','Synthetic topology component.',1,
-                {'kind':'compute','component':node+'/eth0','role':'nic','resource_node':node,'interface':'eth0'}))
+                {'kind':'compute','component':node+'/roce0','role':'nic','resource_node':node,'interface':'roce0'}))
             samples.append(GaugeSample('telemetry_topology_edge_info','Synthetic topology edge.',1,
-                {'kind':'compute','source':node,'destination':node+'/eth0','relation':'attached'}))
+                {'kind':'compute','source':node,'destination':node+'/roce0','relation':'attached'}))
         samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": "roce-fabric", "role": "network"}))
         for node in self.storage["storage_nodes"]:
             samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": node, "role": "data", "resource_node": node, "storage_system": "synthetic-3fs"}))

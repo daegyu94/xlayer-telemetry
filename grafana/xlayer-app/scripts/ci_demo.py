@@ -144,6 +144,9 @@ def run(args):
                     '--dashboard-output',str(args.state/'dashboards')],cwd=ROOT,check=True,timeout=20)
                 validators += ([sys.executable,str(explorer),'--url',connection['grafana'],'--output',str(args.output/'runs'),
                     *(['--browser',args.browser] if args.browser else [])],)
+                validators += ([sys.executable,str(SCRIPTS/'llm_invocation_validate.py'),'--url',connection['grafana'],
+                    '--state',str(args.state),'--context',str(args.output/'ci-validation.json'),
+                    '--output',str(args.output/'llm-invocations'),*(['--browser',args.browser] if args.browser else [])],)
             if args.multi_job:
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),

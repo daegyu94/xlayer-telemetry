@@ -96,6 +96,8 @@ TOML은 command를 실행하지 않는 declarative 설정입니다.
 `[telemetry]`는 기존 uppercase 설정 이름, `[workload]`는 argument 배열, `[environment]`는 child process에 전달할 추가 환경 변수를 받습니다.
 알려지지 않은 설정과 잘못된 type은 시작 전에 거부합니다.
 
+Run ID의 예약된 경로 요소 `.`·`..`는 사용할 수 없습니다. 자동 생성 output은 정규화한 `TELEMETRY_RUNS_ROOT` 안에 있어야 하며, 기존 symlink가 밖으로 연결되면 시작을 거부합니다. 사용자 지정 경로는 명시적인 `--output`으로 선택합니다.
+
 ```toml
 [telemetry]
 TELEMETRY_HOME = "~/telemetry"

@@ -79,6 +79,7 @@ export function measuredWorkers(rows: RecordRow[], step: RecordRow) {
 export type PressureOptions = {
   kind: 'higher' | 'utilization' | 'task-state'; evidence?: RecordRow[];
   signal?: string; unit?: string; scale?: number;
+  endTime?: number; maxAgeMs?: number;
 };
 
 function evidenceIdentity(row: RecordRow, sample: Sample): boolean {
@@ -98,19 +99,33 @@ function evidenceIdentity(row: RecordRow, sample: Sample): boolean {
     Object.entries(expected).every(([key, value]) => key === 'node' || key === 'nodename' || sample.labels[key] === value);
 }
 
-export function stepProjection(rows: RecordRow[], step?: RecordRow): RecordRow[] {
+export function stepProjection(rows: RecordRow[], step?: RecordRow, summaries?:RecordRow[]): RecordRow[] {
   if (!step || step.identity_conflict || !step.cluster || !step.record_id || !step.run_id) return [];
   const start = numeric(step.window_start_ms), end = numeric(step.window_end_ms);
   if (start === undefined || end === undefined || end <= start) return [];
-  return rows.filter(row => !row.identity_conflict && row.cluster === step.cluster &&
+  const scoped = (values:RecordRow[]) => values.filter(row => !row.identity_conflict && row.cluster === step.cluster &&
     row.run_id === step.run_id && row.record_id === step.record_id &&
     numeric(row.window_start_ms) === numeric(step.window_start_ms) &&
     numeric(row.window_end_ms) === numeric(step.window_end_ms) &&
     (!step.observer_node || row.observer_node === step.observer_node));
+  const projected=scoped(rows);
+  if(!projected.some(row=>row.diagnosis_method==='llm'))return projected;
+  const candidates=scoped(summaries||[]).filter(row=>row.diagnosis_method==='llm'&&row.row_kind==='summary');
+  const key=(row:RecordRow)=>typeof row.diagnosis_invocation_id==='string'&&row.diagnosis_invocation_id
+    ? 'id:'+row.diagnosis_invocation_id : typeof row.generated_at==='string'&&typeof row.model==='string'
+      ? JSON.stringify([row.generated_at,row.model]) : undefined;
+  const stamped=candidates.map(row=>({row,key:key(row),time:typeof row.generated_at==='string'?Date.parse(row.generated_at):NaN}))
+    .filter(row=>row.key&&Number.isFinite(row.time));
+  if(!stamped.length)return [];
+  const latestTime=Math.max(...stamped.map(row=>row.time));
+  const latest=stamped.filter(row=>row.time===latestTime);
+  if(new Set(latest.map(row=>row.key)).size!==1)return [];
+  return projected.filter(row=>row.diagnosis_method==='llm'&&key(row)===latest[0].key);
 }
 
 export function pressureOrder(values: Sample[], options: PressureOptions) {
-  return latestEntitySamples(values).filter(sample => Number.isFinite(sample.value) && Number.isFinite(sample.time))
+  return latestEntitySamples(values).filter(sample => Number.isFinite(sample.value) && Number.isFinite(sample.time) &&
+      (options.endTime===undefined||sample.time<=options.endTime&&options.endTime-sample.time<=(options.maxAgeMs??15000)))
     .map(sample => {
       const evidence = (options.evidence || []).filter(row => row.signal === options.signal &&
         evidenceIdentity(row, sample) && row.unit === options.unit);
@@ -145,6 +160,7 @@ export function workerContext(context: Context, row: RecordRow, key: string): Co
 export function resourceContext(context: Context, labels: Record<string, string>): Context {
   const node = labels.node || labels.nodename;
   return {...context, variables: {...context.variables, ...(node ? {node: [node]} : {}),
+    ...(labels.cluster ? {cluster:[labels.cluster]} : {}),
     ...(labels.gpu ? {gpu: [labels.gpu]} : {}), ...(labels.device ? {device: [labels.device]} : {}),
     ...(labels.engine ? {engine: [labels.engine]} : {})}};
 }

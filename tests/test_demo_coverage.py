@@ -48,4 +48,4 @@ def test_topology_exposition_keeps_one_definition_and_explicit_resource_mappings
     text=format_gauges(rows)
     assert 'telemetry_topology_component_info' in text
     assert any(row.labels.get('gpu')=='0' and row.labels.get('resource_node')=='gpu-node-0' for row in rows)
-    assert any(row.labels.get('interface')=='eth0' for row in rows)
+    assert any(row.labels.get('interface')=='roce0' for row in rows)

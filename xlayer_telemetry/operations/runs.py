@@ -26,10 +26,10 @@ MAX_CATALOG = 4 * 1024 * 1024
 _CACHE = JSONLCache(max_records=MAX_RECORDS, max_bytes=4*1024*1024, max_files=2)
 
 
-def _object(path):
+def _object(path, *, max_bytes=1024 * 1024):
     try:
-        with path.open('rb') as stream: body = stream.read(1024 * 1024 + 1)
-        if len(body) > 1024 * 1024: return {}
+        with path.open('rb') as stream: body = stream.read(max_bytes + 1)
+        if len(body) > max_bytes: return {}
         value = json.loads(body)
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError):
@@ -265,10 +265,12 @@ def publish(root, output):
     data = catalog(Path(root))
     output = Path(output).expanduser().absolute()
     destination = output / 'xlayer-run-catalog.json'
-    existing = _object(destination) if destination.exists() else {}
+    # Keep reading legacy space-separated JSON as well as compact 4 MiB data
+    # and the small dashboard wrapper. Other artifact limits stay at 1 MiB.
+    existing = _object(destination, max_bytes=2*MAX_CATALOG+65536) if destination.exists() else {}
     if destination.is_symlink() or destination.exists() and existing.get('uid')!=CATALOG_UID:
         raise ValueError('Existing catalog destination is not owned by XLayer; it was preserved.')
     dashboard = {'uid':CATALOG_UID,'title':'XLayer saved Run catalog','schemaVersion':39,'version':1,
         'tags':['xlayer-internal'],'editable':False,'panels':[], 'templating':{'list':[]},'xlayerRunCatalog':data}
-    atomic_write_text(destination,json.dumps(dashboard,allow_nan=False)+'\n')
+    atomic_write_text(destination,_json(dashboard)+'\n')
     return {'status':'published','run_count':len(data['runs']),'path':str(destination),'truncated':data['truncated']}

@@ -2,6 +2,8 @@
 
 :::{container} xlayer-page-meta
 **Task · Experimental** 이미 수집한 metric packet을 명시적으로 분석합니다. 기본 rule diagnosis를 대체하지 않습니다.
+
+같은 Step을 다시 진단하면 각 실행의 모든 projection row에 `diagnosis_invocation_id`를 기록합니다. App은 최신 summary와 같은 실행의 candidate/evidence만 표시하며, 이미 Loki에 저장된 이전 실행과 합치지 않습니다. 이전 artifact는 `generated_at`·`model`로 구분할 수 있을 때만 사용하고 최신 실행을 구분할 수 없으면 결과 선택을 보류합니다. Native Dashboard의 raw 행은 실행 ID와 생성 시각을 함께 확인합니다.
 :::
 
 ## 얻는 것

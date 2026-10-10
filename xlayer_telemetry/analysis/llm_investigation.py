@@ -34,7 +34,8 @@ def project_result(root: Path, result: dict) -> Path:
     context = result.get("context", {})
     window = result.get("current_interval") or {}
     start, end = finite_number(window.get("start")), finite_number(window.get("end"))
-    common = {"schema_version": 1, "diagnosis_method": "llm",
+    invocation = uuid.uuid4().hex
+    common = {"schema_version": 1, "diagnosis_method": "llm", "diagnosis_invocation_id": invocation,
               "generated_at": result["generated_at"], "model": result.get("model"),
               "run_id": context.get("run_id"), "node": context.get("node"), "step": context.get("step"),
               "record_id": context.get("trigger_record_id"), "observed_at": end,
@@ -74,6 +75,6 @@ def project_result(root: Path, result: dict) -> Path:
             rows.append({**common, "row_kind": "evidence", "candidate_id": identifier,
                          "evidence_type": "missing", "signal": name,
                          "observation_scope": candidate["observation_scope"]})
-    path = root / "diagnostics/investigation" / f"llm-{uuid.uuid4().hex}.jsonl"
+    path = root / "diagnostics/investigation" / f"llm-{invocation}.jsonl"
     atomic_write_text(path, "".join(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n" for row in rows))
     return path

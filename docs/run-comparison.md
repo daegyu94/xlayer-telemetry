@@ -78,6 +78,8 @@ Verified는 명시한 comparison field와 기록된 모집단의 일치입니다
 
 Run은 최대 100개, Run별 JSONL은 16 MiB·5,000 record, 표시 metric은 100개, catalog는 4 MiB로 제한합니다. Partial·truncated 상태를 숨기지 않으며 큰 이력에서는 `--root`를 좁힙니다. 평균 duration은 같은 entity에서 계산하고 p99를 여러 보고 구간의 pooled percentile로 만들지 않습니다.
 
+1 MiB를 넘는 catalog도 같은 destination에 다시 게시할 수 있습니다. 게시 파일은 compact JSON을 사용하고, 이전 형식의 공백과 dashboard wrapper를 포함한 읽기는 별도 상한을 둡니다. 사용자 파일이나 소유권이 확인되지 않는 destination은 덮어쓰지 않습니다.
+
 실제 health writer의 `finished`와 이전 artifact의 `exited`를 함께 읽습니다. 성공·실패·중단은 `reported_completed / reported_failed / reported_interrupted`, 수집 완전성은 별도 `telemetry_status`이며 workload 성공과 telemetry 실패를 혼합하지 않습니다. JSONL 읽기 중 삭제·교체·append가 확인되면 그 관측은 partial로 보류하고 평균을 `0`으로 채우지 않습니다. 한 Run의 읽기 오류는 `unavailable_runs`에 남기고 다른 Run의 탐색은 유지하며, 게시 쓰기가 실패하면 기존 catalog를 보존합니다.
 
 ## 5. Evidence / Share

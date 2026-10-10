@@ -37,9 +37,9 @@ def main():
             assert gpu['var-gpu']==['0'] and gpu['var-node']==['gpu-node-0']
             assert gpu['var-cluster']==['scenes-demo']
             for key in ('var-run_id','var-record_id','var-source_node','from','to'):assert gpu[key]==params[key]
-            resource.select_option(label='gpu-node-0/eth0 · nic')
-            page.get_by_role('heading',name='Selected Resource · gpu-node-0/eth0',exact=True).wait_for()
-            assert parse_qs(urlparse(page.url).query)['var-device']==['eth0']
+            resource.select_option(label='gpu-node-0/roce0 · nic')
+            page.get_by_role('heading',name='Selected Resource · gpu-node-0/roce0',exact=True).wait_for()
+            assert parse_qs(urlparse(page.url).query)['var-device']==['roce0']
             page.get_by_role('button',name='Inspect storage-node-0',exact=True).click()
             resource.select_option(label='storage-node-0/nvme0n1 · ssd')
             page.get_by_role('heading',name='Selected Resource · storage-node-0/nvme0n1',exact=True).wait_for()

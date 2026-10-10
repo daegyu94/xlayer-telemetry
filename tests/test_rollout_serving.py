@@ -73,6 +73,19 @@ def test_sleep_proof_covers_interval_but_mid_step_waking_makes_it_mixed(tmp_path
     assert context(tmp_path)['inactive_observed'] is True
 
 
+def test_sleep_before_interval_then_mid_interval_wake_caps_starvation(tmp_path):
+    from xlayer_telemetry.analysis.rollout_state import apply_serving_limits
+    stamp=[99];o=observer(tmp_path,stamp)
+    o.replica_state('replica-0','a:8000','sleeping',generation='g1')
+    stamp[0]=110;o.replica_state('replica-0','a:8000','serving',generation='g1')
+    row=context(tmp_path)
+    assert row['inactive_observed'] is True
+    candidate={'id':'gpu_starvation','state':'strong_signal','missing_evidence':[],
+        'evidence':[{'signal':'gpu_utilization_percent','labels':{'node':'rollout-a'}}]}
+    apply_serving_limits([candidate],inventory(),{'replica-0':row})
+    assert candidate['state']=='supporting_signal'
+
+
 def test_foreign_run_stale_future_and_unknown_clock_cannot_be_lifecycle_proof(tmp_path):
     o=observer(tmp_path,[99],run='other');o.replica_state('replica-0','a:8000','sleeping',generation='g1')
     assert context(tmp_path)['serving_state']=='unknown'

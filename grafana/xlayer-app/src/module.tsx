@@ -653,7 +653,7 @@ function ShellView({ model }: { model: Shell }) {
   const selected=requestedIdentities.size===1?requested[0]:
     state.page==='overview'&&!record?.match(/[^.*]/)&&summaryEntities.size===1?
       [...summaries].filter(row=>!row.identity_conflict).sort((a,b)=>Number(b.window_end_ms)-Number(a.window_end_ms))[0]:undefined;
-  const matching = (rows: RecordRow[]) => stepProjection(rows,selected);
+  const matching = (rows: RecordRow[]) => stepProjection(rows,selected,summaries);
   const boundary=boundaryPresentation(selected);
   const comparisonMeta=matching(summaries)[0];
   const correlationClock=scalar(comparisonMeta?.correlation_clock_status,'not_reported');
@@ -1658,12 +1658,12 @@ function Pressure({
   spanData?: import("@grafana/data").PanelData;
 }) {
   const errors = recordedSpanErrors(spans);
-  const pressureEvidence=stepProjection(records(useData(model.state.evidence)),selected);
+  const pressureEvidence=stepProjection(records(useData(model.state.evidence)),selected,records(useData(model.state.summary)));
   return (
     <section className="xlt-pressure">
       <div className="xlt-section">
         <h3>System Pressure · priority entities</h3>
-        <span>구간 끝 시점의 관측값입니다. 원인을 판정한 결과가 아닙니다.</span>
+        <span>구간 끝에 가까운 query sample입니다. Producer freshness나 원인을 보장하지 않습니다.</span>
       </div>
       <div className="xlt-pressure-grid">
         {PRESSURE_SPECS.map((spec, index) => (
@@ -1674,6 +1674,7 @@ function Pressure({
             context={readContext(window.location.search)}
             catalog={model.state.catalog}
             evidence={pressureEvidence}
+            endTime={sceneGraph.getTimeRange(model).state.value.to.valueOf()}
           />
         ))}
       </div>
@@ -1693,15 +1694,17 @@ function PressureCard({
   context,
   catalog,
   evidence,
+  endTime,
 }: {
   evidence:RecordRow[];
+  endTime:number;
   spec: (typeof PRESSURE_SPECS)[number];
   provider?: SceneQueryRunner;
   context: Context;
   catalog: Catalog;
 }) {
   const data = useData(provider),
-    ranked=pressureOrder(samples(data),{kind:spec.name==='GPU utilization'?'utilization':spec.name==='Ray task states'?'task-state':'higher',signal:({"vLLM waiting":"vllm_requests_waiting","GPU utilization":"gpu_utilization_percent","Storage busy":"storage_device_busy_ratio","Sandbox I/O PSI":"sandbox_io_pressure_ratio","RDMA tx wait":"rdma_tx_wait_per_second"} as Record<string,string>)[spec.name],unit:findPanel(catalog[spec.dashboard],spec.panel)?.fieldConfig?.defaults?.unit||spec.unit,scale:1,evidence}),
+    ranked=pressureOrder(samples(data),{endTime,maxAgeMs:Math.max(15000,3*(data?.request?.intervalMs||0)),kind:spec.name==='GPU utilization'?'utilization':spec.name==='Ray task states'?'task-state':'higher',signal:({"vLLM waiting":"vllm_requests_waiting","GPU utilization":"gpu_utilization_percent","Storage busy":"storage_device_busy_ratio","Sandbox I/O PSI":"sandbox_io_pressure_ratio","RDMA tx wait":"rdma_tx_wait_per_second"} as Record<string,string>)[spec.name],unit:findPanel(catalog[spec.dashboard],spec.panel)?.fieldConfig?.defaults?.unit||spec.unit,scale:1,evidence}),
     entities=ranked.map(row=>row.sample);
   return (
     <article className="xlt-card">
@@ -1711,7 +1714,7 @@ function PressureCard({
       ) : data?.state === LoadingState.Error ? (
         <p className="xlt-error">Query error</p>
       ) : !entities.length ? (
-        <p className="xlt-muted">No data</p>
+        <p className="xlt-muted">{samples(data).length?'Stale · 구간 끝에 가까운 sample이 없습니다':'No data'}</p>
       ) : (
         ranked.slice(0, 2).map((row, i) => {const s=row.sample;return (
           <div className="xlt-pressure-value" key={i}>

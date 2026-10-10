@@ -183,7 +183,10 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
         run_id = "verl-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8]
     output = args.output.expanduser().absolute() if args.output else Path(config["RUN_ROOT"])
     if not args.output and (args.run_id or config["RUN_ID"] == "auto"):
-        output = Path(config["TELEMETRY_RUNS_ROOT"]) / run_id
+        root = Path(config["TELEMETRY_RUNS_ROOT"]).resolve()
+        output = (root / run_id).resolve()
+        if run_id in {'.', '..'} or output == root or not output.is_relative_to(root):
+            raise ConfigError('Run output must remain inside TELEMETRY_RUNS_ROOT. Choose a non-reserved Run ID or an explicit --output.')
     config = config | {"RUN_ID": run_id, "RUN_ROOT": str(output)}
     if args.node:
         config["NODE_NAME"] = args.node

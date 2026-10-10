@@ -1,0 +1,15 @@
+{
+  "logger": {
+    "timing_s/gen": 3,
+    "perf/time_per_step": 10
+  },
+  "metric_labels": {
+    "rl_stage_duration_seconds": {
+      "phase": "rollout",
+      "verl_stage": "gen"
+    },
+    "training_step_time_seconds": {
+      "phase": "rl_step"
+    }
+  }
+}

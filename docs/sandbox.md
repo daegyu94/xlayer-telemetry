@@ -46,6 +46,8 @@ GPU cluster에서 실행하는 colocated sandbox는 해당 GPU host의 로컬 SS
 
 `sandbox.node`, `sandbox.device`, 실제 `device_major_minor`를 확인합니다. 같은 `nvme0n1` 이름만으로 다른 host를 연결하지 않습니다. OverlayFS·LVM·page cache·shared device에서는 cgroup의 device evidence가 physical SSD 요청의 완전한 attribution이 아니므로, tool→cgroup→device supporting/missing 경계를 유지합니다.
 
+작업 중 처음 나타난 `io.stat` device도 관측 목록에 남지만, 이전 counter가 없으면 그 device의 delta는 계산하지 않습니다. Resource event는 producer 파일명 대신 event·Run·sandbox node·시간으로 찾습니다. 탐색은 최대 128 JSONL file·file당 4 MiB·총 16 MiB·8,192 record이며 읽기 실패나 한도 도달은 `read_incomplete`로 표시합니다.
+
 ## 1. Configure
 
 1. [SandboxRecorder integration](integration-reference.md#record-lifecycle-spans)으로 실제 runtime lifecycle을 감쌉니다.

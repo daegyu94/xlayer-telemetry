@@ -268,6 +268,8 @@ def validate(config: dict[str, str]) -> None:
     for key in ("RUN_ID", "NODE_NAME", "CLUSTER_NAME"):
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", config[key]):
             raise ConfigError(f"{key} must be 1-64 letters, digits, dots, underscores, or hyphens.")
+    if config['RUN_ID'] in {'.', '..'}:
+        raise ConfigError('RUN_ID cannot be a reserved path component: . or ..')
     for key in ("TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
                 "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_DIR", "TELEMETRY_SOURCES_FILE", "DIAGNOSTICS_CONFIG", "TELEMETRY_TIME_CALIBRATION_FILE", "TOPOLOGY_DIR"):
         if config.get(key) and not Path(config[key]).is_absolute():

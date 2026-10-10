@@ -94,6 +94,14 @@ def test_native_and_gpu_labels_match_actual_dashboard_filters():
     assert "telemetry_source: dcgm" in config and "instance: synthetic-dcgm-0" in config
 
 
+def test_topology_nic_identity_has_actual_synthetic_network_counters():
+    demo=Demo(ROOT/'examples/live-demo')
+    samples=demo.metrics('gpu-node-0')
+    topology=[s.labels for s in demo.metrics('topology') if s.name=='telemetry_topology_component_info' and s.labels.get('role')=='nic']
+    interfaces={s.labels['device'] for s in samples if s.name=='node_network_receive_bytes_total'}
+    assert topology and all(row['interface'] in interfaces for row in topology)
+
+
 def test_new_pressure_and_dcgm_fixtures_are_bounded_and_monotonic(monkeypatch):
     import xlayer_telemetry.demos.live as live
     demo = Demo(ROOT / "examples/live-demo")

@@ -8,6 +8,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import tempfile
@@ -355,11 +356,24 @@ def checksum(path, explicit=None):
     return text.split()[0] if text.split() else ''
 
 
-def _command(argv, **kwargs):
-    result = subprocess.run(argv, capture_output=True, timeout=180, **kwargs)
-    if result.returncode:
+def _command(argv, *, timeout=180, **kwargs):
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, **kwargs)
+    try:
+        stdout, _ = process.communicate(timeout=timeout)
+    except BaseException as error:
+        # This session contains only the package command and its descendants.
+        # Kill the group even if npm already exited but a compiler holds pipes.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate(timeout=5)
+        if isinstance(error, subprocess.TimeoutExpired):
+            raise AppError('App package preparation timed out; owned build processes were stopped and the installed plugin was preserved.') from None
+        raise
+    if process.returncode:
         raise AppError('App package preparation failed. Check npm/gh access and retry; the installed plugin was preserved.')
-    return result.stdout.decode()
+    return stdout.decode()
 
 
 @contextmanager
