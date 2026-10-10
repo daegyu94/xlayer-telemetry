@@ -55,3 +55,29 @@ def test_compute_resource_mapping_is_explicit_and_conflicts_are_not_attributed(t
     nic=next(row for row in values if row.labels['component']=='nic')
     assert nic.labels['interface']=='ens5'
     assert all('resource_node' not in row.labels for row in values if row.labels['component'] in {'conflict','unknown'})
+
+
+def test_malformed_file_is_reported_once_and_valid_other_namespace_survives(tmp_path, caplog):
+    malformed = tmp_path / 'compute-topology.json'
+    malformed.write_text('{"secret":"never-log-this",')
+    (tmp_path / 'storage-topology.json').write_text(json.dumps({'components': [{'id': 'ds', 'role': 'data'}]}))
+    gauges = build_gauges(tmp_path)
+    assert any(sample.labels.get('component') == 'ds' for sample in gauges)
+    assert 'invalid_json' in caplog.text
+    assert 'never-log-this' not in caplog.text
+    count = len(caplog.records)
+    build_gauges(tmp_path)
+    assert len(caplog.records) == count
+    malformed.write_text('[]')
+    build_gauges(tmp_path)
+    assert 'root_type_invalid' in caplog.text
+
+
+def test_role_conflict_keeps_raw_inventory_without_assigning_a_resource_owner(tmp_path):
+    (tmp_path / 'compute-topology.json').write_text(json.dumps({'components': [
+        {'id': 'shared', 'role': 'trainer', 'resource_node': 'host'},
+        {'id': 'shared', 'role': 'rollout', 'resource_node': 'host'},
+    ]}))
+    gauges = build_gauges(tmp_path)
+    assert {sample.labels['role'] for sample in gauges} == {'trainer', 'rollout'}
+    assert all('resource_node' not in sample.labels for sample in gauges)

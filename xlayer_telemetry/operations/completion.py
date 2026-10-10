@@ -20,7 +20,7 @@ def _contexts(parser: argparse.ArgumentParser, path: str = "") -> dict:
             if action.nargs != 0:
                 for option in action.option_strings:
                     node["values"][option] = list(action.choices or [])
-                    if action.dest in {"config", "output"}:
+                    if action.dest in {"config", "output", "inventory"}:
                         node["files"].append(option)
         elif action.choices:
             node["words"].extend(action.choices)

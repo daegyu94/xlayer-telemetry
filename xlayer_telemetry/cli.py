@@ -27,6 +27,17 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="action", metavar="COMMAND")
     from .operations.clock import add_commands
     add_commands(commands)
+    cluster = commands.add_parser("cluster", help="Validate observation configuration or render an explicit static inventory")
+    cluster_sub = cluster.add_subparsers(dest="cluster_action", required=True)
+    cluster_check = cluster_sub.add_parser("validate", help="Offline configuration checks; optional bounded observed scrape/clock checks")
+    cluster_check.add_argument("--inventory", type=Path, help="Static TOML/JSON inventory; existing runtime config is optional")
+    cluster_check.add_argument("--json", action="store_true")
+    cluster_check.add_argument("--live", action="store_true", help="Read Prometheus target observations, not physical connectivity or resource ownership")
+    cluster_check.add_argument("--correlation", action="store_true", help="Reuse doctor clock preflight; requires a runtime diagnosis config")
+    cluster_render = cluster_sub.add_parser("render", help="Render existing configuration contracts into a new private bundle; do not deploy")
+    cluster_render.add_argument("--inventory", type=Path, required=True)
+    cluster_render.add_argument("--output", type=Path, required=True)
+    cluster_render.add_argument("--json", action="store_true")
     commands.add_parser("init", help="Create local config without overwriting existing settings")
     for action, help_text in (("up", "Start the managed monitoring stack"),
                               ("down", "Stop only this config's managed telemetry processes"),
@@ -161,6 +172,9 @@ def _run(args, config: dict[str, str], configured_command: list[str]) -> None:
 
 
 def execute(args) -> int:
+    if args.action == "cluster":
+        from .operations.cluster import execute_cluster
+        return execute_cluster(args)
     if args.action == "clock":
         from .operations.clock import execute as clock_execute
         return clock_execute(args)
@@ -190,12 +204,14 @@ def execute(args) -> int:
             visible = {key: value for key, value in config.items() if key in KEYS}
             print(json.dumps(visible | {"VERL_COMMAND": f"<{len(command)} arguments; redacted>"}, indent=2))
         else:
-            if config.get("TELEMETRY_SOURCES_FILE"):
-                from .source_discovery import load_file_discovery
-                load_file_discovery(Path(config["TELEMETRY_SOURCES_FILE"]))
-            if config.get("DIAGNOSTICS_CONFIG"):
-                from .analysis.diagnostics import load_config as load_diagnosis
-                load_diagnosis(Path(config["DIAGNOSTICS_CONFIG"]))
+            from .operations.cluster import configuration_report
+            report = configuration_report(config)
+            errors = [row for row in report['issues'] if row['severity'] == 'error']
+            if errors:
+                details = {row['code'] + (f" ({row['error_type']})" if row.get('error_type') else '') for row in errors}
+                raise ConfigError('Invalid topology/cluster configuration: ' + ', '.join(sorted(details)) + '. Use xltel cluster validate --json.')
+            for row in report['issues']:
+                print(f"[WARN] {row['code']}: {row['message']}")
             print(f"Valid config: {path}")
         return 0
     if args.action == "doctor":

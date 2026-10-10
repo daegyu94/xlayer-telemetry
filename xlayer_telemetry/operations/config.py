@@ -269,7 +269,7 @@ def validate(config: dict[str, str]) -> None:
         if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", config[key]):
             raise ConfigError(f"{key} must be 1-64 letters, digits, dots, underscores, or hyphens.")
     for key in ("TELEMETRY_HOME", "TOOLS_DIR", "RUN_ROOT", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
-                "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_DIR", "TELEMETRY_SOURCES_FILE", "DIAGNOSTICS_CONFIG", "TELEMETRY_TIME_CALIBRATION_FILE"):
+                "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_DIR", "TELEMETRY_SOURCES_FILE", "DIAGNOSTICS_CONFIG", "TELEMETRY_TIME_CALIBRATION_FILE", "TOPOLOGY_DIR"):
         if config.get(key) and not Path(config[key]).is_absolute():
             raise ConfigError(f"{key} must be an absolute path.")
     for key in ("ENABLE_LOGS", "ENABLE_GPU_METRICS", "ENABLE_ALERTS"):

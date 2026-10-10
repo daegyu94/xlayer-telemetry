@@ -37,10 +37,10 @@ def clock_inventory(config: dict, producer_node: str) -> dict:
     for replica in config.get('rollout_replicas', []):
         for node in replica['nodes']:
             add(node, 'declared rollout replica:' + replica['id'])
-    sandbox = config.get('sandbox', {})
+    sandbox = config.get('sandbox') or {}
     if sandbox.get('enabled'):
         add(sandbox.get('node') or producer_node, 'sandbox')
-    threefs = config.get('threefs', {})
+    threefs = config.get('threefs') or {}
     for node in threefs.get('clock_nodes', []):
         add(node, '3FS producer')
     for node in threefs.get('time_series', {}).get('host_clock_nodes', {}).values():

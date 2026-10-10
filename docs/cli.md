@@ -46,6 +46,8 @@ xltel down
 | `logs` | `[server\|node]`, `--follow`, `--lines N` |
 | `sources` | `--json`, `refresh`, `threefs --window-seconds N` |
 | `config` | `path`, `show`, `validate`, `migrate --output FILE.toml` |
+| `cluster validate` | `--inventory FILE.toml/FILE.json`, `--live`, `--correlation`, `--json` |
+| `cluster render` | `--inventory FILE`, `--output NEW_DIR`, `--json`; 기존 설정을 생성만 함 |
 | `completion` | `bash\|zsh\|fish` |
 | `clock serve` | `--reference-id ID`, `--bind ADDRESS`, `--port PORT` |
 | `clock calibrate` | `--url URL`, `--reference-id ID`, `--node NODE`, `--file FILE` |
@@ -58,6 +60,8 @@ xltel down
 이 문맥이 없는 기존 manifest는 현재 cluster 설정을 사용합니다.
 `sources`는 run 없이 native endpoint를 조사하고 `sources threefs`는 설정한 ClickHouse의 shared-service window를 조회합니다.
 Backend error나 source down은 nonzero, source 미설정은 정상적인 optional 상태입니다.
+
+`cluster validate`는 설정 Error `2`, 확인할 Warning `1`, 정상 `0`을 반환합니다. Inventory만 검증할 때는 `init`이나 서비스 설치가 필요하지 않습니다. `--config` 또는 `XLAYER_CONFIG`를 지정하면 해당 runtime의 backend/Diagnosis 설정을 사용하되 cluster/target/topology/native source는 Inventory 입력을 검증합니다. [검사 범위](configuration.md#cluster-configuration-validation)와 [생성·배치 절차](multi-node.md#1-configure)를 구분해 확인합니다.
 
 ## Configuration
 

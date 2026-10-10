@@ -456,6 +456,7 @@ Run directory는 node별로 두고 shared storage의 동일 snapshot을 여러 c
 vLLM·Ray 등 추가 endpoint는 해당 port도 접근 가능해야 합니다.
 등록 절차는 [Native Metric Endpoints](native-sources.md)에 있습니다.
 서로 다른 node 이름을 임의로 혼용하면 dashboard filter가 데이터를 연결하지 못합니다.
+같은 Node 정보를 반복 입력하지 않으려면 [통합 Inventory로 기존 설정 생성](multi-node.md#1-configure)을 사용합니다. 기존 수동 TOML/JSON 설정과 Runtime 경로는 유지됩니다.
 
 ## Add Run Logs with Loki
 
@@ -513,6 +514,7 @@ Alloy는 `<run>/telemetry-events/`와 `<run>/telemetry/telemetry-events/`의 ste
 `TOPOLOGY_DIR`에 `compute-topology.json`과 `storage-topology.json`을 둔 뒤 node collector에 전달하면 component·edge를 표시합니다.
 연결 관계는 사용자가 제공해야 하며 topology 그림만으로 link bandwidth나 서비스 latency를 측정하지 않습니다.
 Native service 연결은 [상세 가이드](native-sources.md)를 따릅니다.
+명시한 topology는 `xltel config validate`·`xltel cluster validate`·`doctor`에서 검사합니다. 형식·identity·관계 검증과 실제 scrape/clock 관측의 차이는 [Configuration](configuration.md#cluster-configuration-validation)에 정리되어 있습니다.
 
 ## Storage Cluster Inventory
 

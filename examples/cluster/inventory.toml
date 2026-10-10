@@ -1,0 +1,104 @@
+# Operator-declared example. Replace addresses/devices with your deployment.
+# This is not discovery, verified connectivity, Run ownership or replica routing.
+schema_version = 1
+
+[cluster]
+name = "agent-rl-poc"
+monitoring_node = "monitoring-0"
+
+[[nodes]]
+name = "monitoring-0"
+address = "10.0.0.5"
+roles = ["monitoring"]
+
+[[nodes]]
+name = "gpu-0"
+address = "10.0.0.10"
+roles = ["trainer", "rollout"]
+gpus = [0, 1]
+interfaces = ["ens5"]
+devices = ["nvme0n1"]
+
+[[nodes]]
+name = "gpu-1"
+address = "10.0.0.11"
+roles = ["rollout"]
+gpus = [0, 1]
+interfaces = ["ens5"]
+
+[[nodes]]
+name = "metadata-0"
+address = "10.0.1.20"
+roles = ["mds"]
+interfaces = ["ens3"]
+
+[[nodes]]
+name = "storage-0"
+address = "10.0.1.10"
+roles = ["ds"]
+interfaces = ["ens3"]
+devices = ["nvme0n1", "nvme1n1"]
+
+[[services]]
+name = "vllm-0"
+kind = "vllm"
+node = "gpu-0"
+target = "10.0.0.10:8000"
+metrics_path = "/metrics"
+labels = { engine = "0" }
+
+[[services]]
+name = "vllm-1"
+kind = "vllm"
+node = "gpu-1"
+target = "10.0.0.11:8000"
+metrics_path = "/metrics"
+labels = { engine = "0" }
+
+# Native endpoint hosting does not establish a selected KV replica or tier.
+[[services]]
+name = "mooncake-client"
+kind = "mooncake"
+node = "gpu-0"
+target = "10.0.0.10:9300"
+metrics_path = "/metrics"
+labels = { role = "cache-client" }
+
+# Shared fabric IDs are repeated in separate compute/storage namespaces.
+[[components]]
+kind = "compute"
+id = "fabric-0"
+role = "network"
+
+[[components]]
+kind = "storage"
+id = "fabric-0"
+role = "network"
+
+[[edges]]
+kind = "compute"
+source = "gpu-0"
+destination = "fabric-0"
+relation = "declared-network"
+
+[[edges]]
+kind = "compute"
+source = "gpu-1"
+destination = "fabric-0"
+relation = "declared-network"
+
+[[edges]]
+kind = "storage"
+source = "fabric-0"
+destination = "metadata-0"
+relation = "declared-network"
+
+[[edges]]
+kind = "storage"
+source = "fabric-0"
+destination = "storage-0"
+relation = "declared-network"
+
+[storage]
+backend = "3fs"
+filesystem = "/mnt/3fs"

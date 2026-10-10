@@ -13,6 +13,7 @@ Optional dependency는 해당 예제를 사용할 때만 필요합니다.
 | SDK metric·tool·sandbox context를 처음 확인 | [application/quickstart.py](application/quickstart.py) | CPU와 Python만 필요합니다. Snapshot·exact span·parent 연결을 확인합니다. |
 | 기존 VERL 명령을 한 host에서 연결 | `xltel init`의 TOML config | [Quickstart](../docs/verl-quickstart.md)를 따릅니다. 기존 Bash 예제는 [verl-local.conf](verl-local.conf)로 유지합니다. |
 | Monitoring server 설정을 복사 | [monitoring-server.conf](monitoring-server.conf) | Collector 주소를 바꾸고 [monitoring 절차](../docs/monitoring.md#monitor-one-gpu-node)를 따릅니다. |
+| Multi-node 설정을 한 번 정의 | [cluster/inventory.toml](cluster/inventory.toml) | `xltel cluster validate/render`로 기존 설정을 생성합니다. [배치와 topology 게시](../docs/multi-node.md#1-configure)는 별도이며 실제 discovery·Run 소유권이 아닙니다. |
 | vLLM·Ray endpoint 등록 | [verl/native-sources.json](verl/native-sources.json) | 실제 endpoint만 남기고 주소를 수정합니다. 3FS exporter는 별도 설치된 경우에만 사용합니다. |
 | Mooncake KV storage 수집·직접 분석 | [mooncake/native-sources.json](mooncake/native-sources.json), [mooncake/prometheus.json](mooncake/prometheus.json) | Store 배포의 기본 connector·master·client 관측 설정입니다. [HTTP 연결 방법과 version 범위](../docs/agent-rl.md#observe-mooncake-kv-storage)를 확인합니다. |
 | Rule diagnosis와 multi-node scope 설정 | [verl/diagnostics.json](verl/diagnostics.json), [multinode/diagnostics.json](multinode/diagnostics.json) | Backend 주소·cluster·node·device를 실제 배치에 맞춥니다. 첫 설정의 3FS section은 해당 source가 없으면 제거합니다. |

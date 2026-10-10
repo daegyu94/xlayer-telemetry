@@ -260,16 +260,20 @@ def doctor(config: dict[str, str], *, role: str = "all", correlation: bool = Fal
         check("GPU access", accessible, "Check NVIDIA driver access or set ENABLE_GPU_METRICS=0.")
     else:
         check("GPU metrics", False, optional=True)
+    from .cluster import configuration_report
+    configuration = configuration_report(config, correlation=correlation)
     if config.get("TELEMETRY_SOURCES_FILE"):
-        load_file_discovery(Path(config["TELEMETRY_SOURCES_FILE"]))
-        check("native sources config", True)
+        check("native sources config", not any(row['code'] == 'invalid_native_sources' for row in configuration['issues']),
+              "Run xltel cluster validate --json.")
     if config.get("DIAGNOSTICS_CONFIG"):
-        from ..analysis.diagnostics import load_config
-        load_config(Path(config["DIAGNOSTICS_CONFIG"]))
-        check("diagnosis config", True)
+        check("diagnosis config", configuration['diagnosis_config'] == 'validated',
+              "Run xltel cluster validate --json.")
+    check("cluster configuration", configuration['status'] == 'valid',
+          "Run xltel cluster validate --json; distinguish configuration issues from missing observations.")
     check("config", True)
-    preflight=correlation_preflight(config) if correlation else None
+    preflight=configuration['clock_preflight'] if correlation else None
     if preflight is not None:
         check('correlation prerequisites',preflight['status']=='pass','Check correlation_preflight nodes, clocks and diagnostics config.')
     return {"status": "ready" if all(c["status"] != "missing" for c in checks) else "incomplete", "checks": checks,
+            "cluster_configuration": configuration,
             **({'correlation_preflight':preflight} if preflight is not None else {})}
