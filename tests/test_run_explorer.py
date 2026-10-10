@@ -135,6 +135,45 @@ def test_python_and_frontend_share_the_recorded_comparison_contract():
     assert result==fixture['expected']
 
 
+def test_resource_projection_keeps_periodic_diagnosis_window_not_last_step(tmp_path):
+    run=saved(tmp_path,'a')
+    report={'run_id':'a','record_type':'bottleneck_diagnosis','generated_at':'2026-10-10T00:05:00Z',
+        'trigger':'periodic','trigger_record_id':None,'node':'monitor',
+        'analysis_window':{'start':200,'end':260,'accuracy':'sampled'},
+        'comparison':{'current_interval':{'start':200,'end':260,'accuracy':'sampled'},
+            'signals':[{'signal':'gpu_utilization_percent','current':0,'unit':'%',
+                'scope':'node/device','window_statistic':'mean','labels':{'node':'gpu-b','gpu':'0'}}]}}
+    (run/'diagnostics').mkdir()
+    (run/'diagnostics/diagnostics.jsonl').write_text(json.dumps(report)+'\n')
+    row=runs.summarize(run)
+    metric=next(m for m in row['metrics'] if m['scope']=='node/device')
+    observation=metric['observation_context']
+    assert metric['value']==0
+    assert observation['analysis_window']==report['analysis_window']
+    assert observation['trigger']=='periodic' and observation['trigger_record_id'] is None
+    assert observation['node']=='monitor' and observation['generated_at']==report['generated_at']
+    assert row['selected_step']['window_end_ms']==110000
+    assert runs.compare(row,row)['metrics'][-1]['a_observation']==observation
+
+
+def test_comparison_retains_each_unit_and_withholds_incompatible_delta(tmp_path):
+    saved(tmp_path,'a');saved(tmp_path,'b')
+    a,b=runs.catalog(tmp_path)['runs']
+    b['metrics'][0].update(value=1000,unit='ms')
+    row=runs.compare(a,b)['metrics'][0]
+    assert row['a_unit']=='s' and row['b_unit']=='ms'
+    assert row['delta'] is None and 'unit_mismatch' in row['reasons']
+
+
+def test_unknown_resource_window_is_not_replaced_with_step_interval():
+    assert runs._observation_context({'trigger':'periodic'})['analysis_window'] is None
+    assert runs._observation_context({'analysis_window':{'start':300,'end':200}})['analysis_window'] is None
+    value=runs._observation_context({'analysis_window':{'start':100,'end':110},
+        'comparison':{'current_interval':{'start':200,'end':260}},'trigger':'periodic','private_argv':'secret'})
+    assert value['analysis_window']['start']==200
+    assert 'private_argv' not in value
+
+
 @pytest.mark.parametrize('code,bridge,expected', [(0, 'ok', 'reported_completed'), (1, 'ok', 'reported_failed'),
     (130, 'interrupted', 'reported_interrupted'), (143, 'interrupted', 'reported_interrupted'),
     (0, 'failed', 'reported_completed')])

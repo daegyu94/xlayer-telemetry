@@ -1,6 +1,6 @@
 import {Context, RecordRow, appLink, numeric} from './context';
 
-export type RunMetric={metric:string;value:number;unit?:string;scope:string;statistic?:string;entity:RecordRow;quality:string;accuracy?:string;workload_observed?:boolean;workload_shapes?:unknown[];observation?:string;exposure?:RecordRow};
+export type RunMetric={metric:string;value:number;unit?:string;scope:string;statistic?:string;entity:RecordRow;quality:string;accuracy?:string;workload_observed?:boolean;workload_shapes?:unknown[];observation?:string;exposure?:RecordRow;observation_context?:RecordRow};
 export type RunEntry={key:string;run_id:string;cluster?:string;observer_node?:string;model?:string;execution_mode?:string;fingerprint?:string;steps:number;average_step?:number;from?:number;to?:number;status:string;quality:string;data_origin:string;source:string;metrics:RunMetric[];selected_step?:RecordRow;live_records?:number};
 export type RunCatalog={schema_version:number;generated_at?:number;truncated?:boolean;runs:RunEntry[]};
 const canonical=(value:unknown):string=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
@@ -31,9 +31,11 @@ export function compareRuns(a:RunEntry,b:RunEntry){
   }
   const av=numeric(before.value),bv=numeric(after?.value);
   const delta=!blocked.length&&av!==undefined&&bv!==undefined?bv-av:undefined;
-  return {...before,a:av,b:bv,delta,delta_percent:delta!==undefined&&av!==0?100*delta/Math.abs(av!):undefined,reasons:blocked.length?blocked:av===0?['baseline_zero']:[]};
+  return {...before,a:av,b:bv,a_unit:before.unit,b_unit:after?.unit,a_observation:before.observation_context,b_observation:after?.observation_context,
+   delta,delta_percent:delta!==undefined&&av!==0?100*delta/Math.abs(av!):undefined,reasons:blocked.length?blocked:av===0?['baseline_zero']:[]};
  });
- for(const after of b.metrics)if(!a.metrics.some(row=>metricIdentity(row)===metricIdentity(after)))metrics.push({...after,a:undefined,b:numeric(after.value),delta:undefined,delta_percent:undefined,reasons:['matching_entity_missing']});
+ for(const after of b.metrics)if(!a.metrics.some(row=>metricIdentity(row)===metricIdentity(after)))metrics.push({...after,a:undefined,b:numeric(after.value),a_unit:undefined,b_unit:after.unit,
+  a_observation:undefined,b_observation:after.observation_context,delta:undefined,delta_percent:undefined,reasons:['matching_entity_missing']});
  if(comparability==='Verified'&&metrics.some(row=>row.reasons.length&&canonical(row.reasons)!==canonical(['baseline_zero'])))comparability='Partial';
  return {comparability,reasons,metrics};
 }
@@ -74,6 +76,22 @@ export function runContext(run:RunEntry,context:Context,step=false):Context{
   compare_run_a:[],compare_run_b:[]}};
 }
 export function comparisonLink(a:RunEntry,b:RunEntry,context:Context){return appLink('runs',{...context,variables:{...context.variables,compare_run_a:[a.key],compare_run_b:[b.key]}});}
+
+export function resourceContext(run:RunEntry,observation:RecordRow|undefined,entity:RecordRow,context:Context):Context|undefined{
+ const window=observation?.analysis_window as RecordRow|undefined;
+ const start=numeric(window?.start),end=numeric(window?.end);
+ if(start===undefined||end===undefined||end<=start||Math.abs(start*1000)>8.64e15||Math.abs(end*1000)>8.64e15)return undefined;
+ const selected=runContext(run,context);
+ const label=(v:unknown)=>typeof v==='string'&&v?[v]:[];
+ const step=observation?.trigger==='step_observed';
+ return {...selected,from:String(start*1000),to:String(end*1000),variables:{...selected.variables,
+  source_node:label(observation?.node),node:label(entity.node||entity.nodename),
+  gpu:label(entity.gpu),engine:label(entity.engine),device:label(entity.device),
+  worker:step?label(observation?.worker_id):[],record_id:step?label(observation?.trigger_record_id):[],
+  role:[],phase:[],sandbox_node:[],mount:[],storage_node:[],storage_system:[],storage_metric:[],infra_component:[],
+  matrix_gpu_entity:[],matrix_vllm_entity:[],matrix_kv_entity:[],matrix_ray_entity:[],
+  matrix_network_entity:[],matrix_storage_entity:[],matrix_sandbox_entity:[]}};
+}
 
 export const reasonText:Record<string,string>={workload_fingerprint_missing:'명시한 workload fingerprint가 없습니다',workload_fingerprint_mismatch:'Workload fingerprint가 다릅니다',
  artifact_coverage_partial:'저장 artifact의 coverage가 불완전합니다',matching_entity_missing:'같은 scope/entity의 관측이 없습니다',metric_quality_incomplete:'Sampling·clock·source 품질을 확인할 수 없습니다',

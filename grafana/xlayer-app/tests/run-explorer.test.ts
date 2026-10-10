@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareRuns,RunEntry,runContext,comparisonLink,liveRuns,mergeRuns} from '../src/run-explorer';
+import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns} from '../src/run-explorer';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {RunComparisonMetric} from '../src/RunComparisonMetric';
 import {readContext} from '../src/context';
 import {readFileSync} from 'node:fs';
 const run=(key:string,value=10):RunEntry=>({key,run_id:key,model:'Qwen',cluster:'lab',execution_mode:'sync',data_origin:'synthetic',fingerprint:'same',quality:'complete',steps:2,status:'reported_completed',source:'stored_artifact',from:100000,to:120000,observer_node:'gpu-a',
@@ -30,4 +33,36 @@ test('Python and frontend consume the same recorded comparison contract',()=>{
  const result=compareRuns(fixture.a,fixture.b);
  const metrics=result.metrics.map(row=>({metric:row.metric,a:row.a??null,b:row.b??null,delta:row.delta??null,delta_percent:row.delta_percent??null,reasons:row.reasons}));
  assert.deepEqual({comparability:result.comparability,reasons:result.reasons,metrics},fixture.expected);
+});
+test('rendered comparison values retain individual units, including B-only and missing units',()=>{
+ const a=run('a',1),b=run('b',1000);
+ b.metrics[0].unit='ms';
+ const context=readContext('');
+ const row=compareRuns(a,b).metrics[0];
+ const render=()=>renderToStaticMarkup(React.createElement('table',null,React.createElement('tbody',null,
+  React.createElement(RunComparisonMetric,{row,a,b,context}))));
+ assert.ok(render().includes('1 s'));assert.ok(render().includes('1,000 ms'));
+ assert.equal(row.delta,undefined);assert.ok(row.reasons.includes('unit_mismatch'));
+ a.metrics=[];
+ const only=compareRuns(a,b).metrics[0];assert.equal(only.a_unit,undefined);assert.equal(only.b_unit,'ms');
+ b.metrics[0].unit=undefined;assert.equal(compareRuns(run('a'),b).metrics[0].b_unit,undefined);
+});
+test('resource links use recorded periodic window/entity, never saved Step or stale filters',()=>{
+ const a=run('a'),b=run('b');
+ const observation={analysis_window:{start:200,end:260,accuracy:'sampled'},trigger:'periodic',node:'monitor',generated_at:'2026-10-10T00:05:00Z'};
+ const context=readContext('?theme=dark&var-record_id=old&var-candidate_id=old&var-node=old&var-device=old&var-worker=old&var-engine=old');
+ const resource={metric:'gpu_utilization',value:0,scope:'node/device',unit:'%',quality:'clock_unknown',entity:{node:'gpu-b',gpu:'0'},observation_context:observation};
+ const selected=resourceContext(a,observation,resource.entity,context)!;
+ assert.equal(selected.from,'200000');assert.equal(selected.to,'260000');assert.equal(selected.theme,'dark');
+ assert.deepEqual(selected.variables.record_id,[]);assert.deepEqual(selected.variables.source_node,['monitor']);
+ assert.deepEqual(selected.variables.node,['gpu-b']);assert.deepEqual(selected.variables.gpu,['0']);
+ assert.deepEqual(selected.variables.worker,[]);assert.deepEqual(selected.variables.device,[]);
+ assert.equal(resourceContext(a,undefined,resource.entity,context),undefined);
+ assert.equal(resourceContext(a,{analysis_window:{start:260,end:200}},resource.entity,context),undefined);
+ a.metrics=[resource];b.metrics=[{...resource,value:10}];
+ const row=compareRuns(a,b).metrics[0];
+ const html=renderToStaticMarkup(React.createElement('table',null,React.createElement('tbody',null,
+  React.createElement(RunComparisonMetric,{row,a,b,context}))));
+ assert.ok(html.includes('from=200000'));assert.ok(html.includes('to=260000'));assert.ok(html.includes('periodic'));
+ assert.ok(!html.includes('a-step'));
 });

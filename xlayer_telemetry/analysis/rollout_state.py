@@ -104,14 +104,22 @@ def load_serving_context(config, window, clock, *, reader=None):
             rows = [item for item in own if item[1]['name'] == name]
             row, errors = stable(rows, lambda item: (item[2].get('workload'), item[2].get('replica_generation')) if field == 'workload'
                                  else (item[1].get('policy_version'), item[2].get('replica_generation')), field+'_changed_during_interval')
+            # Absent optional observations remain unknown. Once reported,
+            # failed interval coverage must survive reduction to {} / None.
+            if rows:
+                issues.extend(error if error.startswith(field+'_') else field+'_'+error for error in errors)
             if row and (value['generation'] is None or value['generation'] == row[2].get('replica_generation')):
                 if field == 'workload':
                     workload = row[2].get('workload')
                     if isinstance(workload, dict) and workload and not set(workload)-WORKLOAD_FIELDS and all(type(v) is int and 0 <= v <= 2**53 for v in workload.values()):
                         value[field] = workload
+                    else:
+                        issues.append(field+'_invalid_observation')
                 elif (row[2].get('policy_scope') == 'worker_applied' and row[1].get('policy_version_source') == 'producer_reported'
                       and type(row[1].get('policy_version')) is int and row[2].get('observation_source') == 'explicit_worker_applied'):
                     value[field] = row[1]['policy_version']
+                else:
+                    issues.append(field+'_invalid_observation')
                 if value[field] is not None and value[field] != {} and value['generation'] is None:
                     value['generation'] = row[2].get('replica_generation')
             elif row:
@@ -124,6 +132,11 @@ def load_serving_context(config, window, clock, *, reader=None):
 
 def comparison_issues(current, baseline):
     issues = []
+    for role, context in (('current', current), ('baseline', baseline)):
+        for issue in context.get('quality_issues', []):
+            if issue.startswith(('workload_', 'applied_policy_version_')) or issue in {
+                    'lifecycle_changed_during_interval', 'router_changed_or_unavailable', 'observation_read_or_limit_failure'}:
+                issues.append('replica_'+role+'_'+issue)
     for field in ('generation', 'workload', 'applied_policy_version', 'serving_state', 'router_registered'):
         a, b = current.get(field), baseline.get(field)
         if (a is not None or b is not None) and a != b:

@@ -4,7 +4,7 @@ import {Icon} from '@grafana/ui';
 import {Context,RecordRow,appLink} from './context';
 import {RunEntry,RunCatalog,parseRunCatalog,liveRuns,mergeRuns,compareRuns,comparisonReason,runContext,comparisonLink} from './run-explorer';
 
-const value=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v!==0&&Math.abs(v)<0.001?v.toPrecision(3):v.toLocaleString(undefined,{maximumFractionDigits:3}):'N/A';
+import {RunComparisonMetric,metricValue as value} from './RunComparisonMetric';
 export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Context;steps:RecordRow[];liveState?:string;timeWindow:{from:number;to:number}}){
  const [catalog,setCatalog]=useState<RunCatalog>(),[state,setState]=useState('loading'),[refresh,setRefresh]=useState(0);
  const [search,setSearch]=useState(context.variables.run_search?.[0]||''),[model,setModel]=useState(''),[status,setStatus]=useState('');
@@ -60,14 +60,9 @@ export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Co
    {comparison&&a&&b&&<><p><b>Comparability: {comparison.comparability}</b> · {a.run_id} → {b.run_id}</p>
     <p className="xlt-muted">Verified는 명시한 fingerprint와 기록된 comparison field의 일치입니다. 전체 workload 동등성이나 causality를 보장하지 않습니다. Resource 값은 마지막 저장 window의 공유 관측이며 Run 평균이 아닙니다.</p>
     {comparison.reasons.map(reason=><p className="xlt-muted" key={reason}>{comparisonReason(reason)}</p>)}
-    <div className="xlt-scroll"><table><thead><tr><th>Metric / Entity</th><th>Run A</th><th>Run B</th><th>Change</th><th>Scope / Statistic / Evidence quality</th></tr></thead><tbody>{comparison.metrics.map((row,i)=><tr key={i}>
-     <td>{row.metric}<small className="xlt-entity" title={JSON.stringify(row.entity)}>{Object.entries(row.entity||{}).filter(([,v])=>v!==null&&v!==undefined).map(([key,v])=>`${key}=${v}`).join(' · ')}</small></td>
-     <td>{value(row.a)} {row.unit||''}</td><td>{value(row.b)} {row.unit||''}</td>
-     <td>{row.unit==='%'&&row.delta!==undefined?`${value(row.delta)} pp`:row.delta_percent===undefined?'N/A':`${row.delta_percent>=0?'+':''}${value(row.delta_percent)}%`}</td>
-     <td>{row.scope} · {row.statistic||'Unknown statistic'}<small>{row.reasons.map(comparisonReason).join(' · ')||'기록된 조건이 일치합니다. 원인 판정이 아닙니다.'}</small></td>
-    </tr>)}</tbody></table></div>
+    <div className="xlt-scroll"><table><thead><tr><th>Metric / Entity</th><th>Run A</th><th>Run B</th><th>Change</th><th>Scope / Statistic / Evidence quality</th></tr></thead><tbody>{comparison.metrics.map((row,i)=><RunComparisonMetric key={i} row={row} a={a} b={b} context={context}/>)}</tbody></table></div>
     {!comparison.metrics.length&&<p className="xlt-empty">비교할 저장 metric이 없습니다. Live window의 기록만으로 Run 전체의 수치를 만들지 않습니다.</p>}
-    <div className="xlt-actions">{[a,b].map(run=><React.Fragment key={run.key}><a href={appLink('investigate',runContext(run,context,true))}>{run.run_id}: View Evidence →</a><a href={appLink('timeline',runContext(run,context,true))}>Open Timeline →</a></React.Fragment>)}</div>
+    <div className="xlt-actions">{[a,b].map(run=><React.Fragment key={run.key}><a href={appLink('investigate',runContext(run,context,true))}>{run.run_id}: Saved Step Evidence →</a><a href={appLink('timeline',runContext(run,context,true))}>Saved Step Timeline →</a></React.Fragment>)}</div>
     <p className="xlt-muted">원본 Loki/Prometheus가 retention으로 사라졌으면 상세 Timeline/Metric은 unavailable일 수 있습니다. 이 화면의 저장된 관측과 품질 설명은 유지됩니다.</p>
     <details><summary>Share link</summary><a href={comparisonLink(a,b,context)}>{new URL(comparisonLink(a,b,context),window.location.origin).href}</a></details>
    </>}

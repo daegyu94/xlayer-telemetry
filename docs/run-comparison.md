@@ -82,7 +82,9 @@ Run은 최대 100개, Run별 JSONL은 16 MiB·5,000 record, 표시 metric은 100
 
 ## 5. Evidence / Share
 
-- **View Evidence / Open Timeline:** 선택한 Run·record·observer·시간을 기존 화면으로 전달합니다. Retention으로 원본이 사라졌으면 상세 query는 unavailable일 수 있습니다.
+- **Saved Step Evidence / Saved Step Timeline:** 마지막 완료 Step의 Run·record·observer·시간을 기존 화면으로 전달합니다.
+- **Resource Evidence / Resource Timeline:** 자원 값 옆의 링크는 그 값을 생성한 diagnosis의 원래 시간 구간·trigger·observer와 확인된 resource label을 사용합니다. 이후 생성된 periodic diagnosis를 마지막 완료 Step으로 연결하지 않습니다. 구간이 없는 이전 artifact는 raw 값을 유지하고 이동 불가 안내를 표시합니다. Retention으로 원본이 사라졌으면 상세 query는 unavailable일 수 있습니다.
+- **단위:** Run A와 Run B는 각각 기록된 단위를 표시합니다. 단위가 다르면 변환을 추정하지 않고 delta를 보류합니다.
 - **Share:** 두 exact Run key와 Cluster/Node/Time/Theme을 URL에 보존합니다. 수신자도 같은 Grafana와 catalog 접근 권한이 필요합니다.
 - **Browser Back / Theme:** 조사 context를 유지합니다. Datasource option에서 사라진 archived Run을 다른 Run으로 자동 교체하지 않습니다.
 

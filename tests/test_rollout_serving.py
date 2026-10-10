@@ -131,6 +131,39 @@ def test_worker_applied_policy_is_not_inferred_from_trainer_or_router(tmp_path):
     assert context(tmp_path)['serving_state']=='unknown'
 
 
+@pytest.mark.parametrize('field', ['applied_policy_version', 'workload'])
+def test_changes_inside_both_windows_cannot_collapse_to_matching_unknowns(tmp_path, field):
+    stamp=[59];o=observer(tmp_path,stamp)
+    for moment,version in ((59,1),(70,2),(99,3),(110,4)):
+        stamp[0]=moment
+        if field=='applied_policy_version':
+            o.policy_applied('replica-1','b:8000',version,generation='g1')
+        else:
+            o.replica_workload('replica-1','b:8000',{'prompt_tokens':version*100},generation='g1')
+    now,before=records()
+    result=DiagnosticEngine(config(tmp_path),prometheus=Replicas()).analyze(now,[before])
+    replica=result['rollout_replicas'][1]
+    for role in ('current','baseline'):
+        assert field+'_changed_during_interval' in replica['serving_context'][role]['quality_issues']
+    row=replica['signals']['vllm_requests_waiting']
+    assert row['current']==18 and row['baseline']==18
+    assert row['delta'] is None and row['comparison_status']=='replica_context_changed'
+    selected=next(r for r in result['comparison']['signals'] if r['signal']=='vllm_requests_waiting')
+    assert selected['delta'] is None and selected['comparison_status']=='replica_context_changed'
+
+
+def test_stable_policy_and_workload_preserve_existing_resource_comparison(tmp_path):
+    stamp=[59];o=observer(tmp_path,stamp)
+    for moment in (59,99):
+        stamp[0]=moment
+        o.policy_applied('replica-1','b:8000',0,generation='g1')
+        o.replica_workload('replica-1','b:8000',{'prompt_tokens':100},generation='g1')
+    now,before=records()
+    result=DiagnosticEngine(config(tmp_path),prometheus=Replicas()).analyze(now,[before])
+    row=result['rollout_replicas'][1]['signals']['vllm_requests_waiting']
+    assert row['delta']==0 and not row.get('comparison_status')
+
+
 def test_inactive_replica_on_gpu_node_caps_mixed_starvation_without_hiding_other_engine(tmp_path):
     class GPU(Replicas):
         def query_range_detail(self,query,start,end,step):

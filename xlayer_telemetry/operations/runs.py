@@ -75,6 +75,17 @@ def _json(value):
     return json.dumps(value, sort_keys=True, separators=(',',':'), allow_nan=False)
 
 
+def _observation_context(report):
+    """Only recorded diagnosis provenance; never substitute a completed step."""
+    window = (report.get('comparison') or {}).get('current_interval', report.get('analysis_window'))
+    window = window if isinstance(window, dict) else {}
+    start, end = finite_number(window.get('start')), finite_number(window.get('end'))
+    interval = {'start': start, 'end': end, 'accuracy': _text(window.get('accuracy')) or 'unknown'} if (
+        start is not None and end is not None and end > start) else None
+    return {'analysis_window': interval, **{key: _text(report.get(key)) for key in (
+        'generated_at', 'trigger', 'trigger_record_id', 'node', 'worker_id', 'boundary_scope')}}
+
+
 def summarize(run: Path):
     manifest, health = _object(run/'telemetry-manifest.json'), _object(run/'telemetry-health.json')
     run_id = _text(manifest.get('run_id'))
@@ -145,6 +156,7 @@ def summarize(run: Path):
             'scope':signal.get('scope'),'statistic':signal.get('window_statistic'),'entity':labels,'quality':quality,
             'clock':latest.get('clock_quality',{}).get('status','unknown'),'count':1,
             'exposure':{key:(sampling or {}).get(key) for key in ('interval_seconds','query_step_seconds','range_window_seconds','evaluation_count')},
+            'observation_context':_observation_context(latest),
             'observation':'latest_stored_window_not_run_average'})
     step_metrics = [row for row in metrics if row['metric']=='step_duration_seconds']
     starts = [finite_number(row.get('window_start_ms')) for row in rows]
@@ -231,7 +243,9 @@ def compare(a,b):
         av,bv = finite_number(before.get('value')), finite_number((after or {}).get('value'))
         delta = bv-av if not blocked and av is not None and bv is not None else None
         out.append({'metric':before['metric'],'scope':before.get('scope'),'entity':before.get('entity'),
-            'unit':before.get('unit'),'statistic':before.get('statistic'),'a':av,'b':bv,'delta':delta,
+            'unit':before.get('unit'),'a_unit':before.get('unit'),'b_unit':(after or {}).get('unit'),
+            'a_observation':before.get('observation_context'),'b_observation':(after or {}).get('observation_context'),
+            'statistic':before.get('statistic'),'a':av,'b':bv,'delta':delta,
             'delta_percent':100*delta/abs(av) if delta is not None and av!=0 else None,
             'reasons':blocked or (['baseline_zero'] if av==0 else []),
             'observation':before.get('observation','mean_recorded_duration')})
@@ -239,7 +253,9 @@ def compare(a,b):
     for after in b.get('metrics',[]):
         if not any(identity(before)==identity(after) for before in a.get('metrics',[])):
             out.append({'metric':after['metric'],'scope':after.get('scope'),'entity':after.get('entity'),
-                'unit':after.get('unit'),'a':None,'b':after.get('value'),'delta':None,'delta_percent':None,
+                'unit':after.get('unit'),'a_unit':None,'b_unit':after.get('unit'),
+                'a_observation':None,'b_observation':after.get('observation_context'),
+                'a':None,'b':after.get('value'),'delta':None,'delta_percent':None,
                 'reasons':['matching_entity_missing']})
     if overall=='Verified' and any(row['reasons'] and row['reasons']!=['baseline_zero'] for row in out): overall='Partial'
     return {'comparability':overall,'reasons':reasons,'metrics':out,'run_a':a['key'],'run_b':b['key']}

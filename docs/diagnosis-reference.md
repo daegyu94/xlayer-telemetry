@@ -528,6 +528,7 @@ observer.replica_state("replica-0", "rollout-a:8000", "sleeping", generation="ve
 - 선택 window 이전의 관측, window 안의 상태 변화, sample gap, observer clock·reference session을 검사합니다. Window 중간의 sleep/wake·membership 변경은 전체 Step 상태로 확장하지 않습니다.
 - 명시 inactive engine은 강한 serving bottleneck으로 승격하지 않습니다. 같은 node의 GPU idle에는 mixed context limitation을 추가하며 다른 active engine의 pressure는 보존합니다.
 - Known generation·workload·applied version·serving eligibility가 달라지면 raw current/baseline을 남기고 delta를 보류합니다. 미계측 restart와 실제 consumed-sample 관계는 여전히 TBD입니다.
+- Current와 baseline 구간 내부에서 각각 policy나 workload가 바뀌어 양쪽 요약 값이 Unknown이 되어도 비교를 허용하지 않습니다. 변경·stale/gap·유효하지 않은 명시 관측은 `quality_issues`에 보존하며 해당 Replica signal의 delta를 보류합니다. 미설정 optional 관측을 같은 조건이 검증되었다는 뜻으로 해석하지 않습니다.
 - 읽기는 최대 32 JSONL file·file당 1 MiB·8,192 record로 제한합니다. Limit/partial source는 Unknown이며 0으로 채우지 않습니다. Metric query 수는 추가하지 않습니다.
 
 Worker Comparison은 같은 명시 fingerprint라도 보고된 prompt/output token·turn/tool·concurrency·applied policy·generation·execution mode·model·state가 다르면 같은 cohort로 묶지 않습니다. 미보고 차원은 검증하지 못한 조건이며 fingerprint 자체도 producer의 선언입니다.
