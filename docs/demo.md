@@ -18,6 +18,14 @@
 실제 GPU·VERL·3FS 성능 측정이 아닙니다. Live resource curve와 precomputed diagnosis는 독립적인 예제입니다. 3FS evidence는 fixture이며 ClickHouse에 query하지 않습니다.
 ```
 
+### Synthetic Resource Profiles
+
+- **Storage:** Node·SSD별 read/write 강도와 queue가 다르며, 부하에 따라 mean latency도 변합니다. 기존 diskstats의 처리 시간 counter / ops counter로 조회하는 평균값이며 p99나 3FS service latency를 생성하지 않습니다.
+- **GPU:** 같은 Device profile에서 Utilization·Power·Temperature·Clock·Memory를 생성합니다. Process memory는 Device used memory를 넘지 않으며, 별도 DCGM native fixture의 MiB와 sampler의 bytes를 합산하지 않습니다.
+- **Host / Network:** Compute·DS·Metadata 역할별 CPU·Memory·RX/TX·RDMA 패턴을 구분합니다. CPU mode rate 합과 link capacity 범위를 유지하며 transmit-wait는 native ticks입니다.
+
+같은 topology·scenario·상대 시각에서는 같은 패턴을 재생합니다. Profile의 계수와 capacity는 demo용 설정이며 검증된 장비 특성·노드 간 traffic path·Run별 resource ownership을 뜻하지 않습니다. Availability·clock 상태와 정상 `0`에는 변동을 추가하지 않습니다.
+
 ## 준비 조건
 
 - [Quickstart](quickstart.md)의 CLI 설치 완료.

@@ -18,6 +18,7 @@ from xlayer_telemetry.measurements import finite_number
 from xlayer_telemetry.operations.config import assets_root
 from .scenario import frame_at, load_scenario, phase_values
 from .multi_job import load_schedule, native_values, resource_values
+from .profiles import disk_profile, gpu_profile, node_profile
 from dataclasses import replace
 
 
@@ -181,46 +182,25 @@ class Demo:
         samples.extend(self._host(node, now, value))
         samples.extend(self._disk_pressure(node, "nvme0n1", now, value))
         samples.extend(self._filesystem_health())
-        read_bytes = value["read"] * _GIB
-        write_bytes = value["write"] * _GIB
-        for name, rate in (
-            ("node_disk_read_bytes_total", read_bytes),
-            ("node_disk_written_bytes_total", write_bytes),
-            ("node_disk_reads_completed_total", read_bytes / (256 * 1024)),
-            ("node_disk_writes_completed_total", write_bytes / (256 * 1024)),
-            ("node_disk_io_time_seconds_total", value["busy"]),
-        ):
-            samples.append(GaugeSample(name, "Synthetic disk counter.", self._counter(node, name, rate, now), {"device": "nvme0n1"}, kind="counter"))
-        for name, rate in (
-            ("node_network_receive_bytes_total", value["rx"] * 1e9 / 8),
-            ("node_network_transmit_bytes_total", value["tx"] * 1e9 / 8),
-        ):
-            samples.append(GaugeSample(name, "Synthetic RoCE counter.", self._counter(node, name, rate, now), {"device": "roce0"}, kind="counter"))
+        samples.extend(self._network(node, now, value))
         samples += [
             GaugeSample("node_filesystem_size_bytes", "Synthetic data filesystem size.", 64 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
             GaugeSample("node_filesystem_avail_bytes", "Synthetic data filesystem free space.", 39 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
         ]
-        node_index = self.gpu["gpu_nodes"].index(node)
-        load_scale = 1 - .16 * node_index / max(1, len(self.gpu["gpu_nodes"]) - 1)
-        elapsed = now - self.started
         for rank in range(self.gpu["gpus_per_node"]):
-            wobble = math.sin(now / 4 + rank) * 2
-            # Replayable shared-device variation; never a Run ownership signal.
-            # Scaling the wobble by load preserves zero and low idle values.
-            utilization = value["gpu"] * (load_scale + .02 * math.sin(
-                elapsed / (4 + .4 * node_index) + rank + 1.3 * node_index))
+            profile = self._gpu_profile(node, rank, now, value)
             labels = {
                 "run_id": "live-demo", "producer": "synthetic", "role": "trainer",
                 "node": node, "worker_id": str(rank), "local_rank": str(rank),
             }
             samples += [
-                GaugeSample("telemetry_gpu_utilization_percent", "Synthetic GPU utilization.", max(0, min(100, utilization)), {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_power_watts", "Synthetic GPU power.", 820 + value["gpu"] * 3, {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_temperature_celsius", "Synthetic GPU temperature.", 54 + value["gpu"] * .2 + wobble, {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_sm_clock_mhz", "Synthetic GPU SM clock.", 1800 + value["gpu"] * 5, {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_memory_used_bytes", "Synthetic device GPU memory used.", 160 * _GIB, {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_memory_total_bytes", "Synthetic device GPU memory capacity.", 288 * _GIB, {"gpu": str(rank)}),
-                GaugeSample("telemetry_gpu_process_memory_bytes", "Synthetic training process GPU memory.", 144 * _GIB, {"gpu": str(rank), "pid": str(9000 + rank), "gpu_uuid": f"DEMO-{node}-{rank}"}),
+                GaugeSample("telemetry_gpu_utilization_percent", "Synthetic GPU utilization.", profile["utilization"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_power_watts", "Synthetic GPU power.", profile["power"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_temperature_celsius", "Synthetic GPU temperature.", profile["temperature"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_sm_clock_mhz", "Synthetic GPU SM clock.", profile["clock"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_memory_used_bytes", "Synthetic device GPU memory used.", profile["memory_used"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_memory_total_bytes", "Synthetic device GPU memory capacity.", profile["memory_total"], {"gpu": str(rank)}),
+                GaugeSample("telemetry_gpu_process_memory_bytes", "Synthetic training process GPU memory.", profile["process_memory"], {"gpu": str(rank), "pid": str(9000 + rank), "gpu_uuid": f"DEMO-{node}-{rank}"}),
                 GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", time.time(), labels),
                 GaugeSample("training_step", "Synthetic training step.", int(now - self.started), labels),
                 GaugeSample("training_tokens_per_second", "Synthetic worker throughput.", value["tokens"], labels),
@@ -368,15 +348,42 @@ class Demo:
         )
         return samples
 
+    def _node_position(self, node):
+        offset = 0
+        for role, nodes in (("compute", self.gpu["gpu_nodes"]), ("storage", self.storage["storage_nodes"]),
+                            ("metadata", self.storage.get("metadata_nodes", []))):
+            if node in nodes:
+                index = nodes.index(node)
+                return role, index, offset + index
+            offset += len(nodes)
+        raise ValueError("unknown synthetic resource node")
+
+    def _node_profile(self, node, now, value):
+        role, index, position = self._node_position(node)
+        return node_profile(now-self.started, role, index, position, value,
+                            self.gpu["network"]["bandwidth_gbps"])
+
+    def _gpu_profile(self, node, rank, now, value):
+        return gpu_profile(now-self.started, self.gpu["gpu_nodes"].index(node),
+                           len(self.gpu["gpu_nodes"]), rank, value["gpu"])
+
+    def _network(self, node, now, value):
+        profile = self._node_profile(node, now, value)
+        return [GaugeSample(name, "Synthetic node network counter.", self._counter(node, name, rate, now),
+                            {"device": "roce0"}, kind="counter")
+                for name, rate in (("node_network_receive_bytes_total", profile["rx"]),
+                                   ("node_network_transmit_bytes_total", profile["tx"]))]
+
     def _host(self, node: str, now: float, value: dict[str, float]) -> list[GaugeSample]:
+        profile = self._node_profile(node, now, value)
         samples = [
-            GaugeSample("node_memory_MemTotal_bytes", "Synthetic host total memory.", 1024 * _GIB),
-            GaugeSample("node_memory_MemAvailable_bytes", "Synthetic host memory available.", 760 * _GIB),
-            GaugeSample("node_memory_SwapTotal_bytes", "Synthetic host swap total.", 32 * _GIB),
-            GaugeSample("node_memory_SwapFree_bytes", "Synthetic host swap free.", 30 * _GIB),
+            GaugeSample("node_memory_MemTotal_bytes", "Synthetic host total memory.", profile["memory_total"]),
+            GaugeSample("node_memory_MemAvailable_bytes", "Synthetic host memory available.", profile["memory_available"]),
+            GaugeSample("node_memory_SwapTotal_bytes", "Synthetic host swap total.", profile["swap_total"]),
+            GaugeSample("node_memory_SwapFree_bytes", "Synthetic host swap free.", profile["swap_free"]),
             GaugeSample("node_memory_Dirty_bytes", "Synthetic dirty memory.", value["write"] * _GIB),
             GaugeSample("node_memory_Writeback_bytes", "Synthetic writeback memory.", value["write"] * _GIB / 4),
-            GaugeSample("node_procs_running", "Synthetic runnable process count.", 3),
+            GaugeSample("node_procs_running", "Synthetic runnable process count.", math.ceil(4*profile["cpu_busy"])),
             GaugeSample("node_procs_blocked", "Synthetic blocked process count.", 2 if value["busy"] > .5 else 0),
             GaugeSample("node_time_seconds", "Synthetic synchronized node clock.", time.time()),
             GaugeSample("node_timex_sync_status", "Synthetic clock synchronization status.", 1),
@@ -384,21 +391,24 @@ class Demo:
             GaugeSample("node_timex_maxerror_seconds", "Synthetic kernel uncertainty fixture, not measured UTC accuracy.", .001),
         ]
         for cpu in range(4):
-            for mode, rate in (("idle", .60), ("user", .25), ("system", .10), ("iowait", .04), ("steal", .01)):
+            busy = min(.98, profile["cpu_busy"]*(.98+.01*cpu))
+            rates = (("idle", 1-busy), *zip(("user", "system", "iowait", "steal"),
+                                          (busy*weight for weight in profile["cpu_weights"])))
+            for mode, rate in rates:
                 samples.append(GaugeSample("node_cpu_seconds_total", "Synthetic host CPU counter.",
                     self._counter(node, f"cpu-{cpu}-{mode}", rate, now), {"cpu": str(cpu), "mode": mode}, kind="counter"))
         for name in ("node_vmstat_pswpin", "node_vmstat_pswpout"):
             samples.append(GaugeSample(name, "Synthetic swap page counter.",
                                        self._counter(node, name, 2, now), kind="counter"))
         for name, rate in {
-            "node_pressure_cpu_waiting_seconds_total": value.get("host_pressure", .04),
+            "node_pressure_cpu_waiting_seconds_total": profile["cpu_pressure"],
             "node_pressure_memory_waiting_seconds_total": .02,
             "node_pressure_memory_stalled_seconds_total": .01,
             "node_pressure_io_waiting_seconds_total": value["busy"] / 2,
             "node_pressure_io_stalled_seconds_total": value["busy"] / 4,
             "node_vmstat_pgmajfault": 5,
             "node_vmstat_oom_kill": 0,
-            "node_netstat_Tcp_RetransSegs": .5,
+            "node_netstat_Tcp_RetransSegs": .5*profile["error_factor"],
         }.items():
             samples.append(GaugeSample(name, "Synthetic host pressure/error counter.",
                                        self._counter(node, name, rate, now), kind="counter"))
@@ -406,34 +416,41 @@ class Demo:
             for kind in ("errs", "drop"):
                 name = f"node_network_{direction}_{kind}_total"
                 samples.append(GaugeSample(name, "Synthetic NIC error/drop counter.",
-                    self._counter(node, name, .05, now), {"device": "roce0"}, kind="counter"))
+                    self._counter(node, name, .05*profile["error_factor"], now), {"device": "roce0"}, kind="counter"))
         for collector in ("cpu", "meminfo", "vmstat", "pressure", "diskstats", "filesystem", "netdev", "netstat", "infiniband"):
             samples.append(GaugeSample("node_scrape_collector_success", "Synthetic node collector status.", 1,
                                        {"collector": collector}))
-        for name, rate in (("node_infiniband_port_data_received_bytes_total", value["rx"] * 1e9 / 8),
-                           ("node_infiniband_port_data_transmitted_bytes_total", value["tx"] * 1e9 / 8),
-                           ("node_infiniband_port_errors_received_total", .02),
-                           ("node_infiniband_port_discards_received_total", .03),
-                           ("node_infiniband_port_discards_transmitted_total", .04),
-                           ("node_infiniband_port_transmit_wait_total", 200),
+        for name, rate in (("node_infiniband_port_data_received_bytes_total", profile["rx"]),
+                           ("node_infiniband_port_data_transmitted_bytes_total", profile["tx"]),
+                           ("node_infiniband_port_errors_received_total", .02*profile["error_factor"]),
+                           ("node_infiniband_port_discards_received_total", .03*profile["error_factor"]),
+                           ("node_infiniband_port_discards_transmitted_total", .04*profile["error_factor"]),
+                           ("node_infiniband_port_transmit_wait_total", profile["transmit_wait"]),
                            ("node_infiniband_link_downed_total", 0),
                            ("node_infiniband_link_error_recovery_total", 0),
-                           ("node_infiniband_symbol_error_total", .01),
-                           ("node_infiniband_local_link_integrity_errors_total", .02)):
+                           ("node_infiniband_symbol_error_total", .01*profile["error_factor"]),
+                           ("node_infiniband_local_link_integrity_errors_total", .02*profile["error_factor"])):
             samples.append(GaugeSample(name, "Synthetic RDMA port counter.",
                 self._counter(node, name, rate, now), {"device": "mlx5_0", "port": "1"}, kind="counter"))
         return samples
 
-    def _disk_pressure(self, node: str, device: str, now: float, value: dict[str, float]) -> list[GaugeSample]:
-        """Bounded per-device counters with mean latency consistent with IOPS."""
+    def _disk_pressure(self, node: str, device: str, now: float, value: dict[str, float], *, index=0) -> list[GaugeSample]:
+        """One profile drives bytes, IOPS, mean latency and outstanding queue."""
+        position = self._node_position(node)[2]
+        profile = disk_profile(now-self.started, position, index, value)
         labels = {"device": device}
-        samples = [GaugeSample("node_disk_io_now", "Synthetic outstanding I/O.", 2, labels)]
+        samples = [GaugeSample("node_disk_io_now", "Synthetic outstanding I/O.", profile["queue"], labels)]
         for name, rate in {
-            "node_disk_read_time_seconds_total": value["read"] * _GIB / (256 * 1024) * .0004,
-            "node_disk_write_time_seconds_total": value["write"] * _GIB / (256 * 1024) * .0008,
-            "node_disk_io_time_weighted_seconds_total": 2 * value["busy"],
+            "node_disk_read_bytes_total": profile["read"],
+            "node_disk_written_bytes_total": profile["write"],
+            "node_disk_reads_completed_total": profile["reads"],
+            "node_disk_writes_completed_total": profile["writes"],
+            "node_disk_io_time_seconds_total": profile["busy"],
+            "node_disk_read_time_seconds_total": profile["read_time"],
+            "node_disk_write_time_seconds_total": profile["write_time"],
+            "node_disk_io_time_weighted_seconds_total": profile["queue"],
         }.items():
-            samples.append(GaugeSample(name, "Synthetic device latency/queue counter.",
+            samples.append(GaugeSample(name, "Synthetic device I/O counter.",
                 self._counter(node, name + "/" + device, rate, now), labels, kind="counter"))
         return samples
 
@@ -621,21 +638,22 @@ class Demo:
         """Independent native fixture; never combine it with sampler device totals."""
         samples = []
         for gpu in range(self.gpu["gpus_per_node"]):
+            profile = self._gpu_profile(self.gpu["gpu_nodes"][0], gpu, now, value)
             labels = {"gpu": str(gpu), "UUID": f"SYNTHETIC-DCGM-{gpu}"}
             for name, number in {
-                "DCGM_FI_DEV_GPU_UTIL": value["gpu"],
-                "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE": .6,
-                "DCGM_FI_PROF_DRAM_ACTIVE": .4,
-                "DCGM_FI_PROF_PCIE_RX_BYTES": 1e9,
-                "DCGM_FI_PROF_PCIE_TX_BYTES": 2e9,
+                "DCGM_FI_DEV_GPU_UTIL": profile["utilization"],
+                "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE": profile["tensor_activity"],
+                "DCGM_FI_PROF_DRAM_ACTIVE": profile["dram_activity"],
+                "DCGM_FI_PROF_PCIE_RX_BYTES": profile["pcie_rx"],
+                "DCGM_FI_PROF_PCIE_TX_BYTES": profile["pcie_tx"],
                 "DCGM_FI_DEV_XID_ERRORS": 0,
-                "DCGM_FI_DEV_FB_USED": 160 * 1024,
-                "DCGM_FI_DEV_FB_FREE": 128 * 1024,
+                "DCGM_FI_DEV_FB_USED": profile["memory_used"] / 1024**2,
+                "DCGM_FI_DEV_FB_FREE": (profile["memory_total"] - profile["memory_used"]) / 1024**2,
             }.items():
                 samples.append(GaugeSample(name, "Synthetic DCGM gauge.", number, labels))
             for name, rate in {
-                "DCGM_FI_DEV_PCIE_REPLAY_COUNTER": .1,
-                "DCGM_FI_DEV_POWER_VIOLATION": .01 * 1e9,
+                "DCGM_FI_DEV_PCIE_REPLAY_COUNTER": .1*(1+.05*gpu)*profile["utilization"]/100,
+                "DCGM_FI_DEV_POWER_VIOLATION": .01*1e9*(1+.03*gpu)*profile["utilization"]/100,
                 "DCGM_FI_DEV_THERMAL_VIOLATION": 0,
             }.items():
                 samples.append(GaugeSample(name, "Synthetic DCGM counter.",
@@ -649,18 +667,9 @@ class Demo:
             GaugeSample("node_filesystem_size_bytes", "Synthetic data filesystem size.", 64 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
             GaugeSample("node_filesystem_avail_bytes", "Synthetic data filesystem free space.", 39 * 1024 * _GIB, {"mountpoint": "/mnt/data", "fstype": "xfs"}),
         ])
-        for name, rate in (("node_network_receive_bytes_total", value["rx"] * 1e9 / 8),
-                           ("node_network_transmit_bytes_total", value["tx"] * 1e9 / 8)):
-            samples.append(GaugeSample(name, "Synthetic node network counter.", self._counter(node,name,rate,now), {'device':'roce0'},kind='counter'))
+        samples.extend(self._network(node, now, value))
         for index in range(self.storage["ssds_per_node"] if devices else 0):
-            labels = {"device": f"nvme{index}n1"}
-            samples.extend(self._disk_pressure(node, labels["device"], now, value))
-            for name, rate in (("node_disk_read_bytes_total", value["read"] * _GIB),
-                               ("node_disk_written_bytes_total", value["write"] * _GIB),
-                               ("node_disk_reads_completed_total", value["read"] * _GIB / (256 * 1024)),
-                               ("node_disk_writes_completed_total", value["write"] * _GIB / (256 * 1024)),
-                               ("node_disk_io_time_seconds_total", value["busy"])):
-                samples.append(GaugeSample(name, "Synthetic disk counter.", self._counter(node, name + str(index), rate, now), labels, kind="counter"))
+            samples.extend(self._disk_pressure(node, f"nvme{index}n1", now, value, index=index))
         return samples
 
     def _topology(self) -> list[GaugeSample]:
