@@ -17,7 +17,7 @@ import uuid
 from .identity import producer_filename_stem
 from .fileio import append_jsonl
 from .io_writer import BoundedWriter, settings_from_env
-from .time_alignment import CalibrationCache
+from .time_alignment import CalibrationCache, boot_id
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -150,6 +150,13 @@ class EventRecorder:
         self.clock_ns = clock_ns
         self.time_calibration = time_calibration or CalibrationCache.from_env(context.node)
         self.monotonic_ns = monotonic_ns or (time.monotonic_ns if clock_ns is time.time_ns else clock_ns)
+        if self.monotonic_ns is time.monotonic_ns:
+            try:
+                self.monotonic_clock_id = 'boot:' + boot_id()
+            except OSError:
+                self.monotonic_clock_id = 'process:' + uuid.uuid4().hex
+        else:
+            self.monotonic_clock_id = 'injected:' + uuid.uuid4().hex
         self.disabled = False
         self.path = directory / (producer_filename_stem(
             context.producer, context.role, context.worker_id,
@@ -250,6 +257,18 @@ class EventRecorder:
             attributes={**dict(attributes or {}), "policy_scope": "worker_applied"},
         )
 
+    def _sample_span_boundary(self) -> tuple[int, int, int, bool]:
+        """Sample wall time inside a monotonic bracket and return its error bound."""
+        if self.monotonic_ns is self.clock_ns:
+            value = self.clock_ns()
+            return value, value, 0, True
+        before = self.monotonic_ns()
+        wall = self.clock_ns()
+        after = self.monotonic_ns()
+        bracket = after - before
+        uncertainty = (abs(bracket) + 1) // 2
+        return wall, before + bracket // 2, uncertainty, bracket >= 0
+
     @contextmanager
     def span(
         self,
@@ -273,8 +292,7 @@ class EventRecorder:
             trace_id=trace_id or uuid.uuid4().hex,
             span_id=uuid.uuid4().hex[:16],
         )
-        started_ns = self.clock_ns()
-        started_mono = self.monotonic_ns() if self.monotonic_ns is not self.clock_ns else started_ns
+        started_ns, started_mono, started_uncertainty, start_sample_valid = self._sample_span_boundary()
         status = "ok"
         final_attributes = dict(attributes or {})
         try:
@@ -284,10 +302,15 @@ class EventRecorder:
             final_attributes.setdefault("error_type", type(exc).__name__)
             raise
         finally:
-            ended_ns = self.clock_ns()
-            ended_mono = self.monotonic_ns() if self.monotonic_ns is not self.clock_ns else ended_ns
-            elapsed_ns = max(0, ended_mono - started_mono)
-            discontinuity = abs((ended_ns - started_ns) - elapsed_ns) > 1_000_000_000
+            ended_ns, ended_mono, ended_uncertainty, end_sample_valid = self._sample_span_boundary()
+            monotonic_elapsed_ns = ended_mono - started_mono
+            elapsed_ns = max(0, monotonic_elapsed_ns)
+            wall_elapsed_ns = ended_ns - started_ns
+            sampling_error_ns = wall_elapsed_ns - monotonic_elapsed_ns
+            sampling_bound_ns = started_uncertainty + ended_uncertainty + 1
+            discontinuity = (not start_sample_valid or not end_sample_valid
+                             or monotonic_elapsed_ns < 0
+                             or abs(sampling_error_ns) > sampling_bound_ns)
             self._write(
                 {
                     "schema_version": 1,
@@ -307,6 +330,14 @@ class EventRecorder:
                     "clock_scope": "node",
                     "duration_source": "monotonic" if self.monotonic_ns is not self.clock_ns else "injected_clock",
                     "duration_seconds": elapsed_ns / 1_000_000_000,
+                    "clock_sampling": {
+                        "method": "wall_bracketed_by_monotonic" if self.monotonic_ns is not self.clock_ns else "single_clock",
+                        "monotonic_clock_id": self.monotonic_clock_id,
+                        "start_monotonic_time_ns": started_mono,
+                        "end_monotonic_time_ns": ended_mono,
+                        "start_uncertainty_ns": started_uncertainty,
+                        "end_uncertainty_ns": ended_uncertainty,
+                    },
                     "status": status,
                     "trace_id": identity.trace_id,
                     "span_id": identity.span_id,

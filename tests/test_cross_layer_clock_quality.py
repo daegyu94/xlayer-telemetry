@@ -125,7 +125,7 @@ def test_known_source_before_window_cannot_count_as_fresh_interval_evidence():
 
 def test_observed_remote_tool_host_requires_inventory_clock_evidence(tmp_path):
     from xlayer_telemetry.events import CorrelationContext,EventRecorder
-    ticks=iter([101000000000,109000000000]);mono=iter([1000000000,9000000000])
+    ticks=iter([101000000000,109000000000]);mono=iter([1000000000,1000000000,9000000000,9000000000])
     recorder=EventRecorder(tmp_path,CorrelationContext('r','agent','rollout','other','unregistered-tool'),
                           clock_ns=lambda:next(ticks),monotonic_ns=lambda:next(mono))
     with recorder.span('tool.call',phase='environment',attributes={'tool':'pytest'}):pass

@@ -8,6 +8,7 @@ overlap and configured topology never manufacture such links.
 from __future__ import annotations
 
 from collections import deque
+import math
 
 from ..events import LINK_RELATIONS
 from ..measurements import finite_number
@@ -30,8 +31,38 @@ def _interval(record):
     valid = (accuracy in {'exact', 'calibrated'}
              and type(start) is int and type(end) is int and 0 <= start <= end
              and duration is not None and duration >= 0)
-    if valid and abs((end-start)/1e9-duration) > 1e-6:
-        valid = False  # Never repair a wall-clock jump with inferred bounds.
+    sampling = record.get('clock_sampling')
+    sample_bounds = None
+    if valid and sampling is not None:
+        fields = ('start_monotonic_time_ns', 'end_monotonic_time_ns',
+                  'start_uncertainty_ns', 'end_uncertainty_ns')
+        if (not isinstance(sampling, dict)
+                or sampling.get('method') not in {'wall_bracketed_by_monotonic', 'single_clock'}
+                or not isinstance(sampling.get('monotonic_clock_id'), str)
+                or not 1 <= len(sampling['monotonic_clock_id']) <= 128
+                or any(type(sampling.get(field)) is not int or sampling[field] < 0 for field in fields)):
+            valid = False
+        else:
+            mono_start, mono_end, start_uncertainty, end_uncertainty = (sampling[field] for field in fields)
+            raw_start, raw_end = record.get('start_time_unix_nano'), record.get('end_time_unix_nano')
+            elapsed_ns = mono_end - mono_start
+            duration_ns = round(duration * 1_000_000_000)
+            duration_rounding_ns = max(1, math.ceil(math.ulp(duration) * 1_000_000_000))
+            raw_elapsed_ns = raw_end - raw_start if type(raw_start) is int and type(raw_end) is int else None
+            method = sampling['method']
+            valid = (mono_end >= mono_start and raw_elapsed_ns is not None
+                     and abs(elapsed_ns - duration_ns) <= duration_rounding_ns
+                     and abs(raw_elapsed_ns - elapsed_ns) <= start_uncertainty + end_uncertainty + 1
+                     and (method != 'single_clock' or record.get('duration_source') == 'injected_clock')
+                     and (method != 'wall_bracketed_by_monotonic' or record.get('duration_source') == 'monotonic'))
+            if valid and method == 'wall_bracketed_by_monotonic':
+                sample_bounds = (mono_start, mono_end, start_uncertainty, end_uncertainty,
+                                 sampling['monotonic_clock_id'])
+    elif valid:
+        # Legacy records did not persist the wall/monotonic sampling bracket.
+        # Retain the former narrow consistency check for backward compatibility.
+        if abs((end-start)/1e9-duration) > 1e-6:
+            valid = False  # Never repair an unbounded wall-clock discrepancy.
     uncertainty = finite_number(record.get('time_uncertainty_seconds')) if calibrated else 0.
     reference = record.get('time_reference') if calibrated else None
     if calibrated and (not _id(reference) or uncertainty is None or uncertainty < 0):
@@ -45,6 +76,10 @@ def _interval(record):
     return {'start_ns': start if valid else None, 'end_ns': end if valid else None,
             'duration_seconds': duration, 'accuracy': accuracy,
             'reference': reference, 'uncertainty_seconds': uncertainty, 'valid': valid,
+            **({'monotonic_start_ns': sample_bounds[0], 'monotonic_end_ns': sample_bounds[1],
+                'start_sampling_uncertainty_ns': sample_bounds[2],
+                'end_sampling_uncertainty_ns': sample_bounds[3],
+                'monotonic_clock_id': sample_bounds[4]} if valid and sample_bounds else {}),
             **({'original_start_ns': record.get('start_time_unix_nano'), 'original_end_ns': record.get('end_time_unix_nano'),
                 'reference_session': alignment.get('reference_session')} if calibrated else {})}
 

@@ -57,6 +57,94 @@ def test_unobserved_gaps_are_never_invented_as_queue_time():
     assert result['measured_wait_seconds'] == 1
 
 
+def test_same_node_dependency_with_overlapping_clock_sampling_bounds_is_unknown():
+    records = trajectory()
+    for row in records:
+        row['duration_source'] = 'monotonic'
+        row['clock_sampling'] = {
+            'method': 'wall_bracketed_by_monotonic',
+            'monotonic_clock_id': 'boot:test',
+            'start_monotonic_time_ns': row['start_time_unix_nano'],
+            'end_monotonic_time_ns': row['end_time_unix_nano'],
+            'start_uncertainty_ns': 0,
+            'end_uncertainty_ns': 0,
+        }
+    # The tool and queue boundaries touch; their sample brackets overlap,
+    # so the local dependency order is not precise enough for a critical path.
+    records[2]['clock_sampling']['end_uncertainty_ns'] = 1_000
+    records[4]['clock_sampling']['start_uncertainty_ns'] = 1_000
+
+    result = analyze(records)
+
+    assert result['status'] == 'unknown'
+    assert result['observed_path_seconds'] is None
+    assert 'dependency_order_or_clock_uncertainty_unverified' in result['missing_evidence']
+
+
+def test_parallel_completion_order_with_overlapping_sampling_bounds_is_unknown():
+    records = trajectory()
+    records[3]['end_time_unix_nano'] = 5_999_999_500
+    records[3]['duration_seconds'] = 3.9999995
+    records[5]['start_time_unix_nano'] = 6_100_000_000
+    records[5]['duration_seconds'] = 1.9
+    for row in records:
+        row['duration_source'] = 'monotonic'
+        row['clock_sampling'] = {
+            'method': 'wall_bracketed_by_monotonic',
+            'monotonic_clock_id': 'boot:test',
+            'start_monotonic_time_ns': row['start_time_unix_nano'],
+            'end_monotonic_time_ns': row['end_time_unix_nano'],
+            'start_uncertainty_ns': 0,
+            'end_uncertainty_ns': 0,
+        }
+    records[3]['clock_sampling']['end_uncertainty_ns'] = 1_000
+    records[4]['clock_sampling']['end_uncertainty_ns'] = 1_000
+
+    result = analyze(records)
+
+    assert result['status'] == 'unknown'
+    assert result['observed_path_seconds'] is None
+    assert 'last_completion_ambiguous_with_clock_sampling' in result['missing_evidence']
+
+
+def test_parallel_branch_with_neparated_sampling_bounds_remains_ordered():
+    records = trajectory()
+    for row in records:
+        row['duration_source'] = 'monotonic'
+        row['clock_sampling'] = {
+            'method': 'wall_bracketed_by_monotonic',
+            'monotonic_clock_id': 'boot:test',
+            'start_monotonic_time_ns': row['start_time_unix_nano'],
+            'end_monotonic_time_ns': row['end_time_unix_nano'],
+            'start_uncertainty_ns': 0,
+            'end_uncertainty_ns': 0,
+        }
+    result = analyze(records)
+    assert result['status'] == 'observed_path'
+    assert result['path'] == [['trace', x] for x in ('generate', 'tool', 'queue', 'finish')]
+
+
+def test_same_node_samples_from_different_monotonic_epochs_do_not_form_a_path():
+    records = trajectory()
+    for row in records:
+        row['duration_source'] = 'monotonic'
+        row['clock_sampling'] = {
+            'method': 'wall_bracketed_by_monotonic',
+            'monotonic_clock_id': 'boot:first',
+            'start_monotonic_time_ns': row['start_time_unix_nano'],
+            'end_monotonic_time_ns': row['end_time_unix_nano'],
+            'start_uncertainty_ns': 0,
+            'end_uncertainty_ns': 0,
+        }
+    records[4]['clock_sampling']['monotonic_clock_id'] = 'boot:after-restart'
+
+    result = analyze(records)
+
+    assert result['status'] == 'unknown'
+    assert result['observed_path_seconds'] is None
+    assert 'trajectory_clock_sampling_mixed' in result['missing_evidence']
+
+
 def test_remote_clock_quality_and_uncertainty_cannot_be_bypassed():
     records = trajectory()
     for row in records:

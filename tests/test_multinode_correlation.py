@@ -65,7 +65,8 @@ def test_shared_output_keeps_node_local_workers_and_runs_distinct(tmp_path):
 
 def test_wall_clock_jump_does_not_change_duration_or_trace_parent(tmp_path):
     wall = iter([100_000_000_000, 90_000_000_000])
-    mono = iter([1_000_000_000, 3_000_000_000])
+    mono = iter([1_000_000_000, 1_000_000_000,
+                 3_000_000_000, 3_000_000_000])
     recorder = EventRecorder(tmp_path, CorrelationContext('r', 'agent', 'sandbox', '0', 'storage-a'),
                              clock_ns=lambda: next(wall), monotonic_ns=lambda: next(mono))
     with recorder.span('sandbox.exec', phase='environment', trace_id='abc', parent_span_id='parent'):

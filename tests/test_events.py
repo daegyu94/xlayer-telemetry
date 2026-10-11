@@ -111,6 +111,48 @@ def test_span_navigation_window_encloses_exact_nanosecond_boundary(tmp_path):
     assert record['end_time_unix_nano'] == 2000000800
 
 
+def test_independently_sampled_wall_and_monotonic_clocks_keep_bounded_sampling_error(tmp_path):
+    wall = iter((100_000_000_000, 101_000_005_000)).__next__
+    mono = iter((1_000_000_000, 1_000_010_000,
+                 2_000_000_000, 2_000_010_000)).__next__
+    recorder = EventRecorder(tmp_path, CorrelationContext(
+        run_id='r', producer='app', role='rollout', worker_id='0', node='n'),
+        clock_ns=wall, monotonic_ns=mono)
+    with recorder.span('trajectory', phase='trajectory'):
+        pass
+    record = json.loads(recorder.path.read_text())
+
+    assert record['duration_seconds'] == 1
+    assert record['boundary_accuracy'] == 'exact'
+    sampling = record['clock_sampling']
+    assert sampling['method'] == 'wall_bracketed_by_monotonic'
+    assert sampling['monotonic_clock_id'].startswith('injected:')
+    assert sampling['start_monotonic_time_ns'] == 1_000_005_000
+    assert sampling['end_monotonic_time_ns'] == 2_000_005_000
+    assert sampling['start_uncertainty_ns'] == sampling['end_uncertainty_ns'] == 5_000
+    from xlayer_telemetry.analysis.execution_graph import build_graph
+    interval = build_graph([record], run_id='r')['nodes'][0]['interval']
+    assert interval['valid']
+    assert interval['duration_seconds'] == 1
+
+
+def test_wall_clock_jump_outside_sampling_bracket_remains_unusable(tmp_path):
+    wall = iter((100_000_000_000, 101_500_000_000)).__next__
+    mono = iter((1_000_000_000, 1_000_001_000,
+                 2_000_000_000, 2_000_001_000)).__next__
+    recorder = EventRecorder(tmp_path, CorrelationContext(
+        run_id='r', producer='app', role='rollout', worker_id='0', node='n'),
+        clock_ns=wall, monotonic_ns=mono)
+    with recorder.span('trajectory', phase='trajectory'):
+        pass
+    record = json.loads(recorder.path.read_text())
+
+    assert record['boundary_accuracy'] == 'clock_discontinuity'
+    from xlayer_telemetry.analysis.execution_graph import build_graph
+    interval = build_graph([record], run_id='r')['nodes'][0]['interval']
+    assert not interval['valid']
+
+
 def test_worker_policy_applied_is_explicit_and_cannot_be_relabelled(tmp_path):
     context = CorrelationContext(run_id="r", producer="native", role="rollout", worker_id="worker-3", node="gpu-b", policy_version=999)
     recorder = EventRecorder(tmp_path, context, clock_ns=lambda: 1230000000)

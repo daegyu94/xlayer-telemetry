@@ -14,6 +14,29 @@ from .execution_graph import topological
 from .robust_differential import assess
 
 
+def _sampled_before(left_ns, left_uncertainty, right_ns, right_uncertainty):
+    gap = right_ns - left_ns
+    margin = left_uncertainty + right_uncertainty
+    return gap >= 0 if margin == 0 else gap > margin
+
+
+def _local_sample_order(left, left_edge, right, right_edge):
+    left_time = left.get(f'monotonic_{left_edge}_ns')
+    right_time = right.get(f'monotonic_{right_edge}_ns')
+    if left_time is None and right_time is None:
+        return None
+    if type(left_time) is not int or type(right_time) is not int:
+        return 'unknown'
+    if (not left.get('monotonic_clock_id')
+            or left.get('monotonic_clock_id') != right.get('monotonic_clock_id')):
+        return 'unknown'
+    left_uncertainty = left.get(f'{left_edge}_sampling_uncertainty_ns')
+    right_uncertainty = right.get(f'{right_edge}_sampling_uncertainty_ns')
+    if type(left_uncertainty) is not int or type(right_uncertainty) is not int:
+        return 'unknown'
+    return _sampled_before(left_time, left_uncertainty, right_time, right_uncertainty)
+
+
 def critical_path(graph, root):
     root = tuple(root)
     nodes = {tuple(node['id']): node for node in graph['nodes']}
@@ -62,6 +85,15 @@ def critical_path(graph, root):
         # Containment must be consistent; no truncation/clock repair is applied.
         if child['start_ns'] < interval['start_ns'] or child['end_ns'] > interval['end_ns']:
             return unknown('operation_outside_trajectory_window')
+        if nodes[key]['node'] == owner['node']:
+            start_order = _local_sample_order(interval, 'start', child, 'start')
+            end_order = _local_sample_order(child, 'end', interval, 'end')
+            if start_order == 'unknown' or end_order == 'unknown':
+                return unknown('trajectory_clock_sampling_mixed')
+            if (start_order is None) != (end_order is None):
+                return unknown('trajectory_clock_sampling_mixed')
+            if start_order is False or end_order is False:
+                return unknown('trajectory_clock_sampling_uncertain')
         if nodes[key]['node'] != owner['node']:
             margin = (child['uncertainty_seconds'] + interval['uncertainty_seconds']) * 1e9
             if child['start_ns'] - margin < interval['start_ns'] or child['end_ns'] + margin > interval['end_ns']:
@@ -81,7 +113,11 @@ def critical_path(graph, root):
         x, y = a['interval'], b['interval']
         remote = a['node'] != b['node']
         margin = (x['uncertainty_seconds'] + y['uncertainty_seconds']) * 1e9 if remote else 0
-        if edge['timing_status'] != 'aligned' or x['end_ns'] + margin > y['start_ns']:
+        local_order = None if remote else _local_sample_order(x, 'end', y, 'start')
+        if (edge['timing_status'] != 'aligned'
+                or local_order is False
+                or local_order == 'unknown'
+                or local_order is None and x['end_ns'] + margin > y['start_ns']):
             return unknown('dependency_order_or_clock_uncertainty_unverified')
         if not remote and x['accuracy'] == y['accuracy'] == 'calibrated' and x['original_end_ns'] > y['original_start_ns']:
             return unknown('original_node_order_conflicts_with_mapping')
@@ -108,7 +144,12 @@ def critical_path(graph, root):
         if not predecessors:
             previous[key] = None
             continue
-        chosen = max(predecessors, key=lambda p: (nodes[p]['interval']['end_ns'], p))
+        sampled_local = (len({nodes[p]['node'] for p in predecessors}) == 1
+                         and all(nodes[p]['interval'].get('monotonic_end_ns') is not None
+                                 for p in predecessors))
+        chosen = max(predecessors, key=lambda p: (
+            nodes[p]['interval']['monotonic_end_ns'] if sampled_local
+            else nodes[p]['interval']['end_ns'], p))
         last = nodes[chosen]
         for other in predecessors:
             if other == chosen:
@@ -120,7 +161,13 @@ def critical_path(graph, root):
                     return unknown('last_completion_ambiguous_with_clock_uncertainty')
             else:
                 x, y = last['interval'], peer['interval']
-                if x['accuracy'] == y['accuracy'] == 'calibrated':
+                sampled_order = _local_sample_order(y, 'end', x, 'end')
+                if sampled_order is False or sampled_order == 'unknown':
+                    return unknown('last_completion_ambiguous_with_clock_sampling')
+                if sampled_order is True:
+                    if x.get('monotonic_end_ns') == y.get('monotonic_end_ns'):
+                        equivalent += 1
+                elif x['accuracy'] == y['accuracy'] == 'calibrated':
                     # Refreshes may change offsets without changing either
                     # span's duration. Do not let them reverse a node-local
                     # completion order or turn distinct completions into ties.
@@ -128,7 +175,7 @@ def critical_path(graph, root):
                     original_order = (x['original_end_ns'] > y['original_end_ns']) - (x['original_end_ns'] < y['original_end_ns'])
                     if mapped_order != original_order:
                         return unknown('original_node_completion_order_conflicts_with_mapping')
-                if x['end_ns'] == y['end_ns']:
+                if sampled_order is None and x['end_ns'] == y['end_ns']:
                     equivalent += 1
         previous[key] = chosen
     path, cursor = [], completion

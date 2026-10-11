@@ -170,6 +170,8 @@ xltel inspect
 | 3FS ClickHouse / 외부 profile·log | 기존 producer timestamp | 자동 보정하지 않음 |
 
 Span duration은 기존 monotonic clock으로 계산합니다.
+새 SDK span은 각 wall-clock 경계를 monotonic sample 두 개 사이에서 읽고 midpoint, bracket 반폭, monotonic clock epoch identity를 `clock_sampling`에 저장합니다. Parser는 monotonic elapsed를 duration과 대조하고 wall/monotonic elapsed 차이가 두 경계의 sampling uncertainty 합계와 1 ns 반올림 여유 이내일 때만 span을 유효하게 취급합니다. 이 bound를 넘으면 producer가 `clock_discontinuity`로 표시하며, 고정 1 µs 허용치로 오차를 덮지 않습니다.
+동일 node의 critical-path 순서도 sampling uncertainty 구간이 겹치거나 monotonic epoch가 다르면 `unknown`으로 남깁니다. 이전 artifact에 bracket 정보가 없으면 기존의 제한된 1 µs 일관성 검사를 유지하므로 과거 자료의 해석은 바뀌지 않습니다.
 Trace/span ID, parent 연결, run·step·worker·node context와 Prometheus label은 바뀌지 않습니다.
 Loki의 XLayer Step/Event stream은 보정된 조사 시각을 사용하지만, 일반 application stdout log의 timestamp는 다시 쓰지 않습니다.
 원본 record와 `time_alignment.raw_window`는 offline 조사에 남습니다.

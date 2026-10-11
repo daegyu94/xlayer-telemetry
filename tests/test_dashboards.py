@@ -848,8 +848,11 @@ def test_workspace_projection_preserves_entity_scope_and_navigation(tmp_path, lo
     queue = next(p for p in flat if p['id'] == 2)
     cache = next(p for p in flat if p['id'] == 3)
     canonical = next(p for p in _panels(by_uid['agent-rl-stage-correlation']) if p['id'] == 9)
+    canonical_kv = next(p for p in _panels(by_uid['agent-rl-stage-correlation']) if p['id'] == 134)
     assert queue['targets'] == [t for t in canonical['targets'] if t['refId'] in {'A', 'D'}]
-    assert cache['targets'] == [t for t in canonical['targets'] if t['refId'] == 'B']
+    assert cache['targets'] == [t for t in canonical_kv['targets'] if t['refId'] == 'B']
+    assert len(cache['targets']) == 1
+    assert 'vllm:kv_cache_usage_perc' in cache['targets'][0]['expr']
     assert cache['fieldConfig']['defaults']['unit'] == 'percentunit'
     top = next(p for p in flat if p['type'] == 'bargauge')
     original = next(p for p in _panels(by_uid['xlayer-data-storage']) if p['id'] == 3)

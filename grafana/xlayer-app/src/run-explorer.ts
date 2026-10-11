@@ -101,7 +101,7 @@ export function resourceContext(run:RunEntry,observation:RecordRow|undefined,ent
  const step=observation?.trigger==='step_observed';
  return {...selected,from:String(start*1000),to:String(end*1000),variables:{...selected.variables,
   source_node:label(observation?.node),node:label(entity.node||entity.nodename),
-  gpu:label(entity.gpu),engine:label(entity.engine),device:label(entity.device),
+  gpu:label(entity.gpu),engine:label(entity.instance),device:label(entity.device),
   worker:step?label(observation?.worker_id):[],record_id:step?label(observation?.trigger_record_id):[],
   role:[],phase:[],sandbox_node:[],mount:[],storage_node:[],storage_system:[],storage_metric:[],infra_component:[],
   matrix_gpu_entity:[],matrix_vllm_entity:[],matrix_kv_entity:[],matrix_ray_entity:[],

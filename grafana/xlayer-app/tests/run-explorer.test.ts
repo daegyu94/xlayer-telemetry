@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns,readRunFilters,withRunFilters} from '../src/run-explorer';
+import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns,readRunFilters,withRunFilters,metricIdentity} from '../src/run-explorer';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {RunComparisonMetric} from '../src/RunComparisonMetric';
-import {readContext} from '../src/context';
+import {appLink,readContext} from '../src/context';
 import {readFileSync} from 'node:fs';
 const run=(key:string,value=10):RunEntry=>({key,run_id:key,model:'Qwen',cluster:'lab',execution_mode:'sync',data_origin:'synthetic',fingerprint:'same',quality:'complete',steps:2,status:'reported_completed',source:'stored_artifact',from:100000,to:120000,observer_node:'gpu-a',
  metrics:[{metric:'step_duration_seconds',value,unit:'s',scope:'application',entity:{node:'gpu-a',worker_id:'driver',boundary_scope:'rl_step'},statistic:'mean_recorded_duration',accuracy:'approximate',quality:'complete',workload_observed:true,workload_shapes:['tokens=100']}],selected_step:{record_id:key+'-step',window_start_ms:110000,window_end_ms:120000}});
@@ -65,6 +65,21 @@ test('resource links use recorded periodic window/entity, never saved Step or st
   React.createElement(RunComparisonMetric,{row,a,b,context}))));
  assert.ok(html.includes('from=200000'));assert.ok(html.includes('to=260000'));assert.ok(html.includes('periodic'));
  assert.ok(!html.includes('a-step'));
+});
+
+test('vLLM resource pivot filters by endpoint instance and retains engine identity separately',()=>{
+ const a=run('a');
+ const observation={analysis_window:{start:200,end:260,accuracy:'sampled'},trigger:'periodic',node:'monitor'};
+ const entity={node:'rollout-a',instance:'vllm-a:8000',engine:'0'};
+ const selected=resourceContext(a,observation,entity,readContext(''))!;
+ assert.deepEqual(selected.variables.engine,['vllm-a:8000']);
+ assert.equal(entity.engine,'0');
+ const sibling={...entity,engine:'1'};
+ const metric=(identity:Record<string,string>)=>({metric:'vllm:kv_cache_usage_perc',value:0,unit:'%',scope:'engine',entity:identity,quality:'complete'});
+ assert.notEqual(metricIdentity(metric(entity)),metricIdentity(metric(sibling)));
+ const restored=readContext(new URL(appLink('investigate',selected),'http://local').search);
+ assert.deepEqual(restored.variables.engine,['vllm-a:8000']);
+ assert.ok(!appLink('investigate',selected).includes('var-engine=0'));
 });
 
 test('Explorer filters survive share, Evidence context and URL reload without altering comparison selection',()=>{

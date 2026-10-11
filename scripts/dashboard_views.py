@@ -135,7 +135,7 @@ def build_views(dashboards):
     queue = clone('agent-rl-stages', 9, 'Serving · Waiting & running requests', 2)
     queue['targets'] = [t for t in queue['targets'] if t['refId'] in {'A', 'D'}]
     queue['fieldConfig']['overrides'] = []
-    cache = clone('agent-rl-stages', 9, 'Serving · KV cache usage / engine', 3)
+    cache = clone('agent-rl-stages', 134, 'Serving · KV cache usage / engine', 3)
     cache['targets'] = [t for t in cache['targets'] if t['refId'] == 'B']
     cache['fieldConfig']['defaults'].update(unit='percentunit', min=0, max=1)
     cache['fieldConfig']['overrides'] = []

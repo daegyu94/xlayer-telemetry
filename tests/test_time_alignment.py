@@ -61,7 +61,8 @@ def test_stale_jump_and_reboot_do_not_apply_mapping(tmp_path, raw, mono, boot):
 def test_event_and_step_use_shared_axis_without_changing_duration(tmp_path):
     mapping = cache(tmp_path)
     ticks = iter([120_000_000_000, 122_000_000_000])
-    mono = iter([58_000_000_000, 60_000_000_000])
+    mono = iter([58_000_000_000, 58_000_000_000,
+                 60_000_000_000, 60_000_000_000])
     recorder = EventRecorder(tmp_path, CorrelationContext('r', 'agent', 'rollout', '0', 'gpu-a'),
                              clock_ns=lambda: next(ticks), monotonic_ns=lambda: next(mono),
                              time_calibration=mapping)
