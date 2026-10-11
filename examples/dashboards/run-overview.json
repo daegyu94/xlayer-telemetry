@@ -1248,10 +1248,13 @@
               "unit": "bytes",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1259,10 +1262,13 @@
           "options": {
             "legend": {
               "displayMode": "table",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }

@@ -70,7 +70,8 @@ def test_server_passes_retention_to_prometheus_binary(tmp_path, mode, value):
     tools = tmp_path / "tools"
     arch = "arm64" if platform.machine() in {"aarch64", "arm64"} else "amd64"
     prometheus = tools / f"prometheus-3.5.0.linux-{arch}/prometheus"
-    grafana = tools / "grafana-v12.1.0/bin/grafana"
+    from xlayer_telemetry.grafana_release import grafana_home
+    grafana = grafana_home(tools) / "bin/grafana"
     argv = tmp_path / "prometheus-argv.json"
     prometheus.parent.mkdir(parents=True)
     grafana.parent.mkdir(parents=True)

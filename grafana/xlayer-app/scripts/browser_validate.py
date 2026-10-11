@@ -8,11 +8,22 @@ from importlib.metadata import version
 import re
 import sys
 import threading
+import urllib.request
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 from ci_demo import assert_policy_lifecycle_text, datasource_error_result, native_dashboard_back
 
+
+
+def observed_grafana_version(url):
+    try:
+        with urllib.request.urlopen(url+'/api/health',timeout=5) as response:
+            payload=json.load(response)
+        version=payload.get('version') if isinstance(payload,dict) else None
+        return version if isinstance(version,str) and re.fullmatch(r'\d+\.\d+\.\d+',version) else 'unknown'
+    except (OSError,ValueError):
+        return 'unknown'
 
 
 def diagnostic_text(value, limit=24000):
@@ -66,8 +77,8 @@ class EntryDiagnostics:
                         'datasource_type':diagnostic_text((query.get('datasource') or {}).get('type',''),80)}
                        for query in queries[:12] if isinstance(query,dict) and isinstance(query.get('datasource') or {},dict)]})
 
-    def fail(self, error):
-        record={'stage':'initial App entry / Analyze Step readiness', 'url':diagnostic_url(self.page.url),
+    def fail(self, error, stage="initial App entry / Analyze Step readiness"):
+        record={'stage':stage, 'url':diagnostic_url(self.page.url),
                 'failure':diagnostic_text(error,2000), 'browser_errors':[diagnostic_text(value,1000) for value in self.browser_errors[:20]],
                 'console_errors':self.console_errors, 'initial_query_response_summaries':self.query_responses,
                 'http_failures':self.http_failures,
@@ -448,7 +459,7 @@ def multi_worker_journey(args):
         datasource_boundary_checks(page, url, checks, capture)
         assert not errors, errors
         report = {'checks':checks, 'browser_errors':errors, 'data_origin':'live synthetic metrics + four explicit SDK rollout worker spans',
-                  'grafana_version':'12.1.0', 'scenes_version':'6.20.0', 'browser_version':browser.version, 'playwright_version':version('playwright'), 'browser_locale':'en-US', 'browser_timezone':'UTC', 'selected_context':selected,
+                  'grafana_version':observed_grafana_version(args.url), 'scenes_version':'6.20.0', 'browser_version':browser.version, 'playwright_version':version('playwright'), 'browser_locale':'en-US', 'browser_timezone':'UTC', 'selected_context':selected,
                   'multi_worker':True, 'worker_rows':4, 'native_dashboard_back_entries':return_entries, 'context_transition_count':len(transitions),
                   'datasource_fixtures':'Structured error and bounded delay at browser /api/ds/query boundary; not actual backend failure or latency measurement'}
         (args.output / f'{args.label}-validation.json').write_text(json.dumps(report, indent=2)+'\n')
@@ -487,7 +498,11 @@ def main():
         assert 'Policy' in page.locator('.xlt-run-context').inner_text()
         assert 'trainer version (reported)' in page.locator('.xlt-context-meta').inner_text()
         assert 'Recent Events' in page.locator('.xlt').inner_text()
-        assert 'No data' not in page.locator('.xlt-panel').first.inner_text()
+        try:
+            page.wait_for_function("!document.querySelector('.xlt-panel')?.innerText.includes('No data')",timeout=15000)
+        except Exception as error:
+            entry_diagnostics.fail(error,stage='Overview native panel data readiness')
+            raise
         capture('overview')
         for width in [1280,900,390]:
             page.set_viewport_size({'width':width,'height':900});page.wait_for_timeout(300)
@@ -599,7 +614,7 @@ def main():
         assert 'Loki Timeline을 사용할 수 없습니다' in page.locator('.xlt').inner_text();capture('optional-unavailable')
         checks.append('Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation')
         assert not errors,errors
-        report={'checks':checks,'browser_errors':errors,'grafana_version':'12.1.0','scenes_version':'6.20.0','browser_version':browser.version,'playwright_version':version('playwright'),'browser_locale':'en-US','browser_timezone':'UTC','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}
+        report={'checks':checks,'browser_errors':errors,'grafana_version':observed_grafana_version(args.url),'scenes_version':'6.20.0','browser_version':browser.version,'playwright_version':version('playwright'),'browser_locale':'en-US','browser_timezone':'UTC','data_origin':'live synthetic metrics + SDK-generated step/span/diagnosis fixtures','native_requests_after_step_selection':step_query_count,'bounded_baseline_requests':len(baseline_requests),'native_requests_matching_step_window':len(matching),'selected_context':saved}
         (args.output/f'{args.label}-validation.json').write_text(json.dumps(report,indent=2)+'\n')
         print(json.dumps(report,indent=2));browser.close()
 

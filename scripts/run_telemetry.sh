@@ -552,7 +552,9 @@ EOF
   fi
   "${PYTHON:-python3}" scripts/provision_dashboards.py "${dashboard_args[@]}"
   # Grafana's built-in theme picker; an explicit empty toggle list opts out.
-  export GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-}"
+  grafana_home="$(GRAFANA_VERSION="${GRAFANA_VERSION-}" "${PYTHON:-python3}" -m xlayer_telemetry.grafana_release --home "$tools_dir")"
+  default_toggles="$(GRAFANA_VERSION="${GRAFANA_VERSION-}" "${PYTHON:-python3}" -m xlayer_telemetry.grafana_release --feature-toggles)"
+  export GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-$default_toggles}"
   export GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-light}"
   case "$GF_USERS_DEFAULT_THEME" in
     dark|light|system|sapphiredusk|gloom|desertbloom|tron|gildedgrove|aubergine|mars|matrix|synthwave|victorian|zen) ;;
@@ -585,15 +587,16 @@ EOF
     export GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS="${GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS:+$GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS,}$app_allowlist"
   fi
   export GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH="${GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH:-$output_dir/dashboards/run-overview.json}"
-  "$tools_dir/grafana-v12.1.0/bin/grafana" server \
-    --homepath="$tools_dir/grafana-v12.1.0" > "$output_dir/grafana.log" 2>&1 &
+  GRAFANA_VERSION="${GRAFANA_VERSION-}" "${PYTHON:-python3}" -m xlayer_telemetry.grafana_release --compat-config > "$output_dir/grafana-compat.ini"
+  "$grafana_home/bin/grafana" server \
+    --homepath="$grafana_home" --config="$output_dir/grafana-compat.ini" > "$output_dir/grafana.log" 2>&1 &
   pids+=("$!")
   validation_args=(
     validate-stack
     --prometheus-url "http://127.0.0.1:$prometheus_port"
     --grafana-url "http://127.0.0.1:$grafana_port"
     --output "$output_dir/startup-summary.json"
-    --timeout "${SERVER_START_TIMEOUT:-60}"
+    --timeout "${SERVER_START_TIMEOUT:-90}"
   )
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     validation_args+=(--loki-url "http://$loki_listen_addr:$loki_port")

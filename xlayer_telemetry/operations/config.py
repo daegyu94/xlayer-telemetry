@@ -16,6 +16,8 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 
+from ..grafana_release import DEFAULT_GRAFANA_VERSION, LEGEND_TOGGLE, release
+
 
 KEYS = (
     "TELEMETRY_HOME", "TOOLS_DIR", "RUN_ID", "RUN_ROOT", "NODE_NAME", "NODE_ADDR",
@@ -24,7 +26,7 @@ KEYS = (
     "PROMETHEUS_URL", "GRAFANA_URL", "LOKI_URL", "SERVER_OUTPUT_DIR", "NODE_OUTPUT_DIR",
     "TELEMETRY_METRICS_DIR", "TELEMETRY_RUNS_ROOT", "TELEMETRY_METRICS_MAX_AGE_SECONDS",
     "TELEMETRY_HEALTH_MAX_AGE_SECONDS", "TELEMETRY_LOG_ROOTS",
-    "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME",
+    "GF_FEATURE_TOGGLES_ENABLE", "GF_USERS_DEFAULT_THEME", "GRAFANA_VERSION",
     "TELEMETRY_TARGETS", "LOKI_LISTEN_ADDR",
     "PROMETHEUS_PORT", "GRAFANA_PORT", "LOKI_PORT", "ALLOY_PORT",
     "PROMETHEUS_RETENTION", "PROMETHEUS_SAMPLE_LIMIT", "PROMETHEUS_TARGET_LIMIT",
@@ -92,7 +94,8 @@ def defaults() -> dict[str, str]:
         "ENABLE_ALERTS": "0", "EXECUTION_MODE": "auto",
         "PROMETHEUS_URL": "http://127.0.0.1:19090", "GRAFANA_URL": "http://127.0.0.1:13000",
         "LOKI_URL": "http://127.0.0.1:13100", "TELEMETRY_METRICS_MAX_AGE_SECONDS": "300",
-        "TELEMETRY_HEALTH_MAX_AGE_SECONDS": "300", "GF_FEATURE_TOGGLES_ENABLE": "",
+        "TELEMETRY_HEALTH_MAX_AGE_SECONDS": "300", "GF_FEATURE_TOGGLES_ENABLE": LEGEND_TOGGLE,
+        "GRAFANA_VERSION": DEFAULT_GRAFANA_VERSION,
         "GF_USERS_DEFAULT_THEME": "light",
         "PROMETHEUS_PORT": "19090", "GRAFANA_PORT": "13000", "LOKI_PORT": "13100", "ALLOY_PORT": "12345",
         "PROMETHEUS_RETENTION": "1d",
@@ -260,6 +263,10 @@ def validate_collection_budgets(config: dict[str, str]) -> None:
 
 
 def validate(config: dict[str, str]) -> None:
+    try:
+        release(config.get("GRAFANA_VERSION", DEFAULT_GRAFANA_VERSION))
+    except ValueError as error:
+        raise ConfigError(str(error)) from error
     validate_collection_budgets(config)
     validate_prometheus_retention(config.get("PROMETHEUS_RETENTION", "1d"))
     for key in PORT_KEYS:

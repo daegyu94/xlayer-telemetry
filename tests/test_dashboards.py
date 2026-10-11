@@ -676,10 +676,21 @@ def test_loki_row_pivots_use_stream_cluster_and_collector_identity():
     timeline = json.loads((ROOT / 'examples/dashboards/cross-layer-timeline.json').read_text())
     for panel in timeline['panels']:
         if panel['type'] == 'state-timeline':
-            keep = panel['transformations'][-1]
-            assert keep['id'] == 'filterFieldsByName'
-            assert set(keep['options']['include']['names']) == {
-                'Start Time', 'End Time', 'Phase' if panel['id'] == 2 else 'Step'}
+            transforms = panel['transformations']
+            keep = next(item for item in transforms if item['id'] == 'filterFieldsByName')
+            if panel['id'] == 2:
+                # Filter raw fields before naming and lane partitioning. Grafana 13
+                # renames partitioned fields, so filtering their old names drops data.
+                assert set(keep['options']['include']['names']) == {
+                    'start_time_ms', 'end_time_ms', 'phase', 'lane'}
+                assert transforms.index(keep) < next(
+                    index for index, item in enumerate(transforms) if item['id'] == 'organize')
+                assert transforms[-1]['id'] == 'partitionByValues'
+                assert transforms[-1]['options']['fields'] == ['Lane']
+                assert transforms[-1]['options']['keepFields'] is False
+            else:
+                assert transforms[-1] == keep
+                assert set(keep['options']['include']['names']) == {'Start Time', 'End Time', 'Step'}
     spans = next(panel for panel in _panels(timeline) if panel['id'] == 9)
     links = next(prop['value'] for override in spans['fieldConfig']['overrides']
                  for prop in override['properties'] if prop['id'] == 'links')

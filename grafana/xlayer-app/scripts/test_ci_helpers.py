@@ -269,3 +269,25 @@ def test_demo_preflight_accepts_real_build_metadata_and_rejects_incomplete_build
     (dist / 'module.js').write_text('')
     with pytest.raises(ValueError, match='bundle missing or incomplete'):
         live.validate_demo_app(None, dist)
+
+
+def test_service_startup_waits_for_migrations_and_still_bounds_failure(monkeypatch):
+    demo=load('live_demo');elapsed=[0.]
+    monkeypatch.setattr(demo.time,'monotonic',lambda:elapsed[0])
+    class Stop:
+        def wait(self,seconds):elapsed[0]+=seconds;return False
+    class Owner:
+        def poll(self):return None
+    def migrations(_):
+        if elapsed[0]<25:raise OSError('migrations in progress')
+        return b'healthy'
+    assert demo.wait_for_service('http://127.0.0.1:1/api/health',Owner(),Stop(),migrations)==b'healthy'
+    def unavailable(_):raise OSError('not ready')
+    elapsed[0]=0
+    with pytest.raises(RuntimeError,match='Service not ready'):
+        demo.wait_for_service('http://127.0.0.1:1/api/health',Owner(),Stop(),unavailable,timeout=2)
+    assert elapsed[0]==pytest.approx(2)
+    class Exited:
+        def poll(self):return 1
+    with pytest.raises(RuntimeError,match='Owned service exited'):
+        demo.wait_for_service('http://127.0.0.1:1/api/health',Exited(),Stop(),migrations)

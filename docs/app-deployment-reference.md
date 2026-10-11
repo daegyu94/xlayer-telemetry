@@ -2,7 +2,7 @@
 
 **찾아보는 목적:** App build 산출물·개발용 package·실제 Grafana browser CI와 운영 서명의 경계를 확인합니다. 일반 설치와 조사 흐름은 [App guide](grafana-scenes-poc.md)를 따릅니다.
 
-현재 App 선언·installer 범위는 `>=12.1.0 <13.2.0`입니다. [Grafana React 19 migration 가이드](https://grafana.com/developers/plugin-tools/migration-guides/update-from-grafana-versions/migrate-13_1_x-to-13_2_x)에 따른 JSX runtime·Scenes·dependency 전환과 양쪽 runtime 검증 전에는 Grafana 13.2 이상을 지원하지 않습니다. 과거의 상한 없는 package/receipt도 현재 installer와 status에서 이 ceiling을 적용합니다. 선언 범위의 모든 버전을 browser 검증했다는 뜻은 아닙니다.
+Managed Grafana의 기본 버전은 **13.1.7**이며 기존 App + Scenes UI와 Scenes 6.20.0을 유지합니다. 실제 Grafana 13.1도 기본 React 19 runtime을 사용하므로, XLayer는 공식 `[feature_toggles] react19 = false` 설정을 별도 owned `grafana-compat.ini`로 적용합니다. 선언·installer 범위 `>=12.1.0 <13.2.0`은 모든 runtime의 호환성을 뜻하지 않으며, `app status`는 Grafana 13의 관측된 frontend flag도 검사합니다. React 19 JSX runtime externalization·최소 Grafana 버전 조정과 13.2 이상 검증은 Future Work입니다. [공식 migration 안내](https://grafana.com/developers/plugin-tools/migration-guides/update-from-grafana-versions/migrate-12_x-to-13_x/).
 
 ## 배포 단계
 
@@ -10,9 +10,23 @@
 | --- | --- | --- |
 | Build | `dist/plugin.json`·`module.js`·logo | CI에서 unit·typecheck·build 실행 |
 | 개발용 package | Plugin ID directory를 포함한 ZIP + SHA256 | 재현 가능한 unsigned archive 생성 |
-| Browser regression | Live Prometheus/Loki·Grafana 12.1.0·Scenes 6.20.0 | 격리 runner에서 실제 조사 경로 실행 |
+| Browser regression | Live Prometheus/Loki·Grafana 13.1.7 (React 18 mode)·Scenes 6.20.0 | 격리 runner에서 실제 조사 경로 실행 |
 | 운영용 signature | Grafana가 발급한 `MANIFEST.txt` | 공식 절차 필요. 자동 발급·검증은 미구현 |
 | 운영 배포 | 기존 Grafana plugin directory·provisioning | 운영자 배포 절차 사용. Marketplace 자동 게시 없음 |
+
+## Managed Grafana Upgrade
+
+1. **Prepare:** 현재 config의 `SERVER_OUTPUT_DIR`을 확인하고 `xltel down --role server`로 owned server를 종료합니다. SQLite `grafana-data`와 plugin·provisioning·config를 별도 backup에 보존하세요. External Grafana의 DB와 서비스는 운영자의 배포 절차를 따릅니다.
+2. **Configure:** 기존 TOML `[telemetry]`에서 `GRAFANA_VERSION = "13.1.7"`을 지정합니다. `GF_FEATURE_TOGGLES_ENABLE = "vizLegendFacetedFilter"`가 기본값이며, 명시한 빈 문자열은 opt-out으로 유지합니다.
+3. **Install / Start:** `xltel install-tools --role server`로 publisher SHA256을 확인한 archive를 설치하고 `xltel up --role server`를 실행합니다. 새 binary는 `grafana-13.1.7/`에 설치되며 기존 `grafana-v12.1.0/`을 삭제하지 않습니다. Fresh SQLite migration에는 bounded startup 대기 시간을 사용합니다.
+4. **Verify:** `xltel app status`와 `/a/xlayer-telemetry-app/overview`에서 기존 Scenes UI·선택 context·query·drill-down을 확인합니다. Version 범위와 React runtime·실제 served bundle 검사는 별개입니다.
+5. **Rollback:** Server를 종료한 뒤 **업그레이드 전 DB·config backup을 복구**하고 `GRAFANA_VERSION = "12.1.0"`으로 시작합니다. 13이 migration한 DB에 12 binary만 연결해서 downgrade하지 않습니다. `app rollback`은 plugin backup을 복구하며 Grafana DB를 되돌리는 명령이 아닙니다.
+
+External Grafana 13.1은 기존 config의 `[feature_toggles]`에 `react19 = false`와 `vizLegendFacetedFilter = true`를 적용해야 현재 App bundle을 사용할 수 있습니다. XLayer는 external config·DB·NTP 서비스를 직접 수정하지 않습니다.
+
+### Series Readability
+
+GPU·SSD·NIC/RDMA의 다중 series 패널은 영역 채우기 없이 얇은 선·이름 기준의 안정적인 색상을 사용합니다. Legend는 목록만 접고 모든 series는 그대로 표시하며, native **Series visibility**에서 이름·label로 범위를 좁힙니다. Tooltip은 가까운 series 하나를 보여주며 짧은 Step / Timeline의 sample 점과 3FS collection-point no-line 표시는 유지합니다. Query·unit·source scope·sampling·attribution 의미를 바꾸지 않습니다.
 
 ## 설치 / 상태 / Update
 
@@ -105,14 +119,14 @@ Unsigned allowlist는 격리 개발 Grafana에서 `xlayer-telemetry-app` 하나�
 [App workflow](https://github.com/daegyu94/xlayer-telemetry/blob/main/.github/workflows/grafana-app.yml)는 다음 순서로 검증합니다.
 
 1. Node 22·Python 3.12에서 App test·typecheck·build·package.
-2. 공식 release의 고정 SHA256으로 Grafana 12.1.0·Prometheus 3.5.0·Loki 3.7.3 검증 후 설치.
+2. 공식 release의 고정 SHA256으로 Grafana 13.1.7·Prometheus 3.5.0·Loki 3.7.3 검증 후 설치.
 3. 실제 exporter scrape와 SDK span/diagnosis fixture를 생성하는 `live_demo.py` 실행.
-4. 단일 / 멀티worker를 분리한 CI job에서 baseline/current pair 두 개를 기다린 뒤 `browser_validate.py` 실행.
+4. 단일 / Multi-worker / Multi-job CI job에서 완료된 baseline/current pair를 기다린 뒤 기존 browser journey 실행. 단일 경로는 Scenes 내부의 GPU·Storage·Network Legend 조작도 확인.
 5. 자신이 시작한 process만 종료하고 JSON report·화면 capture·제한된 synthetic log·ZIP을 7일 artifact로 보존.
 
 Browser context는 `locale=en-US`·`timezone=UTC`를 명시합니다. POSIX host locale을 Chromium이 잘못 전달하면 Grafana의 `Intl.NumberFormat`이 App 진입 전에 실패할 수 있습니다. Entry 실패 artifact는 제한된 DOM·browser/console 오류·query status metadata를 기록하며 query expression·header·credential을 보존하지 않습니다.
 
-기본 readiness deadline은 240초, browser deadline은 180초, CI job 상한은 15분입니다. 서비스가 먼저 종료되면 실패하며 다른 monitoring process를 readiness 성공으로 취급하지 않습니다. Launcher state·database·원본 telemetry는 artifact에 올리지 않습니다.
+기본 readiness deadline은 300초, browser deadline은 180초, CI job 상한은 15분입니다. 서비스가 먼저 종료되면 실패하며 다른 monitoring process를 readiness 성공으로 취급하지 않습니다. Launcher state·database·원본 telemetry는 artifact에 올리지 않습니다.
 
 | Browser 경로 | 확인 |
 | --- | --- |
@@ -143,7 +157,13 @@ python grafana/xlayer-app/scripts/ci_demo.py \
 
 **정상 결과:** `CI journey passed; owned Grafana/Prometheus/Loki/exporter stopped.`가 출력됩니다. `ci-validation.json`과 각 화면의 PNG가 남습니다. 실패하면 nonzero exit code와 제한된 service log를 확인합니다. State는 새 directory여야 합니다.
 
-CI 다운로드 cache도 매번 고정 publisher checksum과 대조합니다. 기존 [monitoring installer](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/install_telemetry_tools.sh)의 local digest 기록과 구분합니다. 이 CI 도구가 운영 monitoring installer를 대체하지 않습니다.
+CI 다운로드 cache도 매번 고정 publisher checksum과 대조합니다. [Monitoring installer](https://github.com/daegyu94/xlayer-telemetry/blob/main/scripts/install_telemetry_tools.sh)도 Grafana archive의 publisher checksum을 확인하며, 다른 도구의 local digest 기록과 구분합니다. 이 CI 도구가 운영 monitoring installer를 대체하지 않습니다.
+
+## Validation Scope
+
+2026-10-11의 격리된 CPU/Synthetic 환경에서 Grafana 13.1.7의 기존 Scenes 조사 경로·Multi-worker·Multi-job, GPU/Storage/Network Legend의 Light/Dark·1440px/390px 조작을 검증했습니다. Legacy 12.1.0에서도 기본 Scenes browser journey를 확인했습니다. Ubuntu 22.04 container에서는 binary 실행과 `/api/health`만 확인했으므로, 기존 Ubuntu 22.04 CPU CI는 유지합니다.
+
+실제 GPU·RDMA·물리 Multi-node·3FS cluster 성능과 운영 DB upgrade/restore는 이번 검증 범위가 아닙니다. App CI는 Grafana 13.1.7을 기본으로 검사하며 React 19 runtime·13.2 이상은 검증하지 않았습니다. Browser report·Screenshot은 CI artifact에 보존하고 과거 검증 기록을 현재 버전의 보증으로 해석하지 않습니다.
 
 ## 운영용 signing
 

@@ -28,6 +28,7 @@ from xlayer_telemetry.demos.multi_job import diagnosis_config, make_schedule, re
 from xlayer_telemetry.fileio import atomic_write_text, append_jsonl
 from xlayer_telemetry.analysis.deadline import IsolatedAnalyzer
 from xlayer_telemetry.events import CorrelationContext
+from xlayer_telemetry.grafana_release import DEFAULT_GRAFANA_VERSION, release, grafana_home, default_toggles, compatibility_config
 
 
 def collect_and_analyze_job(directory, job, prom):
@@ -72,9 +73,25 @@ def validate_demo_app(package, dist):
         raise ValueError('App bundle has an unexpected plugin identity; rebuild the checkout.')
 
 
+def wait_for_service(url, owner, stopping, request, *, timeout=90):
+    """Fresh Grafana 13 SQLite migrations need a bounded startup deadline."""
+    if not 1 <= timeout <= 120:
+        raise ValueError('Service readiness timeout must be 1..120 seconds')
+    deadline=time.monotonic()+timeout
+    while time.monotonic()<deadline:
+        if owner is not None and owner.poll() is not None:
+            raise RuntimeError('Owned service exited before readiness: '+url)
+        try:return request(url)
+        except Exception:
+            if stopping.wait(min(.2,max(0,deadline-time.monotonic()))):
+                raise RuntimeError('Interrupted')
+    raise RuntimeError('Service not ready: '+url)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tools', required=True, type=Path)
+    parser.add_argument('--grafana-version',choices=('12.1.0',DEFAULT_GRAFANA_VERSION),default=DEFAULT_GRAFANA_VERSION)
     parser.add_argument('--output', required=True, type=Path, help='New, disposable state directory')
     parser.add_argument('--grafana-port', type=int, default=23400)
     parser.add_argument('--scenario', choices=('storage-regression', 'normal', 'alternating'), default='alternating',
@@ -114,13 +131,7 @@ def main():
                                      headers={'Content-Type': 'application/json'})
         with urllib.request.urlopen(req, timeout=5) as response: return response.read()
     def ready(url, owner=None):
-        for _ in range(100):
-            if owner is not None and owner.poll() is not None:
-                raise RuntimeError('Owned service exited before readiness: '+url)
-            try: return request(url)
-            except Exception:
-                if stopping.wait(.2): raise RuntimeError('Interrupted')
-        raise RuntimeError('Service not ready: '+url)
+        return wait_for_service(url,owner,stopping,request)
     def launch(argv, name, env=None):
         log = (args.output / (name+'.log')).open('w')
         process = subprocess.Popen(argv, stdout=log, stderr=log, env=env)
@@ -200,15 +211,18 @@ datasources:
         else:
             plugin_dir=args.output/'plugins';plugin_dir.mkdir()
             (plugin_dir/'xlayer-telemetry-app').symlink_to(ROOT/'grafana/xlayer-app/dist',target_is_directory=True)
-        grafana_home = args.tools/'grafana-v12.1.0'
+        home = grafana_home(args.tools,args.grafana_version)
         env={**os.environ,'GF_PATHS_DATA':str(args.output/'grafana'),'GF_PATHS_LOGS':str(args.output/'grafana-logs'),
              'GF_PATHS_PROVISIONING':str(provisioning),'GF_PATHS_PLUGINS':str(plugin_dir),
              'GF_SERVER_HTTP_ADDR':'127.0.0.1','GF_SERVER_HTTP_PORT':str(args.grafana_port),
              'GF_AUTH_ANONYMOUS_ENABLED':'true','GF_AUTH_ANONYMOUS_ORG_ROLE':'Viewer',
+             'GF_FEATURE_TOGGLES_ENABLE':os.environ.get('GF_FEATURE_TOGGLES_ENABLE',default_toggles(args.grafana_version)),
              'GF_USERS_DEFAULT_THEME':'light','GF_USERS_HOME_PAGE':'/a/xlayer-telemetry-app/overview','GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS':'xlayer-telemetry-app',
              'GF_ANALYTICS_REPORTING_ENABLED':'false','GF_ANALYTICS_CHECK_FOR_UPDATES':'false',
              'GF_PLUGINS_PREINSTALL_DISABLED':'true'}
-        grafana_process = launch([str(grafana_home/'bin/grafana'),'server',f'--homepath={grafana_home}'], 'grafana',env)
+        compatibility=args.output/'grafana-compat.ini'
+        compatibility.write_text(compatibility_config(args.grafana_version))
+        grafana_process = launch([str(home/'bin/grafana'),'server',f'--homepath={home}',f'--config={compatibility}'], 'grafana',env)
         grafana=f'http://127.0.0.1:{args.grafana_port}'
         ready(grafana+'/api/health',grafana_process);ready(grafana+'/api/dashboards/uid/telemetry-overview',grafana_process)
         (args.output/'connection.json').write_text(json.dumps({'grafana':grafana,'prometheus':prom,'loki':loki,'data_origin':'synthetic'},indent=2))

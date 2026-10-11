@@ -10,13 +10,18 @@ import tarfile
 import tempfile
 import urllib.request
 import zipfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from xlayer_telemetry.grafana_release import release
+
+GRAFANA = release()
 
 # Publisher checksums, not hashes computed after accepting an unverified download:
-# dl.grafana.com/oss/release/grafana-12.1.0.linux-amd64.tar.gz.sha256
+# Grafana publisher checksum: xlayer_telemetry/grafana_release.py
 # prometheus/prometheus v3.5.0 sha256sums.txt; grafana/loki v3.7.3 SHA256SUMS.
 ASSETS = (
-    ('grafana.tar.gz', 'https://dl.grafana.com/oss/release/grafana-12.1.0.linux-amd64.tar.gz',
-     '69923cf95824008a6a7529f242295ecc2bc6b1dc4e5142c889971e88407d8712'),
+    ('grafana.tar.gz', GRAFANA['url'], GRAFANA['sha256']),
     ('prometheus.tar.gz', 'https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-amd64.tar.gz',
      'e811827af26d822afb09a4f28314f61b618b12cff5369835a67f674d8b46f39a'),
     ('loki.zip', 'https://github.com/grafana/loki/releases/download/v3.7.3/loki-linux-amd64.zip',

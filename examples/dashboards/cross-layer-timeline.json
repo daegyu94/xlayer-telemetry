@@ -788,6 +788,19 @@
           }
         },
         {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "start_time_ms",
+                "end_time_ms",
+                "phase",
+                "lane"
+              ]
+            }
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
@@ -837,18 +850,6 @@
             "naming": {
               "asLabels": false,
               "withNames": false
-            }
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "Start Time",
-                "End Time",
-                "Phase"
-              ]
             }
           }
         }
@@ -1022,21 +1023,27 @@
           "links": [],
           "custom": {
             "showPoints": "auto",
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         },
         "legend": {
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         }
       },
       "description": "선택한 Resource node의 sampled GPU utilization입니다. Exact span과 같은 해상도의 trace가 아니며 다른 workload도 포함될 수 있습니다."
@@ -1114,21 +1121,27 @@
           "links": [],
           "custom": {
             "showPoints": "auto",
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         },
         "legend": {
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         }
       },
       "description": "선택한 node/port의 RDMA bytes/s입니다. Rate의 lookback 범위와 clock 상태를 함께 확인합니다."
@@ -1160,21 +1173,27 @@
           "links": [],
           "custom": {
             "showPoints": "auto",
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
       },
       "options": {
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         },
         "legend": {
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         }
       },
       "description": "선택한 node/device의 I/O busy 비율입니다. Latency p99나 특정 span의 I/O 사용량은 아닙니다."
@@ -1889,10 +1908,13 @@
               "noValue": "N/A",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "showPoints": "auto",
                 "spanNulls": false
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1901,10 +1923,12 @@
             "legend": {
               "displayMode": "list",
               "placement": "bottom",
-              "showLegend": true
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1938,10 +1962,13 @@
               "noValue": "N/A",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "showPoints": "auto",
                 "spanNulls": false
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1950,10 +1977,12 @@
             "legend": {
               "displayMode": "list",
               "placement": "bottom",
-              "showLegend": true
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1992,10 +2021,13 @@
               "noValue": "N/A",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "showPoints": "auto",
                 "spanNulls": false
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -2004,10 +2036,12 @@
             "legend": {
               "displayMode": "list",
               "placement": "bottom",
-              "showLegend": true
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -2046,10 +2080,13 @@
               "noValue": "N/A",
               "custom": {
                 "drawStyle": "line",
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "showPoints": "auto",
                 "spanNulls": false
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -2058,10 +2095,12 @@
             "legend": {
               "displayMode": "list",
               "placement": "bottom",
-              "showLegend": true
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }

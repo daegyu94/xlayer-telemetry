@@ -24,12 +24,19 @@ import {
   Context,
 } from "./context";
 import { Sample } from "./semantics";
-import {preserveIdentity} from './identity-variable';
+import {preserveIdentity,normalizeSelection} from './identity-variable';
 
 class IdentityQueryVariable extends QueryVariable {
   protected interceptStateUpdateAfterValidation(update:any){
     super.interceptStateUpdateAfterValidation(update);
     preserveIdentity(this.state.name,this.state.value,this.state.text,update);
+  }
+}
+
+// URL sync runs after construction; normalize the native All sentinel there too.
+class RegexTextBoxVariable extends TextBoxVariable {
+  public setValue(value:string){
+    super.setValue(normalizeSelection({type:'textbox',query:'.*'},[value])?.[0]??value);
   }
 }
 
@@ -108,7 +115,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
   const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
   // Styling only: collection-point charts keep their original no-line contract.
   const fields=panel.type==='timeseries'&&panel.fieldConfig?.defaults?.custom?.drawStyle!=='points'
-    ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:1.5}}}
+    ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:panel.options?.legend?.enableFacetedFilter?(panel.fieldConfig?.defaults?.custom?.lineWidth??1):1.5}}}
     : panel.fieldConfig;
   return new VizPanel({
     pluginId: panel.type,
@@ -146,7 +153,7 @@ export function variables(
     variables: VARIABLE_NAMES.filter(name=>!name.startsWith("matrix_")&&name!=="phase_worker"&&!["run_search","run_model","run_status","run_source","run_time_filter"].includes(name)).map((name) => {
       const definition = definitions.get(name);
       const rawSelected = context.variables[name];
-      const selected = definitions.get(name)?.includeAll&&rawSelected?.some(value=>value==='.*')?['$__all']:rawSelected;
+      const selected = normalizeSelection(definition,rawSelected);
       const visible = ["cluster", "run_id", "source_node", "node"].includes(
         name,
       );
@@ -184,7 +191,9 @@ export function variables(
       delete state.options;
       if (definition.type === "query") return new IdentityQueryVariable(state);
       if (definition.type === "custom") return new CustomVariable(state);
-      return new TextBoxVariable({ ...state, value: String(state.value) });
+      return definition.query==='.*'||definition.current?.value==='.*'
+        ? new RegexTextBoxVariable({...state,value:String(state.value)})
+        : new TextBoxVariable({...state,value:String(state.value)});
     }),
   });
 }

@@ -22,6 +22,7 @@ from urllib.request import urlopen
 
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
 from xlayer_telemetry.prometheus import PrometheusClient
+from xlayer_telemetry.grafana_release import grafana_home
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -81,7 +82,7 @@ def main():
         parser.error('image SHA256 mismatch')
     if args.cli_tools_dir:
         required = [args.node_exporter, args.prometheus, args.cli_tools_dir/'alloy-linux-amd64',
-                    args.cli_tools_dir/'loki-linux-amd64', args.cli_tools_dir/'grafana-v12.1.0/bin/grafana']
+                    args.cli_tools_dir/'loki-linux-amd64', grafana_home(args.cli_tools_dir,os.environ.get('GRAFANA_VERSION'))/'bin/grafana']
         if any(not path.is_file() or not os.access(path,os.X_OK) for path in required):
             parser.error('CLI validation requires executable Node Exporter, Prometheus, Grafana, Loki and Alloy.')
     args.output.mkdir(parents=True, exist_ok=False, mode=0o700)

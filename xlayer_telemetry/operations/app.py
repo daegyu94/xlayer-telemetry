@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import zipfile
 
+from ..grafana_release import grafana_home
 from .config import ConfigError, assets_root
 from ..fileio import atomic_write_text
 from .._http_transport import request_bytes
@@ -22,7 +23,7 @@ APP_ID = 'xlayer-telemetry-app'
 REPOSITORY = 'daegyu94/xlayer-telemetry'
 MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_FILES = 1000
-# Current bundles embed the React 18 JSX runtime; React 19 is not certified.
+# Retain the tested version scope. React runtime is checked separately below.
 GRAFANA_CEILING = (13, 2, 0)
 PROVISIONING = f'apiVersion: 1\napps:\n  - type: {APP_ID}\n    org_id: 1\n    disabled: false\n'
 
@@ -54,7 +55,7 @@ def grafana_compatible(version, dependency):
 def detected_version(config):
     health=api(config,'/api/health')
     if isinstance(health,dict) and semver(health.get('version')):return health['version']
-    binary=Path(config['TOOLS_DIR'])/'grafana-v12.1.0/bin/grafana'
+    binary=grafana_home(config['TOOLS_DIR'],config.get('GRAFANA_VERSION'))/'bin/grafana'
     if binary.is_file():
         try:
             result=subprocess.run([str(binary),'--version'],capture_output=True,timeout=3,text=True)
@@ -321,10 +322,19 @@ def status(config, **paths):
     dependency = local['receipt'].get('dependency', '>=12.1.0 <13.2.0')
     compatible = grafana_compatible(version, dependency)
     checks = [{'component': 'Grafana', 'status': 'pass' if version else 'unknown', 'detail': version or 'API unavailable or access not verified'},
-        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{dependency}; React 18 ceiling <13.2.0; browser-validated 12.1.0'},
+        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{dependency}; 13.2+ unverified; Grafana 13 requires React 18 compatibility mode'},
         {'component': 'Plugin package integrity', 'status': 'pass' if local['integrity'] == 'verified' else 'fail', 'detail': local['integrity']},
         {'component': 'Plugin enabled', 'status': 'pass' if isinstance(loaded, dict) and loaded.get('enabled') else 'unknown', 'detail': 'Grafana API observation'},
         {'component': 'Datasources', 'status': 'pass' if isinstance(datasources, list) and any(row.get('type') == 'prometheus' for row in datasources) else 'unknown', 'detail': 'Prometheus availability; Loki optional'}]
+    if semver(version) and semver(version)>=(13,0,0):
+        frontend=api(config,'/api/frontend/settings')
+        flags=frontend.get('featureToggles') if isinstance(frontend,dict) else None
+        # Grafana's frontend treats an absent flag in a returned map as off.
+        runtime='unknown'
+        if isinstance(flags,dict) and type(flags.get('react19',False)) is bool:
+            runtime='fail' if flags.get('react19',False) else 'pass'
+        checks.append({'component':'App React runtime','status':runtime,
+            'detail':'Existing Scenes bundle requires [feature_toggles] react19 = false; unknown API is not proof of compatibility'})
     definitions = [api(config, '/api/dashboards/uid/' + uid) for uid in
                    ('telemetry-overview', 'agent-rl-stage-correlation', 'xlayer-compute-communication', 'xlayer-data-storage')]
     dashboards = all(isinstance(value,dict) and isinstance(value.get('dashboard'),dict) for value in definitions)

@@ -19,13 +19,15 @@ case "$machine" in
 esac
 : "${TOOLS_DIR:?Set TOOLS_DIR to a local telemetry tools directory}"
 tools_dir="$TOOLS_DIR"
+project_dir="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$project_dir${PYTHONPATH:+:$PYTHONPATH}"
 for dependency in curl tar unzip sha256sum; do
   command -v "$dependency" >/dev/null || { echo "Required tool not found: $dependency" >&2; exit 2; }
 done
 mkdir -p "$tools_dir"
 cd "$tools_dir"
 download() {
-  local url="$1" destination="$2" saved_hash saved_name expected='' actual
+  local url="$1" destination="$2" publisher_sha="${3-}" saved_hash saved_name expected='' actual
   # Bind both completed and partial archives to the requested release URL.
   # Generic filenames alone cannot distinguish architectures or upgrades.
   # Reuse only an archive matching our previous successful download manifest.
@@ -38,7 +40,7 @@ download() {
         break
       fi
     done < downloaded-archives.sha256
-    if [[ -n "$expected" ]]; then
+    if [[ -n "$expected" && ( -z "$publisher_sha" || "$expected" == "$publisher_sha" ) ]]; then
       actual="$(sha256sum "$destination")"
       if [[ "${actual%% *}" == "$expected" ]]; then
         echo "Using verified cached archive: $destination"
@@ -53,6 +55,10 @@ download() {
   fi
   printf '%s\n' "$url" > "$destination.part.source-url"
   curl -fL --retry 3 --retry-all-errors --continue-at - --output "$destination.part" "$url"
+  if [[ -n "$publisher_sha" ]]; then
+    actual="$(sha256sum "$destination.part")"
+    [[ "${actual%% *}" == "$publisher_sha" ]] || { echo "Publisher SHA256 mismatch: $destination" >&2; return 2; }
+  fi
   mv -f "$destination.part" "$destination"
   mv -f "$destination.part.source-url" "$destination.source-url"
 }
@@ -61,7 +67,9 @@ tar xzf node_exporter.tar.gz
 if [[ "$role" == server ]]; then
   download "https://github.com/prometheus/prometheus/releases/download/v3.5.0/prometheus-3.5.0.linux-$release_arch.tar.gz" prometheus.tar.gz
   tar xzf prometheus.tar.gz
-  download "https://dl.grafana.com/oss/release/grafana-12.1.0.linux-$release_arch.tar.gz" grafana.tar.gz
+  grafana_release="$("${PYTHON:-python3}" -m xlayer_telemetry.grafana_release --archive "$release_arch")"
+  read -r grafana_url grafana_sha <<< "$grafana_release"
+  download "$grafana_url" grafana.tar.gz "$grafana_sha"
   tar xzf grafana.tar.gz
   download "https://github.com/grafana/loki/releases/download/v3.7.3/loki-linux-$release_arch.zip" loki.zip
   unzip -qo loki.zip

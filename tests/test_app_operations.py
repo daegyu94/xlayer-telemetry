@@ -271,3 +271,22 @@ def test_status_does_not_certify_a_legacy_unbounded_receipt_on_react19(tmp_path,
 def test_manifest_matches_installer_react18_ceiling():
     metadata = json.loads((Path(__file__).parents[1] / 'grafana/xlayer-app/src/plugin.json').read_text())
     assert metadata['dependencies']['grafanaDependency'] == '>=12.1.0 <13.2.0'
+
+
+@pytest.mark.parametrize('flags,expected', [({'react19':True},'fail'),({'react19':False},'pass'),({},'pass'),(None,'unknown')])
+def test_grafana_13_runtime_check_is_separate_from_declared_version(tmp_path,monkeypatch,flags,expected):
+    path,digest=bundle(tmp_path);settings=config(tmp_path)
+    app.install_package(settings,path,digest,allow_unsigned=True)
+    def api(config,path):
+        if path=='/api/health':return {'version':'13.1.7'}
+        if path=='/api/frontend/settings':return {'featureToggles':flags} if flags is not None else None
+        if '/plugins/' in path:return {'enabled':True,'signature':'unsigned'}
+        if path=='/api/datasources':return [{'type':'prometheus','uid':'required'}]
+        return {'dashboard':{'panels':[{'datasource':{'uid':'required','type':'prometheus'}}]}}
+    monkeypatch.setattr(app,'api',api)
+    monkeypatch.setattr(app,'request_bytes',lambda *_args,**_kwargs:b'one')
+    result=app.status(settings)
+    runtime=next(row for row in result['checks'] if row['component']=='App React runtime')
+    assert runtime['status']==expected
+    assert next(row for row in result['checks'] if row['component']=='Declared compatibility')['status']=='pass'
+    if expected!='pass':assert result['status']=='needs_attention'

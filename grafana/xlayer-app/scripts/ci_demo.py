@@ -95,6 +95,8 @@ def run(args):
         with launcher_log.open('w') as dest:
             demo_command = [sys.executable, str(SCRIPTS / 'live_demo.py'), '--tools', str(args.tools.resolve()),
                                        '--output', str(args.state), '--grafana-port', str(port)]
+            if args.app_package:
+                demo_command.extend(['--app-package',str(args.app_package.resolve())])
             if not args.multi_job:
                 demo_command.append('--storage-series')
             if args.multi_worker:
@@ -138,6 +140,8 @@ def run(args):
                     '--mockup',str(SCRIPTS.parent/'design/topology-compact.html'),'--require-contrast',
                     *(['--browser',args.browser] if args.browser else [])]
                 validators += (design,readability)
+                validators += ([sys.executable,str(SCRIPTS/'legend_filter_validate.py'),'--url',connection['grafana'],
+                    '--output',str(args.output/'legends'),*(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'cluster_steps_validate.py'),'--state',str(args.state),
                     '--output',str(args.output/'cluster-steps'),*(['--browser',args.browser] if args.browser else [])],)
                 # Reuse this stack for saved-artifact/retention comparisons.
@@ -179,11 +183,12 @@ def main():
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--browser', default=None)
+    parser.add_argument('--app-package',type=Path,help='Verified package for an isolated build without modifying checkout dist')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--multi-job', action='store_true', help='Actual three-job Collect/Query/Diagnose browser journey')
     modes.add_argument('--multi-worker', action='store_true', help='Explicit opt-in four-worker SDK/demo browser journey')
     parser.add_argument('--completed-comparisons', type=int, choices=(1,2), default=2, help='Actual completed baseline/current pairs to await; default validates both scenarios')
-    parser.add_argument('--ready-timeout', type=int, default=240)
+    parser.add_argument('--ready-timeout', type=int, default=300)
     parser.add_argument('--browser-timeout', type=int, default=180)
     args = parser.parse_args()
     if not 1 <= args.ready_timeout <= 360 or not 1 <= args.browser_timeout <= 300:

@@ -5,3 +5,8 @@ export function preserveIdentity(name:string,value:any,text:any,update:any){
   update.value=value;update.text=text;
  }
 }
+
+export function normalizeSelection(definition:any,selected?:string[]) {
+ if(definition?.type==='textbox'&&(definition.query==='.*'||definition.current?.value==='.*')&&selected?.includes('$__all'))return ['.*'];
+ return definition?.includeAll&&selected?.includes('.*')?['$__all']:selected;
+}

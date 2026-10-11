@@ -17,6 +17,23 @@ while (( $# )); do
 done
 """)
     (fake / "tar").write_text("#!/usr/bin/env bash\nexit 0\n")
+    from xlayer_telemetry.grafana_release import release
+    import platform
+    arch='arm64' if platform.machine() in {'aarch64','arm64'} else 'amd64'
+    digest=release(arch=arch)['sha256']
+    # Emulate a publisher-verified fixture only for its known test bytes;
+    # a corrupted cache still computes its actual hash and must redownload.
+    (fake/'sha256sum').write_text(f'''#!/usr/bin/env bash
+if [[ $# == 1 && $1 == grafana.tar.gz* ]] && [[ $(cat "$1") == 'test archive' ]]; then
+  printf '%s  %s\\n' '{digest}' "$1"
+else
+  /usr/bin/sha256sum "$@" | while read -r hash name; do
+    if [[ $name == ./grafana.tar.gz ]] && [[ $(cat "$name") == 'test archive' ]]; then hash='{digest}'; fi
+    printf '%s  %s\\n' "$hash" "$name"
+  done
+fi
+''')
+
     (fake / "unzip").write_text("#!/usr/bin/env bash\ntouch loki-linux-amd64 alloy-linux-amd64 loki-linux-arm64 alloy-linux-arm64\n")
     for binary in fake.iterdir():
         binary.chmod(0o755)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..grafana_release import grafana_home
+
 from concurrent.futures import ThreadPoolExecutor
 import json
 import math
@@ -268,7 +270,7 @@ def doctor(config: dict[str, str], *, role: str = "all", correlation: bool = Fal
     tools = Path(config["TOOLS_DIR"])
     paths = {"Prometheus": tools / f"prometheus-3.5.0.linux-{arch}/prometheus",
              "Node Exporter": tools / f"node_exporter-1.9.1.linux-{arch}/node_exporter",
-             "Grafana": tools / "grafana-v12.1.0/bin/grafana", "Loki": tools / f"loki-linux-{arch}",
+             "Grafana": grafana_home(tools,config.get("GRAFANA_VERSION")) / "bin/grafana", "Loki": tools / f"loki-linux-{arch}",
              "Alloy": tools / f"alloy-linux-{arch}"}
     for name, path in paths.items():
         if role == "node" and name in {"Prometheus", "Grafana", "Loki"}:

@@ -73,6 +73,9 @@ def test_installer_selects_release_architecture(
         'done\n'
     )
     (bin_dir / "tar").write_text("#!/bin/sh\nexit 0\n")
+    from xlayer_telemetry.grafana_release import release
+    digest=release(arch=release_arch)['sha256']
+    (bin_dir / "sha256sum").write_text(f'#!/bin/sh\ncase "$1" in grafana.tar.gz.part) echo "{digest}  $1" ;; *) exec /usr/bin/sha256sum "$@" ;; esac\n')
     (bin_dir / "unzip").write_text(
         "#!/bin/sh\ntouch loki-linux-amd64 loki-linux-arm64 "
         "alloy-linux-amd64 alloy-linux-arm64\n"
@@ -99,7 +102,7 @@ def test_installer_selects_release_architecture(
     assert f"node_exporter-1.9.1.linux-{release_arch}.tar.gz" in urls
     assert 'smartctl' not in urls
     assert f"prometheus-3.5.0.linux-{release_arch}.tar.gz" in urls
-    assert f"grafana-12.1.0.linux-{release_arch}.tar.gz" in urls
+    assert release(arch=release_arch)["url"] in urls
     assert f"loki-linux-{release_arch}.zip" in urls
 
 
@@ -140,3 +143,17 @@ def test_node_installer_downloads_alloy(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "alloy-linux-arm64.zip" in curl_log.read_text()
+
+
+def test_grafana_publisher_hash_failure_preserves_previous_archive(tmp_path):
+    tools=tmp_path/'tools';tools.mkdir()
+    previous=tools/'grafana.tar.gz';previous.write_bytes(b'previous usable archive')
+    commands=tmp_path/'commands';commands.mkdir()
+    (commands/'curl').write_text('#!/bin/sh\nwhile test "$#" -gt 0; do\nif test "$1" = --output; then shift; printf corrupt > "$1"; fi\nshift\ndone\n')
+    (commands/'tar').write_text('#!/bin/sh\nexit 0\n')
+    for command in commands.iterdir():command.chmod(0o755)
+    result=subprocess.run(['bash',str(ROOT/'scripts/install_telemetry_tools.sh'),'server'],
+        env=os.environ|{'TOOLS_DIR':str(tools),'PATH':str(commands)+os.pathsep+os.environ['PATH']},
+        cwd=ROOT,text=True,capture_output=True,timeout=10)
+    assert result.returncode==2 and 'Publisher SHA256 mismatch: grafana.tar.gz' in result.stderr
+    assert previous.read_bytes()==b'previous usable archive'

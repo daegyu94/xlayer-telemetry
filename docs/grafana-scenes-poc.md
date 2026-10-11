@@ -20,7 +20,7 @@
 ```{admonition} 선택 사항
 :class: note
 
-App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 plugin을 자동 설치하지 않습니다. 검증한 조합은 Grafana OSS 12.1.0·Scenes 6.20.0입니다.
+App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 plugin을 자동 설치하지 않습니다. Managed 기본은 Grafana OSS 13.1.7의 React 18 호환 모드·Scenes 6.20.0이며 기존 UI를 유지합니다. Legacy 12.1.0의 기본 Scenes 경로도 확인했습니다. [검증 범위](app-deployment-reference.md#validation-scope)를 확인하세요.
 ```
 
 ## 준비 조건
@@ -108,7 +108,7 @@ Gauge의 phase delta는 명시된 baseline span·workload fingerprint·동일 en
 
 기존 stack과 분리한 live demo를 사용할 수 있습니다. 프로젝트를 설치한 Python 환경과 다음 binary가 필요합니다.
 
-- `--tools` directory: `grafana-v12.1.0/`·`prometheus-3.5.0.linux-amd64/`·`loki-linux-amd64`.
+- `--tools` directory: `grafana-13.1.7/`·`prometheus-3.5.0.linux-amd64/`·`loki-linux-amd64`.
 - Checkout의 `dist` 또는 보관한 App ZIP/SHA256. `xltel app install`은 임시 build를 설치하며 checkout의 `dist`를 생성한다고 보장하지 않습니다. 첫 baseline/current 비교는 실제 scrape를 기다려 약 90초 뒤에 보입니다.
 - 비어 있는 output 경로와 사용하지 않는 loopback port.
 
@@ -132,7 +132,7 @@ python grafana/xlayer-app/scripts/live_demo.py \
 ```{admonition} Synthetic data
 :class: note
 
-Live exporter와 저장된 Current/Baseline diagnosis는 별도 fixture입니다. 이 demo는 화면·query·context를 확인하는 경로이며 실제 VERL 성능이나 diagnosis 정확도 실험이 아닙니다.
+기존 App + Scenes UI를 Grafana 13.1.7 / React 18 호환 모드에서 재사용합니다. Live exporter와 저장된 Current/Baseline diagnosis는 별도 fixture입니다. 이 demo는 화면·query·context를 확인하는 경로이며 실제 VERL 성능이나 diagnosis 정확도 실험이 아닙니다.
 ```
 
 `Ctrl-C`는 demo가 만든 process만 종료합니다. Fixture·log·state는 output에 남으며, process 종료를 확인한 뒤 이번 demo directory만 정리합니다.

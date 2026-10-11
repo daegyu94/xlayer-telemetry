@@ -52,7 +52,7 @@ jobs:
           path: |
             ${{ runner.temp }}/xlayer-grafana-tools/*.tar.gz
             ${{ runner.temp }}/xlayer-grafana-tools/*.zip
-          key: xlayer-grafana-app-linux-amd64-grafana12.1.0-prometheus3.5.0-loki3.7.3-v1
+          key: xlayer-grafana-app-linux-amd64-releases-v2-${{ hashFiles('xlayer_telemetry/grafana_release.py', 'grafana/xlayer-app/scripts/install_ci_tools.py') }}
       - name: Install checksum-verified demo tools
         run: python scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-grafana-tools"
       - name: Actual Grafana / Scenes browser journey

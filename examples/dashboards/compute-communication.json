@@ -133,10 +133,13 @@
             }
           ],
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -144,10 +147,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -180,10 +186,13 @@
           "unit": "watt",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -191,10 +200,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -227,10 +239,13 @@
           "unit": "celsius",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -238,10 +253,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -274,10 +292,13 @@
           "unit": "mhz",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -285,10 +306,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -332,10 +356,13 @@
           "unit": "bytes",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -343,10 +370,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -430,10 +460,13 @@
           "unit": "Bps",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -441,10 +474,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -482,10 +518,13 @@
           "unit": "Bps",
           "noValue": "N/A",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
+            "lineWidth": 1,
+            "fillOpacity": 0,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
           }
         },
         "overrides": []
@@ -493,10 +532,13 @@
       "options": {
         "legend": {
           "displayMode": "table",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true,
+          "enableFacetedFilter": true,
+          "limit": 8
         },
         "tooltip": {
-          "mode": "multi",
+          "mode": "single",
           "sort": "desc",
           "hideZeros": false
         }
@@ -771,10 +813,13 @@
               "unit": "percentunit",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -786,10 +831,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1132,10 +1180,13 @@
               "unit": "pps",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1147,10 +1198,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1244,10 +1298,13 @@
               "unit": "pps",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1259,10 +1316,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1295,10 +1355,13 @@
               "unit": "suffix:ticks/s",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1310,10 +1373,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1351,10 +1417,13 @@
               "unit": "ops",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1366,10 +1435,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1407,10 +1479,13 @@
               "unit": "ops",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1422,10 +1497,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1483,10 +1561,13 @@
               "unit": "percentunit",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1498,10 +1579,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1539,10 +1623,13 @@
               "unit": "Bps",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1554,10 +1641,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1590,10 +1680,13 @@
               "unit": "short",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1605,10 +1698,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1641,10 +1737,13 @@
               "unit": "ops",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1656,10 +1755,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1697,10 +1799,13 @@
               "unit": "bytes",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1712,10 +1817,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }
@@ -1753,10 +1861,13 @@
               "unit": "percentunit",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "lineWidth": 1,
+                "fillOpacity": 0,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "showPoints": "never"
+              },
+              "color": {
+                "mode": "palette-classic-by-name"
               }
             },
             "overrides": []
@@ -1768,10 +1879,13 @@
               "calcs": [
                 "lastNotNull",
                 "max"
-              ]
+              ],
+              "showLegend": true,
+              "enableFacetedFilter": true,
+              "limit": 8
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "desc",
               "hideZeros": false
             }

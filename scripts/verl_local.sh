@@ -233,7 +233,8 @@ case "$action" in
     exec env TOOLS_DIR="$tools_dir" \
     OUTPUT_DIR="${SERVER_OUTPUT_DIR:-$telemetry_home/state/server}" \
     CLUSTER_NAME="$cluster_name" \
-    GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-}" \
+    GRAFANA_VERSION="${GRAFANA_VERSION-}" \
+    GF_FEATURE_TOGGLES_ENABLE="${GF_FEATURE_TOGGLES_ENABLE-$(GRAFANA_VERSION="${GRAFANA_VERSION-}" "${PYTHON:-python3}" -m xlayer_telemetry.grafana_release --feature-toggles)}" \
     GF_USERS_DEFAULT_THEME="${GF_USERS_DEFAULT_THEME:-light}" \
     TELEMETRY_TARGETS="${TELEMETRY_TARGETS:-$node_name=$node_addr}" \
     TELEMETRY_SOURCES_FILE="${TELEMETRY_SOURCES_FILE:-}" \
