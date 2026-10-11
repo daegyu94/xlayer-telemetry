@@ -1,3 +1,4 @@
+import {readContext} from '../src/context';
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {executionKey,executionChoices,selectExecution,observedPhases,measuredWorkers,workerGpuCell,pressureOrder,appliedPolicies,stepProjection,workerContext,resourceContext} from '../src/distributed';
 const step={cluster:'c',run_id:'r',node:'n',step:42,window_start_ms:1000,window_end_ms:20000};
@@ -87,4 +88,16 @@ test('Worker GPU phase samples use Matrix clock screening; call duration survive
  assert.equal(workerGpuCell(row,samples,'aligned').value,undefined);
  assert.equal(workerGpuCell(row,samples,'aligned',{...proof,uncertainty:2}).value,undefined);
  assert.equal(workerGpuCell(row,samples,'aligned',{...proof,sampleAge:30}).value,undefined);
+});
+
+test('sandbox resource links retain the observer and select the canonical nodename',()=>{
+ const context=readContext('?var-run_id=job-a&var-source_node=trainer&var-node=gpu-a&var-sandbox_node=.*&var-record_id=step-a&from=1000&to=2000');
+ const selected=resourceContext(context,{nodename:'sandbox-b',node:'worker-label',cluster:'lab'},'sandbox');
+ assert.deepEqual(selected.variables.sandbox_node,['sandbox-b']);
+ assert.deepEqual(selected.variables.source_node,['trainer']);
+ assert.deepEqual(selected.variables.record_id,['step-a']);
+ assert.deepEqual(selected.variables.run_id,['job-a']);
+ assert.equal(selected.from,'1000');assert.equal(selected.to,'2000');
+ assert.deepEqual(resourceContext(context,{node:'other'}).variables.sandbox_node,['.*']);
+ assert.deepEqual(resourceContext(context,{},'sandbox').variables.sandbox_node,['.*']);
 });

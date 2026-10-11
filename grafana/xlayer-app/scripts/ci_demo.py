@@ -169,6 +169,12 @@ def run(args):
                 validators = ([sys.executable, str(SCRIPTS / 'multi_job_validate.py'), '--url', connection['grafana'],
                     '--state', str(args.state), '--output', str(args.output / 'multi-job'),
                     *(['--browser', args.browser] if args.browser else [])],)
+            if not args.multi_job:
+                # Publish the isolated network fixture last so it cannot alter
+                # earlier run-catalog/count assertions in this owned stack.
+                validators += ([sys.executable,str(SCRIPTS/'user_workflows_validate.py'),'--url',connection['grafana'],
+                    '--state',str(args.state),'--output',str(args.output/'user-workflows'),
+                    *(['--browser',args.browser] if args.browser else [])],)
             for validation_command in validators:
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:

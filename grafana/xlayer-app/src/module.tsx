@@ -1697,7 +1697,7 @@ function PressureCard({
             <strong>{format(s.value * (spec.scale || 1), spec.unit)}</strong>
             <small className="xlt-entity" title={JSON.stringify(s.labels)}>{compactEntity(s.labels)}</small>
             <small>{row.supporting?'명시적인 Step evidence와 일치합니다':spec.name==='GPU utilization'?'Utilization 관측이며 fault 판정이 아닙니다':spec.name==='Ray task states'?'State 우선순위이며 자동 합산하지 않습니다':'관측된 signal이 가장 높으며 원인 판정은 아닙니다'}</small>
-            <Link to={spec.dashboard} context={resourceContext(context,{...s.labels,...(spec.name==='vLLM waiting'&&s.labels.instance?{engine:s.labels.instance}:{})})} catalog={catalog}>Inspect entity →</Link>
+            <Link to={spec.dashboard} context={resourceContext(context,{...s.labels,...(spec.name==='vLLM waiting'&&s.labels.instance?{engine:s.labels.instance}:{})},spec.name==='Sandbox I/O PSI'?'sandbox':'resource')} catalog={catalog}>Inspect entity →</Link>
           </div>
         );})
       )}
@@ -1790,7 +1790,7 @@ function WorkerOutliers({
 }
 
 function HealthSummary({candidates}:{candidates:RecordRow[]}) {
-  const definitions=[['GPU','compute'],['vLLM','rollout'],['Storage','storage'],['Network','communication'],['Ray','ray'],['Sandbox','sandbox']];
+  const definitions=[['GPU','compute'],['vLLM','rollout'],['Storage','storage'],['Network','network'],['Ray','ray'],['Sandbox','sandbox']];
   return <div className="xlt-health-grid">{definitions.map(([name,component])=>{const rows=candidates.filter(c=>c.component===component),strong=rows.some(c=>c.state==='strong_signal');return <article className="xlt-card" key={name}><b>{name}</b><span className={strong?'xlt-attention':'xlt-muted'}>{strong?'Strong signal':rows.some(c=>c.state==='supporting_signal')?'Supporting signal':rows.length?'Weak signal':'Not assessed'}</span><small>{rows.length?'저장된 Step candidate':'Subsystem 판단 기록이 없습니다'}</small></article>;})}</div>;
 }
 function TopChanges({rows}:{rows:RecordRow[]}) {

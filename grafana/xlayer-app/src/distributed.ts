@@ -169,9 +169,10 @@ export function workerContext(context: Context, row: RecordRow, key: string): Co
 }
 
 /** Per-resource drill-down preserves the selected Step's observer and Run. */
-export function resourceContext(context: Context, labels: Record<string, string>): Context {
-  const node = labels.node || labels.nodename;
+export function resourceContext(context: Context, labels: Record<string, string>, scope: 'resource' | 'sandbox' = 'resource'): Context {
+  const node = scope === 'sandbox' ? labels.nodename || labels.node : labels.node || labels.nodename;
   return {...context, variables: {...context.variables, ...(node ? {node: [node]} : {}),
+    ...(node && scope === 'sandbox' ? {sandbox_node: [node]} : {}),
     ...(labels.cluster ? {cluster:[labels.cluster]} : {}),
     ...(labels.gpu ? {gpu: [labels.gpu]} : {}), ...(labels.device ? {device: [labels.device]} : {}),
     ...(labels.engine ? {engine: [labels.engine]} : {})}};
