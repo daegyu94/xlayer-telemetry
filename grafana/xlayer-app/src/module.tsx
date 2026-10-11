@@ -355,7 +355,9 @@ function makeScene(page: Page, catalog: Catalog) {
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
     body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
   } else if(context.variables.record_id?.some(id=>id!=='.*'&&id!=='$__all'))body.setState({steps:query('overview',20),summary:query('summary',2)});
-  if (!resourcePage&&(page !== "deep-dive"||context.variables.candidate_id?.[0]))
+  // SceneAppPage caches this scene across visits; provider availability must
+  // not depend on the candidate selected at the first entry.
+  if (!resourcePage)
     body.setState({
       steps: query("overview", 20),
       summary: query("summary", 2),

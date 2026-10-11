@@ -18,20 +18,21 @@ ROOT=Path(__file__).resolve().parents[3]
 SCRIPTS=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT))
 from xlayer_telemetry.demos.control import ScenarioControl,control_server
+from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.grafana_release import DEFAULT_GRAFANA_VERSION,grafana_home,default_toggles,compatibility_config
 from live_demo import validate_demo_app,wait_for_service
 from ci_demo import stop_owned
 
 
 def coordinate(control,args,stopping):
-    child=None;log=None;generation=-1;state=None
+    child=None;log=None;generation=-1;state=None;read_failures=0
     try:
         while not stopping.is_set():
             snapshot=control.snapshot()
             if snapshot['generation']!=generation:
                 if child is not None:stop_owned(child)
                 if log is not None:log.close()
-                child=None;generation=snapshot['generation'];scenario=snapshot['selected']
+                child=None;generation=snapshot['generation'];scenario=snapshot['selected'];read_failures=0
                 if scenario and snapshot['action'] in {'start','replay'}:
                     state=args.output/'replays'/f'g{generation}'
                     log=(args.output/f'replay-g{generation}.log').open('w')
@@ -49,16 +50,25 @@ def coordinate(control,args,stopping):
                     except (OSError,ValueError):terminal={}
                     control.publish(generation,state='error',validation=terminal,error='Synthetic backend exited. Inspect the failed stage and owned replay log.');child=None
                 else:
-                    connection=state/'connection.json';catalog=state/'dashboards/xlayer-demo-scenarios.json'
-                    validation=state/'validation-state.json'
-                    if validation.exists():control.publish(generation,validation=json.loads(validation.read_text()))
-                    if connection.exists():
-                        control.publish(generation,backend=json.loads(connection.read_text()))
-                    if catalog.exists():
-                        data=json.loads(catalog.read_text())['xlayerDemoScenarios']
-                        # Partial telemetry needs both fault and recovery pairs.
-                        done=data['status']=='ready' and (snapshot['selected']!='partial-telemetry' or data['cycle']>=1)
-                        control.publish(generation,catalog=data,state='ready' if done else 'collecting')
+                    try:
+                        connection=state/'connection.json';catalog=state/'dashboards/xlayer-demo-scenarios.json'
+                        validation=state/'validation-state.json'
+                        if validation.exists():control.publish(generation,validation=json.loads(validation.read_text()))
+                        if connection.exists():
+                            endpoints=json.loads(connection.read_text())
+                            if not isinstance(endpoints,dict) or any(not isinstance(endpoints.get(key),str) for key in ('prometheus','loki')):raise ValueError('Invalid connection snapshot')
+                            control.publish(generation,backend=endpoints)
+                        if catalog.exists():
+                            data=json.loads(catalog.read_text())['xlayerDemoScenarios']
+                            # Partial telemetry needs both fault and recovery pairs.
+                            done=data['status']=='ready' and (snapshot['selected']!='partial-telemetry' or data['cycle']>=1)
+                            control.publish(generation,catalog=data,state='ready' if done else 'collecting')
+                        read_failures=0
+                    except (OSError,ValueError,TypeError,KeyError):
+                        read_failures+=1
+                        if read_failures>=8:
+                            stop_owned(child);child=None
+                            control.publish(generation,state='error',error='Invalid replay snapshot after bounded retries; Replay starts a new isolated execution.')
             control.changed.wait(.25);control.changed.clear()
     finally:
         if child is not None:stop_owned(child)
@@ -117,7 +127,7 @@ datasources:
         process=subprocess.Popen([str(home/'bin/grafana'),'server',f'--homepath={home}',f'--config={config}'],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
         grafana=f'http://127.0.0.1:{args.grafana_port}'
         wait_for_service(grafana+'/api/health',process,stopping,lambda url:urllib.request.urlopen(url,timeout=3).read())
-        (args.output/'connection.json').write_text(json.dumps({'grafana':grafana,'control':proxy,'data_origin':'synthetic'}))
+        atomic_write_text(args.output/'connection.json',json.dumps({'grafana':grafana,'control':proxy,'data_origin':'synthetic'}))
         print(f'SCENARIO LAB {grafana}/a/xlayer-telemetry-app/demo',flush=True)
         while not stopping.is_set():
             if process.poll() is not None:raise RuntimeError('Owned Grafana exited')

@@ -131,6 +131,8 @@ def run(args):
             validators = (command, contracts, series, clocks, infrastructure)
             validators += ([sys.executable,str(SCRIPTS/'redesign_validate.py'),'--url',connection['grafana'],
                 '--output',str(args.output/'product-journey'),*(['--browser',args.browser] if args.browser else [])],)
+            validators += ([sys.executable,str(SCRIPTS/'cached_deep_dive_validate.py'),'--url',connection['grafana'],
+                '--output',str(args.output/'cached-deep-dive'),*(['--browser',args.browser] if args.browser else [])],)
             if not args.multi_worker and not args.multi_job:
                 # Reuse the same owned stack; cover all routes/themes without
                 # adding another demo launch or repeating multi-job diagnosis.

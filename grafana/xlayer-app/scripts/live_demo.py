@@ -249,7 +249,7 @@ datasources:
             grafana_process = launch([str(home/'bin/grafana'),'server',f'--homepath={home}',f'--config={compatibility}'], 'grafana',env)
             grafana=f'http://127.0.0.1:{args.grafana_port}'
             ready(grafana+'/api/health',grafana_process);ready(grafana+'/api/dashboards/uid/telemetry-overview',grafana_process)
-        (args.output/'connection.json').write_text(json.dumps({'grafana':grafana,'prometheus':prom,'loki':loki,'data_origin':'synthetic'},indent=2))
+        atomic_write_text(args.output/'connection.json',json.dumps({'grafana':grafana,'prometheus':prom,'loki':loki,'data_origin':'synthetic'},indent=2))
         publish_explorer(dashboards,selected=scenario_name,cycle=0,status='collecting')
         print(f'SCENARIO EXPLORER {grafana}/a/xlayer-telemetry-app/demo',flush=True)
         def publish_completed(scenario, cycle, observations):

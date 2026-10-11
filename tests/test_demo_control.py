@@ -77,3 +77,61 @@ def test_failed_stage_is_preserved_and_failed_backend_is_revoked():
     control.publish(1,state='error',validation={'query':{'state':'failed','checks':[],'message':'Expected signal absent'}})
     assert control.snapshot()['validation']['query']['state']=='failed'
     with pytest.raises(RuntimeError):control.target('prometheus')
+
+
+@pytest.mark.parametrize("exhaust_retries", [False, True])
+def test_coordinator_survives_partial_connection_and_replay_isolation(tmp_path,monkeypatch,exhaust_retries):
+    import importlib,sys,json,threading,time
+    from pathlib import Path
+    from argparse import Namespace
+    from xlayer_telemetry.fileio import atomic_write_text
+    scripts=Path(__file__).parents[1]/'grafana/xlayer-app/scripts'
+    monkeypatch.syspath_prepend(str(scripts))
+    lab=importlib.import_module('scenario_lab')
+    control=ScenarioControl();stopping=threading.Event();created=threading.Event();read=threading.Event()
+    original=Path.read_text
+    def inspect_read(path,*args,**kwargs):
+        result=original(path,*args,**kwargs)
+        if path.name=='connection.json':read.set()
+        return result
+    monkeypatch.setattr(Path,'read_text',inspect_read)
+    class Child:
+        def __init__(self,command,**kwargs):
+            self.state=Path(command[command.index('--output')+1]);self.state.mkdir(parents=True)
+            (self.state/'connection.json').write_text('{"prometheus":')
+            self.stopped=False;created.set()
+        def poll(self):return 0 if self.stopped else None
+    monkeypatch.setattr(lab.subprocess,'Popen',Child)
+    monkeypatch.setattr(lab,'stop_owned',lambda child:setattr(child,'stopped',True))
+    failures=[]
+    def run():
+        try:lab.coordinate(control,Namespace(output=tmp_path,tools=tmp_path),stopping)
+        except Exception as error:failures.append(type(error).__name__)
+    thread=threading.Thread(target=run);thread.start()
+    try:
+        for generation in (1,2):
+            created.clear();read.clear()
+            control.command('replay','normal',generation-1)
+            assert created.wait(2) and read.wait(2)
+            thread.join(.1)
+            assert thread.is_alive() and not failures,failures
+            with pytest.raises(RuntimeError):control.target('prometheus')
+            if exhaust_retries and generation==1:
+                deadline=time.monotonic()+4
+                while time.monotonic()<deadline and control.snapshot()['status']!='error':
+                    stopping.wait(.02)
+                assert control.snapshot()['status']=='error'
+                assert thread.is_alive() and not failures
+                with pytest.raises(RuntimeError):control.target('prometheus')
+                continue  # Only a fresh Replay may replace the failed generation.
+            endpoint=f'http://127.0.0.1:{1000+generation}'
+            atomic_write_text(tmp_path/'replays'/f'g{generation}'/'connection.json',json.dumps({'prometheus':endpoint,'loki':endpoint}))
+            deadline=time.monotonic()+2
+            while time.monotonic()<deadline:
+                with control.lock:
+                    if control.backend:break
+                stopping.wait(.01)
+            assert control.target('prometheus')==(generation,endpoint)
+    finally:
+        stopping.set();control.changed.set();thread.join(3)
+    assert not thread.is_alive()
