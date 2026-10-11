@@ -186,3 +186,29 @@ Network 검사는 실제 rule·저장·Loki·Grafana 경로이며 input은 synth
 Grafana 13.1.7 / Playwright 1.56.0 기본 headless shell에서 새 검사를 포함한 전체 단일worker `ci_demo.py` journey가 통과했습니다. Light/Dark·1440/390px, Network 카드의 실제 가시 상태, Sandbox의 전송 query 및 Back/Forward/Reload를 확인했습니다. 별도 multi-worker browser journey와 Python 3.10은 이번에 재실행하지 않았으며, 새 검사는 다음 단일·멀티worker CI 양쪽에 연결되어 있습니다. 코드·사용 경로·예외 처리 재검토를 마친 범위에서 추가로 중요한 결함은 찾지 못했습니다. 로그·응답·캡처는 `artifacts/six-workflows/`에 보존하고 작업 전용 Grafana 두 환경의 process·state를 정리했습니다.
 
 구현 커밋: ②·③·④·⑥ [a3452f2](https://github.com/daegyu94/xlayer-telemetry/commit/a3452f2f07ab97d09a565830907cdde19b60eff1), ①·⑤ [e1f3c79](https://github.com/daegyu94/xlayer-telemetry/commit/e1f3c796094a8fd1abd4a76ee1aaeba95b8515dc).
+
+## 2026-10-12 — LLM clock·Matrix scope 및 검증 누락 5건
+
+기준은 remote `main` `eabab04c67b73a21f52396458d3e162c418489d8`입니다. 앞선 2개 연결 결함과 추가 3개 보고를 함께 재확인했으며 모두 재현되었습니다. Mooncake 제품 설정의 read/write query는 정상이며, 해당 항목은 이를 지키는 회귀 테스트의 결함입니다.
+
+| 항목 | 재현 / 수정 / 검증 |
+| --- | --- |
+| LLM clock projection | 기존 projection에서 5개 CPU 회귀 실패. Rule의 clock 요약 변환을 `project_clock_quality()`로 공통화하고 observation packet의 status·node 목록·uncertainty·age를 LLM summary에도 전달. 판정·candidate 강도는 복사하지 않음. 실제 Method textbox 전환 후 새 LLM query 응답을 기다리고 aligned의 GPU Phase 값 유지, unsafe/unknown의 계속 보류를 검사 |
+| Matrix 상세 entity | GPU 1 / vLLM endpoint B 선택 후 Evidence 링크는 여전히 All인 실제 Grafana 실패를 재현. 선택 sample의 labels로 resource context를 만들며 vLLM/KV/connector의 `instance`를 engine 선택값으로 사용. 원래 Run·observer·record·시간 보존, 실제 native PromQL의 GPU/instance 제한과 Back 후 Matrix 선택·값 복원을 검사 |
+| CPU 장애 검증 | 이전 down·이전 scrape·다른 오류가 다음 단계까지 통과하던 4개 회귀 실패. 각 장애 전 정상 복구를 별도로 확인하고 atomic fault 게시 이후 시작된 `lastScrape`, `health`, 해당 `lastError`를 함께 검사. 실제 Docker 환경에서 normal/missing/timeout/503/sample limit의 9개 전환과 최종 복구를 기록 |
+| Mooncake 회귀 누락 | Query 삭제·반대 query로 중복 대체·write expr을 read로 교체한 5개 변형이 기존 테스트를 통과함을 재현. 필수 read/write signal과 정확한 개수를 먼저 검사하고, 기대 series/value는 고정 producer fixture에서 생성. 실제 promtool에서 정상·한쪽 없음·counter reset 및 모든 변형 거부 확인 |
+| Engine 없는 vLLM 근거 혼합 | Engine index 없이 instance/model이 다른 두 signal을 묶는 답을 기존 검증기가 허용함을 재현. 정규화 signal, native metric name, collector source 또는 query로 확인된 vLLM 관측의 endpoint/model namespace를 비교. 동일 endpoint, 같은 signal의 endpoint 간 비교, GPU 등 다른 계층과의 상관분석은 허용. PromQL 문자열에 등장하는 `vllm:` 문구는 metric family로 취급하지 않음 |
+
+Clock와 Matrix 검사는 실제 Grafana/Loki/Prometheus에 저장된 projection과 SDK 데이터를 사용합니다. LLM 응답·unsafe/unknown clock 상태·두 번째 vLLM endpoint는 명시적 fixture이며, 실제 모델 추론이나 물리 clock 검증이 아닙니다. 새 `matrix_context_validate.py`는 기존 단일worker `ci_demo.py`의 마지막에 연결해 추가 Run이 이전 catalog 검사에 영향을 주지 않게 했습니다. Native URL 변경만 기다리면 이전 App DOM을 읽을 수 있으므로 native mount 완료도 기다립니다.
+
+CPU 통합 검사는 기존 도구와 test image를 사용한 monitoring + node-a + node-b의 독립 network/PID/filesystem namespace에서 실행했습니다. 실제 scrape·CLI lifecycle·SDK·Alloy/Loki·query·diagnosis를 통과하며, host kernel은 공유합니다. `native_scrape_transitions`에 각 주입 시각·새 scrape 시각·오류를 남기므로 단순 `up=0` 반복으로 통과할 수 없습니다. 관련 테스트는 `test_cpu_fault_transitions.py`, `test_mooncake_dashboards.py`, `test_diagnosis_evidence_integrity.py`, `test_llm_evidence_semantics.py`입니다.
+
+기존에 저장한 LLM projection에는 새 clock 필드가 자동으로 추가되지 않습니다. 원본 observation packet이 보존된 accepted 결과를 다시 projection하거나 새 분석을 실행해야 하며, 이전 결과에서 확인되지 않은 clock 품질을 UI가 임의로 보충하지 않습니다. 실제 LLM 추론·GPU·물리 multi-node·RDMA·3FS는 **실제 서버 환경 검증 TBD**입니다.
+
+최종 Python 3.12.3 + actual promtool의 전체 CPU 회귀는 **2,025 passed / 0 failed / 6 skipped**입니다. 마지막 query 식별 보강 후 관련 LLM 검사 **159 passed**를 다시 확인했으며, Skip은 owned ClickHouse container 미설정입니다. Frontend **204 passed**, typecheck/build, Grafana helper **48 passed**, 문서 계약 **10 passed** 및 Sphinx build, compileall·Bash syntax·diff check가 통과했습니다.
+
+Grafana 13.1.7 / Playwright 1.56.0 기본 headless shell의 전체 단일worker `ci_demo.py`와 새 Light/Dark 10개 경로가 통과했습니다. 통합 실행의 동일 aligned Step은 rule/LLM 모두 GPU `57%`였고, unsafe/unknown은 두 Method 모두 `Clock unverified`였습니다. GPU `1` 및 `matrix-endpoint-b`에 제한된 native query와 Back 복원을 확인했습니다. Docker CPU 통합의 9개 scrape 전환도 실제 Prometheus의 시각·오류로 검증했습니다. 별도 multi-worker browser journey, Python 3.10, 실제 모델 추론은 이번에 실행하지 않았습니다.
+
+코드·호출자·실패 경로 재검토에서 설명용 PromQL 문자열·주석을 vLLM metric으로 오인하는 경우를 보강했고, 수정된 범위의 검증을 완료했습니다. 이는 모든 파일·모든 환경에서 버그가 없다는 주장이 아닙니다. 재현 로그·query 응답·화면·CPU 전환 기록은 `artifacts/llm-clock-matrix/`에 보존합니다. 작업 전용 Grafana 두 환경, CPU container 세 개와 network, 임시 state를 정리했으며 기존 사용자 환경과 공용 도구는 유지했습니다.
+
+구현 커밋: LLM clock [0525a81](https://github.com/daegyu94/xlayer-telemetry/commit/0525a81653d6905839adbc8e897c7c9f16a88772), Matrix entity [8eee527](https://github.com/daegyu94/xlayer-telemetry/commit/8eee527d487dc98f5d54b3c3b5c2d232dd26be36), vLLM endpoint/model [e2bb004](https://github.com/daegyu94/xlayer-telemetry/commit/e2bb0047e4bbcc6d260a979d4cca72d3518ebc44), CPU scrape 전환 [9497e72](https://github.com/daegyu94/xlayer-telemetry/commit/9497e7270fd291976dd1055ab8ea581a78d7518f), Mooncake 회귀 [4f04232](https://github.com/daegyu94/xlayer-telemetry/commit/4f04232d47ff84263ca95691299bbb430edefb9d).
