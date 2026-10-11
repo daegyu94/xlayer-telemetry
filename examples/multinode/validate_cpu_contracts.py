@@ -6,6 +6,7 @@ Prometheus scrape/relabel and diagnosis; no actual GPU/vLLM workload is run.
 """
 from __future__ import annotations
 import argparse
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,7 @@ import uuid
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.operations.config import load_config, snapshot
 from xlayer_telemetry.prometheus import PrometheusClient
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
@@ -36,6 +38,33 @@ def wait_for(callback, seconds=30):
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError): pass
         time.sleep(.25)
     raise TimeoutError('CPU contract condition not observed before deadline')
+
+
+def exercise_native_faults(fault, query, up, target, *, wait=wait_for, now=time.time):
+    """Require a post-injection scrape and its specific outcome at every step."""
+    evidence=[]
+    errors={'delay':'context deadline exceeded', 'error':'HTTP status 503', 'sample_limit':'sample limit exceeded'}
+    def apply(mode):
+        atomic_write_text(fault,json.dumps({mode:True} if mode!='normal' else {}))
+        injected=now()
+        def observed():
+            row=target()
+            if not row or not isinstance(row.get('lastScrape'),str) or not isinstance(row.get('lastError'),str):return None
+            stamp=datetime.fromisoformat(row['lastScrape'].replace('Z','+00:00')).timestamp()
+            if stamp<=injected:return None
+            if mode in errors:
+                if row.get('health')!='down' or up('node-b','native') or errors[mode] not in row['lastError']:return None
+            elif (row.get('health')!='up' or row['lastError'] or not up('node-b','native')
+                  or len(query('vllm:num_requests_waiting'))!=(1 if mode=='missing' else 2)):return None
+            return row
+        row=wait(observed)
+        assert up('node-a') and up('node-a','native')
+        evidence.append({'mode':mode,'injected_at':injected,'last_scrape':row['lastScrape'],'last_error':row['lastError']})
+    for mode in ('missing','delay','error','sample_limit'):
+        apply('normal')  # A previous down sample cannot satisfy the next fault.
+        apply(mode)
+    apply('normal')
+    return evidence
 
 
 def validate(output, tools, image):
@@ -144,15 +173,13 @@ def validate(output, tools, image):
         checks['partial_replica_and_disabled_histogram']='no peer fill, fake zero or percentile'
         checks['unverified_multinode_clock']='raw observations retained; candidates withheld'
         fault=output/'node-b/fault.json'
-        for mode in ({'missing':True},{'delay':True},{'error':True},{'sample_limit':True},{}):
-            fault.write_text(json.dumps(mode))
-            if mode.get('missing'):
-                wait_for(lambda:len(query('vllm:num_requests_waiting'))==1)
-                assert up('node-b','native')
-            elif mode:
-                wait_for(lambda:not up('node-b','native'))
-            else: wait_for(lambda:up('node-b','native') and len(query('vllm:num_requests_waiting'))==2)
-            assert up('node-a') and up('node-a','native')
+        def native_target():
+            with urlopen(endpoint+'/api/v1/targets?state=active',timeout=3) as response:
+                targets=json.load(response)['data']['activeTargets']
+            rows=[row for row in targets if row.get('labels',{}).get('job')=='native'
+                  and row['labels'].get('node')=='node-b' and row['labels'].get('cluster')==prefix]
+            return rows[0] if len(rows)==1 else None
+        checks['native_scrape_transitions']=exercise_native_faults(fault, query, up, native_target)
         checks['native_partial_timeout_http_sample_limit_recovery']=True
         (output/'node-a/fault.json').write_text(json.dumps({'counter_reset':True}))
         wait_for(lambda:query('vllm:num_preemptions_total')[0]['value'][1]=='0')
