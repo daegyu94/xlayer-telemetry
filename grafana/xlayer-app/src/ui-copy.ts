@@ -97,3 +97,15 @@ export function displayUiNote(raw:string):string{
  if(entities)return `${entities[1]}개 Entity가 일치합니다. Entity를 명시적으로 선택하세요. 서로 평균을 내지 않습니다.`;
  return raw;
 }
+
+const SIGNAL_COPY:Record<string,{label:string;hint:string}>={
+ step_duration_seconds:{label:'Step duration',hint:'완료된 observation의 소요시간입니다. Async이면 trainer update 범위만 포함합니다.'},
+ rollout_duration_seconds:{label:'Rollout duration',hint:'보고되거나 계측된 rollout duration입니다. Timeline의 경계 정확도를 함께 확인하세요.'},
+ vllm_requests_waiting:{label:'vLLM waiting requests',hint:'선택 engine에서 대기 중인 request 수입니다. Shared engine이면 Run 소유량이 아닙니다.'},
+ threefs_p99_latency:{label:'3FS service latency · p99',hint:'저장된 entity별 reported p99입니다. Local disk mean이나 RPC p95와 다른 통계입니다.'},
+ storage_device_busy_ratio:{label:'Storage device busy',hint:'Device 관측 구간의 busy 비율입니다. 사용량을 특정 Run에 귀속하지 않습니다.'},
+ gpu_utilization_percent:{label:'GPU utilization',hint:'Device의 sampled utilization입니다. 학습 MFU와 다릅니다.'},
+ threefs_throughput_bytes_per_second:{label:'3FS throughput',hint:'저장된 shared-service 처리량입니다. 이 Run의 throughput으로 해석하지 않습니다.'},
+ network_utilization_ratio:{label:'Network utilization',hint:'관측한 interface의 사용 비율입니다. 실제 storage 경로나 병목을 단독으로 입증하지 않습니다.'},
+};
+export function signalPresentation(key:string){return SIGNAL_COPY[key]||{label:key,hint:'Producer가 보고한 signal입니다. Source / scope에서 단위와 entity를 확인하세요.'};}

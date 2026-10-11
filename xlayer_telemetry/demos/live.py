@@ -243,10 +243,13 @@ class Demo:
         samples = []
         if frame is not None:
             stages = {p["phase"]: p["end"] - p["start"] for p in frame["phases"]}
+            update = next(p for p in frame['phases'] if p['phase']=='actor_update')
+            observed_end = update['end'] if schedule.get('execution_mode')=='async' else frame['end']
+            observed_duration = stages['actor_update'] if schedule.get('execution_mode')=='async' else frame['end']-frame['start']
             samples.extend([
-                GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", frame["end"], labels),
+                GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", observed_end, labels),
                 GaugeSample("training_step", "Synthetic training step.", frame["step"], labels),
-                GaugeSample("training_step_time_seconds", "Synthetic training step duration.", frame["end"] - frame["start"], labels),
+                GaugeSample("training_step_time_seconds", "Synthetic training step duration.", observed_duration, labels),
                 GaugeSample("reward_mean", "Synthetic completed-step reward mean.", .732, labels),
                 GaugeSample("training_tokens_per_second", "Synthetic worker throughput.", 64 * 512 / stages["rollout"], labels),
             ])

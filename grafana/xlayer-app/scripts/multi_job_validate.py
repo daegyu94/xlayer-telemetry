@@ -216,7 +216,7 @@ def main():
                     assert replica_context['var-node'] == ['gpu-node-1']
                     assert replica_context['var-run_id'] == [run] and replica_context['var-record_id'] == [reports[run]['trigger_record_id']]
                     native_dashboard_back(page, args.url)
-                page.get_by_role('link', name='Investigate', exact=True).click()
+                page.get_by_role('link', name='Investigation', exact=True).click()
                 page.get_by_role('heading', name=re.compile('Step Investigation')).wait_for(timeout=30000)
                 page.wait_for_timeout(1200)
                 body=page.locator('body').inner_text()

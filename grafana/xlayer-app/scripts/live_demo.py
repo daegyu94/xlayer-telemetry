@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import argparse
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -24,6 +25,8 @@ from xlayer_telemetry.demos.live import Demo, prometheus_config
 from xlayer_telemetry.demos.diagnosis import generate
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows, write_report
 from xlayer_telemetry.demos.scenario import make_scenario
+from xlayer_telemetry.demos.validation import stage, schedule_signature, check_query, check_diagnosis, check_live_queue, check_multi_quality
+from xlayer_telemetry.demos.journeys import SCENARIO_IDS, SCENARIOS, scenario_definition, publish_explorer, observation_link
 from xlayer_telemetry.demos.multi_job import diagnosis_config, make_schedule, record_job
 from xlayer_telemetry.fileio import atomic_write_text, append_jsonl
 from xlayer_telemetry.analysis.deadline import IsolatedAnalyzer
@@ -90,11 +93,11 @@ def wait_for_service(url, owner, stopping, request, *, timeout=90):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--tools', required=True, type=Path)
+    parser.add_argument('--tools', type=Path)
     parser.add_argument('--grafana-version',choices=('12.1.0',DEFAULT_GRAFANA_VERSION),default=DEFAULT_GRAFANA_VERSION)
-    parser.add_argument('--output', required=True, type=Path, help='New, disposable state directory')
+    parser.add_argument('--output', type=Path, help='New, disposable state directory')
     parser.add_argument('--grafana-port', type=int, default=23400)
-    parser.add_argument('--scenario', choices=('storage-regression', 'normal', 'alternating'), default='alternating',
+    parser.add_argument('--scenario', choices=(*SCENARIO_IDS, 'alternating'), default='alternating',
                         help='Explicit synthetic comparison: real scrapes precede completed SDK spans/report')
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--multi-job', action='store_true', help='Three concurrent synthetic jobs; actual query/diagnosis with shared and missing evidence')
@@ -102,7 +105,24 @@ def main():
                         help='Opt-in controlled rollout spans on four workers with one explicit synthetic outlier')
     parser.add_argument('--storage-series',action='store_true',help='Explicit synthetic 3FS collection points, sparse report coverage and no clock attribution')
     parser.add_argument('--app-package',type=Path,help='Install a checksum-verified local package into this isolated demo')
+    parser.add_argument('--list-scenarios',action='store_true',help='Print scenario goals, expected outcomes and workflows; no services start')
+    parser.add_argument('--cycles',type=int,default=0,help='0 repeats; 1..20 publishes this many pairs then keeps the stack available for inspection')
+    parser.add_argument('--backend-only',action='store_true',help=argparse.SUPPRESS)
+    parser.add_argument('--run-prefix',default='',help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.list_scenarios:
+        print(json.dumps(SCENARIOS,ensure_ascii=False,indent=2));return
+    if args.run_prefix and not re.fullmatch(r'g[0-9]+-',args.run_prefix): parser.error('invalid isolated demo generation')
+    single_run=args.run_prefix+'verl-agent-demo'
+    if args.tools is None or args.output is None: parser.error('--tools and --output are required to start a demo')
+    if not 0<=args.cycles<=20: parser.error('--cycles must be 0..20')
+    if args.scenario in SCENARIO_IDS and scenario_definition(args.scenario)['mode']=='multi':
+        if args.multi_worker: parser.error('multi-job scenarios cannot use --multi-worker')
+        args.multi_job=True
+    if args.multi_job and args.scenario not in {'alternating','multi-job','partial-telemetry','async-replicas'}:
+        parser.error('--multi-job requires a multi-job scenario')
+    scenario_name=('multi-job' if args.multi_job else 'alternating') if args.scenario=='alternating' else args.scenario
+    profile=scenario_name if args.multi_job else None
     if args.multi_job and args.storage_series:
         parser.error('--multi-job uses actual diagnosis queries and does not inject --storage-series fixtures')
     args.output = args.output.resolve()
@@ -110,10 +130,10 @@ def main():
     if not 1 <= args.grafana_port <= 65535:
         parser.error('--grafana-port must be 1..65535')
     with socket.socket() as probe:
-        try: probe.bind(('127.0.0.1', args.grafana_port))
+        try: probe.bind(('127.0.0.1', 0 if args.backend_only else args.grafana_port))
         except OSError: parser.error('Grafana port already in use; choose another --grafana-port')
     try:
-        validate_demo_app(args.app_package, ROOT / 'grafana/xlayer-app/dist')
+        if not args.backend_only: validate_demo_app(args.app_package, ROOT / 'grafana/xlayer-app/dist')
     except (OSError, ValueError) as error:
         parser.error(str(error))
     args.output.mkdir(parents=True, exist_ok=False)
@@ -137,13 +157,15 @@ def main():
         process = subprocess.Popen(argv, stdout=log, stderr=log, env=env)
         processes.append((process, log))
         return process
+    active_stage='generation'
     try:
+        stage(args.output,'generation','running',message='Preparing controlled scenario input')
         ep, pp, lp, grpc = port(), port(), port(), port()
         scenario_state = args.output / 'scenario-state.json'
         demo = Demo(ROOT / 'examples/live-demo', **({'multi_job_state': scenario_state} if args.multi_job else {'scenario_state': scenario_state}))
         if args.multi_job:
             atomic_write_text(scenario_state, json.dumps(make_schedule(start=time.time()+120,
-                node=demo.gpu['gpu_nodes'][0], replica_nodes=demo.gpu['gpu_nodes'][1:3])))
+                node=demo.gpu['gpu_nodes'][0], replica_nodes=demo.gpu['gpu_nodes'][1:3],profile=profile,run_prefix=args.run_prefix)))
         pc = args.output / 'prometheus.yaml'
         pc.write_text(prometheus_config(demo, f'127.0.0.1:{ep}', 'scenes-demo'))
         launch([sys.executable, '-m', 'xlayer_telemetry.demos.live', '--listen', f'127.0.0.1:{ep}', '--multi-job-state' if args.multi_job else '--scenario-state', str(scenario_state)], 'exporter')
@@ -211,36 +233,57 @@ datasources:
         else:
             plugin_dir=args.output/'plugins';plugin_dir.mkdir()
             (plugin_dir/'xlayer-telemetry-app').symlink_to(ROOT/'grafana/xlayer-app/dist',target_is_directory=True)
-        home = grafana_home(args.tools,args.grafana_version)
-        env={**os.environ,'GF_PATHS_DATA':str(args.output/'grafana'),'GF_PATHS_LOGS':str(args.output/'grafana-logs'),
-             'GF_PATHS_PROVISIONING':str(provisioning),'GF_PATHS_PLUGINS':str(plugin_dir),
-             'GF_SERVER_HTTP_ADDR':'127.0.0.1','GF_SERVER_HTTP_PORT':str(args.grafana_port),
-             'GF_AUTH_ANONYMOUS_ENABLED':'true','GF_AUTH_ANONYMOUS_ORG_ROLE':'Viewer',
-             'GF_FEATURE_TOGGLES_ENABLE':os.environ.get('GF_FEATURE_TOGGLES_ENABLE',default_toggles(args.grafana_version)),
-             'GF_USERS_DEFAULT_THEME':'light','GF_USERS_HOME_PAGE':'/a/xlayer-telemetry-app/overview','GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS':'xlayer-telemetry-app',
-             'GF_ANALYTICS_REPORTING_ENABLED':'false','GF_ANALYTICS_CHECK_FOR_UPDATES':'false',
-             'GF_PLUGINS_PREINSTALL_DISABLED':'true'}
-        compatibility=args.output/'grafana-compat.ini'
-        compatibility.write_text(compatibility_config(args.grafana_version))
-        grafana_process = launch([str(home/'bin/grafana'),'server',f'--homepath={home}',f'--config={compatibility}'], 'grafana',env)
-        grafana=f'http://127.0.0.1:{args.grafana_port}'
-        ready(grafana+'/api/health',grafana_process);ready(grafana+'/api/dashboards/uid/telemetry-overview',grafana_process)
+        grafana=None;grafana_process=None
+        if not args.backend_only:
+            home = grafana_home(args.tools,args.grafana_version)
+            env={**os.environ,'GF_PATHS_DATA':str(args.output/'grafana'),'GF_PATHS_LOGS':str(args.output/'grafana-logs'),
+                 'GF_PATHS_PROVISIONING':str(provisioning),'GF_PATHS_PLUGINS':str(plugin_dir),
+                 'GF_SERVER_HTTP_ADDR':'127.0.0.1','GF_SERVER_HTTP_PORT':str(args.grafana_port),
+                 'GF_AUTH_ANONYMOUS_ENABLED':'true','GF_AUTH_ANONYMOUS_ORG_ROLE':'Viewer',
+                 'GF_FEATURE_TOGGLES_ENABLE':os.environ.get('GF_FEATURE_TOGGLES_ENABLE',default_toggles(args.grafana_version)),
+                 'GF_USERS_DEFAULT_THEME':'light','GF_USERS_HOME_PAGE':'/a/xlayer-telemetry-app/overview','GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS':'xlayer-telemetry-app',
+                 'GF_ANALYTICS_REPORTING_ENABLED':'false','GF_ANALYTICS_CHECK_FOR_UPDATES':'false',
+                 'GF_PLUGINS_PREINSTALL_DISABLED':'true'}
+            compatibility=args.output/'grafana-compat.ini'
+            compatibility.write_text(compatibility_config(args.grafana_version))
+            grafana_process = launch([str(home/'bin/grafana'),'server',f'--homepath={home}',f'--config={compatibility}'], 'grafana',env)
+            grafana=f'http://127.0.0.1:{args.grafana_port}'
+            ready(grafana+'/api/health',grafana_process);ready(grafana+'/api/dashboards/uid/telemetry-overview',grafana_process)
         (args.output/'connection.json').write_text(json.dumps({'grafana':grafana,'prometheus':prom,'loki':loki,'data_origin':'synthetic'},indent=2))
-        first_run = 'demo-qwen' if args.multi_job else 'verl-agent-demo'
+        publish_explorer(dashboards,selected=scenario_name,cycle=0,status='collecting')
+        print(f'SCENARIO EXPLORER {grafana}/a/xlayer-telemetry-app/demo',flush=True)
+        def publish_completed(scenario, cycle, observations):
+            publish_explorer(dashboards,selected=scenario,cycle=cycle,status='ready',observations=observations)
+            expected={row['context']['record_id'] for row in observations}
+            def visible(url):
+                catalog=json.loads(request(url)).get('dashboard',{}).get('xlayerDemoScenarios',{})
+                published={row['context']['record_id'] for row in catalog.get('observations',[])}
+                if not expected.issubset(published): raise RuntimeError('Scenario publication pending')
+                return catalog
+            if not args.backend_only: wait_for_service(grafana+'/api/dashboards/uid/xlayer-demo-scenarios',grafana_process,stopping,visible)
+        first_run = args.run_prefix+'demo-qwen' if args.multi_job else single_run
         first_engine = '$__all' if args.multi_job else 'synthetic-vllm-0'
         print(f'LIVE DEMO {grafana}/a/xlayer-telemetry-app/overview?var-cluster=scenes-demo&var-run_id={first_run}&var-node=$__all&var-source_node=$__all&var-gpu=0&var-engine={first_engine}',flush=True)
         cycle=0
         while not stopping.is_set():
+            if args.cycles and cycle>=args.cycles:
+                # Keep the owned stack alive; historical observations retain their source times.
+                if any(process.poll() is not None for process,_ in processes): raise RuntimeError('Owned demo service exited')
+                stopping.wait(1);continue
+            publish_explorer(dashboards,selected=scenario_name,cycle=cycle,status='collecting')
             if any(process.poll() is not None for process, _ in processes):
                 raise RuntimeError('An owned demo service exited; inspect launcher logs')
             if args.multi_job:
                 schedule = make_schedule(start=time.time()+2, node=demo.gpu['gpu_nodes'][0], cycle=cycle,
-                                         replica_nodes=demo.gpu['gpu_nodes'][1:3])
+                                         replica_nodes=demo.gpu['gpu_nodes'][1:3],profile=profile,run_prefix=args.run_prefix)
                 atomic_write_text(scenario_state, json.dumps(schedule))
+                stage(args.output,'generation','passed',[f'Deterministic input signature: {schedule_signature(schedule)}','Three separately identified jobs; curated composition'])
+                stage(args.output,'query','pending');stage(args.output,'diagnosis','pending')
+                active_stage='collection';stage(args.output,'collection','running',message='Waiting for real scrape and completed SDK observations')
                 end = max(job['scenario']['frames'][1]['end'] for job in schedule['jobs'])
                 print(f'MULTI-JOB cycle={cycle}: three overlapping jobs; completion in {end-time.time():.0f}s', flush=True)
                 fixture=args.output/f'fixture-{cycle}'
-                waiting=list(schedule['jobs']); active={}
+                waiting=list(schedule['jobs']); active={}; observations=[];query_checks=[];diagnosis_checks=[]
                 with ThreadPoolExecutor(max_workers=3) as analyses:
                     while (waiting or active) and not stopping.is_set():
                         if any(p.poll() is not None for p, _ in processes): raise RuntimeError('Owned demo service exited')
@@ -253,6 +296,10 @@ datasources:
                             if not future.done(): continue
                             job,submitted=active.pop(future)
                             streams,report=future.result()
+                            stage(args.output,'collection','passed',['SDK records and native live samples available'])
+                            active_stage='query';query_checks.extend(f"{report['run_id']}: {check}" for check in check_query(report));stage(args.output,'query','passed',query_checks)
+                            active_stage='diagnosis';diagnosis_checks.extend(f"{report['run_id']}: {check}" for check in check_diagnosis(scenario_name,report));stage(args.output,'diagnosis','passed',diagnosis_checks)
+                            observations.append(observation_link(scenario_name,report))
                             request(loki+'/loki/api/v1/push',{'streams':streams})
                             publication={'run_id':report['run_id'],'step':report['step'],
                                 'source_end':report['analysis_window']['end'],'submitted_at':submitted,'published_at':time.time(),
@@ -261,16 +308,21 @@ datasources:
                             print('PUBLISHED MULTI-JOB '+json.dumps(publication),flush=True)
                         if waiting or active: stopping.wait(.2)
                 if stopping.is_set(): break
+                active_stage='query';stage(args.output,'query','passed',query_checks+check_multi_quality(schedule,prom,request))
                 from xlayer_telemetry.operations.runs import publish
                 publish(fixture, args.output / 'dashboards')
+                publish_completed(scenario_name,cycle,observations)
                 print(f'COMPLETED MULTI-JOB cycle={cycle} runs=3; actual Prometheus diagnosis; attribution unverified',flush=True)
                 cycle+=1
                 if stopping.wait(4):break
                 continue
             current = ('storage-regression' if cycle % 2 == 0 else 'normal') if args.scenario == 'alternating' else args.scenario
-            schedule = make_scenario(start=time.time()+2, run_id='verl-agent-demo', node=demo.gpu['gpu_nodes'][0],
+            schedule = make_scenario(start=time.time()+2, run_id=single_run, node=demo.gpu['gpu_nodes'][0],
                                      step=127+2*cycle, current=current)
             atomic_write_text(scenario_state, json.dumps(schedule))
+            stage(args.output,'generation','passed',[f'Deterministic input signature: {schedule_signature(schedule)}'])
+            stage(args.output,'query','pending');stage(args.output,'diagnosis','pending')
+            active_stage='collection';stage(args.output,'collection','running',message='Waiting for real scrape and SDK records')
             print(f"SCENARIO {current}: baseline Step {schedule['frames'][0]['step']} -> Step {schedule['frames'][1]['step']}; "
                   f"first completed comparison in {schedule['frames'][1]['end']-time.time():.0f}s", flush=True)
             # Let the existing Prometheus scrape process observe actual live phases.
@@ -282,10 +334,12 @@ datasources:
             if stopping.is_set():
                 break
             directory=args.output/f'fixture-{cycle}'
-            report=generate(directory,run_id='verl-agent-demo',node=demo.gpu['gpu_nodes'][0],scenario=schedule,storage_series=args.storage_series,publish_diagnosis=False,
-                            rollout_workers=[CorrelationContext(run_id='verl-agent-demo', producer='demo_distributed', role='rollout',
+            report=generate(directory,run_id=single_run,node=demo.gpu['gpu_nodes'][0],scenario=schedule,storage_series=args.storage_series,publish_diagnosis=False,
+                            rollout_workers=[CorrelationContext(run_id=single_run, producer='demo_distributed', role='rollout',
                                 worker_id=f'rollout-{index}', node=demo.gpu['gpu_nodes'][index % len(demo.gpu['gpu_nodes'])],
                                 gpu=str(index % demo.gpu['gpus_per_node'])) for index in range(4)] if args.multi_worker else None)
+            stage(args.output,'collection','passed',['Completed SDK pair; real exporter samples collected during source windows'])
+            active_stage='query';stage(args.output,'query','running')
             # Read the already-scraped synthetic native endpoints through the
             # real diagnosis/query path. No connector/client numbers are inferred
             # from illustrative 3FS values, and no ClickHouse backend is declared.
@@ -295,6 +349,8 @@ datasources:
             native_report=DiagnosticEngine({'cluster':'scenes-demo','rollout_node':node,
                 'clock':{'monitoring_node':node},'sampling':{'check_source_freshness':True},
                 'prometheus':{'url':prom,'metric_profiles':['mooncake','mooncake_storage'],'mooncake_master_node':node}}).analyze(selected,steps)
+            stage(args.output,'query','passed',check_query(native_report)+check_live_queue(schedule,prom,request))
+            active_stage='diagnosis';stage(args.output,'diagnosis','passed',check_diagnosis(current,report))
             report['storage_overview']={**native_report['storage_overview'],'data_origin':'synthetic',
                 'query_execution':native_report['query_execution']}
             write_report(directory/'diagnostics',report)
@@ -310,11 +366,14 @@ datasources:
                     if values:streams.append({'stream':{'signal':source,'cluster':'scenes-demo','node':node,'data_origin':'synthetic'},'values':values})
             rows=_investigation_rows(report)
             streams.append({'stream':{'signal':'xlayer_diagnosis','cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(row['window_end_ms'])*1_000_000-len(rows)+i),json.dumps(row)] for i,row in enumerate(rows)]})
-            streams.append({'stream':{'cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(rows[0]['window_end_ms'])*1_000_000),json.dumps({'run_id':'verl-agent-demo','log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})
+            streams.append({'stream':{'cluster':'scenes-demo','node':demo.gpu['gpu_nodes'][0],'data_origin':'synthetic'},'values':[[str(int(rows[0]['window_end_ms'])*1_000_000),json.dumps({'run_id':single_run,'log_file':'agent.log','_entry':(directory/'logs/agent.log').read_text()})]]})
             request(loki+'/loki/api/v1/push',{'streams':streams})
+            publish_completed(scenario_name,cycle,[observation_link(current,report)])
             print(f"COMPLETED Step {report['step']} ({current}); Prometheus + SDK spans share scenario clocks", flush=True)
             cycle+=1
             if stopping.wait(4):break
+    except Exception as error:
+        stage(args.output,active_stage,'failed',message=str(error)[:500]);raise
     finally:
         for process,log in reversed(processes):
             process.terminate()

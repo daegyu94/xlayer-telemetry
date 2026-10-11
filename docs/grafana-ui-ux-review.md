@@ -1,6 +1,8 @@
 # Grafana Investigation UX Review
 
-**현재 기준:** 하나의 XLayer Telemetry Dashboard에서 7개 Workspace와 6개 Native 화면을 탐색합니다. 기존 datasource·canonical query·진단 모델을 유지하면서 sidebar·Light/Dark·card·table·반응형을 공통 디자인으로 정리했습니다.
+**과거 검토 기록 (2026-10-10):** 하나의 XLayer Telemetry Dashboard에서 7개 Workspace와 6개 Native 화면을 탐색합니다. 기존 datasource·canonical query·진단 모델을 유지하면서 sidebar·Light/Dark·card·table·반응형을 공통 디자인으로 정리했습니다.
+
+현재 Workflow·정보 구조·Design System은 [Dashboard guide](grafana-scenes-poc.md#사용자-workflow와-설계-근거)를 따릅니다. 아래 내용은 Greenfield 재설계 이전의 비교 기준과 검증 기록입니다.
 
 ## References and design decisions
 

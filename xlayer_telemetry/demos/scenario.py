@@ -20,7 +20,7 @@ _PHASES = (("rollout", "rollout.generate", "rollout", "pool-0", 12),
 
 def make_scenario(*, start: float, run_id: str, node: str, step: int = 127,
                   current: str = "storage-regression") -> dict[str, Any]:
-    if current not in {"normal", "storage-regression"}:
+    if current not in {"normal", "storage-regression", "slow-rollout", "recorded-error"}:
         raise ValueError("invalid synthetic scenario")
     frames = []
     cursor = start
@@ -28,7 +28,7 @@ def make_scenario(*, start: float, run_id: str, node: str, step: int = 127,
         phases = []
         begin = cursor
         for phase, operation, role, worker, duration in _PHASES:
-            seconds = duration + (8 if scenario == "storage-regression" and phase == "rollout" else 0)
+            seconds = duration + (8 if scenario in {"storage-regression", "slow-rollout"} and phase == "rollout" else 0)
             phases.append({"phase": phase, "operation": operation, "role": role,
                            "worker_id": worker, "start": cursor, "end": cursor + seconds})
             cursor += seconds
@@ -40,7 +40,7 @@ def make_scenario(*, start: float, run_id: str, node: str, step: int = 127,
                                    "threefs_throughput_bytes_per_second": 110 if scenario == "storage-regression" else 100,
                                    "gpu_utilization_percent": 47 if scenario == "storage-regression" else 91,
                                    "network_utilization_ratio": .2,
-                                   "vllm_requests_waiting": 14 if scenario == "storage-regression" else 1}})
+                                   "vllm_requests_waiting": 14 if scenario in {"storage-regression", "slow-rollout"} else 1}})
     # Producer-declared Step summaries use the same phase inputs. They remain
     # scenario summaries, not queried Prometheus/ClickHouse observations.
     for frame in frames:
@@ -63,6 +63,8 @@ def validate_scenario(schedule: Any) -> dict[str, Any]:
     """Validate bounded local demo input before changing a server response."""
     if not isinstance(schedule, dict) or schedule.get("schema_version") != 1 or schedule.get("data_origin") != "synthetic":
         raise ValueError("invalid scenario header")
+    if schedule.get("execution_mode","sync") not in {"sync","async"}:
+        raise ValueError("invalid scenario execution mode")
     from ..events import CorrelationContext
     CorrelationContext(run_id=schedule.get("run_id", ""), node=schedule.get("node", ""),
                        producer="scenario", role="trainer", worker_id="driver")
@@ -74,7 +76,7 @@ def validate_scenario(schedule: Any) -> dict[str, Any]:
         raise ValueError("invalid scenario workload dimensions")
     previous = None
     for frame in frames:
-        if not isinstance(frame, dict) or type(frame.get("step")) is not int or frame["step"] < 0 or frame.get("scenario") not in {"normal", "storage-regression"}:
+        if not isinstance(frame, dict) or type(frame.get("step")) is not int or frame["step"] < 0 or frame.get("scenario") not in {"normal", "storage-regression", "slow-rollout", "recorded-error"}:
             raise ValueError("invalid scenario frame")
         if type(frame.get("policy_version")) is not int or not 0 <= frame["policy_version"] <= 2**53:
             raise ValueError("invalid scenario policy version")
@@ -124,9 +126,10 @@ def phase_values(frame: dict[str, Any], phase: dict[str, Any]) -> dict[str, floa
     name = phase["phase"]
     slow = frame["scenario"] == "storage-regression" and name in {"rollout", "checkpoint_save"}
     gpu = (61 if name == "rollout" else 10) if slow else {"rollout": 91, "reward": 32, "actor_update": 94, "weight_sync": 28, "checkpoint_save": 18}[name]
-    return {"gpu": gpu, "tokens": 4700 if slow else 7600, "step": frame["end"] - frame["start"],
+    rollout_slow = frame["scenario"] == "slow-rollout" and name == "rollout"
+    return {"gpu": 61 if rollout_slow else gpu, "tokens": 4700 if slow or rollout_slow else 7600, "step": frame["end"] - frame["start"],
             "read": 6 if slow and name == "rollout" else .5, "write": 5 if name == "checkpoint_save" else .2,
             "rx": 320 if slow else 180, "tx": 330 if name == "weight_sync" else 150,
-            "busy": .96 if slow else .31, "waiting": 14 if slow else 1,
+            "busy": .96 if slow else .31, "waiting": 14 if slow or rollout_slow else 1,
             "kv_hit": .54 if slow else .78, "sandbox_pressure": .43 if slow else .02,
-            "kv_slow": float(slow), "waiting_capacity": 10 if slow else 1, "waiting_deferred": 4 if slow else 0}
+            "kv_slow": float(slow), "waiting_capacity": 10 if slow or rollout_slow else 1, "waiting_deferred": 4 if slow or rollout_slow else 0}

@@ -37,6 +37,8 @@ export const VARIABLE_NAMES = [
   "compare_run_a",
   "compare_run_b",
   "run_search",
+  "demo_scenario",
+  "demo_generation",
   "run_model",
   "run_status",
   "run_source",

@@ -1,3 +1,7 @@
+import {DemoBoundary} from './DemoBoundary';
+import {ScenarioExplorer} from './ScenarioExplorer';
+import {candidateMetric} from './run-health';
+import {ProgressCard,RunBrief,SlowSteps} from './RunBrief';
 import {ResourcePanel} from "./ResourcePanel";
 import {resourceMatrixProfile} from './resource-matrix';
 import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} from './completed-steps';
@@ -8,7 +12,7 @@ import React, { useEffect, useState, useRef,createContext,useContext } from "rea
 import { AppPlugin, LoadingState, getValueFormat,dateTimeParse, FieldType, ThemeContext, createTheme, PageLayoutType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
-import {Sparkline,useTheme2,Icon} from '@grafana/ui';
+import {Sparkline,useTheme2,Icon,Tooltip} from '@grafana/ui';
 import {
   SceneApp,
   SceneAppPage,
@@ -81,7 +85,7 @@ import { tableRows } from './data';
 import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './infrastructure';
 import { InfrastructureView } from './InfrastructureView';
 import {RunExplorerView} from './RunExplorerView';
-import {displaySummary,displayUiNote} from './ui-copy';
+import {displaySummary,displayUiNote,signalPresentation} from './ui-copy';
 import {formatContextTime,formatContextRange,timeContextIssue,validTimezone} from './time-context';
 import {issueText} from './catalog-loading';
 const CatalogRetryContext=createContext({retry:()=>{},refreshing:false,error:''});
@@ -124,7 +128,7 @@ import {WORKSPACE_PAGES,themeContext} from './navigation';
 import {nativeHighlight,nativeHighlightHint} from './native-highlight';
 import {useSceneData as useData} from './scene-data';
 import {NATIVE_PAGES,buildNativeWorkspace,NativeWorkspace,NativeWorkspaceModel} from './native-workspace';
-import "./style.css";
+import {KpiCard} from "./design-system/components";
 
 type Page = typeof WORKSPACE_PAGES[number]['route'] | typeof NATIVE_PAGES[number]['route'];
 type ShellState = SceneObjectState & {
@@ -345,7 +349,7 @@ function makeScene(page: Page, catalog: Catalog) {
   });
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
-  const resourcePage=!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
+  const resourcePage=page==='demo'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
   if(page==='runs')body.setState({steps:query('overview',20)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
@@ -423,7 +427,7 @@ function makeScene(page: Page, catalog: Catalog) {
       to: sceneTime(context.to),
       timeZone: context.timezone,
     }),
-    $variables: variables(catalog, context),
+    $variables: page==='demo'?undefined:variables(catalog, context),
     body,
     controls: [],
   });
@@ -472,7 +476,7 @@ function Ready() {
     </Router>
   );
 }
-const dashboardThemes={light:createTheme({colors:{mode:'light',text:{primary:'#1e293b',secondary:'#526174',link:'#4c67b9'}},typography:{fontSize:14}}),dark:createTheme({colors:{mode:'dark',text:{primary:'#e6ecf5',secondary:'#b4c2d1',link:'#9bb0f2'}},typography:{fontSize:14}})};
+const dashboardThemes={light:createTheme({colors:{mode:'light'}}),dark:createTheme({colors:{mode:'dark'}})};
 function Root() {
   const inheritedTheme=useTheme2();
   const [visualTheme,setVisualTheme]=useState(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'));
@@ -491,7 +495,7 @@ function Root() {
       window.location.pathname === `${APP_BASE}/`
     ) {
       locationService.replace(
-        appLink("overview", readContext(window.location.search)),
+        appLink(readContext(window.location.search).variables.run_id?.some(v=>v!=='.*'&&v!=='$__all')?"overview":"runs", readContext(window.location.search)),
       );
     }
     loadCatalog()
@@ -510,7 +514,7 @@ function Root() {
   }, [refresh]);
   if(invalidContext)return <div className="xlt"><p role="alert" className="xlt-error">{invalidContext}</p><p>Run 선택은 유지됩니다. 최근 30분으로 복구하면 시간 범위가 변경됩니다.</p><button onClick={()=>{const current=readContext(locationService.getLocation().search);locationService.replace(appLink(window.location.pathname.slice(APP_BASE.length+1)||'overview',{...current,from:'now-30m',to:'now',timezone:validTimezone(current.timezone)?current.timezone:'browser'}));}}>Use last 30 minutes</button></div>;
   return status === "ready" ? (
-    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><CatalogRetryContext.Provider value={{retry:()=>setRefresh(v=>v+1),refreshing,error}}><Ready key={revision}/></CatalogRetryContext.Provider></ThemeContext.Provider>
+    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><CatalogRetryContext.Provider value={{retry:()=>setRefresh(v=>v+1),refreshing,error}}><DemoBoundary generation={window.location.pathname.endsWith('/demo')?undefined:context.variables.demo_generation?.[0]}><Ready key={`${revision}/${context.variables.demo_generation?.[0]||''}`}/></DemoBoundary></CatalogRetryContext.Provider></ThemeContext.Provider>
   ) : (
     <div className="xlt">
       <p>
@@ -693,9 +697,43 @@ function ShellView({ model }: { model: Shell }) {
   const baselineStep=records(baselineStepData).find(row=>row.record_id===bounds?.record&&row.run_id===selected?.run_id&&row.cluster===selected?.cluster);
   const baselineSpans=records(baselineSpanData);
   const workspaceCandidate=diagnosis.find(c=>c.candidate_id===context.variables.candidate_id?.[0]);
+  const renderKpi=(spec:KpiSpec,index:number)=>(
+<Kpi
+                key={spec.name}
+                spec={spec}
+                provider={state.kpis[index]}
+                context={context}
+                boundary={boundary}
+                history={spec.key?comparisons.filter(r=>r.signal===spec.key&&r.run_id===selected?.run_id&&r.observation_scope===current.find(c=>c.signal===spec.key)?.observation_scope&&r.entity===current.find(c=>c.signal===spec.key)?.entity).map(r=>({value:numeric(r.current),time:numeric(r.window_end_ms)})).filter(r=>r.value!==undefined&&r.time!==undefined) as {value:number;time:number}[]:undefined}
+                ages={
+                  ["Reward","Worker throughput","Step time","Reported rollout"].includes(spec.name) ? samples(rewardAgeData) : undefined
+                }
+                maxAge={Number(context.variables.training_max_age?.[0] || 300)}
+                reported={
+                  spec.name === "Reported rollout"
+                    ? reportedRollout(
+                        steps.find(
+                          (s) =>
+                            completedStepKey(s) === completedStepKey(selected),
+                        ),
+                      )
+                    : undefined
+                }
+                comparison={
+                  "key" in spec
+                    ? current.find((c) => c.signal === spec.key)
+                    : undefined
+                }
+                evidence={
+                  "key" in spec
+                    ? proofs.find((c) => c.signal === spec.key)
+                    : undefined
+                }
+              />
+  );
   return (
     <DashboardChrome page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
-      contextBar={<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
+      contextBar={state.page==='demo'?null:<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
       {(catalogFailures.length>0||reload.error)&&<section className="xlt-notice" aria-label="Dashboard availability"><p role="alert">{reload.error?displayUiNote(reload.error):'일부 선택 Dashboard를 불러오지 못했습니다. 사용 가능한 Dashboard는 계속 사용할 수 있습니다.'}</p>{catalogFailures.map(([name,issue])=><p key={name}>{name}: {issueText(issue!)}</p>)}<button onClick={reload.retry} disabled={reload.refreshing}>Retry dashboards</button></section>}
       {state.nativeWorkspace&&<>
         <header className="xlt-header xlt-native-heading"><div><span className="xlt-eyebrow">{NATIVE_PAGES.find(p=>p.route===state.page)?.kicker}</span><h2>{NATIVE_PAGES.find(p=>p.route===state.page)?.title}</h2><p>{NATIVE_PAGES.find(p=>p.route===state.page)?.description}</p></div><a className="xlt-link" href={appLink('infrastructure',context)}>Locate in topology →</a></header>
@@ -705,12 +743,13 @@ function ShellView({ model }: { model: Shell }) {
         <NativeWorkspace workspace={state.nativeWorkspace} panels={state.nativePanels||[]} context={context} View={ResourcePanel}/>
         <footer>Correlation ≠ Attribution ≠ Causality. 상관관계만으로 소유 관계나 원인을 단정할 수 없습니다. No data는 측정값 0과 다릅니다.</footer>
       </>}
-      {!state.nativeWorkspace&&<>
-      <header className="xlt-header">
+      {state.page==='demo'&&<ScenarioExplorer/>}
+      {!state.nativeWorkspace&&state.page!=='demo'&&<>
+      <header className={`xlt-header ${state.page==='overview'?'xlt-run-heading':''}`}>
         <div>
           <span className="xlt-eyebrow">
             {WORKSPACE_PAGES.find(p=>p.route===state.page)?.kicker}{' '}
-            {synthetic && <span className="xlt-badge">Synthetic demo</span>}
+            {synthetic && <a className="xlt-badge" href={appLink('demo',context)}>Synthetic demo</a>}
           </span>
           <h2>
             {state.page === "overview"
@@ -723,7 +762,7 @@ function ShellView({ model }: { model: Shell }) {
                     ? "Follow the same interval"
                   : state.page==='runs'?'Run Explorer':state.page==='infrastructure'?'Infrastructure':state.page==='logs'?'Logs & Events':workspaceCandidate?`Deep Dive: ${scalar(workspaceCandidate.component)}`:"Choose a subsystem"}
           </h2>
-          <p className="xlt-page-description">{WORKSPACE_PAGES.find(p=>p.route===state.page)?.description}</p>
+          {state.page!=='overview'&&<p className="xlt-page-description">{WORKSPACE_PAGES.find(p=>p.route===state.page)?.description}</p>}
           {modelMetadata && <p className="xlt-muted">Model: {modelMetadata} · Run metadata에 보고된 값입니다. 실제 weights/runtime은 검증되지 않았습니다.</p>}
           <details className="xlt-header-details"><summary>Selected observation details</summary><p>
             <b>
@@ -760,7 +799,7 @@ function ShellView({ model }: { model: Shell }) {
           </Link>
         </div>
       </header>
-      {selected&&<p className="xlt-muted" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · 정밀한 Phase correlation과 delta는 보류됩니다. Raw metrics는 계속 확인할 수 있습니다.'}</p>}
+      {selected&&<p className="xlt-muted xlt-clock-quality" aria-label="Correlation clock quality">Clock quality: <b>{correlationClock.replace(/_/g,' ')}</b> · {scalar(comparisonMeta?.correlation_clock_scope,'scope not reported').replace(/_/g,' ')} · {scalar(comparisonMeta?.correlation_clock_method,'method not reported').replace(/_/g,' ')}{correlationClock!=='aligned'&&' · 정밀한 Phase correlation과 delta는 보류됩니다. Raw metrics는 계속 확인할 수 있습니다.'}</p>}
 
       <details className="xlt-filters">
         <summary>Trace, GPU, engine and evidence filters</summary>
@@ -790,45 +829,26 @@ function ShellView({ model }: { model: Shell }) {
       {state.page === "overview" && (
         <>
           {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. 이력 누락을 정상 상태로 해석하지 않습니다.</p>}
-          <div className="xlt-kpis">
-            {KPI_SPECS.map((spec, index) => (
-              <Kpi
-                key={spec.name}
-                spec={spec}
-                provider={state.kpis[index]}
-                context={context}
-                boundary={boundary}
-                history={spec.key?comparisons.filter(r=>r.signal===spec.key&&r.run_id===selected?.run_id&&r.observation_scope===current.find(c=>c.signal===spec.key)?.observation_scope&&r.entity===current.find(c=>c.signal===spec.key)?.entity).map(r=>({value:numeric(r.current),time:numeric(r.window_end_ms)})).filter(r=>r.value!==undefined&&r.time!==undefined) as {value:number;time:number}[]:undefined}
-                ages={
-                  ["Reward","Worker throughput","Step time","Reported rollout"].includes(spec.name) ? samples(rewardAgeData) : undefined
-                }
-                maxAge={Number(context.variables.training_max_age?.[0] || 300)}
-                reported={
-                  spec.name === "Reported rollout"
-                    ? reportedRollout(
-                        steps.find(
-                          (s) =>
-                            completedStepKey(s) === completedStepKey(selected),
-                        ),
-                      )
-                    : undefined
-                }
-                comparison={
-                  "key" in spec
-                    ? current.find((c) => c.signal === spec.key)
-                    : undefined
-                }
-                evidence={
-                  "key" in spec
-                    ? proofs.find((c) => c.signal === spec.key)
-                    : undefined
-                }
-              />
+          <div className="xlt-kpis xlt-primary-kpis" aria-label="Run key indicators">
+            <ProgressCard selected={selected} queryState={stepData?.state} timezone={context.timezone}/>
+            {KPI_SPECS.map((spec,index)=>({spec,index})).filter(({index})=>index===1||index===2).map(({spec,index})=>(
+              renderKpi(spec,index)
             ))}
-            <ErrorKpi spans={spans} data={spanData} />
+            <ErrorKpi spans={spans} data={spanData}/>
           </div>
+          <RunBrief selected={selected} context={context} candidates={diagnosis} diagnosed={!!comparisonMeta} available={!!state.candidates} queryState={candidateData?.state} clock={correlationClock} onInvestigate={()=>navigate('investigate',selectStep(selected!,context))}/>
+          <SlowSteps rows={steps} selected={selected} context={context} onSelect={c=>navigate('investigate',c)}/>
+          <details className="xlt-secondary-signals"><summary>Learning & resource signals · Reward, rollout, GPU, KV, Storage</summary>
+           <p className="xlt-muted">Learning signal과 shared resource는 서로 다른 scope입니다. Run의 전체 health나 자원 소유 관계를 뜻하지 않습니다.</p>
+           <div className="xlt-kpis">
+            {KPI_SPECS.map((spec,index)=>({spec,index})).filter(({index})=>index!==1&&index!==2).map(({spec,index})=>(
+              renderKpi(spec,index)
+            ))}
+           </div>
+          </details>
           {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework가 보고한 MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · 완료된 logger observation</p>}
           <AsyncDecision summary={comparisonMeta}/>
+          <details className="xlt-execution-details"><summary>Execution detail · Timeline, events & system signals</summary>
           <section className="xlt-overview-top"><div>
             <div className="xlt-section">
               <h3><Icon name="history"/> Agent RL Timeline</h3>
@@ -863,6 +883,7 @@ function ShellView({ model }: { model: Shell }) {
               <h3><Icon name="info-circle"/> System Signals</h3><HealthSummary candidates={diagnosis}/><p className="xlt-muted">저장된 diagnosis signal입니다. Collector UP을 의미하는 health 상태가 아닙니다.</p></div>
           </section>
           <PolicyLifecycle events={events} context={context} catalog={state.catalog}/>
+          </details>
           <details className="xlt-completed-detail">
             <summary>Completed Steps · choose another investigation</summary>{" "}
             <section>
@@ -876,7 +897,7 @@ function ShellView({ model }: { model: Shell }) {
                 selected={selected}
                 context={context}
                 onSelect={(c) => navigate("analyze", c)}
-                limit={3}
+                limit={8}
               />
             </section>
           </details>
@@ -941,6 +962,7 @@ function ShellView({ model }: { model: Shell }) {
           )}
           {selected && (
             <div className="xlt-investigate-grid">
+              <RunBrief selected={selected} context={context} candidates={diagnosis} diagnosed={!!comparisonMeta} available={!!state.candidates} queryState={candidateData?.state} clock={correlationClock} actionLabel="Review candidates ↓" onInvestigate={()=>{const target=document.querySelector<HTMLElement>('.xlt-candidate-section');target?.focus();target?.scrollIntoView({behavior:'smooth'});}}/>
               <section className="xlt-investigation-section">
                 <div className="xlt-section">
                   <h3><Icon name="exchange-alt"/> What changed?</h3>
@@ -977,7 +999,7 @@ function ShellView({ model }: { model: Shell }) {
                         )
                         .map((r, i) => (
                           <tr key={i}>
-                            <td title={scalar(r.signal)}>{r.signal==='step_duration_seconds'?boundary.timeLabel:scalar(r.signal)}</td>
+                            <td title={scalar(r.signal)}><Tooltip content={signalPresentation(String(r.signal)).hint}><span tabIndex={0}>{r.signal==='step_duration_seconds'?boundary.timeLabel:signalPresentation(String(r.signal)).label}</span></Tooltip></td>
                             <td>{format(r.current, scalar(r.unit, ""))}</td>
                             <td>{format(r.baseline, scalar(r.unit, ""))}</td>
                             <td>
@@ -1009,7 +1031,7 @@ function ShellView({ model }: { model: Shell }) {
                   Inspect measured timeline →
                 </button>
               </p>
-              <section className="xlt-candidate-section">
+              <section className="xlt-candidate-section" tabIndex={-1}>
                 <h3><Icon name="search"/> Bottleneck Candidates</h3>
                 <DataStatus provider={state.candidates} />
                 <div className="xlt-candidates">
@@ -1086,7 +1108,7 @@ function ShellView({ model }: { model: Shell }) {
                           Open Evidence →
                         </button>
                       <div className="xlt-candidate-actions">
-                        <button onClick={()=>navigate('deep-dive',{...context,variables:{...context.variables,candidate_id:[String(c.candidate_id)]}})}>Deep Dive →</button>
+                        <button onClick={()=>navigate('deep-dive',{...context,variables:{...context.variables,candidate_id:[String(c.candidate_id)],detail_tab:candidateMetric(c.component)?[candidateMetric(c.component)!]:[]}})}>Deep Dive →</button>
                           <Link
                             to="timeline"
                             context={context}
@@ -1282,8 +1304,8 @@ function Kpi({
   if (spec.scale && !comparison && !evidence && numeric(value) !== undefined)
     value = Number(value) * spec.scale;
   return (
-    <article className="xlt-card xlt-kpi">
-      <span className="xlt-eyebrow">{spec.key==='step_duration_seconds'?boundary.timeLabel:spec.name}</span>
+    <KpiCard>
+      <span className="xlt-eyebrow xlt-kpi-label">{spec.key==='step_duration_seconds'?boundary.timeLabel:spec.name}<Tooltip content={spec.description}><button className="xlt-help" aria-label={`${spec.name} 설명`}><Icon name="info-circle" size="sm"/></button></Tooltip></span>
       <strong className={!projected&&reported===undefined&&selection.state!=='observed'?"xlt-kpi-state":undefined}>
         {!projected && reported===undefined && data?.state === LoadingState.Error ? (
           "Query error"
@@ -1300,7 +1322,7 @@ function Kpi({
           </>
         )}
       </strong>
-      <Delta row={comparison} />
+      {spec.key&&<Delta row={comparison} />}
       {numeric(comparison?.baseline)!==undefined&&<small>vs baseline {format(comparison?.baseline,scalar(comparison?.unit,''))}</small>}
       {(projected||selection.state==='observed')&&trend.length>1&&<div className="xlt-spark" title={projected?'저장된 Step observation이며 causal model이 아닙니다.':'표시한 entity의 Sampled 추이입니다.'}>
         <Sparkline theme={theme} width={110} height={25} sparkline={{
@@ -1333,6 +1355,7 @@ function Kpi({
                 ? "Sampled · device"
                 : spec.key==='threefs_p99_latency'?'Missing · shared-service':application?'Reported · worker':'Sampled · worker'}
       </small>
+      <details className="xlt-kpi-detail"><summary>Source & scope</summary><small>{spec.description}</small>
       {comparison || evidence ? (
         <small className="xlt-entity" title={scalar(comparison?.entity || evidence?.entity,'Entity not reported')}>
           {scalar(
@@ -1347,7 +1370,8 @@ function Kpi({
           </small>
         )
       )}
-    </article>
+      </details>
+    </KpiCard>
   );
 }
 
@@ -1506,14 +1530,14 @@ function ErrorKpi({
 }) {
   const status = recordedSpanErrors(spans);
   return (
-    <article className="xlt-card xlt-kpi">
-      <span className="xlt-eyebrow">Recorded errors</span>
-      <strong>
+    <KpiCard>
+      <span className="xlt-eyebrow xlt-kpi-label">Recorded errors<Tooltip content="조회된 span 중 error 상태의 기록 수입니다. 전체 workload 오류율은 아니며, status가 없으면 Not observed입니다."><button className="xlt-help" aria-label="Recorded errors 설명"><Icon name="info-circle" size="sm"/></button></Tooltip></span>
+      <strong className={status.count&&status.count>0?'xlt-recorded-errors':undefined}>
         {data?.state === LoadingState.Error
           ? "Query error"
-          : !data
-            ? "N/A"
-            : format(status.count)}
+          : !data ? "Not configured" : data.state === LoadingState.Loading
+            ? "Loading…"
+            : status.count === undefined ? "Not observed" : format(status.count)}
       </strong>
       <span className="xlt-muted">관측된 Span record</span>
       <small>
@@ -1523,7 +1547,7 @@ function ErrorKpi({
       <small title="반환된 record만으로 전체 Workload error rate를 판단할 수 없습니다.">
         Coverage limited
       </small>
-    </article>
+    </KpiCard>
   );
 }
 function RecentEvents({
@@ -1789,7 +1813,7 @@ function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}
  const[clusterOpen,setClusterOpen]=useState(false),state=model.useState();
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  const groups=storageDetailGroups(DEEP_DIVE_SPECS);
- return <section className="xlt-workspace"><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">명시적인 Resource node mapping만 사용합니다. Exporter 가용성은 Node health나 service-to-device 경로의 증거가 아닙니다. GPU host의 Sandbox Local I/O는 Backend DS/MDS resource와 구분합니다.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details><div className="xlt-workspace-grid"><div>
+ return <section className="xlt-workspace"><div className="xlt-workspace-grid"><div>
   <h3>Key Findings</h3>{candidate?<><span className="xlt-badge xlt-badge-warning">{scalar(candidate.state).replace(/_/g,' ')}</span><p>{displaySummary(findPanel(catalog.summary,3),candidate.summary)}</p>
   {proofs.filter(e=>e.evidence_type==='supporting').slice(0,3).map((e,i)=><p key={i}><b>{i+1}. {scalar(e.signal)}</b><br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}<br/><small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.observation_scope)} · {scalar(e.entity,'Entity not reported')}</small></p>)}
   <h4>Against / Missing</h4>{proofs.filter(e=>e.evidence_type==='missing'||e.evidence_type==='counter').map((e,i)=><p key={i}>{scalar(e.signal)} · {scalar(e.observation_scope)}</p>)}</>:<p className="xlt-empty">Investigate에서 Candidate를 선택하세요. 이 workspace에서 Supporting / Counter / Missing evidence를 함께 확인할 수 있습니다.</p>}
@@ -1798,7 +1822,7 @@ function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}
   {spec.label==='3FS evidence'?<div className="xlt-storage-evidence"><StorageCollectionView model={model} context={context}/><details><summary>Saved aggregate evidence</summary><h4>3FS · saved service observations</h4>{storageProofs.length?storageProofs.map((e,i)=><p key={i}><b>{scalar(e.signal)}</b> · {scalar(e.evidence_type)}<br/>{format(e.baseline,scalar(e.unit,''))} → {format(e.current,scalar(e.unit,''))}{!e.unit&&<small>Unit이 보고되지 않았습니다</small>}<small className="xlt-entity" title={scalar(e.entity,'Entity not reported')}>{scalar(e.entity,'Entity not reported')}</small></p>):<p className="xlt-empty">이 구간에 저장된 3FS evidence가 없습니다. RPC p95나 disk mean으로 대체하지 않습니다.</p>}</details></div>:panels[tab]?<Native panel={panels[tab]}/>:<p className="xlt-empty">이 Source의 Canonical panel을 사용할 수 없습니다.</p>}
   <p className="xlt-muted">{displayUiNote(spec.note)}</p><p className="xlt-muted">Connector / DFS client 관측은 Backend에 종속되지 않습니다. 3FS Service evidence는 선택적인 별도 Source이며, 경로가 확인되지 않은 Node/device 관측은 참고 context로 유지합니다.</p>
   <div className="xlt-actions"><Link to="stage" context={context} catalog={catalog}>Full KV / Mooncake</Link><Link to="storage" context={context} catalog={catalog}>Full Storage</Link><Link to="logs" context={context} catalog={catalog}>Logs</Link><Link to="timeline" context={context} catalog={catalog}>Events / Spans</Link></div>
- </div></div></section>;
+ </div></div><details className="xlt-storage-context" open={candidate?.component==='storage'?true:undefined}><summary>Storage context & source coverage</summary><CommonStorageOverview model={model} summary={summary} context={context} onThreeFS={()=>setTab(detailTabIndex('3FS evidence'))}/><details className="xlt-storage-cluster" onToggle={event=>setClusterOpen(event.currentTarget.open)}><summary>Storage Cluster Resources · declared DS/MDS inventory</summary><p className="xlt-notice">명시적인 Resource node mapping만 사용합니다. Exporter 가용성은 Node health나 service-to-device 경로의 증거가 아닙니다. GPU host의 Sandbox Local I/O는 Backend DS/MDS resource와 구분합니다.</p>{clusterOpen&&<><div className="xlt-storage-cluster-controls">{["storage_system","storage_node"].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}</div><div className="xlt-storage-cluster-panels">{state.storageCluster?.map((panel,index)=><Native key={index} panel={panel}/>)}</div></>}</details></details></section>;
 }
 
 function StorageCollectionView({model,context}:{model:Shell;context:Context}) {

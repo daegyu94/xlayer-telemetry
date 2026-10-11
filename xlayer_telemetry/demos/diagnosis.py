@@ -265,11 +265,11 @@ def _synthetic_calibrations(output: Path, scenario: dict, nodes: set[str]) -> di
 
 
 def _record_scenario_spans(output: Path, scenario: dict, calibrations: dict[str, CalibrationCache] | None = None,
-                           *, step_record_ids: dict[int, str] | None = None) -> None:
+                           *, step_record_ids: dict[int, str] | None = None, execution_mode: str = "sync") -> None:
     calibrations = calibrations or {}
     fingerprint = hashlib.sha256(json.dumps(scenario["workload"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     attrs = {"data_origin": "synthetic", "workload_fingerprint": fingerprint,
-             "boundary_scope": "rl_step", "measurement_source": "synthetic_scenario_sdk"}
+             "boundary_scope": "instrumented_call" if execution_mode == "async" else "rl_step", "measurement_source": "synthetic_scenario_sdk"}
     for frame in scenario["frames"]:
         if step_record_ids is not None:
             attrs = {**attrs, 'step_record_id': step_record_ids[frame['step']]}
@@ -298,6 +298,15 @@ def _record_scenario_spans(output: Path, scenario: dict, calibrations: dict[str,
             else:
                 with measured_phase(recorder, phase["operation"], step=frame["step"], attributes=attributes):
                     pass
+        if frame["scenario"] == "recorded-error":
+            stamps=iter((int((frame["start"]+3)*1e9),int((frame["start"]+4)*1e9)))
+            failure=EventRecorder(output/"telemetry-events",CorrelationContext(run_id=scenario["run_id"],
+                node=scenario["node"],producer="demo_error",role="sandbox",worker_id="pool-0"),clock_ns=stamps.__next__)
+            try:
+                with failure.span("tool.synthetic_failure",phase="environment",step=frame["step"],attributes={**attrs,"scenario":"recorded-error"}):
+                    raise RuntimeError("Explicit synthetic tool failure")
+            except RuntimeError:
+                pass
         # Only explicit workload events; resource anomalies stay diagnosis evidence.
         for name, label, stamp in (("policy.update.completed", "policy_update", frame["phases"][3]["end"]),
                                    ("checkpoint.completed", "checkpoint", frame["end"])):
@@ -321,7 +330,7 @@ def _record_rollout_workers(output: Path, scenario: dict, workers: list[Correlat
             # Every controlled worker has the same workload dimensions. One
             # participant is deliberately slow only in the regression frame.
             start = phase["start"] + 1
-            finish = (phase["end"] - 1 if frame["scenario"] == "storage-regression" and index == len(workers) - 1
+            finish = (phase["end"] - 1 if frame["scenario"] in {"storage-regression", "slow-rollout"} and index == len(workers) - 1
                       else start + 5 + (index % 3) * .1)
             context = replace(worker, policy_version=frame["policy_version"])
             clock = iter((int(start * 1e9), int(finish * 1e9)))

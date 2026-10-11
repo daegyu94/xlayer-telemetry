@@ -7,7 +7,7 @@ context and datasource responses are used for the storage/detail cost checks.
 import argparse,json,re
 from pathlib import Path
 from urllib.parse import urlencode,urlparse,parse_qs
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright,expect
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--url',required=True)
@@ -36,8 +36,9 @@ with sync_playwright() as p:
       if field.get('type')=='number' and field.get('labels',{}).get('phase')=='rollout':field['labels']['verl_stage']='gen'
   route.fulfill(response=response,json=payload)
  page.route('**/api/ds/query*',metrics_only);page.goto(base)
+ page.locator('.xlt-secondary-signals > summary').click()
  card=page.locator('.xlt-kpi').filter(has=page.get_by_text('Reported rollout',exact=True))
- page.wait_for_timeout(2500)
+ expect(card.locator('strong')).to_have_text(re.compile(r'^\d'),timeout=15000)
  value=card.locator('strong').inner_text();assert re.search(r'\d',value),value
  assert 'Freshness unknown' not in value and 'Multiple entities' not in value
  report['metrics_only_verl_stage']={'value':value,'age':card.inner_text(),'worker':'driver'}
@@ -73,7 +74,7 @@ with sync_playwright() as p:
  selector=page.get_by_role('combobox',name='Completed Step');slow=next((o.get_attribute('value') for o in selector.locator('option').all() if '48.00' in o.inner_text()),None)
  if slow:selector.select_option(slow);page.wait_for_timeout(1000)
  page.get_by_role('button',name=re.compile('Analyze Step')).click()
- page.get_by_role('link',name='Investigate',exact=True).click()
+ page.get_by_role('link',name='Investigation',exact=True).click()
  page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='storage',exact=True)).get_by_role('button',name='Deep Dive →',exact=True).first.click()
  page.get_by_role('button',name='Connector RPC',exact=True).wait_for(timeout=20000)
  page.wait_for_timeout(1500)
@@ -110,7 +111,7 @@ with sync_playwright() as p:
   before.pop('var-detail_tab',None)
   assert after==before,label
  page.get_by_role('button',name='3FS evidence',exact=True).click()
- assert page.get_by_text('3FS · saved service observations',exact=True).count()==1
+ expect(page.get_by_text('3FS · saved service observations',exact=True)).to_have_count(1,timeout=15000)
  common=page.locator('.xlt-common-storage')
  assert 'Backend / adapter not reported' in common.inner_text()
  assert '저장된 Common Storage coverage가 없습니다' not in common.inner_text()
@@ -128,7 +129,7 @@ with sync_playwright() as p:
  common.get_by_text('Source coverage · values, scope, entity and quality',exact=True).click()
  before=parse_qs(urlparse(page.url).query)
  common.get_by_role('button',name='3FS Deep Dive →',exact=True).click()
- assert page.get_by_role('combobox',name='Storage metric').count()==1
+ expect(page.get_by_role('combobox',name='Storage metric')).to_have_count(1,timeout=15000)
  assert parse_qs(urlparse(page.url).query)==before
  for width in (1440,390):
   page.set_viewport_size({'width':width,'height':1000});page.wait_for_timeout(250)

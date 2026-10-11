@@ -21,10 +21,12 @@ MODELS = (
 )
 
 
-def make_schedule(*, start, node, cycle=0, replica_nodes=None):
+def make_schedule(*, start, node, cycle=0, replica_nodes=None, profile="multi-job", run_prefix=""):
+    if profile not in {"multi-job","partial-telemetry","async-replicas"}:
+        raise ValueError("invalid multi-job profile")
     jobs = []
     for index, (name, model) in enumerate(MODELS):
-        scenario = make_scenario(start=start + 3 * index, run_id='demo-' + name, node=node,
+        scenario = make_scenario(start=start + 3 * index, run_id=run_prefix+'demo-' + name, node=node,
                                  step=127 + cycle * 2, current='normal')
         for offset, frame in enumerate(scenario['frames']):
             frame['policy_version'] = 128 + index * 16 + cycle * 2 + offset
@@ -44,6 +46,13 @@ def make_schedule(*, start, node, cycle=0, replica_nodes=None):
                      'missing_reward': name == 'llama', 'missing_preemptions': name == 'deepseek',
                      'stale_application': name == 'deepseek', 'engine_mapping': name != 'deepseek',
                      'reward': (.732, .614, .681)[index]})
+    if profile == 'partial-telemetry' and cycle % 2:
+        for job in jobs:
+            job.update(missing_reward=False,missing_preemptions=False,stale_application=False)
+    if profile == 'async-replicas':
+        for job in jobs:
+            job['execution_mode']='async'
+            job['scenario']['execution_mode']='async'
     if replica_nodes:
         jobs[1]['rollout_replicas'] = [
             {'id': 'llama-0', 'instance': jobs[1]['instance'], 'endpoint_node': node, 'nodes': [node], 'server_id':'api-llama-0'},
@@ -61,6 +70,7 @@ def validate_schedule(schedule):
     runs, instances = set(), set()
     for job in jobs:
         if not isinstance(job, dict): raise ValueError('invalid demo job')
+        if job.get('execution_mode','sync') not in {'sync','async'}: raise ValueError('invalid demo execution mode')
         scenario = validate_scenario(job.get('scenario'))
         run = scenario['run_id']
         instance = job.get('instance')
@@ -144,10 +154,12 @@ def record_job(root, job):
     root = Path(root)
     root.mkdir(parents=True, exist_ok=False)
     writer = StepHistoryWriter(root / 'telemetry-events/verl-steps.jsonl', run_id=scenario['run_id'],
-        node=scenario['node'], worker_id='driver', clock=iter(f['end'] for f in scenario['frames']).__next__)
+        node=scenario['node'], worker_id='driver', execution_mode=job.get('execution_mode','sync'), clock=iter(next(p['end'] for p in f['phases'] if p['phase']=='actor_update') if job.get('execution_mode')=='async' else f['end'] for f in scenario['frames']).__next__)
     rows = []
     for frame in scenario['frames']:
-        data = {'perf/time_per_step': frame['end'] - frame['start'], 'policy_version': frame['policy_version'],
+        update=next(p for p in frame['phases'] if p['phase']=='actor_update')
+        duration=update['end']-update['start'] if job.get('execution_mode')=='async' else frame['end']-frame['start']
+        data = {'perf/time_per_step': duration, 'policy_version': frame['policy_version'],
                 'perf/total_num_tokens': scenario['workload']['batch_size'] * scenario['workload']['response_tokens']}
         data.update({'timing_s/' + ('gen' if p['phase'] == 'rollout' else p['operation']): p['end'] - p['start'] for p in frame['phases']})
         if job['instance'].endswith('deepseek'):
@@ -157,7 +169,7 @@ def record_job(root, job):
         rows.append(writer.append({'step': frame['step'], 'data': data}))
     if job.get('rollout_replicas'):
         record_serving_inputs(root / 'telemetry-events', job)
-    _record_scenario_spans(root, scenario, step_record_ids={row['step']: row['record_id'] for row in rows})
+    _record_scenario_spans(root, scenario, step_record_ids={row['step']: row['record_id'] for row in rows},execution_mode=job.get('execution_mode','sync'))
     roles = [('trainer', scenario['node'])]
     if job.get('rollout_replicas'):
         roles += [('rollout', node) for node in sorted({node for row in job['rollout_replicas'] for node in row['nodes']})]

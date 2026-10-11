@@ -34,7 +34,8 @@ export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Co
  const share=async()=>{if(!a||!b)return;const link=new URL(comparisonLink(a,b,context),window.location.origin).href;
   try{await navigator.clipboard.writeText(link);setCopyStatus('copied');}catch{setCopyStatus('failed');}};
  return <div className="xlt-run-explorer">
-  <section><div className="xlt-section"><h3><Icon name="search"/> Experiments</h3><button onClick={()=>setRefresh(value=>value+1)}>Refresh saved catalog</button></div>
+  <div className="xlt-inventory-summary" aria-label="Run inventory scope"><div><strong>{new Set(rows.map(row=>JSON.stringify([row.cluster,row.run_id]))).size}</strong><span>Runs in this view</span></div><div><strong>{rows.filter(row=>row.source==='loki_window').length}</strong><span>Live observation sources</span></div><div><strong>{rows.filter(row=>row.source==='stored_artifact').length}</strong><span>Stored artifact sources</span></div><p>Run을 열어 진행과 성능을 확인하세요. 서로 다른 Job의 Step·처리량은 합산하지 않습니다.</p></div>
+  <section><div className="xlt-section"><h3><Icon name="search"/> Run inventory</h3><button onClick={()=>setRefresh(value=>value+1)}>Refresh saved catalog</button></div>
    <p className="xlt-muted">Live observations는 현재 Cluster / Run / Time filter의 Loki 응답입니다. 저장 catalog는 게시 시점의 artifact snapshot이며 retention 이후에도 읽을 수 있습니다. Recorded running은 현재 process의 생존 확인이 아닙니다.</p>
    <div className="xlt-run-search xlt-actions"><label>Search<input aria-label="Search Runs" placeholder="Run ID or Model" value={search} onChange={e=>updateFilters({search:e.target.value})} maxLength={256}/></label>
     <label>Model<select aria-label="Filter Model" value={model} onChange={e=>updateFilters({model:e.target.value})}><option value="">All</option>{model&&!all.some(row=>row.model===model)&&<option value={model}>{model} · catalog에서 아직 확인되지 않음</option>}{[...new Set(all.map(row=>row.model).filter(Boolean))].map(name=><option key={name}>{name}</option>)}</select></label>
@@ -59,7 +60,7 @@ export function RunExplorerView({context,steps,liveState,timeWindow}:{context:Co
      <td>{value(row.average_step)} s<small>{row.source==='loki_window'?'Query-window mean':'Saved same-entity mean'} · {row.execution_mode||'Mode unknown'}</small></td>
      <td>{formatContextTime(row.from,context.timezone)}<small>{row.status}</small></td>
      <td><span className="xlt-badge">{row.source}</span><small>{row.quality} · {row.data_origin==='synthetic'?'Synthetic':row.data_origin}</small>{!!row.identity_conflicts&&<small role="status">{row.identity_conflicts} conflicting record IDs · 집계에서 제외했습니다</small>}</td>
-     <td><a href={appLink('overview',runContext(row,context))}>Overview →</a><small>{hasSavedStep(row)?<a href={appLink('investigate',runContext(row,context,true))}>Saved Step →</a>:'Saved Step unavailable · 유효한 관측 범위가 없습니다'}</small></td>
+     <td><a href={appLink('overview',runContext(row,context))}>Open Run →</a><small>{hasSavedStep(row)?<a href={appLink('investigate',runContext(row,context,true))}>Saved Step →</a>:'Saved Step unavailable · 유효한 관측 범위가 없습니다'}</small></td>
     </tr>)}</tbody></table></div>
    {!rows.length&&state!=='loading'&&<p className="xlt-empty">검색 조건에 맞는 Run이 없습니다. Cluster·검색어·retention·catalog 게시 상태를 확인하세요.</p>}
   </section>

@@ -144,3 +144,68 @@ Schedule은 지연·pressure·누락을 만드는 producer 입력이며 diagnosi
 ## 다음
 
 [느린 Step 조사](dashboards.md) · [기존 VERL 연결](verl-quickstart.md) · [Fixture coverage / 상세 검증](monitoring-reference.md#check-dashboard-coverage)
+
+## Scenario-driven Live Demo
+
+**Scenario Explorer**는 제품의 재현·회귀 검증 진입점입니다. 상황을 선택하면 질문·기대 결과·조사 순서와 실제로 게시된 replay를 보여 줍니다. 각 replay의 **Open Run / Investigate**는 원본 Run·record·observer·시간 구간을 전달하며, 이전 시나리오의 worker/engine/candidate filter를 가져오지 않습니다.
+
+### Scenario Coverage Matrix
+
+| 우선순위·시나리오 | 재현하는 상황 | 실제 검증 경로·완료 기준 |
+| --- | --- | --- |
+| P0 `normal` | 같은 workload의 baseline/current | SDK → Loki, live scrape → Grafana; 기록된 진행·duration·후보 없는 완료 진단 확인 |
+| P0 `slow-rollout` | Rollout duration·vLLM queue 증가, Storage는 baseline 유지 | 실제 SDK span과 synthetic scenario comparison; 후보 → Evidence → vLLM |
+| P0 `storage-regression` | Storage latency·device pressure 동시 변화 | Shared-service 관측·누락된 경로 근거를 유지; Run attribution 금지 |
+| P0 `recorded-error` | 정상 baseline 뒤 tool error 한 개 | 실제 SDK error span → Loki → Recorded errors / Timeline; 전체 실패율 추정 금지 |
+| P0 `multi-job` | 세 Job·여러 node label·두 configured replica | 실제 Prometheus query·DiagnosticEngine → Loki → App; engine 조건 혼합 방지 |
+| P0 `partial-telemetry` | 첫 replay의 missing/stale, 다음 replay의 source 복구 | 같은 Run identity로 source가 복구되며 과거 diagnosis는 당시 evidence를 유지 |
+| P1 `async-replicas` | 명시 async trainer_update와 replica lifecycle/policy | StepHistoryWriter의 async 경계, 독립 instrumented rollout call; 전체 rollout ownership 추정 금지 |
+| P0 Query failure / retry | 선택/필수 dashboard 503·404와 복구 | `context_recovery_validate.py` browser response fixture; 실제 backend 장애와 구분 |
+| P0 Clock unsafe / unknown | Clock 검증 부재와 복구 | `clock_quality_validate.py` browser response fixture; phase/delta 보류·raw signal 유지 |
+| 공통 UI | Light/Dark·1440/1024/390px·legend/filter·Back/Forward/Reload/share | `redesign_validate.py`, `lab_validate.py`와 기존 native panel journey |
+| 공통 경계 | Zero·unknown·partial coverage·선택이 목록 밖인 상태·baseline mismatch | CPU regression과 실제 browser fixture를 조합하며 coverage를 전체 workload health로 해석하지 않음 |
+
+Live exporter는 VERL-shaped application·vLLM·Ray·GPU·host CPU/memory·network·Mooncake·storage·sandbox source를 기존 metric contract로 노출합니다. Single-job comparison의 scenario scalar와 synthetic 3FS service 수치는 명시 producer 입력이며 실제 ClickHouse 측정이 아닙니다. Multi-job은 실제 query/diagnosis 경로를 통과하지만 부하와 node label은 synthetic입니다.
+
+### 하나의 Grafana에서 선택·실행·재생
+
+[App build와 binary 준비](grafana-scenes-poc.md#gpu-없이-확인) 후 Scenario Lab을 한 번 실행합니다. 사용자는 아래 Grafana URL 하나만 사용하며 시나리오별 port를 관리하지 않습니다.
+
+```bash
+python grafana/xlayer-app/scripts/scenario_lab.py \
+  --tools /path/to/existing-demo-tools \
+  --output /tmp/xlayer-scenario-lab \
+  --grafana-port 23400
+```
+
+**정상 결과:** `SCENARIO LAB http://127.0.0.1:23400/a/xlayer-telemetry-app/demo`가 출력됩니다. Explorer에서 시나리오 목적·기대 결과·Workflow를 읽고 **Run scenario**를 누릅니다. 실제 scrape와 SDK pair가 완료되면 **Open Run / Investigate**로 같은 Run·observer·record·window를 이어서 조사합니다.
+
+| 동작 | 상태 전환·보존 범위 |
+| --- | --- |
+| Run scenario | Idle → Starting → Collecting → Ready. 새 generation·Run ID·backend store 생성 |
+| Replay scenario | 이전 backend를 종료하고 같은 입력 조건을 새 generation으로 반복 |
+| Stop scenario | Stopping → Stopped. Owned backend 종료, 검증 요약 보존, live query 링크 비활성화 |
+| Reset demo | Resetting → Idle. 이전 replay의 관측·UI 선택 대상 제거 |
+| 실패 | Error와 Data generation / Collection / Query / Diagnosis 단계의 실패 이유 표시 |
+
+Grafana와 datasource UID는 유지하고 Prometheus/Loki/exporter만 replay별로 격리합니다. 제어 API는 격리 Lab의 `jsonData.demoControlUrl`로 설정한 [Grafana App proxy](https://grafana.com/developers/plugin-tools/how-to-guides/app-plugins/add-authentication-for-app-plugins)를 사용하며 production App에서는 기본 비활성입니다. 전환 즉시 이전 backend routing을 폐기하고 이전 generation의 늦은 query 응답은 실패로 처리합니다. 이전 replay URL은 **Replay expired**를 표시하며 새 데이터로 대체하지 않습니다.
+
+같은 시나리오는 workload·phase duration·source fault의 입력 서명을 재현합니다. Timestamp·Run/record/span ID는 새로 생성되며 원본 시각을 현재로 바꾸거나 backdated Prometheus sample을 만들지 않습니다. **Expected results & composition**에는 기대 duration·candidate·허용된 복합 조건을, **Validation stages**에는 생성·수집·실제 query·diagnosis·UI 검증 상태를 표시합니다. UI workflow는 browser regression이 실행한 경우에만 passed로 보고하며 미실행은 pending입니다.
+
+`partial-telemetry`는 같은 generation 안에서 missing/stale pair와 recovery pair를 연속 생성합니다. 다른 조합은 registry의 검증된 구성만 허용하며 임의의 source 조건을 합쳐 잘못된 인과관계를 만들지 않습니다. Explorer는 활성 generation의 최근 28개 관측 링크를 보관합니다. 수집 중 UI는 제한된 자동 refresh를 사용하고 이후에는 **Refresh scenarios**로 확인할 수 있습니다.
+
+기존 `live_demo.py --scenario ...`는 개별 producer 개발을 위한 advanced launcher입니다. 사용자 기본 경로와 통합 E2E는 `scenario_lab.py`의 단일 Explorer를 사용합니다.
+
+### 자동 UI/E2E 회귀
+
+```bash
+python grafana/xlayer-app/scripts/ci_scenarios.py \
+  --tools /path/to/existing-demo-tools \
+  --state /tmp/xlayer-scenario-ci \
+  --output artifacts/scenario-ci \
+  --scenarios normal slow-rollout recorded-error partial-telemetry async-replicas
+```
+
+Playwright와 Chromium이 필요하며 기존 설치를 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 정상 결과는 최상위 `validation.json`이 `passed`, `owned_processes_stopped=true`이며 `browser/validation.json`의 각 scenario가 `passed`입니다. 하나의 Grafana에서 Explorer의 실제 버튼으로 모든 시나리오를 선택·실행합니다. 실패 시 scenario·사용자 workflow·화면과 bounded service log를 남깁니다. 기존 `ci_demo.py`에는 네 KPI·disclosure·URL 회귀가 연결되어 있고, Grafana CI의 scenario matrix는 정상·지연·오류·복구·async 경로를 반복 검사합니다.
+
+Runner는 자신이 만든 process만 종료합니다. 결과를 확인한 뒤 지정한 state directory만 제거하며 browser 보고서는 Git에 추가하지 않습니다. 실제 GPU/VERL model weights·물리 multi-node clock/RDMA·3FS cluster population·장시간 overhead는 **Pending**이며 synthetic/UI 통과와 별도로 검증해야 합니다.

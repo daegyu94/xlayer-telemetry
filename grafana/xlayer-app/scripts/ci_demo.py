@@ -128,6 +128,8 @@ def run(args):
                 '--context',str(args.output/('ci-multi-validation.json' if args.multi_worker else 'ci-validation.json')),
                 '--output',str(args.output/'infrastructure'),*(['--browser',args.browser] if args.browser else [])]
             validators = (command, contracts, series, clocks, infrastructure)
+            validators += ([sys.executable,str(SCRIPTS/'redesign_validate.py'),'--url',connection['grafana'],
+                '--output',str(args.output/'product-journey'),*(['--browser',args.browser] if args.browser else [])],)
             if not args.multi_worker and not args.multi_job:
                 # Reuse the same owned stack; cover all routes/themes without
                 # adding another demo launch or repeating multi-job diagnosis.

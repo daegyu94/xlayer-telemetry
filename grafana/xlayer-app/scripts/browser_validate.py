@@ -172,45 +172,37 @@ def loading_context_check(page, url, checks, capture):
     page.get_by_role('button', name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=15000)
     page.wait_for_timeout(500)
     snapshots = []
-    reserved = []
-    cancelled = []
+    held = []
+    holding = True
     def delayed_unknown_run(route):
         body = route.request.post_data_json or {}
         queries = body.get('queries', [])
         matches = any('not-a-real-run' in str(query.get('expr', '')) and 'verl_step' in str(query.get('expr', '')) and 'verl-agent-demo' not in str(query.get('expr', '')) for query in queries)
-        if not matches or reserved:
+        if matches and holding:
+            # Return from the route callback before querying browser state.
+            # Reentrant page.evaluate/route.fetch can deadlock Playwright's sync dispatcher.
+            held.append(route)
+        else:
             route.continue_()
-            return
-        reserved.append(True)
-        response = route.fetch(timeout=10000)
-        threading.Event().wait(.3)
-        snapshots.append(page.evaluate("""() => ({
-          runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
-          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Update time','Reported duration','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
-          completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
-        })"""))
-        threading.Event().wait(.9)
-        try:
-            route.fulfill(response=response)
-        except PlaywrightError as error:
-            if 'Route is already handled!' not in str(error):
-                raise
-            cancelled.append('Native Scenes cancelled the superseded browser-delayed request')
     page.route('**/api/ds/query*', delayed_unknown_run)
     try:
         run = page.locator('.xlt-context-variable').nth(1)
         run.get_by_role('combobox').fill('not-a-real-run')
         page.get_by_role('option').filter(has_text='Hit enter to add').click()
         page.keyboard.press('Escape');page.keyboard.press('Tab')
-        # Grafana's multi-value editor commits on blur; remove only the old Run.
         for button in run.get_by_role('button', name='Remove', exact=True).all():
             if button.locator('..').inner_text().strip() == 'verl-agent-demo':
                 button.click()
                 break
         page.keyboard.press('Escape');page.keyboard.press('Tab')
         page.wait_for_function("new URLSearchParams(window.location.search).getAll('var-run_id').includes('not-a-real-run') && !new URLSearchParams(window.location.search).getAll('var-run_id').includes('verl-agent-demo')", timeout=15000)
-        page.get_by_text('이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.', exact=True).wait_for(state='attached', timeout=15000)
-        page.unroute_all(behavior='wait')
+        page.wait_for_function("Array.from(document.querySelector('[aria-label=\"Completed Step\"]')?.options||[]).filter(option=>option.value).length===0",timeout=15000)
+        assert held, 'A native Run transition must issue delayed unknown-Run queries'
+        snapshots.append(page.evaluate("""() => ({
+          runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
+          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Update time','Reported duration','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
+          completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
+        })"""))
         relevant = [snapshot for snapshot in snapshots if snapshot['runs']==['not-a-real-run']]
         assert relevant, 'A native Run transition must issue delayed unknown-Run queries'
         for snapshot in relevant:
@@ -218,9 +210,21 @@ def loading_context_check(page, url, checks, capture):
             for value in snapshot['application']:
                 assert 'verl-agent-demo' not in value['entity'], value
                 assert not re.search(r'\d', value['value']), ('Old application KPI value during Loading', value)
+        holding = False
+        for route in held:
+            try:
+                response=route.fetch(timeout=10000)
+                route.fulfill(response=response)
+            except PlaywrightError as error:
+                if 'Route is already handled!' not in str(error):raise
+        page.get_by_text('이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.', exact=True).wait_for(state='attached', timeout=15000)
         capture('loading-run-context')
         checks.append('Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate')
     finally:
+        holding = False
+        for route in held:
+            try:route.abort()
+            except PlaywrightError:pass
         page.unroute_all(behavior='wait')
 
 
@@ -441,9 +445,10 @@ def multi_worker_journey(args):
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
-        page.get_by_role('link', name='Overview', exact=True).last.click()
+        page.get_by_role('link', name='Run', exact=True).last.click()
         page.wait_for_timeout(700)
-        lifecycle = page.locator('details').filter(has=page.locator('summary').filter(has_text='Policy / KV Lifecycle'))
+        page.locator('.xlt-execution-details > summary').click()
+        lifecycle = page.locator('details.xlt-completed-detail').filter(has=page.locator('summary').filter(has_text='Policy / KV Lifecycle'))
         lifecycle.locator('summary').click()
         assert '4 workers with applied-version events' in lifecycle.inner_text()
         assert lifecycle.locator('tbody tr').count() >= 4
@@ -493,8 +498,11 @@ def main():
         url=args.url+'/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         enter_app(page,url,entry_diagnostics);page.wait_for_timeout(1500)
         assert 'Synthetic demo' in page.locator('.xlt').inner_text()
-        assert 'vs baseline' in page.locator('.xlt-kpis').inner_text()
-        assert page.locator('.xlt-kpis .xlt-card').count()==8
+        assert 'vs baseline' in page.locator('.xlt-primary-kpis').inner_text()
+        assert page.locator('.xlt-primary-kpis .xlt-card').count()==4
+        assert page.locator('.xlt-secondary-signals .xlt-card').count()==5
+        page.locator('.xlt-secondary-signals > summary').click()
+        page.locator('.xlt-execution-details > summary').click()
         assert 'Policy' in page.locator('.xlt-run-context').inner_text()
         assert 'trainer version (reported)' in page.locator('.xlt-context-meta').inner_text()
         assert 'Recent Events' in page.locator('.xlt').inner_text()
@@ -603,7 +611,7 @@ def main():
         page.get_by_role('button',name='Inspect measured timeline →',exact=True).click();page.wait_for_timeout(1800)
         assert 'Measured spans' in page.locator('.xlt').inner_text();capture('timeline')
         checks.append('Analyze → baseline / candidates → evidence → measured timeline keeps Step; Compute pivot and Escape restore focus')
-        page.get_by_role('link',name='Deep Dive',exact=True).last.click();page.wait_for_timeout(700)
+        page.get_by_role('link',name='Metrics',exact=True).last.click();page.wait_for_timeout(700)
         assert 'Choose a subsystem' in page.locator('.xlt').inner_text();capture('deep-dive')
         checks.append('App Timeline / Deep Dive routing preserves investigation context')
         page.goto(url.replace('verl-agent-demo','not-a-real-run'));page.wait_for_timeout(1800)
@@ -616,6 +624,7 @@ def main():
         page.route('**/api/dashboards/uid/xlayer-cross-layer-timeline',lambda route:route.fulfill(status=404,json={'message':'Dashboard not found'}))
         page.route('**/api/dashboards/uid/xlayer-run-logs',lambda route:route.fulfill(status=404,json={'message':'Dashboard not found'}))
         page.goto(url);page.wait_for_timeout(1800)
+        page.locator('.xlt-execution-details > summary').click()
         assert 'Loki Timeline을 사용할 수 없습니다' in page.locator('.xlt').inner_text();capture('optional-unavailable')
         checks.append('Optional dashboard 404 fixture degrades to metrics/Deep Dive; it is not reported as real backend outage validation')
         assert not errors,errors

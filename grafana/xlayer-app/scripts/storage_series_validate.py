@@ -26,7 +26,7 @@ with sync_playwright() as p:
  slow=next((o.get_attribute('value') for o in selector.locator('option').all() if '48.00' in o.inner_text()),None)
  assert slow;selector.select_option(slow);page.wait_for_timeout(700)
  page.get_by_role('button',name=re.compile('Analyze Step')).click()
- page.get_by_role('link',name='Investigate',exact=True).click()
+ page.get_by_role('link',name='Investigation',exact=True).click()
  page.locator('.xlt-candidates article').filter(has=page.get_by_role('heading',name='storage',exact=True)).get_by_role('button',name='Deep Dive →',exact=True).first.click()
  page.get_by_role('button',name='3FS evidence',exact=True).click()
  page.get_by_role('combobox',name='Storage metric').wait_for(timeout=15000)

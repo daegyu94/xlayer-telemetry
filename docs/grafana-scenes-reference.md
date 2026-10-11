@@ -244,7 +244,7 @@ Route는 모두 `/a/xlayer-telemetry-app` 아래에 있습니다. 기존 `/d/*` 
 
 - `native-workspace.tsx`는 provisioned JSON의 모든 non-row panel을 한 번씩 보존합니다. 원본 row·추가된 source panel도 catalog에 남고, 펼친 group만 component/query를 활성화합니다.
 - 상세 요약 card는 해당 native panel의 data provider를 공유합니다. 숫자 field·query ref·entity를 구분하며 multi-entity를 대표값으로 바꾸지 않습니다. Producer freshness가 별도로 확인되지 않으면 그 한계를 표시합니다.
-- `DashboardChrome.tsx`와 `style.css`는 공통 navigation·반응형·Light/Dark token을 담당합니다. Canonical graph의 unit·population·transform·data link는 바꾸지 않습니다. Collection-point plot은 원래 no-line 계약을 유지합니다.
+- `DashboardChrome.tsx`와 `src/design-system/`은 공통 navigation·반응형·Light/Dark token을 담당합니다. `tokens.ts`는 Grafana theme의 semantic 역할과 대비, `components.tsx`는 KPI·상태·주요 행동, `styles.ts`와 `product-layout.ts`는 Emotion으로 scope를 제한한 제품 배치를 관리합니다. `panel-compat.ts`는 기존 native/matrix/topology geometry의 호환 규칙이며 전역 stylesheet로 주입하지 않습니다. Canonical graph의 unit·population·transform·data link는 바꾸지 않습니다. Collection-point plot은 원래 no-line 계약을 유지합니다.
 - `topology-layout.ts`는 선언된 inventory를 B2의 Compute / Fabric / Storage 그룹에 배치합니다. Compute는 2열, Storage는 명시 MDS/DS/Unknown role을 구분하고 Compact/Expanded로 전체 반환 inventory를 탐색합니다. Fabric이 없으면 가상 switch를 만들지 않으며 direct Compute→Storage 관계는 Fabric hop으로 바꾸지 않습니다. 화면 inventory는 최대 256개 component로 제한하며 선택된 resource는 Compact에서도 유지합니다. Device는 명시 owner mapping을 통해 선택하고 실제 선언 edge는 Ledger에 보존합니다.
 
 ### 디자인 검증

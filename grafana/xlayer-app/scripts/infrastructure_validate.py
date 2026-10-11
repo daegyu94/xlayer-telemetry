@@ -56,8 +56,8 @@ def main():
             native_dashboard_back(page,args.url)
             page.get_by_role('link',name='선택한 Step 조사 →',exact=True).click()
             page.get_by_role('heading',name=re.compile('Step Investigation')).wait_for()
-            page.get_by_role('link',name='Deep Dive',exact=True).click()
-            page.get_by_role('link',name='Logs & Events',exact=True).click()
+            page.get_by_role('link',name='Metrics',exact=True).click()
+            page.get_by_role('link',name='Logs & events',exact=True).click()
             page.get_by_role('heading',name='Logs & Events',exact=True).wait_for()
             logs=parse_qs(urlparse(page.url).query)
             for key in ('var-run_id','var-record_id','var-source_node','from','to'):assert logs[key]==params[key]

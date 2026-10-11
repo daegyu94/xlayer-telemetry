@@ -1,0 +1,455 @@
+{
+  "started": "2026-10-11",
+  "verified": "2026-10-12",
+  "baseline": "019eea5a51722054da4a076d217c7263c7935c45",
+  "artifact_root": "artifacts/greenfield-redesign",
+  "design_order": [
+    "independent workflows/research",
+    "information architecture",
+    "KPI/visualization",
+    "repository inspection",
+    "implementation",
+    "rendered iteration"
+  ],
+  "architecture": {
+    "product": "Grafana App + Scenes + Grafana UI/Emotion",
+    "primary_navigation": [
+      "Runs",
+      "Run",
+      "Investigation",
+      "Systems"
+    ],
+    "core_kpis": [
+      "recorded progress",
+      "step/update duration",
+      "worker throughput",
+      "recorded errors"
+    ],
+    "canonical_query_contract": "preserved",
+    "global_stylesheet": "replaced by scoped theme tokens/components/product layout/native compatibility",
+    "demo": "one Grafana URL, App proxy control, isolated synthetic backend stores per generation"
+  },
+  "environment": {
+    "python": "3.12.3",
+    "node": "20.20.0",
+    "grafana": "13.1.7 / React 18 compatibility",
+    "scenes": "6.20.0",
+    "playwright": "1.56.0",
+    "browser": "Chromium build 1194"
+  },
+  "baseline_validation": {
+    "frontend_passed": 196,
+    "related_python_passed": 45,
+    "related_python_skipped": 6
+  },
+  "verification": {
+    "frontend_passed": 203,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "cpu_passed": 1935,
+    "cpu_skipped": 6,
+    "skip_reason": "XLAYER_TEST_CLICKHOUSE_CONTAINER is not configured; no real ClickHouse validation",
+    "warning": "Expected duplicate archive member fixture emits one zipfile warning",
+    "docs_build": "passed",
+    "documentation_links_diagrams": "passed",
+    "python_compile": "passed",
+    "shell_syntax": "passed",
+    "product_journey": [
+      "Four primary destinations and four KPIs; learning/resource and execution details collapsed by default",
+      "Light/Dark × 1440/1024/390px, no document overflow, desktop action above fold",
+      "Slow observation → candidate → evidence → metric; shared URL reload and tab Back/Forward retain selected identity",
+      "Lazy native timeline activates and survives fold/unfold",
+      "Unknown run: no invented progress, health or zero errors"
+    ],
+    "context_recovery": [
+      "optional dashboard HTTP 503 / retry retains context",
+      "required dashboard HTTP 503 / retry retains context",
+      "invalid numeric/reversed/timezone URL recovery preserves Run and Cluster",
+      "selected UTC presentation overrides Asia/Seoul browser timezone",
+      "Deep Dive tab URL / reload / Back / Forward",
+      "third comparison blocked / A-B slots / hidden selections / reload / clipboard fallback",
+      "Expired replay recovery retains theme/timezone and clears old generation/run context"
+    ],
+    "native_request_window": {
+      "matched": 22,
+      "total": 22
+    },
+    "route_matrix": {
+      "routes": 13,
+      "captures": 52,
+      "failures": 0
+    },
+    "readability": {
+      "captures": 24,
+      "viewports": [
+        1440,
+        1024,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "qualified_dom_contrast_failures": 0,
+      "below_12px": 0,
+      "scope": "DOM samples, not a full WCAG audit"
+    },
+    "native_panel_gate": {
+      "checks": 33,
+      "captures": 33,
+      "failures": 0
+    },
+    "other_browser_checks": [
+      "4 measured workers and policy/clock context",
+      "3 jobs and 2 configured replicas",
+      "two Cluster identities with identical producer record IDs",
+      "source failure and recovery",
+      "native legend/filter",
+      "storage series and missing service evidence",
+      "Run A/B and retained artifacts",
+      "two saved LLM invocations; no model inference"
+    ],
+    "browser_errors_in_passed_reports": 0,
+    "ci_assembly": "single-worker full journey plus all downstream validators passed in sequence",
+    "reference_captures_note": "Counts describe executed captures; redundant images were pruned after review",
+    "final_ci_readability": {
+      "captures": 24,
+      "contrast_failures": 0,
+      "below_12px": 0,
+      "failures": 0
+    }
+  },
+  "scenario_results": {
+    "normal": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 5928a65e00f9be2ed6fddf966174d0aedc72006e19b5ee97aa10e18878d9d489"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "Actual backend queries: 98 attempted, 0 failed; optional missing values are preserved",
+            "Actual scraped vLLM queue max 1; queried within the scheduled rollout window"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "Scenario rule result: duration 40s; candidate none (controlled producer inputs)"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "Completed SDK pair; real exporter samples collected during source windows"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "slow-rollout": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 9da11a90dcefed3b077e6c093d0f2110265a0473979cf40ab3768231adfaa1d6"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "Actual backend queries: 98 attempted, 0 failed; optional missing values are preserved",
+            "Actual scraped vLLM queue max 14; queried within the scheduled rollout window"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "Scenario rule result: duration 48s; candidate rollout_queue_backlog (controlled producer inputs)"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "Completed SDK pair; real exporter samples collected during source windows"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "recorded-error": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 01e1bd473e6ee967f1287f6963b6626e7aa3e04c88bffe667543cc6968ec59a9"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "Actual backend queries: 98 attempted, 0 failed; optional missing values are preserved",
+            "Actual scraped vLLM queue max 1; queried within the scheduled rollout window"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "Scenario rule result: duration 40s; candidate none (controlled producer inputs)"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "Completed SDK pair; real exporter samples collected during source windows"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "storage-regression": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 94ea3de827f54ac1a352179277a54f6f94d071295b5d8ca431c13fbce6c80d50"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "Actual backend queries: 98 attempted, 0 failed; optional missing values are preserved",
+            "Actual scraped vLLM queue max 14; queried within the scheduled rollout window"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "Scenario rule result: duration 48s; candidate storage_queue_saturation (controlled producer inputs)"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "Completed SDK pair; real exporter samples collected during source windows"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "multi-job": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: e1a24e98e4156f934147333bf7beff0d769faa06b3993958e579bfb9a6abb1ac",
+            "Three separately identified jobs; curated composition"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "g3-demo-qwen: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g3-demo-llama: Actual backend queries: 154 attempted, 0 failed; optional missing values are preserved",
+            "g3-demo-deepseek: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g3-demo-qwen: reward observed, producer fresh; actual Prometheus series",
+            "g3-demo-llama: reward missing, producer fresh; actual Prometheus series",
+            "g3-demo-deepseek: reward observed, producer stale; actual Prometheus series"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "g3-demo-qwen: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g3-demo-llama: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g3-demo-deepseek: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "SDK records and native live samples available"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "partial-telemetry": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 22a37d6bf1575390d159d93851f4da0802cdd1edaac6c0e6b134795eeaaac9e4",
+            "Three separately identified jobs; curated composition"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "g4-demo-qwen: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g4-demo-llama: Actual backend queries: 154 attempted, 0 failed; optional missing values are preserved",
+            "g4-demo-deepseek: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g4-demo-qwen: reward observed, producer fresh; actual Prometheus series",
+            "g4-demo-llama: reward observed, producer fresh; actual Prometheus series",
+            "g4-demo-deepseek: reward observed, producer fresh; actual Prometheus series"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "g4-demo-qwen: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g4-demo-llama: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g4-demo-deepseek: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "SDK records and native live samples available"
+          ],
+          "message": ""
+        }
+      }
+    },
+    "async-replicas": {
+      "status": "passed",
+      "generation_isolation": true,
+      "expected_results": {
+        "generation": {
+          "state": "passed",
+          "checks": [
+            "Deterministic input signature: 788d5cfdf468b04cfbcba25ff3c1a9e161da52f1335ffa57de153c5fd6c1e78c",
+            "Three separately identified jobs; curated composition"
+          ],
+          "message": ""
+        },
+        "query": {
+          "state": "passed",
+          "checks": [
+            "g5-demo-qwen: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g5-demo-llama: Actual backend queries: 154 attempted, 0 failed; optional missing values are preserved",
+            "g5-demo-deepseek: Actual backend queries: 134 attempted, 0 failed; optional missing values are preserved",
+            "g5-demo-qwen: reward observed, producer fresh; actual Prometheus series",
+            "g5-demo-llama: reward missing, producer fresh; actual Prometheus series",
+            "g5-demo-deepseek: reward observed, producer stale; actual Prometheus series"
+          ],
+          "message": ""
+        },
+        "diagnosis": {
+          "state": "passed",
+          "checks": [
+            "g5-demo-qwen: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g5-demo-llama: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty",
+            "g5-demo-deepseek: Actual DiagnosticEngine completed; shared resource evidence retains uncertainty"
+          ],
+          "message": ""
+        },
+        "collection": {
+          "state": "passed",
+          "checks": [
+            "SDK records and native live samples available"
+          ],
+          "message": ""
+        }
+      }
+    }
+  },
+  "lifecycle": {
+    "start_stop_reset_replay": "passed",
+    "cancel_during_collection": "passed",
+    "old_replay_url": "withheld; display preferences retained",
+    "late_query_response": "discarded after generation change",
+    "deterministic_input_signature": "same-scenario replay matched",
+    "query_vs_input": "native vLLM queue and multi-job missing/stale/fresh presence checked separately",
+    "ui_validation": "only reported passed after browser assertions"
+  },
+  "iterations": [
+    {
+      "cycle": 1,
+      "review": "Eight equally weighted KPIs and fourteen navigation choices hid the slow-step action",
+      "change": "Four primary destinations/KPIs, same-entity ranked observations, progressive detail",
+      "evidence": "baseline/overview.png and loop1b/overview.png"
+    },
+    {
+      "cycle": 2,
+      "review": "Actual Grafana chrome reduced content width and pushed the next action below the fold",
+      "change": "Content-width KPI layout, compact header, candidate-first investigation",
+      "evidence": "loop2-review"
+    },
+    {
+      "cycle": 3,
+      "review": "Missing diagnosis differed from completed diagnosis without candidates; unrelated Storage preceded rollout metrics",
+      "change": "Explicit diagnosis states and candidate-specific first metric",
+      "evidence": "loop3-review"
+    },
+    {
+      "cycle": 4,
+      "review": "Global CSS and hardcoded dark topology colors failed real viewport/contrast checks",
+      "change": "Grafana semantic tokens, scoped Emotion, native geometry compatibility, restored mobile root width",
+      "evidence": "readability-pass/iteration-1/validation.json"
+    },
+    {
+      "cycle": 5,
+      "review": "Scenario provisioning lag and old poll responses could expose stale replay state",
+      "change": "Publication readiness, request epochs, fresh stores/Run IDs, expiry and in-flight response guards",
+      "evidence": "platform-c and platform-d"
+    },
+    {
+      "cycle": 6,
+      "review": "Offscreen mobile links, header-covered close action and expired-link preference loss",
+      "change": "Hidden closed navigation, explicit close/Escape/focus restoration, modal tokens, preserved timezone/theme",
+      "evidence": "product-complete and context-complete"
+    },
+    {
+      "cycle": 7,
+      "review": "Delayed-request fixture could deadlock its synchronous browser callback",
+      "change": "Hold and release requests outside the callback; preserve stale-Run assertions and the original timeout",
+      "evidence": "ci-verified/ci-validation.json"
+    }
+  ],
+  "limits": [
+    "Synthetic SDK/real local backend queries do not validate physical GPU/VERL/RDMA/multi-node/3FS performance or attribution",
+    "Async fixtures validate trainer-update boundaries and replica reports, not a real asynchronous training scheduler",
+    "Real model inference, sustained production load, full screen-reader accessibility and remote CI environments remain pending"
+  ],
+  "cleanup": {
+    "owned_stacks": "all stopped; disposable backend state removed; bounded evidence retained",
+    "unrelated_existing_demo": "preserved",
+    "remote_push": false,
+    "artifact_policy": "All JSON reports retained; 14 representative PNGs and bounded log tails; redundant captures removed"
+  },
+  "legacy_ci_wrapper": "passed full ci_demo.py journey with original 180s per-validator deadline"
+}

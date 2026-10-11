@@ -32,6 +32,7 @@ export const DEEP_DIVE_SPECS:Array<{label:string;dashboard?:Destination;panel?:n
  {label:'vLLM',dashboard:'stage',panel:9,note:'Engine별 Sampled request counts와 optional waiting-reason breakdowns.'},
  {label:'vLLM KV cache',dashboard:'stage',panel:134,note:'Engine별 KV cache ratio입니다. Run attribution은 성립하지 않습니다.'},
  {label:'vLLM preemptions',dashboard:'stage',panel:135,note:'Engine별 preemption rate per second입니다.'},
+ {label:'Network',dashboard:'compute',panel:9,note:'Sampled node/interface bandwidth; shared resource context, not Run-attributed traffic.'},
  {label:'Ray',dashboard:'stage',panel:22,note:'Shared session task states; not attributed to this update.'},
  {label:'Sandbox',dashboard:'stage',panel:12,note:'Worker/cgroup I/O pressure; not a physical SSD latency.'},
 ];

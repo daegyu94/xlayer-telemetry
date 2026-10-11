@@ -33,10 +33,10 @@
   "includes": [
     {
       "type": "page",
-      "name": "Overview",
+      "name": "Run",
       "path": "/a/xlayer-telemetry-app/overview",
-      "addToNav": true,
-      "defaultNav": true,
+      "addToNav": false,
+      "defaultNav": false,
       "role": "Viewer"
     },
     {
@@ -85,8 +85,16 @@
       "type": "page",
       "name": "Runs",
       "path": "/a/xlayer-telemetry-app/runs",
-      "addToNav": false,
-      "role": "Viewer"
+      "addToNav": true,
+      "role": "Viewer",
+      "defaultNav": true
+    }
+  ],
+  "routes": [
+    {
+      "path": "demo-control/*",
+      "url": "{{ .JsonData.demoControlUrl }}",
+      "reqRole": "Viewer"
     }
   ]
 }

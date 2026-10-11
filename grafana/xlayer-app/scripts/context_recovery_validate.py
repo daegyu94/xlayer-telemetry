@@ -113,6 +113,18 @@ def main():
             shared = parse_qs(urlparse(share.get_attribute('href')).query)
             assert all(shared.get(key) == value for key, value in chosen.items())
             checks.append('third comparison blocked / A-B slots / hidden selections / reload / clipboard fallback')
+            # A reset replay must not replace the caller's theme/timezone with browser defaults.
+            endpoint='**/api/plugin-proxy/xlayer-telemetry-app/demo-control/status'
+            page.route(endpoint,lambda route:route.fulfill(status=200,json={'generation':2,'status':'ready'}))
+            page.goto(base+'overview?'+urlencode({**context,'theme':'dark','var-demo_generation':'1'}))
+            page.get_by_text('Replay expired',exact=True).wait_for(timeout=15000)
+            page.get_by_role('link',name='Open Scenario Explorer →',exact=True).click()
+            page.wait_for_url('**/demo?**')
+            restored=query(page)
+            assert restored['theme']==['dark'] and restored['timezone']==['UTC']
+            assert 'var-demo_generation' not in restored and 'var-run_id' not in restored
+            page.unroute(endpoint)
+            checks.append('Expired replay recovery retains theme/timezone and clears old generation/run context')
             assert not errors, errors
             page.screenshot(path=str(args.output / 'comparison-recovery.png'), full_page=True)
         except Exception:

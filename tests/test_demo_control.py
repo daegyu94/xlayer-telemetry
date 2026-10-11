@@ -1,0 +1,79 @@
+import pytest
+from xlayer_telemetry.demos.control import ScenarioControl
+
+
+def test_reset_revokes_backend_and_observations_before_next_process_starts():
+    control=ScenarioControl()
+    first=control.command('replay','normal',0)
+    assert first['generation']==1 and first['status']=='starting'
+    control.publish(1,backend={'prometheus':'http://127.0.0.1:1','loki':'http://127.0.0.1:2'},
+        catalog={'observations':[{'scenario':'normal','context':{'run_id':'g1-r'}}]},state='ready')
+    assert control.snapshot()['observations'][0]['context']['demo_generation']=='1'
+    control.command('reset',None,1)
+    assert control.snapshot()['observations']==[]
+    with pytest.raises(RuntimeError):control.target('prometheus')
+    assert not control.publish(1,catalog={'observations':[{'old':'record'}]},state='ready')
+    assert control.snapshot()['status']=='resetting'
+
+
+def test_commands_are_allowlisted_and_optimistic_generation_prevents_double_replay():
+    control=ScenarioControl()
+    with pytest.raises(ValueError):control.command('replay','shell-command',0)
+    assert control.generation==0
+    control.command('replay','slow-rollout',0)
+    with pytest.raises(RuntimeError):control.command('replay','normal',0)
+    assert control.selected=='slow-rollout'
+
+
+def test_stop_preserves_summary_while_reset_clears_it():
+    control=ScenarioControl();control.command('start','normal',0)
+    control.publish(1,catalog={'observations':[{'scenario':'normal','context':{'run_id':'g1-r'}}]},validation={'query':{'state':'passed'}},state='ready')
+    control.command('stop',None,1)
+    assert control.state=='stopping' and control.catalog
+    assert control.validation['query']['state']=='passed' and control.backend is None
+    control.command('reset',None,2)
+    assert not control.catalog and not control.validation
+
+
+def test_proxy_discards_a_response_that_completed_after_reset():
+    import json
+    import threading
+    import urllib.request
+    import urllib.error
+    from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+    from concurrent.futures import ThreadPoolExecutor
+    from xlayer_telemetry.demos.control import control_server
+    entered=threading.Event();release=threading.Event()
+    class Backend(BaseHTTPRequestHandler):
+        def log_message(self,*args):pass
+        def do_GET(self):
+            entered.set();release.wait(5);self.send_response(200);self.end_headers();self.wfile.write(b'{"old_value":42}')
+    backend=ThreadingHTTPServer(('127.0.0.1',0),Backend)
+    control=ScenarioControl();control.command('start','normal',0)
+    control.publish(1,backend={'prometheus':f'http://127.0.0.1:{backend.server_port}'},state='ready')
+    proxy=control_server(control)
+    threads=[threading.Thread(target=s.serve_forever,daemon=True) for s in (backend,proxy)]
+    for thread in threads:thread.start()
+    def fetch():
+        try:
+            with urllib.request.urlopen(f'http://127.0.0.1:{proxy.server_port}/prom/api/v1/query',timeout=5) as response:return response.status,response.read()
+        except urllib.error.HTTPError as response:return response.code,response.read()
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future=pool.submit(fetch);assert entered.wait(3)
+            control.command('reset',None,1);release.set()
+            status,body=future.result(timeout=5)
+            assert status==503 and b'old_value' not in body
+            assert 'Replay changed' in json.loads(body)['message']
+    finally:
+        release.set()
+        for server in (backend,proxy):server.shutdown();server.server_close()
+        for thread in threads:thread.join(timeout=2)
+
+
+def test_failed_stage_is_preserved_and_failed_backend_is_revoked():
+    control=ScenarioControl();control.command('start','normal',0)
+    control.publish(1,backend={'prometheus':'http://127.0.0.1:1'},state='collecting')
+    control.publish(1,state='error',validation={'query':{'state':'failed','checks':[],'message':'Expected signal absent'}})
+    assert control.snapshot()['validation']['query']['state']=='failed'
+    with pytest.raises(RuntimeError):control.target('prometheus')

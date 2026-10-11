@@ -58,3 +58,13 @@ Raw Worker 표, 전체 폭 comparison, Timeline 높이, metric/resource 안내, 
 | Long history startup / RSS | 측정 필요; `_seen`을 무조건 축소해 restart deduplication을 약화하지 않음 |
 | Histogram Heatmap / saved stage bars | 후속 개선 — 호환 bucket·population·query 비용 또는 명시 saved duration 조건을 확인한 뒤 구현 |
 | XID change-history / compact phase columns | 후속 UX — 실제 사용 근거와 코드/health·clock/phase 의미를 보존하는 조건부터 검증 |
+
+## Greenfield redesign · 2026-10-12
+
+`019eea5`에서 기존 UI를 읽기 전에 사용자 의사결정과 외부 observability 사례를 정리했습니다. Run을 찾고 진행·지연을 확인한 뒤 Candidate → Evidence → Metric/Timeline으로 이동하는 흐름을 기준으로 네 기본 메뉴와 네 핵심 KPI를 구현했습니다. 상세 설명은 Tooltip·Source disclosure에 배치하고, Grafana theme·UI·Emotion으로 product shell과 공통 컴포넌트를 구성했습니다.
+
+실제 화면을 여섯 차례 검토하면서 KPI 밀도, 후보별 metric 진입, 진단 없음과 후보 없음, 모바일 root 폭과 메뉴 focus, Dark topology 대비, replay polling 경합과 만료 URL의 theme/timezone 보존을 수정했습니다. 13개 route의 52개 캡처, 24개 가독성 캡처, 33개 native panel gate에서 최종 failure는 0입니다. 전체 CPU 1,935개와 frontend 203개가 통과했으며 ClickHouse 6개는 환경 미설정으로 skip했습니다.
+
+Scenario Explorer는 하나의 Grafana에서 Run / Stop / Reset / Replay를 수행합니다. 일곱 시나리오의 입력 서명·예상 duration/candidate와 실제 query·diagnosis·UI를 분리 검사하고, generation별 store/Run ID와 이전 응답 차단을 확인했습니다. 수집 중 Stop과 Reset, expired URL도 실제 UI에서 검증했습니다. 자세한 조건과 남은 실장비·접근성 검증 범위는 [검증 JSON](../validation/dashboard-greenfield-20261012.json), 사용 방법과 Scenario Coverage Matrix는 [Live Demo](../demo.md#scenario-driven-live-demo)를 따릅니다.
+
+최종 `ci_demo.py`도 원래의 validator별 180초 deadline 안에서 전체 순서를 통과했습니다. 지연 request fixture의 browser 재진입을 제거했고, 기존 old-Run KPI/Step assertion은 유지했습니다. 마지막 CI stack까지 종료·정리했으며 기존 사용자 demo와 remote는 변경하지 않았습니다.

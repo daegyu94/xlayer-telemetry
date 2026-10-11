@@ -4,16 +4,15 @@
 
 ## 얻는 것
 
-| 화면 | 확인할 것 |
-| --- | --- |
-| Overview | Run context·핵심 KPI·Agent RL Timeline·최근 event |
-| Analyze | Phase × Subsystem·System Pressure·worker 차이 |
-| Investigate | Current / Baseline / Delta·candidate·supporting/counter/missing evidence |
-| Timeline | Measured span·approximate Step·관련 resource metric |
-| Deep Dive | 선택한 candidate의 상세 metric·기존 subsystem dashboard |
-| Infrastructure | Configured GPU/Network/Storage topology·resource selection·collector evidence |
-| Logs & Events | 기존 node-local log query·recorded events; application Run과 log filter 구분 |
-| Runs | 현재 관측·저장 artifact 검색, comparison 조건과 공유 링크 |
+| 목적 | 기본 화면 | 다음 행동 |
+| --- | --- | --- |
+| 실행 찾기·공유·비교 | **Runs**: Cluster / Run / observer와 source별 목록 | Open Run 또는 두 artifact 비교 |
+| 진행·성능 확인 | **Run**: 기록된 progress, duration, worker throughput, recorded errors | 느린 observation 또는 Investigation 버튼 |
+| 병목 가설 검토 | **Investigation**: 후보 → evidence → 상세 metric | Candidates & evidence / Phases & workers / Timeline / Metrics / Logs & events |
+| 공유 자원 조사 | **Systems**: 구성된 node/device와 source availability | Resource filter 또는 Metric library |
+| 재현 가능한 제품 검증 | **Scenario Explorer**: synthetic 상황·기대 결과·게시된 replay | Run 또는 Investigation으로 바로 진입 |
+
+기본 navigation은 Runs · Run · Investigation · Systems입니다. 상세 native dashboard는 **Metric library**에 모았으며 Scenario Explorer는 별도 Synthetic lab입니다. Timeline·worker matrix·logs는 같은 Investigation의 보조 관점으로 제공하므로 Run/Step/time filter를 반복 설정할 필요가 없습니다.
 
 공식 UI는 하나의 **XLayer Telemetry Dashboard**입니다. UI 버전 전환은 제공하지 않으며 기존 `/overview`, `/analyze`, `/investigate`, `/deep-dive`, `/timeline` URL과 canonical Grafana dashboard UID를 유지합니다. Package/API 버전과 Sandbox 지원 범위의 V1 표기는 UI 버전이 아닙니다.
 
@@ -32,7 +31,9 @@ App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 pl
 
 ## Infrastructure에서 조사하기
 
-1. **Infrastructure**에서 GPU node 또는 Storage DS/MDS를 선택합니다. Dashed edge는 Configured이며 실제 연결을 검증한 선이 아닙니다.
+현재 메뉴 이름은 **Systems**이며 기존 `/infrastructure` URL은 유지합니다.
+
+1. **Systems**에서 GPU node 또는 Storage DS/MDS를 선택합니다. Dashed edge는 Configured이며 실제 연결을 검증한 선이 아닙니다.
 2. **Node / device**에서 GPU·NIC·SSD를 선택합니다. `resource_node`와 GPU/interface/device가 명시된 경우에만 resource filter를 설정합니다.
 3. 기존 CPU/memory/GPU/network/RDMA/diskstats panel을 읽습니다. Node-wide 값과 device 값을 구분하며 Run 사용량으로 해석하지 않습니다.
 4. **Full resource metrics**로 기존 Compute/Storage dashboard에 이동하거나 **Deep Dive**로 조사합니다. Run·Step·observer·worker·time은 유지합니다.
@@ -68,11 +69,11 @@ xltel app status
 
 ## 2. Start
 
-설정한 Grafana를 기존 배포 절차로 재시작하고 **More apps → XLayer Telemetry → Overview**를 엽니다.
+설정한 Grafana를 기존 배포 절차로 재시작하고 **More apps → XLayer Telemetry → Runs**를 엽니다.
 
 Managed restart가 필요하면 `xltel restart --role server`를 사용합니다. 이미 Ready이면 불필요한 재시작 없이 페이지를 새로고침합니다.
 
-**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 상단 Run Context와 Workspace / Native Dashboards sidebar가 보입니다. 좁은 화면에서는 메뉴 버튼으로 navigation을 엽니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
+**정상 결과:** `/a/xlayer-telemetry-app/overview`에서 상단 Run Context와 네 기본 메뉴와 접힌 Metric library가 보입니다. 좁은 화면에서는 메뉴 버튼으로 navigation을 엽니다. 기존 datasource·auth·dashboard를 계속 사용합니다.
 
 ## 3. Verify
 
@@ -96,15 +97,28 @@ Measured span 경계와 sampled resource 관측을 구분합니다. Shared resou
 
 여러 실험의 탐색·artifact 게시·retention 이후 비교는 [Run Explorer & Comparison](run-comparison.md)을 사용합니다.
 
-1. **Overview:** KPI의 baseline 변화와 Timeline을 보고 완료 Step을 선택합니다.
-2. **Analyze:** Phase × Subsystem에서 숫자·상태를 확인합니다. 여러 rollout worker가 겹치면 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 의심 cell에서 evidence를 엽니다.
-3. **Investigate:** What changed와 supporting/counter/missing evidence를 비교합니다.
-4. **Deep Dive →:** 선택한 candidate와 같은 context에서 상세 metric을 확인합니다.
-5. **Full Storage / Timeline / Logs:** 기존 dashboard로 이동합니다. Browser Back으로 App에 돌아옵니다.
+1. **Runs → Open Run:** Cluster·Run·observer와 현재 조회 시간, 저장 artifact의 시점을 확인합니다.
+2. **Run:** 네 핵심 KPI를 읽고 **Where did time go?**에서 같은 producer/worker/boundary의 느린 observation을 선택합니다. 막대는 기록된 duration 순위이며 anomaly 판정이 아닙니다.
+3. **Investigation:** 강한 supporting signal의 후보부터 읽고 **Open Evidence**로 Supporting / Against / Missing을 확인합니다. 후보가 없는 완료 진단과 진단 부재는 다른 메시지입니다.
+4. **Deep Dive →:** rollout은 vLLM, compute는 GPU 등 후보에 맞는 첫 metric으로 이동합니다. 상세 tab은 URL에 남고 Reload·Back·Forward에서 복원됩니다.
+5. **Phases & workers / Timeline / Logs & events:** 같은 구간의 worker·phase·로그를 확인합니다. Native dashboard로 이동한 뒤에도 Browser Back으로 기존 문맥에 돌아옵니다.
+
+Run의 **Learning & resource signals**에는 Reward·reported rollout·GPU·KV·Storage를, **Execution detail**에는 Timeline·events·system signals를 모았습니다. 값 가까이에 scope와 freshness를 남기고, KPI 설명은 info Tooltip과 **Source & scope**에서 확인합니다. Time series는 추이, duration bar는 같은 실행 단위의 순위, matrix는 관측된 phase/entity, timeline은 실제 경계에만 사용합니다. Percentile scalar로 histogram을 만들거나 구성된 topology를 실제 인과 경로로 표시하지 않습니다.
 
 Gauge의 phase delta는 명시된 baseline span·workload fingerprint·동일 entity·query 관측 수가 맞을 때만 표시합니다. `Step evidence`의 delta는 선택한 전체 Step 구간의 비교이며 phase cell로 복사하지 않습니다. [Cell 상태 해석](grafana-scenes-reference.md#phase--subsystem)을 함께 확인합니다.
 
 ## GPU 없이 확인
+
+기본 검증 환경은 하나의 Grafana에서 시나리오를 선택·실행하는 **Scenario Lab**입니다. [Scenario Coverage Matrix와 Start / Stop / Reset / Replay](demo.md#scenario-driven-live-demo)를 확인하고, 새 output directory와 사용하지 않는 port로 시작합니다. 아래의 개별 `live_demo.py` 설명은 producer 개발용 참고 경로입니다.
+
+```bash
+python grafana/xlayer-app/scripts/scenario_lab.py \
+  --tools /path/to/existing-demo-tools \
+  --output /tmp/xlayer-scenario-lab \
+  --grafana-port 23400
+```
+
+**정상 결과:** `SCENARIO LAB .../a/xlayer-telemetry-app/demo`가 출력되고 Explorer의 Run scenario로 시작할 수 있습니다.
 
 기존 stack과 분리한 live demo를 사용할 수 있습니다. 프로젝트를 설치한 Python 환경과 다음 binary가 필요합니다.
 
@@ -243,3 +257,48 @@ Workspace에는 Overview·Analyze·Investigate·Timeline·Deep Dive·Infrastruct
 ![Compute·Fabric·Storage 그룹과 선언된 관계를 구분하는 실제 Synthetic Infrastructure](figures/grafana-app-infrastructure.png)
 
 화면별 비교와 남은 차이는 [UX Review](grafana-ui-ux-review.md), source·window·scope 계약은 [App Reference](grafana-scenes-reference.md)에서 확인합니다.
+
+## 사용자 Workflow와 설계 근거
+
+제품 설계는 아래 의사결정에서 시작했습니다. 기존 화면 이름과 panel 배치는 구현을 확인하기 전 설계의 입력으로 사용하지 않았으며, 각 화면은 하나의 기본 작업과 다음 행동을 제공합니다.
+
+| Workflow | 알고 싶은 것·필요 정보 | 순서·완료 기준 |
+| --- | --- | --- |
+| 실행 찾기 | Run/Cluster/observer, source, 관측 시각, 명시 lifecycle | Runs → Run 한 번의 drill-down으로 실행 문맥 확정 |
+| 진행·성능 확인 | 완료 observation, duration/baseline, worker tok/s, 오류 count/coverage | 네 KPI → 느린 기록 선택; missing/stale/unknown/zero 구분 |
+| 가설 검토 | Candidate state와 Supporting / Counter / Missing, clock/comparability | 후보 → Evidence 한 번; 무엇을 추가 확인해야 하는지 설명 가능 |
+| 분산 outlier 분리 | Worker/producer/role/node, 동등한 workload cohort, replica/engine identity | Phases & workers → entity 선택; 서로 다른 engine 조건을 합치지 않음 |
+| Subsystem 조사 | Source 단위·통계·scope, 실제 추이·legend, resource mapping | Metrics 또는 Systems → native panel; Back 시 Run/window 유지 |
+| Telemetry 복구 | Query 실패, sample age, source availability, clock 품질 | Coverage 확인·Retry; source 복구와 workload 정상 상태를 구분 |
+| 공유·비교 | 두 Run의 comparison 조건, 저장 window와 artifact 품질 | URL 공유·Reload·Back/Forward; 비교 불가 조건을 숨기지 않음 |
+
+### 핵심 KPI 네 개
+
+**Recorded progress**는 선택한 완료 기록이며 현재 process의 생존 보장이 아닙니다. **Step time / Update time**은 같은 경계의 저장 baseline과 비교하고, **Worker throughput**은 producer가 기록한 tok/s입니다. **Recorded errors**는 반환된 span의 status coverage와 함께 보여 주며 전체 workload 오류율로 해석하지 않습니다. Reward와 GPU utilization은 서로 다른 질문에 답하므로 기본 health 지표로 합산하지 않습니다.
+
+### 기술 선택
+
+| 구조 | 장점 | 비용·판단 |
+| --- | --- | --- |
+| Native Grafana dashboard | 기존 datasource·query·time·panel·legend 재사용 | 작업별 navigation과 progressive disclosure를 구성하는 데 제약; 상세 분석에 사용 |
+| Grafana App + Scenes + React | 자유로운 제품 shell과 native query/panel·URL/time 통합 | Scene cache/lifecycle·URL 동기화를 실제 browser에서 검증해야 함; 이번 구현에 선택 |
+| 독립 React frontend | 제품 화면을 완전히 제어 | Auth·datasource·시간·panel·배포 경로 중복; 현재 요구를 충족하는 데 추가 service가 필요하지 않아 채택하지 않음 |
+
+Frontend는 진단 결과의 의미를 바꾸지 않는 presentation layer입니다. Canonical query·unit·transform·identity를 재사용하고 신규 Prometheus/Loki client나 별도 backend를 추가하지 않습니다. Synthetic Scenario Explorer도 demo가 provision한 metadata를 기존 Grafana API로 읽으며 운영 source가 없어도 core App을 막지 않습니다.
+
+### 외부 조사에서 도출한 원칙
+
+- [Grafana dashboard best practices](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/)의 symptom-first와 계층적 drill-down을 적용했습니다. Resource utilization은 기본 health 점수 대신 근거로 제공합니다.
+- [Datadog dashboard guide](https://docs.datadoghq.com/getting_started/dashboards/)와 [querying](https://docs.datadoghq.com/dashboards/querying/)을 바탕으로, 시각화의 장식보다 질문·집계 구간·단위를 우선합니다.
+- [New Relic의 trace와 service map 설명](https://newrelic.com/info/faq/does-new-relic-apm-support-distributed-tracing-and-service-maps-c96e19), [OpenTelemetry Resource](https://opentelemetry.io/docs/concepts/resources/)에서 entity와 관측 관계를 drill-down까지 유지하는 원칙을 도출했습니다.
+- [VERL async trainer](https://verl.readthedocs.io/en/latest/advance/v1_async_trainer.html), [vLLM metrics](https://docs.vllm.ai/en/latest/usage/metrics/), [AReaL 연구](https://arxiv.org/abs/2505.24298)는 trainer update·generation·engine queue를 하나의 동기 Step처럼 해석하지 않아야 하는 근거입니다. 외부 metric을 조사했다고 프로젝트에 해당 producer가 구현되었다고 간주하지 않습니다.
+
+시나리오별 source와 검증 범위는 [Live Demo Scenario Coverage](demo.md#scenario-driven-live-demo)에서 관리합니다.
+
+### Design System
+
+[Grafana 공식 스타일링 권장사항](https://grafana.com/developers/plugin-tools/key-concepts/best-practices/)과 [UI Storybook](https://developers.grafana.com/)의 Grafana UI·Emotion·theme token 구성을 따릅니다. 새 UI framework를 추가하지 않고 기존 `@grafana/ui`, `@emotion/css`, `useStyles2`를 사용합니다. 색은 primary action·관측/주의/오류 역할로 사용하고 항상 상태 문구를 함께 표시하며, chart의 categorical 색은 health 색과 구분합니다.
+
+전역 `style.css` 대신 `src/design-system/`에서 token, 공통 컴포넌트, product layout, native compatibility를 분리합니다. Root에 생성한 Emotion class 안으로 selector를 제한하고 일반 텍스트는 12px 이상·4.5:1 대비를 검사합니다. 핵심 KPI는 동일한 surface·숫자 hierarchy·scope disclosure를 사용하며, 좁은 화면은 콘텐츠 최소 폭을 기준으로 줄바꿈합니다. Native chart의 query·unit·legend·geometry는 별도 회귀를 유지합니다.
+
+최종 구현과 실제 검증 조건은 [Greenfield 검증 기록](validation/dashboard-greenfield-20261012.json)에서 확인합니다.

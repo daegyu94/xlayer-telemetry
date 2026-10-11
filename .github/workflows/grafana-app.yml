@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        demo: [single-worker, multi-worker, multi-job]
+        demo: [single-worker, multi-worker, multi-job, scenario-basics, scenario-recovery]
     defaults:
       run:
         working-directory: grafana/xlayer-app
@@ -58,6 +58,7 @@ jobs:
       - name: Install checksum-verified demo tools
         run: python scripts/install_ci_tools.py --output "$RUNNER_TEMP/xlayer-grafana-tools"
       - name: Actual Grafana / Scenes browser journey
+        if: ${{ !startsWith(matrix.demo, 'scenario-') }}
         run: |
           demo_args=()
           if [[ "${{ matrix.demo }}" == "multi-worker" ]]; then
@@ -69,6 +70,17 @@ jobs:
             --tools "$RUNNER_TEMP/xlayer-grafana-tools" \
             --state "$RUNNER_TEMP/xlayer-grafana-state" \
             --output ../../artifacts/grafana-app-browser "${demo_args[@]}"
+      - name: Scenario-driven product regression
+        if: ${{ startsWith(matrix.demo, 'scenario-') }}
+        run: |
+          scenarios=(normal slow-rollout recorded-error storage-regression)
+          if [[ "${{ matrix.demo }}" == "scenario-recovery" ]]; then
+            scenarios=(multi-job partial-telemetry async-replicas)
+          fi
+          python scripts/ci_scenarios.py \
+            --tools "$RUNNER_TEMP/xlayer-grafana-tools" \
+            --state "$RUNNER_TEMP/xlayer-scenario-state" \
+            --output ../../artifacts/grafana-app-browser --scenarios "${scenarios[@]}"
       - name: Preserve bounded browser reports and unsigned package
         if: always()
         uses: actions/upload-artifact@v4

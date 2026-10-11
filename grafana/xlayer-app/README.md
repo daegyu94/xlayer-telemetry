@@ -1,17 +1,18 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. 8개 Workspace 화면과 6개 Native Dashboard 화면이 공통 sidebar·Light/Dark 배색을 사용합니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. Runs · Run · Investigation · Systems의 네 기본 메뉴를 사용하며, 상세 native dashboard는 Metric library에 모았습니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
-| 목적 | 화면 | 다음 행동 |
+| 목적 | 진입점 | 다음 행동 |
 | --- | --- | --- |
-| Run 요약 확인 | Overview: 8 KPI·실제 history sparkline·Timeline + Recent Events·Related Metrics + System Signals | 완료 Step → Analyze |
-| Phase와 subsystem 연결 | Analyze: Matrix·System Pressure·Top Changes·worker snapshots | Execution worker / Worker Comparison → Cell evidence → Investigate |
-| Baseline과 후보 확인 | Investigate: What changed·candidate·Supporting/Against/Missing | Open Evidence / Deep Dive |
-| 선택 후보 검증 | Deep Dive: `candidate_id` workspace·Key Findings·native metric tab·System Pressure | 기존 Timeline / Storage / Logs dashboard |
+| 실행 찾기 | Runs inventory | Open Run / saved comparison |
+| 진행·성능 확인 | Run: progress·duration·worker throughput·recorded errors | 느린 observation → Investigation |
+| 병목 조사 | Investigation: candidate·evidence | Phases & workers / Timeline / Metrics / Logs & events |
+| 공유 자원 확인 | Systems | Resource 선택·Metric library |
+| 재현·회귀 검사 | Scenario Explorer · Synthetic lab | 게시된 replay → Run / Investigation |
 
-Timeline·Infrastructure·Logs & Events도 Workspace navigation에서 선택합니다. Start Here·Stage Correlation·Bottleneck Summary·Compute·Storage·Cross-Layer Signals는 같은 shell 안에서 원본 panel을 읽으며, 기존 `/d/*` 상세 URL도 유지합니다. Detailed Metrics는 canonical native panel을 사용하며 자체 graph/query engine을 만들지 않습니다.
+상세한 [Workflow·KPI·아키텍처 선정 근거](../../docs/grafana-scenes-poc.md#사용자-workflow와-설계-근거)와 [Scenario Coverage Matrix](../../docs/demo.md#scenario-driven-live-demo)를 따릅니다. 기존 route와 native dashboard UID는 유지합니다.
 
 ## 준비
 
@@ -48,7 +49,7 @@ apps:
     disabled: false
 ```
 
-정상 결과: sidebar의 **More apps → XLayer Telemetry**에서 Overview로 이동합니다. `/a/xlayer-telemetry-app/overview`도 사용할 수 있습니다. Production 배포에는 공식 Grafana plugin signing 절차를 따릅니다. 개발용 ZIP·browser CI·signing 준비 조건은 [배포 Reference](../../docs/app-deployment-reference.md)를 확인합니다.
+정상 결과: sidebar의 **More apps → XLayer Telemetry**에서 Runs로 이동합니다. `/a/xlayer-telemetry-app/overview`도 사용할 수 있습니다. Production 배포에는 공식 Grafana plugin signing 절차를 따릅니다. 개발용 ZIP·browser CI·signing 준비 조건은 [배포 Reference](../../docs/app-deployment-reference.md)를 확인합니다.
 
 ## Source와 No data
 
@@ -75,6 +76,8 @@ Reported stage의 `verl_stage` 등 metric dimension은 snapshot age의 ownership
 
 ## Live demo
 
+전체 제품 검증의 기본은 **단일 Grafana Scenario Lab**입니다. `python grafana/xlayer-app/scripts/scenario_lab.py --tools /path/to/tools --output /tmp/xlayer-lab --grafana-port 23400`으로 시작하고 Scenario Explorer에서 Run / Stop / Reset / Replay를 사용합니다. [시나리오별 기대 결과·검증 단계·격리 계약](../../docs/demo.md#scenario-driven-live-demo)을 확인하세요. 아래 `live_demo.py`는 기존 개별 producer 개발 경로입니다.
+
 기존 stack과 별개인 loopback-only Grafana·Prometheus·Loki를 실행합니다. 이미 설치한 binary를 재사용하며 container나 사용자의 monitoring config를 수정하지 않습니다.
 
 저장소 루트에서 프로젝트가 설치된 Python 환경을 사용합니다. `--tools` 아래에는 `grafana-13.1.7/`, `prometheus-3.5.0.linux-amd64/`, `loki-linux-amd64`가 있어야 합니다.
@@ -94,10 +97,10 @@ python grafana/xlayer-app/scripts/live_demo.py \
 
 정상 결과: `LIVE DEMO http://127.0.0.1:23400/a/xlayer-telemetry-app/overview?...`가 출력됩니다. 새 `--output` directory를 사용해야 합니다. 초기 scrape 후 Run은 `verl-agent-demo`, Cluster는 `scenes-demo`를 선택합니다. **Synthetic demo** badge와 Step history가 보이며 약 90초 동안 실제 scrape를 수집한 뒤 baseline/current completed Step pair가 보입니다. 기본은 storage regression과 normal pair를 번갈아 제공합니다.
 
-1. 상단 Run Context에서 Run·time을 확인합니다. Overview에서 저장 baseline 변화와 live/reported KPI를 구분합니다.
-2. Step dropdown 또는 **Analyze Step**으로 완료 Step을 선택합니다. 실제 record identity와 window가 URL·native query에 반영됩니다.
+1. Run Context에서 Run·time과 네 핵심 KPI를 확인합니다. **Where did time go?** 또는 **Investigate**로 느린 관측을 선택합니다.
+2. Step dropdown 또는 **Analyze Step**으로 완료 Step의 Phases & workers를 선택합니다. 실제 record identity와 window가 URL·native query에 반영됩니다.
 3. Analyze의 **rollout × storage**를 선택합니다. Supporting / Against / Missing evidence와 compact timeline을 읽습니다. Rolling RPC p95는 Shared context이며 phase 값으로 귀속되지 않습니다. Storage selector로 operation/status를 선택하고 Step evidence의 supporting/against/missing을 따로 확인합니다.
-4. **Investigate**로 이동해 What changed와 candidate를 확인합니다. **Deep Dive →**는 candidate identity를 유지해 Key Findings와 native metric tab을 엽니다.
+4. **Investigation**에서 candidate와 What changed를 확인합니다. **Deep Dive →**는 candidate identity를 유지해 Key Findings와 native metric tab을 엽니다.
 5. **Full Storage** 또는 Storage 링크로 기존 dashboard를 엽니다. Browser Back으로 돌아오면 Run/Step/time·candidate context가 유지됩니다.
 6. Trace/GPU/engine filter에서 GPU를 `0`으로 제한하면 measured rollout window의 sampled GPU를 확인할 수 있습니다. 여러 device를 선택하면 `Select entity`입니다.
 
@@ -157,6 +160,8 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 ## Design comparison
 
+현재 Greenfield 설계·단일 Scenario Lab의 [최종 검증 기록](../../docs/validation/dashboard-greenfield-20261012.json)을 우선 확인합니다. 아래 HTML 비교 fixture와 이전 기록은 호환 화면 회귀를 위한 자료입니다.
+
 장기 품질 기준과 개선 기록은 [Quality Goals](../../docs/development/quality-goals.md)와 [Quality Backlog](../../docs/development/quality-backlog.md)에서 관리합니다. 원본 query·unit·identity를 유지한 panel-level rendering 검사는 기존 실제 Grafana demo와 아래 helper를 사용합니다.
 
 ```bash
@@ -167,7 +172,7 @@ python scripts/quality_validate.py --url http://127.0.0.1:23400 \
 
 `--context`는 기존 Browser journey가 검증한 선택 Step window입니다. 정상 결과는 `validation.json`의 `failures=[]`이며, Text 본문·lazy plot / Matrix terminal state·Change 열·Timeline 축·1/4/16 Worker 표와 실제 0을 확인합니다. Worker 수 확대는 Browser response fixture이며 실제 분산 실행의 검증은 아닙니다.
 
-디자인 원본은 `design/dashboard-preview.html`입니다. 이 파일의 가상 수치는 디자인 확인용이며 plugin bundle이나 synthetic exporter의 데이터로 사용하지 않습니다.
+이전 디자인의 비교 fixture는 `design/dashboard-preview.html`입니다. 현재 제품 설계의 기준은 위 Workflow와 실제 Scenario Explorer입니다. 이 파일의 가상 수치는 디자인 확인용이며 plugin bundle이나 synthetic exporter의 데이터로 사용하지 않습니다.
 
 기존 loopback demo가 실행된 상태에서 13개 화면을 같은 해상도로 비교합니다.
 

@@ -27,7 +27,7 @@ def validate(args):
                                 'var-run_id':'verl-agent-demo','var-node':'$__all','var-gpu':'$__all','var-device':'$__all'}
                         page.goto(origin+'/a/xlayer-telemetry-app/'+route+'?'+urlencode(params))
                         page.locator('.xlt').wait_for(timeout=30000)
-                        navigation=page.locator('.xlt').get_by_role('link',name='Overview',exact=True,include_hidden=True)
+                        navigation=page.locator('.xlt').get_by_role('link',name='Run',exact=True,include_hidden=True)
                         navigation.wait_for(state='attached',timeout=30000)
                         assert navigation.count()==1
                         matrix=page.locator('.xlt-resource-panel').filter(has=page.get_by_role('heading',name=title,exact=True))
@@ -77,10 +77,11 @@ def validate(args):
                         checks.append({'route':route,'panel':title,'theme':theme,'width':width,
                                        'minimum_cell_contrast':round(min(ratios),2),'matrix_selection':True,'reductions':True,'label_selection':True,'select_deselect_clear':True,'context_preserved':True})
                     page.goto(origin+'/a/xlayer-telemetry-app/overview?'+urlencode(params))
+                    page.locator('.xlt-secondary-signals > summary').click()
                     page.locator('.xlt-kpi .xlt-spark').first.wait_for(timeout=30000)
                     overlaps=page.locator('.xlt-kpi').evaluate_all("""cards=>cards.flatMap(card=>{const s=card.querySelector('.xlt-spark');if(!s)return [];const a=s.getBoundingClientRect();return [...card.querySelectorAll('strong,small,.xlt-eyebrow')].filter(e=>{const b=e.getBoundingClientRect();return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top}).map(e=>e.innerText)})""")
                     assert not overlaps,overlaps
-                    page.locator('.xlt-kpis').screenshot(path=str(args.output/f'kpis-{theme}-{width}.png'))
+                    page.locator('.xlt-primary-kpis').screenshot(path=str(args.output/f'kpis-{theme}-{width}.png'))
                     page.close()
         finally:browser.close()
     assert not errors,errors
