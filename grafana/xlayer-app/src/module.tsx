@@ -1446,10 +1446,15 @@ function EvidenceDetail({
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
+  const labels = cell.sample?.labels;
+  const measuredContext = labels ? resourceContext(context, {
+    ...labels,
+    ...(['vllm','kv','storage'].includes(subsystem) && labels.instance ? {engine:labels.instance} : {}),
+  }, subsystem==='sandbox'?'sandbox':'resource') : context;
   const ctx = {
-    ...context,
+    ...measuredContext,
     variables: {
-      ...context.variables,
+      ...measuredContext.variables,
       phase: [phase === "Selected Step" ? ".*" : phase],
     },
   };

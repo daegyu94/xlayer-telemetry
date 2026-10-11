@@ -175,6 +175,10 @@ def run(args):
                 validators += ([sys.executable,str(SCRIPTS/'user_workflows_validate.py'),'--url',connection['grafana'],
                     '--state',str(args.state),'--output',str(args.output/'user-workflows'),
                     *(['--browser',args.browser] if args.browser else [])],)
+            if not args.multi_job and not args.multi_worker:
+                validators += ([sys.executable,str(SCRIPTS/'matrix_context_validate.py'),'--url',connection['grafana'],
+                    '--state',str(args.state),'--output',str(args.output/'matrix-context'),
+                    *(['--browser',args.browser] if args.browser else [])],)
             for validation_command in validators:
                 validator = subprocess.Popen(validation_command, cwd=ROOT, start_new_session=True)
                 try:
