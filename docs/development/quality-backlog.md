@@ -163,3 +163,26 @@ CPU의 6개 Skip은 owned ClickHouse container 미설정입니다. 로컬 HTTP �
 | ④·⑤·⑥·⑩ | `6aa8ee27e11bfa16d7ad17550d5200e104c3dccd` |
 | ⑨ | `8257b25ac5ba9aebe34e662bc524a41375fb06d9` |
 | ①·⑪ | `3d0fb6b5f5a6ce54973b25e4dd276f842e10c7e7` |
+
+## 2026-10-12 — 일반 사용자 흐름의 P2 연결 오류 6개
+
+기준은 remote `main` `93ec316e4554cf74a8c5cdd271fefd2f7bfaacf9`입니다. 여섯 후보 모두 기준 코드에서 재현되는 결함으로 확인했으며, 이미 해결되었거나 의도된 동작으로 분류하여 건너뛴 항목은 없습니다. 기존 관련 CPU 검사 61개는 통과했지만 새 CLI·설정·문서 회귀에서는 8개 실패가 발생했고, 실제 Grafana의 Network/Sandbox 8개 경로도 수정 전 실패했습니다.
+
+| 항목 | 수정 및 확인한 사용자 흐름 |
+| --- | --- |
+| ① Network 표시 | `HealthSummary`의 component를 `network`로 수정. 실제 rule 실행 → 저장된 projection → Loki → Grafana query 응답에서 `communication_bound` 확인 → Overview/Analyze의 `Strong signal` 표시를 Light/Dark와 390px에서 검사 |
+| ② veRL logger | [Hydra 문법](https://hydra.cc/docs/1.3/advanced/override_grammar/basic/)의 작은따옴표·큰따옴표·무인용 `file` 요소를 인식. 공개 `xltel run`에서 원래 argv, 공백, workload 시작 및 exit 0/7 보존 검사. `profile`·`myfile`·`file-backed`는 계속 거부 |
+| ③ Live target 주소 | Scrape가 `up`이어도 `configuration_status=mismatch`이면 별도 warning과 `needs_attention`, exit 1. 로컬 HTTP fixture가 같은 nodename에 이전/현재 IP를 반환하는 공개 CLI 경로 검사. 주소 일치는 exit 0 유지 |
+| ④ Topology publisher | 생성 node 설정에 기존 `TELEMETRY_TARGETS` 선언을 포함. 두 node bundle 생성 → 문서대로 `TOPOLOGY_DIR` 추가 → `config validate` 성공 및 doctor의 cluster configuration 검사. 실제 `ghost` resource node는 계속 거부. 기존 bundle의 값 복사/재생성 절차도 명시 |
+| ⑤ Sandbox 상세 scope | 선택 sample의 `nodename`을 `sandbox_node`에 전달하고 observer/Run/record/time 보존. 두 host의 Pressure 링크를 실제 클릭해 native Grafana가 전송한 PromQL의 `nodename`을 검사하고 Back/Forward/Reload 확인 |
+| ⑥ Policy 예제 | `TELEMETRY_NODE` 준비와 지원하는 `from_env()` 인자로 수정. 문서의 Bash/Python fragment를 실행해 `weights.applied`·rollout span의 node/worker/version 확인. 추가 재검토에서 발견한 비활성화 시 workload 생략도 `nullcontext()`로 수정하고 telemetry 없이 같은 rollout 결과가 나오는지 검사 |
+
+검사 원본은 `tests/test_user_workflow_regressions.py`, `grafana/xlayer-app/tests/distributed.test.ts`, `grafana/xlayer-app/scripts/user_workflows_validate.py`입니다. 새 browser journey는 기존 `ci_demo.py`에 연결하며, 추가 synthetic Run이 앞선 catalog/count 검사에 영향을 주지 않도록 마지막에 실행합니다. Native dashboard Reload는 접힌 row의 펼침 상태를 초기화하므로, toolbar 활성화와 URL의 복원된 scope를 기다립니다. 최초 클릭 뒤의 실제 query scope assertion은 유지합니다.
+
+Network 검사는 실제 rule·저장·Loki·Grafana 경로이며 input은 synthetic입니다. Sandbox의 두 host 값은 browser HTTP response fixture이고 전송 query는 실제 native Grafana의 변수 치환 결과입니다. 물리 host 두 대의 측정이나 backend 결과 값 검증으로 확대하지 않습니다. Collector 주소 검사는 로컬 HTTP fixture이며 실제 GPU·VERL·물리 multi-node·RDMA·3FS는 **실제 서버 환경 검증 TBD**입니다.
+
+최종 Python 3.12.3 CPU 검사는 **1,999 passed / 0 failed / 6 skipped**이며, Skip은 owned ClickHouse container 미설정입니다. 문서의 비활성화 경로와 browser 준비 조건을 보완한 뒤 영향받는 CPU·문서·helper 검사 74개와 실제 UI 8개 경로를 다시 통과했습니다. Node 20.20.0에서 frontend **204 passed**, typecheck/build, 별도 Grafana helper **48 passed**, 문서 계약 **10 passed**와 Sphinx build, compileall·Bash syntax·diff check가 통과했습니다.
+
+Grafana 13.1.7 / Playwright 1.56.0 기본 headless shell에서 새 검사를 포함한 전체 단일worker `ci_demo.py` journey가 통과했습니다. Light/Dark·1440/390px, Network 카드의 실제 가시 상태, Sandbox의 전송 query 및 Back/Forward/Reload를 확인했습니다. 별도 multi-worker browser journey와 Python 3.10은 이번에 재실행하지 않았으며, 새 검사는 다음 단일·멀티worker CI 양쪽에 연결되어 있습니다. 코드·사용 경로·예외 처리 재검토를 마친 범위에서 추가로 중요한 결함은 찾지 못했습니다. 로그·응답·캡처는 `artifacts/six-workflows/`에 보존하고 작업 전용 Grafana 두 환경의 process·state를 정리했습니다.
+
+구현 커밋: ②·③·④·⑥ [a3452f2](https://github.com/daegyu94/xlayer-telemetry/commit/a3452f2f07ab97d09a565830907cdde19b60eff1), ①·⑤ [e1f3c79](https://github.com/daegyu94/xlayer-telemetry/commit/e1f3c796094a8fd1abd4a76ee1aaeba95b8515dc).
