@@ -504,6 +504,26 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
             rf"(?<![A-Za-z0-9_]){re.escape(key)}(?![A-Za-z0-9_])", text)}
         if mentioned - cited:
             raise ValueError("candidate explanation names observations missing from evidence references")
+        # Some vLLM versions expose only endpoint/model labels. A local engine
+        # index is not required to keep separate serving endpoints distinct.
+        endpoints = []
+        for evidence_id in item["evidence_ids"]:
+            row = observations[evidence_id]
+            labels = row.get("labels", {})
+            # A label value mentioning vLLM does not change the metric family.
+            query = re.sub(r""" "(?:\\.|[^"\\])*" | '(?:\\.|[^'\\])*' | `[^`]*` """, '""',
+                           row.get("query") or "", flags=re.VERBOSE)
+            query = re.sub(r"#.*", "", query)
+            vllm = (row["signal"].startswith(("vllm_", "vllm:"))
+                    or labels.get("__name__", "").startswith("vllm:")
+                    or labels.get("telemetry_source") == "vllm"
+                    or re.search(r"(?<![A-Za-z0-9_:])vllm:", query))
+            if vllm and any(labels.get(key) for key in ("instance", "component", "model_name", "model")):
+                identity = (labels.get("cluster"), labels.get("node", labels.get("nodename")),
+                            *(labels.get(key) for key in ("instance", "component", "model_name", "model")))
+                endpoints.append((identity, row["signal"]))
+        if len({identity for identity, _ in endpoints}) > 1 and len({signal for _, signal in endpoints}) > 1:
+            raise ValueError("candidate combines different vLLM endpoint/model entities and signals")
         # A generic `device` label can name a GPU in one source and a block
         # device in another; those are legitimate cross-layer observations.
         for label in ("engine", "engine_id", "worker", "worker_id", "rank", "gpu"):

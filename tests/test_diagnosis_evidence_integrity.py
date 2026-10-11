@@ -263,3 +263,38 @@ def test_zero_latency_with_observed_operations_is_real_current_evidence():
     report = engine.analyze(None, [])
     assert report["verdict"] == "insufficient_data"
     assert "threefs:no_data" not in report["missing_sources"]
+
+
+@pytest.mark.parametrize('namespace', ['instance','model_name','model'])
+@pytest.mark.parametrize('identity_source', ['signal','query','source_label','metric_label'])
+def test_llm_engine_less_vllm_keeps_endpoint_model_identity(namespace, identity_source):
+    from xlayer_telemetry.analysis.llm_diagnosis import validate_diagnosis
+    rows=[{'id':'m1','signal':'vllm_kv_cache_usage','current':.99,'observation_scope':'service',
+           'labels':{'cluster':'c','node':'n','instance':'endpoint-a','model_name':'model-a'}},
+          {'id':'m2','signal':'vllm_requests_waiting','current':12,'observation_scope':'service',
+           'labels':{'cluster':'c','node':'n','instance':'endpoint-a','model_name':'model-a'}}]
+    if identity_source!='signal':
+        for row,name in zip(rows,('kv_pressure','queue_pressure')):
+            row['signal']=name
+            if identity_source=='query':row['query']='vllm:'+('kv_cache_usage_perc' if row['id']=='m1' else 'num_requests_waiting')
+            elif identity_source=='source_label':row['labels']['telemetry_source']='vllm'
+            else:row['labels']['__name__']='vllm:'+('kv_cache_usage_perc' if row['id']=='m1' else 'num_requests_waiting')
+    packet={'schema_version':1,'record_type':'llm_observation_packet','current_interval':{'start':10,'end':20,'accuracy':'exact'},'observations':rows}
+    answer={'assessment':'bottleneck_suspected','summary':'Observed pressure','limitations':[],
+        'candidates':[{'title':'Possible pressure','explanation':'Two signals changed.','observation_scope':'mixed',
+            'evidence_ids':['m1','m2'],'counter_evidence_ids':[],'missing_evidence':[],'next_checks':[]}]}
+    validate_diagnosis(answer,packet)  # Same endpoint, without a local engine index.
+    rows[1]['labels'][namespace]='different'
+    with pytest.raises(ValueError,match='different.*entities'):
+        validate_diagnosis(answer,packet)
+    rows[1]['signal']=rows[0]['signal'];rows[1]['current']=.5
+    if 'query' in rows[0]:rows[1]['query']=rows[0]['query']
+    if '__name__' in rows[0]['labels']:rows[1]['labels']['__name__']=rows[0]['labels']['__name__']
+    validate_diagnosis(answer,packet)  # Same-signal endpoint comparison remains valid.
+    # An independently scoped GPU signal is legitimate cross-layer correlation.
+    rows[1].update(signal='gpu_utilization_percent',observation_scope='device')
+    rows[1]['query']="""telemetry_gpu_utilization_percent{description="vllm:worker host",note='vllm:another host',raw=`vllm:raw host`}
+# vllm:serving host context only
+"""
+    rows[1]['labels']={'cluster':'c','nodename':'n','instance':'node-exporter','gpu':'0'}
+    validate_diagnosis(answer,packet)
