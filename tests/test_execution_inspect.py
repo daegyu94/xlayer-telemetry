@@ -37,3 +37,41 @@ def test_partial_or_invalid_record_never_certifies_complete_path(tmp_path):
     analyzed = inspect_execution(output, root=result['root_argument'].split('/'))
     assert analyzed['critical_path']['status'] == 'unknown'
     assert analyzed['graph']['quality']['invalid_records'] == 1
+
+
+def test_public_inspect_preserves_explicit_scope_and_rollout_identity(tmp_path):
+    from xlayer_telemetry.events import CorrelationContext, EventRecorder
+    output=tmp_path/'run';output.mkdir()
+    (output/'telemetry-manifest.json').write_text(json.dumps({'run_id':'r'}))
+    recorder=EventRecorder(output/'telemetry-events',CorrelationContext('r','sdk','trainer','driver','n'))
+    config=tmp_path/'config.toml';initialize(config)
+    for scope in ('trainer_update','rollout'):
+        attrs={'boundary_scope':scope,**({'rollout_id':'one'} if scope=='rollout' else {})}
+        with recorder.span('root.'+scope,phase='actor_update',step=1,attributes=attrs) as root:
+            with recorder.span('own.'+scope,phase='actor_update',step=1,attributes=attrs):pass
+            with recorder.span('unrelated.scope',phase='rollout',step=1,
+                               attributes={'boundary_scope':'rl_step','rollout_id':'one'}):pass
+            with recorder.span('unrelated.rollout',phase='rollout',step=1,
+                               attributes={'boundary_scope':'rollout','rollout_id':'two'}):pass
+        result=invoke(config,'inspect',str(output),'--execution-graph','--root-span',root.trace_id+'/'+root.span_id)
+        assert result.returncode==0,result.stderr
+        signature=json.loads(result.stdout)['behavior_signature']
+        assert signature['boundary']['scope']==scope
+        assert signature['boundary']['phase']=='actor_update'
+        assert signature['quality']['accepted_events']==2,signature
+    recorder.close()
+
+
+def test_explicit_invalid_scope_is_not_silently_defaulted_by_inspect(tmp_path):
+    from xlayer_telemetry.events import CorrelationContext, EventRecorder
+    output = tmp_path / 'run'; output.mkdir()
+    (output / 'telemetry-manifest.json').write_text(json.dumps({'run_id':'r'}))
+    recorder = EventRecorder(output/'telemetry-events', CorrelationContext('r','sdk','trainer','0','n'))
+    config = tmp_path/'config.toml'; initialize(config)
+    for invalid in (None, '', 'not-a-boundary'):
+        with recorder.span('root.test', phase='actor_update', step=1, attributes={'boundary_scope':invalid}) as root: pass
+        result = invoke(config, 'inspect', str(output), '--execution-graph', '--root-span', root.trace_id+'/'+root.span_id)
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout)
+        assert payload['behavior_signature_status'] == 'invalid_or_missing_boundary_context'
+        assert 'behavior_signature' not in payload

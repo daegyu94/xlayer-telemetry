@@ -32,6 +32,7 @@ def load_serving_context(config, window, clock, *, reader=None):
         return result
     validate_observations(config)
     events = []
+    unaligned = set()
     try:
         directory = Path(settings['events_dir'])
         files = sorted(directory.glob('*.jsonl'))
@@ -49,12 +50,17 @@ def load_serving_context(config, window, clock, *, reader=None):
                 attrs = row.get('attributes', {})
                 if (row.get('record_type') != 'event' or row.get('name') not in {'rollout.router.snapshot','rollout.replica.state','rollout.replica.workload','weights.applied'} or row.get('run_id') != config['run_id'] or
                         not isinstance(attrs, dict) or type(attrs.get('rollout_observation_version')) is not int or attrs.get('rollout_observation_version') != 1 or
-                        attrs.get('cluster') != config['cluster'] or attrs.get('router_id') != settings['router_id'] or
-                        nodes.get(row.get('node'), {}).get('status') != 'aligned'):
+                        attrs.get('cluster') != config['cluster'] or attrs.get('router_id') != settings['router_id']):
                     continue
                 start, end = event_window(row, reference_id=config.get('clock', {}).get('calibration_reference'),
                     reference_session=alignment_metadata(window).get('reference_session'))
-                if start is not None and start == end and start <= window['end']:
+                if start is None or start != end or nodes.get(row.get('node'), {}).get('status') != 'aligned':
+                    # An identifiable but unplaceable transition can invalidate
+                    # older state. Never extend sleeping/policy proof across it.
+                    unaligned.update(replica['id'] for replica in replicas if
+                        row['name']=='rollout.router.snapshot' or
+                        (attrs.get('replica_id')==replica['id'] and attrs.get('instance')==replica['instance']))
+                elif start <= window['end']:
                     events.append((start, row, attrs))
     except IncompleteJSONL:
         return {row['id']: _unknown(['observation_input_incomplete']) for row in replicas}
@@ -77,6 +83,9 @@ def load_serving_context(config, window, clock, *, reader=None):
         return relevant[-1], []
 
     for replica in replicas:
+        if replica['id'] in unaligned:
+            result[replica['id']] = _unknown(['observation_time_unverified'])
+            continue
         value = _unknown(); issues = []
         router = [item for item in events if item[1]['name'] == 'rollout.router.snapshot']
         server_id = replica.get('server_id')
@@ -148,7 +157,7 @@ def comparison_issues(current, baseline):
         for issue in context.get('quality_issues', []):
             if issue.startswith(('workload_', 'applied_policy_version_')) or issue in {
                     'lifecycle_changed_during_interval', 'router_changed_or_unavailable', 'observation_read_or_limit_failure',
-                    'observation_input_incomplete'}:
+                    'observation_input_incomplete', 'observation_time_unverified'}:
                 issues.append('replica_'+role+'_'+issue)
     for field in ('generation', 'workload', 'applied_policy_version', 'serving_state', 'router_registered'):
         a, b = current.get(field), baseline.get(field)

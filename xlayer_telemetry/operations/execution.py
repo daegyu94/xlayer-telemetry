@@ -16,7 +16,9 @@ def _signature(row, records):
         ('run_id', 'producer', 'role', 'worker_id', 'node', 'rank', 'local_rank', 'gpu', 'policy_version') if key in row})
     attributes = row.get('attributes', {})
     # Existing span sums remain independent of critical-path duration.
-    boundary = Boundary(context, row['step'], row['step'], duration_seconds=row.get('duration_seconds'),
+    boundary = Boundary(context, row['step'], row['step'],
+                        scope=attributes.get('boundary_scope', 'rl_step'), phase=row.get('phase', 'rl_step'),
+                        rollout_id=attributes.get('rollout_id'), duration_seconds=row.get('duration_seconds'),
                         accuracy=row.get('boundary_accuracy', 'unknown'),
                         workload={key: attributes[key] for key in ('tokens', 'tool_calls', 'policy_version') if key in attributes},
                         time_reference=row.get('time_reference'), time_uncertainty_seconds=row.get('time_uncertainty_seconds'))

@@ -229,3 +229,21 @@ def test_storage_series_demo_preserves_production_candidate_coverage_limits(tmp_
     assert candidates
     assert all(candidate['state'] != 'strong_signal' for candidate in candidates)
     assert all('threefs_collection_interval_and_complete_operation_coverage' in candidate['missing_evidence'] for candidate in candidates)
+
+
+@pytest.mark.parametrize('bad_role', ['current', 'baseline', 'both'])
+def test_blank_host_cannot_borrow_another_producers_clock_proof(bad_role):
+    rows=[distribution(81,10),distribution(101,20)]
+    for role,stamp in [('baseline',82),('current',102)]:
+        if bad_role in (role,'both'):
+            bad=distribution(stamp,40);bad['labels']['host']='';rows.append(bad)
+    clock={'status':'aligned','nodes':{'storage-monitor':{'status':'aligned'}}}
+    clock['baseline']={**clock}
+    result=collect_storage_series(Source(rows),{'start':100,'end':105}, {'start':80,'end':85},
+        settings=settings(host_clock_nodes={'storage-a':'storage-monitor'}),clock_quality=clock,queried_at=200)
+    assert not result['comparison']['eligible']
+    assert all(row['delta'] is None for row in result['comparison']['rows'])
+    assert sum(len(result[role]['distributions']) for role in ('current','baseline'))==len(rows)
+    for role in ('current','baseline'):
+        if bad_role in (role,'both'):
+            assert result[role]['quality']['host_clock_coverage']=='unknown'

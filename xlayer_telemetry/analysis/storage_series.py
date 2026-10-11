@@ -33,18 +33,22 @@ def validate_series_settings(settings: Mapping) -> dict:
 
 
 def _quality(window, rows, clock, settings, queried_at):
-    hosts = sorted({row.get("labels", {}).get("host") for row in rows if row.get("labels", {}).get("host")})
+    raw_hosts = [row.get("labels", {}).get("host") for row in rows]
+    hosts = sorted({host for host in raw_hosts if isinstance(host, str) and host.strip()})
+    identified = bool(raw_hosts) and all(isinstance(host, str) and host.strip() for host in raw_hosts)
     aliases = settings.get("host_clock_nodes", {})
     # A mapped workload clock says nothing about uncalibrated ClickHouse
     # producer timestamps. Only their raw OS/producer screening is usable.
     nodes = (clock.get("system_clock_screening", {}).get("nodes", {})
              if clock.get("scope") == "mapped_workload_to_prometheus_scrape_time" else clock.get("nodes", {}))
     nodes = {**nodes, **clock.get("producer_clock_screening", {}).get("nodes", {})}
-    aligned = bool(hosts) and clock.get("status") == "aligned" and all(
+    aligned = identified and bool(hosts) and clock.get("status") == "aligned" and all(
         aliases.get(host) in nodes and nodes[aliases[host]].get("status") == "aligned" for host in hosts)
     issues = ["collection_interval_unknown", "zero_suppression_or_loss_not_distinguishable"]
     if window["end"]-window["start"] < 1:
         issues.append("interval_shorter_than_timestamp_resolution")
+    if not identified:
+        issues.append("source_host_identity_missing")
     if not aligned:
         issues.append("source_host_clock_alignment_unknown")
     if window.get("accuracy") not in {"exact", "calibrated"}:

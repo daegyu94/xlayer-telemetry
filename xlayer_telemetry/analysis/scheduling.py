@@ -27,7 +27,7 @@ def retry_state(engine, previous):
     return {}
 
 
-def ready(engine, record, settle, now, active_keys):
+def ready(engine, record, settle, now, active_keys, previous=None):
     if settle<=0:return True
     window=record.get('analysis_window')
     if not isinstance(window,dict):return True
@@ -39,6 +39,10 @@ def ready(engine, record, settle, now, active_keys):
     if deadlines is None:
         deadlines={};engine._settle_deadlines=deadlines
     if key not in deadlines:
+        # A previous attempt on this boot proves elapsed waiting independently
+        # of calibration expiry/session changes. Wait a full settle interval
+        # after that attempt; never subtract unrelated observation timestamps.
+        prior = retry_state(engine, previous or {}).get('first_attempt')
         calibration=getattr(engine,'time_calibration',None)
         same_axis='time_alignment' not in window and calibration is None
         if calibration is not None:
@@ -52,4 +56,6 @@ def ready(engine, record, settle, now, active_keys):
             if same_axis:now=reference
         age=max(0,now-end) if same_axis else 0
         deadlines[key]=elapsed(engine)+max(0,settle-age)
+        if prior is not None and 0 <= prior <= elapsed(engine):
+            deadlines[key] = min(deadlines[key], prior + settle)
     return elapsed(engine)>=deadlines[key]

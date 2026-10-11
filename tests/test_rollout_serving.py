@@ -257,3 +257,41 @@ def test_split_lifecycle_transition_recovers_only_after_complete_append(tmp_path
     recovered=load_serving_context(config(tmp_path),{'start':121,'end':140},clocks,reader=reader)['replica-0']
     assert recovered['serving_state']=='serving' and recovered['inactive_observed'] is False
     assert 'observation_input_incomplete' not in recovered['quality_issues']
+
+
+@pytest.mark.parametrize('cache_enabled',[False,True])
+def test_expired_calibration_transition_invalidates_earlier_sleep_proof(tmp_path,cache_enabled):
+    from xlayer_telemetry.time_alignment import CalibrationCache
+    from tests.test_time_alignment import calibration
+    from xlayer_telemetry.analysis.jsonl_cache import JSONLCache
+    from xlayer_telemetry.analysis.rollout_state import apply_serving_limits,comparison_issues
+    stamp=[121.0]
+    clock_file=tmp_path/'clock.json'
+    value=calibration(reference_session='session');value.update(node='trainer',valid_until=123.)
+    clock_file.write_text(json.dumps(value))
+    mapping=CalibrationCache(clock_file,node='trainer',wall_clock=lambda:stamp[0],
+                             monotonic=lambda:stamp[0]-62,boot_id=lambda:'boot')
+    directory=tmp_path/'events'
+    recorder=EventRecorder(directory,CorrelationContext('r','rollout_observer','rollout','observer','trainer'),
+                           clock_ns=lambda:int(stamp[0]*1e9),time_calibration=mapping)
+    o=RolloutObserver(recorder,cluster='lab',router_id='router')
+    settings=config(directory);settings['clock']['calibration_reference']='monitor'
+    window={'start':110,'end':120,'time_alignment':{'reference_session':'session'}}
+    clock={'nodes':{'trainer':{'status':'aligned'}}}
+    reader=JSONLCache().read if cache_enabled else None
+    o.replica_state('replica-0','a:8000','sleeping',generation='g1')
+    before=load_serving_context(settings,window,clock,reader=reader)['replica-0']
+    assert before['serving_state']=='sleeping'
+    stamp[0]=125;o.replica_state('replica-0','a:8000','serving',generation='g1')
+    after=load_serving_context(settings,window,clock,reader=reader)['replica-0']
+    assert after['serving_state']=='unknown'
+    assert not after['inactive_observed']
+    assert 'observation_time_unverified' in after['quality_issues']
+    assert comparison_issues(after,before)
+    replica=inventory()[0]
+    candidate={'id':'rollout_queue_backlog','state':'strong_signal','missing_evidence':[],
+               'evidence':[{'signal':'vllm_requests_waiting','current':14,
+                           'labels':{'instance':replica['instance'],'node':replica['endpoint_node']}}]}
+    apply_serving_limits([candidate],inventory(),{'replica-0':after})
+    assert candidate.get('context_status')!='intentional_inactive'
+    assert candidate['evidence'][0]['current']==14

@@ -208,3 +208,28 @@ def test_bad_distribution_does_not_open_circuit_or_discard_counter_source():
     assert wrapped.query_counter_series(90, 92) == [{"timestamp_seconds": 91}]
     assert budget.summary()["sources"]["threefs"]["attempted"] == 2
     assert not budget.summary()["sources"]["threefs"]["unavailable"]
+
+
+def test_short_content_length_response_discards_partial_rows_but_keeps_prometheus():
+    import threading
+    from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body=b'{"metricName":"read_latency","count":1,"max_observed_p99":2}\n'
+            self.send_response(200);self.send_header('Content-Length',str(len(body)*2));self.end_headers()
+            self.wfile.write(body);self.wfile.flush();self.close_connection=True
+        def log_message(self,*args):pass
+    server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        source=diagnostics.ThreeFSClient(f'http://127.0.0.1:{server.server_port}',timeout=1)
+        with pytest.raises(ConnectionError,match='incomplete'):
+            source.query_window(1,2)
+        class Prom:
+            def query_range(self,*args):return {'mean':50,'max':50}
+        result=diagnostics.DiagnosticEngine({'prometheus':{'url':'http://unused'}},prometheus=Prom(),threefs=source).analyze(None,[])
+        assert 'gpu_utilization_percent' in result['evidence']
+        assert not result['evidence'].get('threefs_distributions')
+        assert any(item.startswith('threefs:') for item in result['missing_sources'])
+    finally:
+        server.shutdown();server.server_close();thread.join(timeout=3)

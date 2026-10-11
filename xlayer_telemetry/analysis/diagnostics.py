@@ -194,10 +194,13 @@ class ThreeFSClient:
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = response.read(response_limit + 1)
+                remaining = getattr(response, 'length', None)
         except HTTPException:
             raise ConnectionError("ClickHouse response transport failed") from None
         if len(body) > response_limit:
             raise ValueError("ClickHouse response exceeds 8 MiB limit; narrow source filters")
+        if isinstance(remaining, int) and remaining > 0:
+            raise ConnectionError("ClickHouse response incomplete")
         return body
 
     @staticmethod
@@ -1697,7 +1700,7 @@ def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
 
     active_keys=set()
     def ready(record):
-        return scheduling.ready(engine,record,settle,now,active_keys)
+        return scheduling.ready(engine,record,settle,now,active_keys, reports.get(record.get("record_id"), {}))
 
     unfinished = [record for record in history
                   if reports.get(record.get("record_id"), {}).get("analysis_status") == "provisional"
@@ -1709,6 +1712,8 @@ def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
     batch = pending[:max_records] if max_records is not None else pending
     return {"pending": [(record, {key: reports.get(record.get("record_id"), {}).get(key)
                                  for key in ("first_attempt_at", "revision", "retry_timing")}) for record in batch],
+            "settle_wait_seconds": max([0.0, *[
+                value - scheduling.elapsed(engine) for value in getattr(engine, '_settle_deadlines', {}).values()]]),
             "periodic": periodic_when_idle and not unfinished, "projection_recovery": recovery,
             "now": now, "retry_seconds": retry_seconds, "retry_interval": retry_interval}, history
 
@@ -1725,14 +1730,22 @@ def run_once(
 ) -> int:
     options = dict(periodic_when_idle=periodic_when_idle, max_records=max_records,
                    finalize_pending=finalize_pending)
-    if analyzer is None:
-        plan, history = _prepare_batch(engine, history_path, output, **options)
-    else:
-        plan = analyzer.prepare(history_path, output, **options)
-        history = []
-        if plan.get("record_type") == "bottleneck_diagnosis":
-            write_report(output, plan)  # Failed scheduling cannot finalize any step.
-            return 0
+    def prepare():
+        if analyzer is None:
+            return _prepare_batch(engine, history_path, output, **options)
+        return analyzer.prepare(history_path, output, **options), []
+
+    plan, history = prepare()
+    if finalize_pending and plan.get("settle_wait_seconds", 0) > 0:
+        # A fresh process with no same-boot proof must actually wait. Bound the
+        # finalizer by its analysis budget and reevaluate in the same worker;
+        # never manufacture clock alignment to make a step queryable.
+        budget = float(engine.config.get("analysis_deadline_seconds", 60)) or 60
+        time.sleep(min(plan["settle_wait_seconds"], budget))
+        plan, history = prepare()
+    if plan.get("record_type") == "bottleneck_diagnosis":
+        write_report(output, plan)  # Failed scheduling cannot finalize any step.
+        return 0
     recovery = plan.get("projection_recovery", {})
     for report in recovery.get("investigation", []):
         _write_investigation(output, report, missing_only=True)

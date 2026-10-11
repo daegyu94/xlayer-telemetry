@@ -94,7 +94,8 @@ def _belongs(record: Mapping[str, Any], boundary: Boundary) -> bool:
     if not isinstance(attributes, Mapping):
         return False
     if boundary.scope == "rollout":
-        return attributes.get("rollout_id") == boundary.rollout_id
+        return (attributes.get("boundary_scope", "rollout") == "rollout"
+                and attributes.get("rollout_id") == boundary.rollout_id)
     # Async trainer updates do not automatically contain rollouts/tool work.
     return attributes.get("boundary_scope", "rl_step") == boundary.scope
 
