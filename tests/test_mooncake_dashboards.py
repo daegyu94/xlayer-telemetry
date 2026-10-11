@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -160,7 +161,9 @@ def test_llm_example_preserves_both_error_counters(tmp_path, present):
     if not tool:
         pytest.skip('set PROMTOOL to evaluate example counter queries')
     source = json.loads((ROOT / 'examples/mooncake/prometheus.json').read_text())
-    queries = [q for q in source['queries'] if 'mooncake_dfs_' in q['query'] and '_errors_total' in q['query']]
+    required = {'mooncake_dfs_read_failed_keys': 'read', 'mooncake_dfs_write_failed_keys': 'write'}
+    queries = [q for q in source['queries'] if q['signal'] in required]
+    assert sorted(q['signal'] for q in queries) == sorted(required), 'Exactly one read and one write error signal are required'
     labels = '{job="native",telemetry_source="mooncake",cluster="training-cluster",node="rollout-0",component="mooncake-client-0",client_mode="real",cluster_id="store",error="TIMEOUT"}'
     series = [{'series': f'mooncake_dfs_{op}_errors_total'+labels,
                'values': '0 0 0' if op == 'read' else '8 0 3'} for op in present]
@@ -168,12 +171,35 @@ def test_llm_example_preserves_both_error_counters(tmp_path, present):
     for query in queries:
         assert query['kind'] == 'counter' and query['scope'] == 'client'
         for minute in (0, 1, 2):
-            expected = [{'labels': f'mooncake_dfs_{op}_errors_total'+labels,
-                         'value': 0 if op == 'read' else (8, 0, 3)[minute]}
-                        for op in present if f'mooncake_dfs_{op}_errors_total' in query['query']]
+            # Expectations follow the fixed producer contract, never the query
+            # under test: deleting/swapping a query must not delete its oracle.
+            operation = required[query['signal']]
+            expected = ([{'labels': f'mooncake_dfs_{operation}_errors_total'+labels,
+                          'value': 0 if operation == 'read' else (8, 0, 3)[minute]}]
+                        if operation in present else [])
             checks.append({'expr': query['query'], 'eval_time': f'{minute}m', 'exp_samples': expected})
     path = tmp_path / 'errors.json'
     path.write_text(json.dumps({'evaluation_interval': '1m', 'tests': [
         {'interval': '1m', 'input_series': series, 'promql_expr_test': checks}]}))
     result = subprocess.run([tool, 'test', 'rules', str(path)], capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('mutation', ['delete_read','delete_write','duplicate_read','duplicate_write','write_uses_read'])
+def test_error_counter_regression_rejects_missing_or_duplicated_queries(tmp_path,monkeypatch,mutation):
+    from copy import deepcopy
+    source=json.loads((ROOT/'examples/mooncake/prometheus.json').read_text())
+    read=next(q for q in source['queries'] if q['signal']=='mooncake_dfs_read_failed_keys')
+    write=next(q for q in source['queries'] if q['signal']=='mooncake_dfs_write_failed_keys')
+    if mutation.startswith('delete_'):
+        source['queries'].remove(read if mutation=='delete_read' else write)
+    elif mutation=='write_uses_read':write['query']=read['query']
+    else:
+        victim=write if mutation=='duplicate_read' else read
+        replacement=read if mutation=='duplicate_read' else write
+        source['queries'][source['queries'].index(victim)]=deepcopy(replacement)
+    root=tmp_path/'mutant';path=root/'examples/mooncake/prometheus.json';path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(source))
+    monkeypatch.setattr(sys.modules[__name__],'ROOT',root)
+    with pytest.raises(AssertionError):
+        test_llm_example_preserves_both_error_counters(tmp_path,('read','write'))
