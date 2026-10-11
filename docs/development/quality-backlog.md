@@ -107,3 +107,59 @@ Scenario Explorer는 하나의 Grafana에서 Run / Stop / Reset / Replay를 수�
 후속 원격 Single-worker 실행에서는 Loading 문구가 먼저 렌더되고 HTTP query가 아직 fixture에 도착하지 않은 순간의 `assert held` 경합도 확인했습니다. `wait_for_function`의 비동기 predicate는 Promise 자체를 truthy로 취급하므로 요청 수를 조회하는 비동기 조건식만으로는 준비 완료를 보장하지 못했습니다.
 
 실제 route 도착 시 설정하는 `asyncio.Event`를 15초 상한으로 기다리는 binding과, Promise 완료를 기다리는 `page.evaluate`를 사용합니다. 독립 browser probe에서 이벤트 전 미완료·이벤트 후 완료를 확인했고 기본 headless shell의 8개 경계 검사도 통과했습니다. 기존 Loading/관측 없음 assertion은 유지하며 성공·실패 모두 보류 route를 정리하고 보류 상태의 화면·요청 수를 보존합니다.
+
+## 2026-10-12 — 14개 코드 검토 후보 재확인
+
+기준은 remote `main` `9fdd16a927c5274f7bdd9da216033b39369f81fe`이며, 원 검토의 `18e87416` 이후 변경을 다시 읽었습니다. 아래 14개 후보는 현재 코드에서도 발생 조건을 확인했습니다. 이전 작업의 3FS 경고 대기·LLM Run identity·Prometheus query-local timeout 수정은 이미 반영되어 있어 다시 변경하지 않았습니다.
+
+| 후보 | 확인한 조건과 영향 | 최소 수정 / 회귀 근거 |
+| --- | --- | --- |
+| ① 재현되는 결함 | Candidate 없이 최초 Deep Dive 진입 후 cached Scene에 Candidate를 선택하면 근거 누락 | [Scene provider](../../grafana/xlayer-app/src/module.tsx)를 최초 URL과 무관하게 구성. [실제 browser journey](../../grafana/xlayer-app/scripts/cached_deep_dive_validate.py)에서 Light/Dark 실패 재현 후 근거·Back/Forward·390px 검사, `ci_demo.py`에 연결 |
+| ② 재현되는 결함 | 부모 Condition을 다른 thread가 잡은 채 fork한 뒤 자식의 동시 첫 SDK 호출이 교착 | [BoundedWriter](../../xlayer_telemetry/io_writer.py)의 child hook에서 lock·queue·PID 상태를 먼저 교체. [외부 timeout을 둔 subprocess 회귀](../../tests/test_fork_first_use.py)에서 부모 queue 재전송·중복 writer도 검사 |
+| ③ 재현되는 결함 | 정상 host와 빈 host의 3FS current/baseline 행이 섞이면 다른 host의 clock 증명을 빌려 delta 허용 | [Storage quality](../../xlayer_telemetry/analysis/storage_series.py)는 모든 행의 host 식별을 요구. Raw 값은 보존하며 혼합 current/baseline/both에서 비교 부적격·null delta 검사 |
+| ④ 재현되는 결함 | GPU sampler 종료 중 TERM을 무시하는 `nvidia-smi`가 남음 | [Sampler](../../xlayer_telemetry/collectors/gpu_sampler.py)가 signal에서 Python subprocess 정리를 수행. [공개 up/down 회귀](../../tests/test_review_lifecycle.py)에서 자식 종료와 무관한 process 보존 검사 |
+| ⑤ 재현되는 결함 | 고급 Bash `run` 진입점 PID만 종료하면 wrapper/workload가 남음 | [Bash 진입점](../../scripts/verl_local.sh)을 `exec`로 교체. 실제 외부 PID에 TERM을 보내 workload 종료 검사; 공식 CLI 경로와 구분 |
+| ⑥ 재현되는 결함 | activate하지 않은 wheel venv의 `xltel install-tools`가 PATH Python을 사용 | 선택한 `TELEMETRY_PYTHON`을 installer의 `PYTHON`으로 전달. [Wheel smoke](../../tests/test_install_tools.py)는 checkout 밖·PYTHONPATH 없음·잘못된 PATH Python·stub download 조건 검사 |
+| ⑦ 재현되는 결함 | aligned sleeping 뒤 calibration이 만료된 serving 이벤트를 버려 이전 inactive 판정 유지 | [Rollout state](../../xlayer_telemetry/analysis/rollout_state.py)는 식별되지만 시간 정렬이 불가능한 이벤트를 해당 replica의 unknown으로 반영. SDK 이벤트·cache on/off에서 raw pressure 보존, inactive 및 policy/workload 비교 제한 검사 |
+| ⑧ 재현되는 결함 | 두 JSON 행의 Content-Length를 선언하고 한 행만 전송하면 부분 3FS 증거 사용 | [Raw HTTP reader](../../xlayer_telemetry/analysis/diagnostics.py)가 bounded read 후 미수신 길이를 확인. 로컬 HTTP fixture에서 부분 증거 거부·독립 Prometheus 증거 보존 검사 |
+| ⑨ 재현되는 결함 | Mooncake read/write 오류 counter의 labels가 같으면 `OR`가 write를 가림 | [선택적 LLM 예제](../../examples/mooncake/prometheus.json)의 query를 분리. 동일 client/error labels·한쪽 누락·counter reset을 실제 `promtool`로 검사. Canonical dashboard는 변경 없음 |
+| ⑩ 재현되는 결함 | foreground stack validator가 TERM 처리를 지연해 up 취소/node 실패 rollback 예산 초과 | [Stack launcher](../../scripts/run_telemetry.sh)가 validator를 owned child로 관리하고 interruptible `wait` 사용. TERM·node 실패·validator 실패에서 cleanup과 readiness/실패 의미 검사 |
+| ⑪ 재현되는 결함 | `connection.json`의 부분 게시를 읽으면 Scenario coordinator 종료 | [Live Demo](../../grafana/xlayer-app/scripts/live_demo.py)와 [Scenario Lab](../../grafana/xlayer-app/scripts/scenario_lab.py)에 기존 atomic writer 사용, snapshot 읽기 오류는 bounded retry. Start/Replay의 부분 파일 fixture에서 coordinator 유지·generation별 endpoint 격리 검사 |
+| ⑫ 재현되는 결함 | 등록된 tool 호출마다 recorder를 만들어 막힌 I/O에서 queue/writer 수 증가 | [Worker recorder](../../xlayer_telemetry/worker_events.py)를 SWE-Bench와 calculator adapter에서 재사용. [공개 등록 tool 검사](../../tests/test_worker_tool_recorders.py)는 동시 24회 호출·작은 queue·drop accounting·결과/예외·fork identity·Run 교체 시 writer 상한 검사 |
+| ⑬ 재현되는 결함 | execution inspect가 명시된 async scope/rollout identity를 기본 rl_step으로 해석 | [Saved execution](../../xlayer_telemetry/operations/execution.py)의 Boundary와 [signature filter](../../xlayer_telemetry/analysis/behavior_signature.py)에 scope/phase/rollout identity 보존. SDK → 공개 CLI에서 다른 scope/rollout 분리, 잘못된 명시 scope와 legacy 기본값 구분 |
+| ⑭ 재현되는 결함 | 새 one-shot finalizer가 clock mapping을 잃으면 settle을 다시 시작하고 재조회 없이 종료 | [Scheduling](../../xlayer_telemetry/analysis/scheduling.py)은 같은 boot의 실제 elapsed proof를 재사용. 증명이 없으면 analysis budget 안에서 기다린 뒤 같은 worker에서 재평가. 새 CLI process의 만료·누락·session 변경·정상 calibration에서 마지막 revision/projection 검사 |
+
+⑦은 시간상 위치를 확인할 수 없는 이벤트가 남아 있으면 해당 replica의 상태를 보수적으로 unknown으로 유지합니다. ⑭의 `final`은 마지막 조회 시도 완료이며 telemetry 완전성이나 clock 정렬을 뜻하지 않습니다. 다른 boot의 elapsed proof는 재사용하지 않으며, 필요한 settle 시간이 finalizer의 대기 예산보다 길거나 backend/worker가 실패하면 기존 partial/unresolved 상태가 남습니다.
+
+이번 검증은 CPU mock/synthetic과 실제 로컬 Grafana·Prometheus·Loki를 구분합니다. 실제 GPU driver의 중단 불가능한 I/O, 물리 multi-node clock/RDMA, 실제 3FS 부분 전송·성능 및 실제 VERL/Mooncake workload는 **실제 서버 환경 검증 TBD**입니다. Fork 보장은 Python의 POSIX fork hook을 통과하는 경로를 검사했으며, Python hook을 호출하지 않는 외부 native fork는 검증하지 않았습니다.
+
+### 검토 반복과 최종 결과
+
+검토는 세 사이클로 완료했습니다. 첫 사이클은 각 후보의 실제 호출 경로와 실패 회귀를 확인하고 수정했습니다. 두 번째는 호출자·예외·fork·종료·context 교체를 재검토하여 Run 교체 중 writer 상한, 재시도 소진 후 Replay 복구, CI의 wheel build 준비와 sampler signal 설치 범위를 보완했습니다. 세 번째는 실제 Grafana 재방문·history·theme·mobile 검증과 전체 회귀를 다시 수행했습니다. 완료된 검토 범위에서 새로운 중요한 결함을 찾지 못했으며, 이를 모든 환경에서 버그가 없다는 의미로 확대하지 않습니다.
+
+| 검증 | 환경 | Passed / Failed / Skipped |
+| --- | --- | --- |
+| 수정 전 CPU baseline | Python 3.12.3 + actual promtool | 1,951 / 0 / 6 |
+| 최종 전체 CPU | Python 3.12.3 + actual promtool, 새 회귀 포함 | 1,983 / 0 / 6 |
+| Frontend | Node 20.20.0, 203 tests, typecheck, production build | Passed / 0 / 0 |
+| Grafana helper | 별도 scripts pytest 수집 | 48 / 0 / 0 |
+| 문서 | 링크·diagram 계약 10 tests, Sphinx build | Passed / 0 / 0 |
+| 정적 실행 확인 | compileall, 추적 Bash 파일 syntax, diff check | Passed / 0 / 0 |
+| 실제 browser | Grafana 13.1.7, Playwright 1.56.0 기본 headless shell, 단일worker·멀티worker 전체 `ci_demo.py` | 두 journey Passed |
+| Multi-job | 한 주기의 Qwen/Llama/DeepSeek synthetic 세 Run, 실제 scrape/query/diagnosis + browser | Passed; 모델 추론은 실행하지 않음 |
+| Scenario Lab | 한 Grafana에서 `normal normal` 선택·실행·Replay·Stop·Reset·이전 URL 격리 | Passed |
+| 실제 서버 환경 | GPU·VERL·물리 multi-node·RDMA·3FS | TBD |
+
+CPU의 6개 Skip은 owned ClickHouse container 미설정입니다. 로컬 HTTP 부분 전송 검사는 실행했지만 실제 ClickHouse SQL 실행 검사로 보고하지 않습니다. Python 3.10 및 원격 GitHub Actions는 이번 로컬 검증에서 실행하지 않았습니다. 최초 browser probe는 completed fixture가 준비되기 전에 시작해 실패했으며, 실제 완료 이후 같은 assertion으로 Light/Dark 캐시 결함을 재현하고 수정 후 통과시켰습니다.
+
+단일worker 검사에는 52개 화면 캡처와 24개 가독성 캡처, context recovery·native panel·3FS의 10초 응답 지연 검사가 포함됩니다. 멀티worker에서도 가시 `clock_unverified` 셀과 null delta를 유지했고 새 cached Deep Dive 검사를 통과했습니다. 실패 재현·최종 로그·보고서는 `artifacts/fourteen-review/`에 보존합니다. 작업 전용 demo state 다섯 개와 소유 process를 정리했으며 기존 사용자 demo와 공용 도구는 유지했습니다.
+
+수정 커밋은 `fix/review-fourteen-candidates`의 로컬 기록입니다. 요청 범위에서 push·PR·merge·배포가 제외되어 있으므로 새 커밋의 원격 GitHub 고정 URL은 아직 없습니다.
+
+| 후보 | 로컬 수정 commit |
+| --- | --- |
+| ③·⑦·⑧·⑬·⑭ | `cc4ade57d5adb11616c8ca0bd7b2d8a6031d27ed` |
+| ②·⑫ | `8b469b8498ac69702f8376be376cb358c792f1e0` |
+| ④·⑤·⑥·⑩ | `6aa8ee27e11bfa16d7ad17550d5200e104c3dccd` |
+| ⑨ | `8257b25ac5ba9aebe34e662bc524a41375fb06d9` |
+| ①·⑪ | `3d0fb6b5f5a6ce54973b25e4dd276f842e10c7e7` |
