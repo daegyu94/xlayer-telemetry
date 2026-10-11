@@ -2236,7 +2236,7 @@
         },
         {
           "id": 13,
-          "type": "timeseries",
+          "type": "state-timeline",
           "title": "Node clock synchronization status",
           "gridPos": {
             "x": 0,
@@ -2260,25 +2260,80 @@
               "unit": "none",
               "links": [],
               "custom": {
-                "showPoints": "auto",
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false
+                "spanNulls": false,
+                "lineWidth": 1,
+                "fillOpacity": 70
+              },
+              "noValue": "Unknown",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Unsynchronized",
+                      "color": "#64748b"
+                    },
+                    "1": {
+                      "text": "Kernel synchronized",
+                      "color": "#4c67b9"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": null,
+                    "to": null,
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": ".*",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#64748b"
               }
             },
             "overrides": []
           },
           "options": {
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            },
+            "showValue": "auto",
+            "rowHeight": 0.75,
+            "mergeValues": true,
+            "alignValue": "left",
             "legend": {
+              "showLegend": true,
+              "displayMode": "list",
               "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "hideZeros": false
             }
           },
-          "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
+          "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다. Discrete sampled state history입니다. 관측 사이의 실제 전환 시각·Run health를 보장하지 않으며 missing/invalid는 Unknown입니다."
         }
       ]
     },

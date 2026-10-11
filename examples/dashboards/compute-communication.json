@@ -1074,9 +1074,9 @@
         },
         {
           "id": 35,
-          "type": "timeseries",
+          "type": "state-timeline",
           "title": "Node exporter collector health",
-          "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다.",
+          "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다. Discrete sampled state history입니다. 관측 사이의 실제 전환 시각·Run health를 보장하지 않으며 missing/invalid는 Unknown입니다.",
           "gridPos": {
             "x": 12,
             "y": 75,
@@ -1096,29 +1096,78 @@
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
+              "unit": "none",
+              "noValue": "Unknown",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "lineWidth": 1,
+                "fillOpacity": 70
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Collector failed",
+                      "color": "#64748b"
+                    },
+                    "1": {
+                      "text": "Collector succeeded",
+                      "color": "#4c67b9"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": null,
+                    "to": null,
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": ".*",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#64748b"
               }
             },
             "overrides": []
           },
           "options": {
+            "showValue": "auto",
+            "rowHeight": 0.75,
+            "mergeValues": true,
+            "alignValue": "left",
             "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
+              "mode": "single",
               "hideZeros": false
             }
           }
@@ -1655,14 +1704,14 @@
         },
         {
           "id": 52,
-          "type": "timeseries",
+          "type": "table",
           "title": "DCGM last XID error",
-          "description": "마지막으로 보고한 XID error code gauge입니다. 0은 보고된 no-error 값, N/A는 미수집/미지원입니다. 발생 횟수·error rate가 아니며 새 오류 시점은 GPU log에서 확인합니다.",
+          "description": "마지막으로 보고한 XID error code gauge입니다. 0은 보고된 no-error 값, N/A는 미수집/미지원입니다. 발생 횟수·error rate가 아니며 새 오류 시점은 GPU log에서 확인합니다. Identity별 최신 query evaluation을 행으로 표시합니다. Query evaluated at은 producer 기록/오류 발생 시각이 아니며 process liveness를 뜻하지 않습니다.",
           "gridPos": {
             "x": 0,
             "y": 69,
             "w": 12,
-            "h": 8
+            "h": 7
           },
           "datasource": {
             "type": "prometheus",
@@ -1672,7 +1721,8 @@
             {
               "refId": "A",
               "expr": "(DCGM_FI_DEV_XID_ERRORS{job=\"native\",telemetry_source=\"dcgm\",cluster=~\"$cluster\",node=~\"$node\",gpu=~\"$gpu\"} >= 0 < 1e9)",
-              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} XID"
+              "legendFormat": "{{cluster}}/{{node}} {{instance}} GPU {{gpu}} XID",
+              "instant": true
             }
           ],
           "fieldConfig": {
@@ -1680,35 +1730,152 @@
               "unit": "short",
               "noValue": "N/A",
               "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 0,
-                "spanNulls": false,
-                "showPoints": "never"
-              },
-              "color": {
-                "mode": "palette-classic-by-name"
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Value"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "XID code"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Query evaluated at"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dateTimeAsIso"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 200
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "cluster"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 120
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "node"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 130
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "worker_id"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "role"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 110
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "gpu"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              }
+            ]
           },
           "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ],
-              "showLegend": true,
-              "enableFacetedFilter": true,
-              "limit": 8
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "desc",
-              "hideZeros": false
+            "showHeader": true,
+            "cellHeight": "lg",
+            "footer": {
+              "show": false
             }
-          }
+          },
+          "transformations": [
+            {
+              "id": "labelsToFields",
+              "options": {
+                "mode": "columns"
+              }
+            },
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "indexByName": {
+                  "cluster": 0,
+                  "node": 1,
+                  "gpu": 2,
+                  "Value": 3,
+                  "Time": 4,
+                  "instance": 5,
+                  "UUID": 6,
+                  "modelName": 7,
+                  "job": 8
+                },
+                "excludeByName": {}
+              }
+            }
+          ]
         },
         {
           "id": 53,
@@ -1893,9 +2060,9 @@
         },
         {
           "id": 56,
-          "type": "timeseries",
+          "type": "state-timeline",
           "title": "DCGM endpoint scrape health",
-          "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다.",
+          "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다. Discrete sampled state history입니다. 관측 사이의 실제 전환 시각·Run health를 보장하지 않으며 missing/invalid는 Unknown입니다.",
           "gridPos": {
             "x": 0,
             "y": 85,
@@ -1915,29 +2082,78 @@
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
+              "unit": "none",
+              "noValue": "Unknown",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
                 "spanNulls": false,
-                "showPoints": "auto"
+                "lineWidth": 1,
+                "fillOpacity": 70
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Scrape failed",
+                      "color": "#64748b"
+                    },
+                    "1": {
+                      "text": "Scrape succeeded",
+                      "color": "#4c67b9"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "range",
+                  "options": {
+                    "from": null,
+                    "to": null,
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": ".*",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "#8e8e8e"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#64748b"
               }
             },
             "overrides": []
           },
           "options": {
+            "showValue": "auto",
+            "rowHeight": 0.75,
+            "mergeValues": true,
+            "alignValue": "left",
             "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
+              "showLegend": true,
+              "displayMode": "list",
+              "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
+              "mode": "single",
               "hideZeros": false
             }
           }

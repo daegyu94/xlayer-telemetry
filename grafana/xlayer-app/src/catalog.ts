@@ -5,6 +5,7 @@ import { timelineLanes } from "./mockup";
 import { getBackendSrv } from "@grafana/runtime";
 import {
   SceneQueryRunner,
+  SceneDataNode,
   SceneDataTransformer,
   VizPanel,
   SceneVariableSet,
@@ -93,21 +94,22 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
 export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
-  const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
+  const data = panel.type==='text'?new SceneDataNode({}):shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
+  const measuredTimeline=panel.type==='state-timeline'&&panel.transformations?.some(t=>t.id==='partitionByValues'&&t.options?.fields?.includes('Lane'));
   // Styling only: collection-point charts keep their original no-line contract.
   const fields=panel.type==='timeseries'&&panel.fieldConfig?.defaults?.custom?.drawStyle!=='points'
-    ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:panel.options?.legend?.enableFacetedFilter?(panel.fieldConfig?.defaults?.custom?.lineWidth??1):1.5}}}
+    ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:2}}}
     : panel.fieldConfig;
   return registerResourcePanel(new VizPanel({
     pluginId: panel.type,
     title: panel.title,
     description: panel.description,
     options: panel.type === "timeseries" ? {...panel.options,legend:{...panel.options?.legend,displayMode:"list",placement:"bottom",calcs:[]}} : panel.options || {},
-    fieldConfig: panel.type==="state-timeline"?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:fields || { defaults: {}, overrides: [] },
+    fieldConfig: measuredTimeline?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:fields || { defaults: {}, overrides: [] },
     $data: panel.transformations?.length
       ? new SceneDataTransformer({
           $data: data,
-          transformations: [...panel.transformations,...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
+          transformations: [...panel.transformations,...(measuredTimeline ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
         })
       : data,
   }),panel,matrixProfile);

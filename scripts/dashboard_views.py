@@ -158,6 +158,7 @@ def build_views(dashboards):
     storage['fieldConfig']['defaults']['color'] = {'mode': 'fixed', 'fixedColor': 'blue'}
     storage['fieldConfig']['defaults']['max'] = 1
     storage['options'] = {'orientation': 'horizontal', 'displayMode': 'basic',
+                          'sizing': 'manual', 'namePlacement': 'left', 'minVizHeight': 24, 'maxVizHeight': 32,
                           'showUnfilled': False, 'valueMode': 'text', 'reduceOptions': {'values': True, 'fields': '', 'calcs': ['last']}}
     storage['description'] += ' 선택한 시간 구간 끝의 rate 상위 8개이며 p99 latency나 포화 판정이 아닙니다. Node·device identity를 유지합니다.'
     sandbox = clone('agent-rl-stages', 12, 'Sandbox · Worker pressure & local device', 7)

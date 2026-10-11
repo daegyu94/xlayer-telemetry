@@ -14,3 +14,18 @@ test('fields and query populations sharing node labels are never one representat
  const second={...frame([['read',4,{node:'n'}]]),refId:'B'};
  assert.equal(nativeHighlight(data([frame([['read',10,{node:'n'}]]),second])).state,'multiple');
 });
+
+test('multi-signal cards split read/write queries and preserve entity selection inside each',async()=>{
+ const {nativeHighlightSignals}=await import('../src/native-highlight');
+ const a=frame([['Value',0,{node:'n',device:'a'}]]),b={...frame([['Value',2,{node:'n',device:'a'}]]),refId:'B'};
+ const signals=nativeHighlightSignals(data([a,b]));assert.equal(signals.length,2);assert.equal(signals[0].result.sample?.value,0);assert.equal(signals[1].result.sample?.value,2);
+ const multi=nativeHighlightSignals(data([a,frame([['Value',4,{node:'n',device:'b'}]])]));assert.equal(multi[0].result.state,'multiple');assert.equal(multi[0].result.sample,undefined);
+});
+
+test('an absent local query is not replaced by the external query value or zero',async()=>{
+ const {nativeHighlightSignals}=await import('../src/native-highlight');
+ const external={...frame([['Value',0,{node:'n',engine:'e'}]]),refId:'B'};
+ const signals=nativeHighlightSignals(data([external]),['A','B']);
+ assert.equal(signals.length,2);assert.equal(signals[0].ref,'A');assert.equal(signals[0].result.state,'no-data');assert.equal(signals[0].result.sample,undefined);
+ assert.equal(signals[1].ref,'B');assert.equal(signals[1].result.sample?.value,0);
+});

@@ -111,6 +111,7 @@ def enter_app(page, url, diagnostics):
 
 def datasource_boundary_checks(page, url, checks, capture):
     """Inject only the native datasource boundary; keep real Loki/other requests."""
+    print('Datasource boundary: error fixture',flush=True)
     errors = []
     def gpu_request(route):
         body = route.request.post_data_json or {}
@@ -139,6 +140,7 @@ def datasource_boundary_checks(page, url, checks, capture):
     finally:
         page.unroute_all(behavior='wait')
     delays = []
+    print('Datasource boundary: delayed real response',flush=True)
     def delayed_fixture(route):
         queries = gpu_request(route)
         if queries is None:
@@ -162,7 +164,9 @@ def datasource_boundary_checks(page, url, checks, capture):
         checks.append('Real GPU query response delayed at browser boundary by 1.2s; Step navigation remains available and error fixture recovers; not backend latency measurement')
     finally:
         page.unroute_all(behavior='wait')
+    print('Datasource boundary: native Run transition',flush=True)
     loading_context_check(page, url, checks, capture)
+    print('Datasource boundary: complete',flush=True)
 
 
 
@@ -173,6 +177,7 @@ def loading_context_check(page, url, checks, capture):
     page.wait_for_timeout(500)
     snapshots = []
     reserved = []
+    released = []
     cancelled = []
     def delayed_unknown_run(route):
         body = route.request.post_data_json or {}
@@ -181,21 +186,9 @@ def loading_context_check(page, url, checks, capture):
         if not matches or reserved:
             route.continue_()
             return
-        reserved.append(True)
-        response = route.fetch(timeout=10000)
-        threading.Event().wait(.3)
-        snapshots.append(page.evaluate("""() => ({
-          runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
-          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Update time','Reported duration','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
-          completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
-        })"""))
-        threading.Event().wait(.9)
-        try:
-            route.fulfill(response=response)
-        except PlaywrightError as error:
-            if 'Route is already handled!' not in str(error):
-                raise
-            cancelled.append('Native Scenes cancelled the superseded browser-delayed request')
+        # Hold the response without nesting page.evaluate inside a sync route
+        # callback: native variable actions must finish before DOM inspection.
+        reserved.append(route)
     page.route('**/api/ds/query*', delayed_unknown_run)
     try:
         run = page.locator('.xlt-context-variable').nth(1)
@@ -209,6 +202,23 @@ def loading_context_check(page, url, checks, capture):
                 break
         page.keyboard.press('Escape');page.keyboard.press('Tab')
         page.wait_for_function("new URLSearchParams(window.location.search).getAll('var-run_id').includes('not-a-real-run') && !new URLSearchParams(window.location.search).getAll('var-run_id').includes('verl-agent-demo')", timeout=15000)
+        assert reserved, 'A native Run transition must issue delayed unknown-Run queries'
+        snapshots.append(page.evaluate("""() => ({
+          runs:new URLSearchParams(window.location.search).getAll('var-run_id'),
+          application:Array.from(document.querySelectorAll('.xlt-kpis .xlt-card')).filter(card=>['Reward','Step time','Update time','Reported duration','Worker throughput','Reported rollout'].includes(card.querySelector('.xlt-eyebrow')?.innerText)).map(card=>({name:card.querySelector('.xlt-eyebrow')?.innerText,value:card.querySelector('strong')?.innerText,entity:card.querySelector('.xlt-entity')?.innerText||''})),
+          completed:Array.from(document.querySelector('[aria-label="Completed Step"]')?.options||[]).filter(option=>option.value).map(option=>option.innerText)
+        })"""))
+        # This delay is the explicit datasource fault fixture, not a readiness wait.
+        page.wait_for_timeout(1200)
+        route = reserved[0]
+        response = route.fetch(timeout=10000)
+        try:
+            route.fulfill(response=response)
+        except PlaywrightError as error:
+            if 'Route is already handled!' not in str(error):
+                raise
+            cancelled.append('Native Scenes cancelled the superseded browser-delayed request')
+        released.append(route)
         page.get_by_text('이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.', exact=True).wait_for(state='attached', timeout=15000)
         page.unroute_all(behavior='wait')
         relevant = [snapshot for snapshot in snapshots if snapshot['runs']==['not-a-real-run']]
@@ -221,6 +231,14 @@ def loading_context_check(page, url, checks, capture):
         capture('loading-run-context')
         checks.append('Native Run-variable change with delayed datasource responses withholds previous Run application KPI/Step rows while Loading; resource scope remains separate')
     finally:
+        for route in reserved:
+            if route in released:
+                continue
+            try:
+                route.abort()
+            except PlaywrightError as error:
+                if 'Route is already handled!' not in str(error):
+                    raise
         page.unroute_all(behavior='wait')
 
 
@@ -564,6 +582,7 @@ def main():
         for width in [1280,900,390]:
             page.set_viewport_size({'width':width,'height':900});page.wait_for_timeout(400)
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1'),'Page overflows viewport'
+            page.get_by_label('Phase focus').select_option('rollout')
             matrix=page.locator('.xlt-matrix');matrix.scroll_into_view_if_needed();capture(f'analyze-{width}')
             page.locator('[data-matrix-cell="rollout × storage evidence"]').click();detail.wait_for();capture(f'evidence-{width}')
             detail.get_by_role('button',name='Close',exact=True).click()

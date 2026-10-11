@@ -67,7 +67,7 @@ export type NativeWorkspaceModel = {
 
 const PRIMARY: Record<NativeDestination, { stats: number[]; panels: number[] }> = {
   start: { stats: [2, 3, 4, 5], panels: [6, 7] },
-  stage: { stats: [1, 2, 3], panels: [4, 21, 9, 134, 135, 22, 60, 12] },
+  stage: { stats: [1, 2], panels: [3, 4, 21, 9, 134, 135, 22, 60, 12] },
   summary: { stats: [], panels: [2, 4, 3, 6] },
   compute: { stats: [], panels: [2, 8, 6, 30, 9, 40] },
   storage: { stats: [], panels: [1, 30, 111, 112, 31, 4] },
@@ -152,7 +152,7 @@ function NativePanel({ source, panel, View }: { source: Panel; panel?: VizPanel;
     className={`xlt-native-panel${stat ? ' xlt-native-stat' : ''}${text ? ' xlt-native-text' : ''}`}
     data-canonical-panel={source.id}
     data-panel-type={source.type}
-    style={{ height: stat ? 126 : text ? undefined : source.type === 'table' ? 290 : 270 }}
+    style={{ height: stat ? 156 : text ? 440 : source.type === 'table' ? 340 : source.type === 'state-timeline' ? 360 : 300 }}
   >
     {panel ? View ? <View panel={panel} /> : <panel.Component model={panel} /> : <p className="xlt-empty">기존 panel을 사용할 수 없습니다 · {source.title}</p>}
   </div>;

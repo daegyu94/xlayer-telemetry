@@ -140,6 +140,8 @@ def run(args):
                     '--mockup',str(SCRIPTS.parent/'design/topology-compact.html'),'--require-contrast',
                     *(['--browser',args.browser] if args.browser else [])]
                 validators += (design,readability)
+                validators += ([sys.executable,str(SCRIPTS/'panel_readability_validate.py'),'--url',connection['grafana'],
+                    '--output',str(args.output/'panels'),*(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'legend_filter_validate.py'),'--url',connection['grafana'],
                     '--output',str(args.output/'legends'),*(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'cluster_steps_validate.py'),'--state',str(args.state),

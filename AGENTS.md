@@ -141,6 +141,10 @@ PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, opti
 | Bounded list·집계·artifact | 제한 직전/직후와 오래된 선택 유지; exact duplicate와 동일 ID의 다른 payload 구분; conflict를 임의의 마지막 값으로 집계하지 않음; 비정상 record 하나가 정상 record 조회를 중단시키지 않음 |
 | Shared UI·scene lifecycle | Cached SceneApp/SceneAppPage·provider 재사용과 해제; Run/time 변경 중 이전 source의 값·선택 잔류 방지; native panel query 재사용·필요한 scope 유지 |
 
+Scenes의 panel summary가 하위 provider를 읽을 때 owning panel도 활성화해 native variable 갱신이 전달되도록 유지합니다. Subscription은 activation 전에 등록하고 cached Done/Error·lazy group 열기·Reload에서 결과가 표시되는지 검사합니다. 쿼리가 없는 Text panel은 query runner의 fetched 상태에 의존하지 않으며 내용과 마지막 link가 실제 panel 경계 안에 표시되는지 확인합니다.
+
+Binary state·code gauge·count·percent·duration을 구분해 graph type을 선택합니다. Categorical state는 missing/invalid를 Unknown으로 유지하고 exact span의 phase mapping을 재사용하지 않습니다. Multi-entity 표로 바꾸더라도 다른 query consumer의 native label·단위·freshness 계약을 유지합니다.
+
 URL에 저장하는 UI state는 Native Router/Scenes의 동기화된 값을 기준으로 사용하며 별도 React state를 추가하면 Reload·Back·Forward에서 두 상태가 일치하는지 확인합니다. Scene variable의 실제 type과 `skipUrlSync`, SceneApp factory/page cache의 수명을 읽고 URL 변경이나 component remount만으로 scene metadata가 갱신된다고 가정하지 않습니다. Timezone 표시 수정은 timestamp와 query bounds를 변경하지 않습니다.
 
 Frontend pure function/SSR 검사와 실제 Grafana 검사는 보완 관계입니다. 변경한 state 전이는 실제 Grafana에서 확인하고, native query의 Step window·identity와 Light/Dark·390px 등 영향받는 화면 조건도 검사합니다. 새 browser regression은 기존 `ci_demo.py` journey에 연결해 다음 CI에서도 실행되게 합니다. Browser 검사는 고정 sleep보다 실제 URL·DOM·query 응답의 완료 조건을 기다리며, 재시도 후 UI assertion은 준비된 최종 상태를 확인합니다.

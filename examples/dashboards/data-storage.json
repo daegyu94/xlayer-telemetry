@@ -810,7 +810,7 @@
       "id": 32,
       "type": "timeseries",
       "title": "Filesystem available inodes",
-      "description": "선택 Mount의 free/total inode 비율입니다. Byte 여유가 있어도 inode 고갈로 create가 실패할 수 있습니다. Total=0 또는 미지원 filesystem은 N/A입니다.",
+      "description": "선택 Mount의 free/total inode 비율입니다. Byte 여유가 있어도 inode 고갈로 create가 실패할 수 있습니다. Total=0 또는 미지원 filesystem은 N/A입니다. 정상 비율의 기준축은 0–100%입니다. 범위를 벗어난 source 값은 clamp하지 않습니다.",
       "gridPos": {
         "x": 12,
         "y": 48,
@@ -836,7 +836,9 @@
             "lineWidth": 2,
             "fillOpacity": 5,
             "spanNulls": false,
-            "showPoints": "auto"
+            "showPoints": "auto",
+            "axisSoftMin": 0,
+            "axisSoftMax": 1
           }
         },
         "overrides": []
@@ -859,9 +861,9 @@
     },
     {
       "id": 33,
-      "type": "timeseries",
+      "type": "state-timeline",
       "title": "Filesystem read-only and collection errors",
-      "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다.",
+      "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다. Discrete sampled state history입니다. 관측 사이의 실제 전환 시각·Run health를 보장하지 않으며 missing/invalid는 Unknown입니다.",
       "gridPos": {
         "x": 0,
         "y": 55,
@@ -886,29 +888,193 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "noValue": "N/A",
+          "unit": "none",
+          "noValue": "Unknown",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
             "spanNulls": false,
-            "showPoints": "auto"
+            "lineWidth": 1,
+            "fillOpacity": 70
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Reported false",
+                  "color": "#64748b"
+                },
+                "1": {
+                  "text": "Reported true",
+                  "color": "#4c67b9"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "Unknown",
+                  "color": "#8e8e8e"
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": null,
+                "to": null,
+                "result": {
+                  "text": "Unknown",
+                  "color": "#8e8e8e"
+                }
+              }
+            },
+            {
+              "type": "regex",
+              "options": {
+                "pattern": ".*",
+                "result": {
+                  "text": "Unknown",
+                  "color": "#8e8e8e"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#64748b"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Reported writable",
+                        "color": "#64748b"
+                      },
+                      "1": {
+                        "text": "Reported read-only",
+                        "color": "#4c67b9"
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null+nan",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  },
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": null,
+                      "to": null,
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "No reported stat error",
+                        "color": "#64748b"
+                      },
+                      "1": {
+                        "text": "Reported stat error",
+                        "color": "#4c67b9"
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null+nan",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  },
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": null,
+                      "to": null,
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*",
+                      "result": {
+                        "text": "Unknown",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
+        "showValue": "auto",
+        "rowHeight": 0.75,
+        "mergeValues": true,
+        "alignValue": "left",
         "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc",
+          "mode": "single",
           "hideZeros": false
         }
       }

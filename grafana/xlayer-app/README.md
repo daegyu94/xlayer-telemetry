@@ -121,6 +121,8 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 `ci_demo.py`의 기본 journey는 저장 Run fixture를 게시한 뒤 `context_recovery_validate.py`도 실행합니다. 실제 Grafana에서 선택/필수 Dashboard의 HTTP 503 response fixture와 재시도, 잘못된 URL의 복구, Browser와 다른 Timezone, Deep Dive Reload·Back·Forward, 세 번째 비교 선택 제한과 Clipboard 실패를 확인합니다. HTTP/Clipboard 오류는 Browser 경계에서 주입한 회귀 검사이며 실제 backend 장애를 일으키는 실험이 아닙니다.
 
+`panel_readability_validate.py --url <owned-loopback-demo> --output <new-directory>`는 `ci_demo.py`의 기본 검사에 포함됩니다. Start Here 본문, lazy prefix-cache·Disk IOPS의 완료 결과, Worker/XID 표, sampled state history와 실제 panel 경계를 light/dark·1440px·1024px·390px에서 검사합니다. Phase focus와 Compact는 화면의 표시만 조절하며 query·Run/Step identity를 변경하지 않습니다. State history는 실제 전환 시각을 계측한 span이 아니며 표의 Query evaluated at은 producer 기록/오류 발생 시각이 아닙니다.
+
 2026-10-08의 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 
 현재 Grafana 13.1.7의 React 18 호환 모드에서도 기존 Scenes 조사 경로와 native Legend의 Light/Dark·Desktop/Mobile 조작을 확인했습니다. Legacy 12.1.0 기본 경로와 실제 장비 미검증 항목은 [Validation Scope](../../docs/app-deployment-reference.md#validation-scope)를 확인하세요.

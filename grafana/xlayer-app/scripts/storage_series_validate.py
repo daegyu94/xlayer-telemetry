@@ -55,7 +55,10 @@ with sync_playwright() as p:
  assert 'N/A' not in section.locator('.xlt-panel').first.inner_text()
  assert section.locator('.xlt-panel').first.locator('canvas').count()>0
  page.screenshot(path=str(out/'reset-amounts.png'),full_page=True)
- page.get_by_text('Comparable collection windows',exact=True).click();page.wait_for_timeout(600)
+ page.get_by_text('Comparable collection windows',exact=True).click()
+ comparison=section.get_by_test_id('data-testid Panel header 3FS · comparable collection windows')
+ comparison.scroll_into_view_if_needed()
+ comparison.get_by_text('metric_name',exact=True).wait_for(timeout=15000)
  (out/'comparison-body.txt').write_text(section.inner_text());page.screenshot(path=str(out/'comparison.png'),full_page=True)
  # Grafana 13 virtualizes offscreen table columns; reveal the existing
  # quality column through horizontal scrolling before checking its value.
@@ -64,7 +67,9 @@ with sync_playwright() as p:
   section.evaluate("(el,f)=>{for(const node of el.querySelectorAll('*'))if(node.scrollWidth>node.clientWidth&&node.clientWidth>0)node.scrollLeft=f*(node.scrollWidth-node.clientWidth)}",fraction)
   page.wait_for_timeout(200)
  assert 'clock_unverified' in section.inner_text()
- page.get_by_text(re.compile('Saved source coverage')).click();page.wait_for_timeout(600)
+ page.get_by_text(re.compile('Saved source coverage')).click()
+ coverage=section.get_by_test_id('data-testid Panel header 3FS · saved source coverage')
+ coverage.scroll_into_view_if_needed()
  for fraction in (0,.25,.5,.75,1):
   if 'collection_interval_unknown' in section.inner_text():break
   section.evaluate("(el,f)=>{for(const node of el.querySelectorAll('*'))if(node.scrollWidth>node.clientWidth&&node.clientWidth>0)node.scrollLeft=f*(node.scrollWidth-node.clientWidth)}",fraction)

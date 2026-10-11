@@ -1,5 +1,7 @@
+import {ReportedDurations} from './ReportedDurations';
+import {useSceneData as useData} from './scene-data';
 import {ResourcePanel} from "./ResourcePanel";
-import {resourceMatrixProfile} from './resource-matrix';
+import {resourceMatrixProfile,metricLabel} from './resource-matrix';
 import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} from './completed-steps';
 import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
@@ -121,7 +123,7 @@ import {
 } from "./mockup";
 import { DashboardChrome } from './DashboardChrome';
 import {WORKSPACE_PAGES,themeContext} from './navigation';
-import {nativeHighlight} from './native-highlight';
+import {nativeHighlight,nativeHighlightSignals} from './native-highlight';
 import {NATIVE_PAGES,buildNativeWorkspace,NativeWorkspace,NativeWorkspaceModel} from './native-workspace';
 import "./style.css";
 
@@ -523,23 +525,9 @@ function Root() {
 }
 export const plugin = new AppPlugin().setRootPage(Root);
 
-function useData(provider: SceneDataProvider | undefined) {
-  const [snapshot, setSnapshot] = useState({provider,data:provider?.state.data});
-  useEffect(() => {
-    setSnapshot({provider,data:provider?.state.data});
-    if (!provider) return;
-    const deactivate = provider.activate();
-    const sub = provider.subscribeToState((s) => setSnapshot({provider,data:s.data}));
-    return () => {
-      sub.unsubscribe();
-      deactivate();
-    };
-  }, [provider]);
-  return snapshot.provider===provider?snapshot.data:provider?.state.data;
-}
 function Native({ panel }: { panel?: VizPanel }) {
   return panel ? (
-    <div className="xlt-panel">
+    <div className={`xlt-panel${panel.state.pluginId==='state-timeline'?' xlt-state-history':''}`}>
       <ResourcePanel panel={panel} />
     </div>
   ) : (
@@ -841,6 +829,7 @@ function ShellView({ model }: { model: Shell }) {
             <ErrorKpi spans={spans} data={spanData} />
           </div>
           {reportedMfu.length>0&&<p className="xlt-mfu-strip">Framework가 보고한 MFU · {reportedMfu.slice(0,3).map(s=>`${s.labels.phase}: ${format(s.value,'percentunit')} (${s.labels.worker_id})`).join(' · ')} · 완료된 logger observation</p>}
+          <ReportedDurations row={selected}/>
           <AsyncDecision summary={comparisonMeta}/>
           <section className="xlt-overview-top"><div>
             <div className="xlt-section">
@@ -978,7 +967,7 @@ function ShellView({ model }: { model: Shell }) {
                         <th>Current</th>
                         <th>Baseline</th>
                         <th>Change</th>
-                        <th>Scope / observation</th>
+                        <th>Scope / observation</th><th>Change quality</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -998,8 +987,8 @@ function ShellView({ model }: { model: Shell }) {
                             </td>
                             <td>
                               {scalar(r.observation_scope)} ·{" "}
-                              {scalar(r.window_statistic, "Unknown statistic")}
-                            </td>
+                              {scalar(r.window_statistic, "Unknown statistic")} · {scalar(r.unit,"Unit unknown")}
+                            </td><td>{scalar(r.comparison_status,'not_reported')}<small>{scalar(r.quality_warnings,'Sampling warnings not reported')}</small></td>
                           </tr>
                         ))}
                     </tbody>
@@ -1227,8 +1216,11 @@ function NativeHighlights({destination,sources,panels}:{destination:Destination;
  return ids[destination]?<div className="xlt-kpis xlt-native-highlights">{ids[destination]!.map(id=>{const index=sources.findIndex(p=>p.id===id);return index>=0?<NativeHighlight key={id} source={sources[index]} panel={panels[index]}/>:null;})}</div>:null;
 }
 function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:VizPanel}){
- const data=useData(panel.state.$data),result=nativeHighlight(data);
- return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entity · Node / Device를 선택하세요`:'반환된 최신 query evaluation입니다. Source scope를 유지합니다.'}</small><small>이 summary만으로 producer freshness가 확인되지는 않습니다.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</small></article>;
+ const data=useData(panel.state.$data,panel),result=nativeHighlight(data),signals=nativeHighlightSignals(data,(source.targets||[]).filter(t=>!t.hide).map(t=>t.refId)),split=signals.length>1;
+ const unitFor=(ref:string,field:string,unit:string)=>source.fieldConfig?.overrides?.find((o:any)=>(o.matcher?.id==='byFrameRefID'&&o.matcher.options===ref)||(o.matcher?.id==='byName'&&o.matcher.options===field))?.properties?.find((p:any)=>p.id==='unit')?.value||unit||source.fieldConfig?.defaults?.unit||'';
+ return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{split&&['observed','multiple'].includes(result.state)?`${signals.length} signals`:result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong>
+ {(split||result.state==='multiple')&&<dl className="xlt-highlight-signals">{signals.map(signal=><div key={JSON.stringify([signal.ref,signal.field])}><dt>{metricLabel(source.targets?.find(t=>t.refId===signal.ref)?.legendFormat,signal.ref)}{signals.filter(s=>s.ref===signal.ref).length>1?` · ${signal.field}`:''}</dt><dd>{signal.result.state==='observed'?format(signal.result.sample?.value,unitFor(signal.ref,signal.field,signal.unit)):signal.result.state==='multiple'?`${signal.result.entities.length} entities · ${entitySelectionHint(signal.result.entities.map(sample=>sample.labels))}`:signal.result.state==='no-data'?'No data':signal.result.state==='loading'?'Loading':signal.result.state==='error'?'Query failure':'Unknown'}</dd></div>)}</dl>}
+ {result.sample&&<small title={JSON.stringify(result.sample.labels)}>{compactEntity(result.sample.labels)}</small>}<small>Latest query evaluation · producer freshness 미확인</small><details className="xlt-highlight-scope"><summary>Source / Scope</summary><p>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</p></details></article>;
 }
 function Steps({rows,selected,context,onSelect,limit=8}:{rows:RecordRow[];selected?:RecordRow;context:Context;
  onSelect:(context:Context)=>void;limit?:number}){
@@ -1362,9 +1354,11 @@ function Kpi({
 
 function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
  const ctx=readContext(window.location.search),workerKey=ctx.variables.phase_worker?.[0];
+ const [focus,setFocus]=useState('');
  const choices=executionChoices(spans,selected),ownSpans=selectExecution(spans,workerKey),ownBaseline=selectExecution(baselineSpans,workerKey),phases=observedPhases(spans,selected,workerKey);
+ const displayedPhases=focus&&focus!=='all'&&phases.includes(focus)?phases.filter(phase=>phase===focus):phases;
  const phaseName=(name:string)=>({actor_update:'Training · actor',weight_sync:'Weight Sync',checkpoint_save:'Checkpoint',critic_update:'Training · critic',reference_log_prob:'Reference log prob',reference:'Reference',checkpoint_load:'Checkpoint load',rollout:'Rollout',reward:'Reward'}[name]||name);
- return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · 구간이 모호하면 Worker를 선택하세요</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>선택한 Worker가 현재 구간에 없습니다</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans} clockStatus={clockStatus} clockProof={clockProof}/>:<div className="xlt-scroll"><table className="xlt-matrix"><thead><tr><th>Subsystem</th>{phases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={phases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
+ return <><div className="xlt-matrix-toolbar"><div className="xlt-chips"><button aria-pressed={model.state.matrixView!=="workers"} onClick={()=>model.setState({matrixView:'phase'})}>Phase Matrix</button><button aria-pressed={model.state.matrixView==="workers"} onClick={()=>model.setState({matrixView:'workers'})}>Worker Comparison</button></div><label>Execution worker<select aria-label="Execution worker" value={workerKey||''} onChange={event=>{const choice=choices.find(row=>row.key===event.target.value);locationService.push(appLink('analyze',choice?workerContext(ctx,choice.row,choice.key):{...ctx,variables:{...ctx.variables,phase_worker:[]}}));model.setState({matrixSelectionVersion:(model.state.matrixSelectionVersion||0)+1});}}><option value="">Execution path · 구간이 모호하면 Worker를 선택하세요</option>{workerKey&&!choices.some(choice=>choice.key===workerKey)&&<option value={workerKey}>선택한 Worker가 현재 구간에 없습니다</option>}{choices.map(choice=><option key={choice.key} value={choice.key}>{scalar(choice.row.node)} / {scalar(choice.row.worker_id)} · {scalar(choice.row.role)} / {scalar(choice.row.producer)}</option>)}</select></label><label>Phase focus<select aria-label="Phase focus" value={focus} onChange={e=>setFocus(e.target.value)}><option value="">Responsive overview</option><option value="all">All phases</option>{phases.map(phase=><option key={phase} value={phase}>{phaseName(phase)}</option>)}</select></label></div>{model.state.matrixView==='workers'?<WorkerComparison model={model} selected={selected} spans={spans} clockStatus={clockStatus} clockProof={clockProof}/>:<div className="xlt-scroll"><table className="xlt-matrix" data-focus={focus||'responsive'}><thead><tr><th>Subsystem</th>{displayedPhases.map(phase=><th key={phase} style={{borderTop:`3px solid ${PHASE_COLORS[phase]}`}}>{phaseName(phase)}<small>{phaseWindow(ownSpans,selected,phase).status==='observed'?`${phaseWindow(ownSpans,selected,phase).accuracy} span`:phaseWindow(ownSpans,selected,phase).status==='ambiguous'?'Ambiguous interval':'No comparable interval'}</small></th>)}</tr></thead><tbody>{SUBSYSTEMS.map(name=><MatrixRow key={name} subsystem={name} phases={displayedPhases} model={model} selected={selected} spans={ownSpans} evidence={evidence} baselineStep={baselineStep} baselineSpans={ownBaseline} comparability={comparability} clockStatus={clockStatus} baselineClockStatus={baselineClockStatus} clockProof={clockProof}
                 baselineClockProof={baselineClockProof}/>)}</tbody></table></div>}{!phases.length&&<p className="xlt-empty">이 Worker에 비교 가능한 Phase window가 없습니다. Step/span의 clock reference와 uncertainty를 확인하세요. Call duration은 Worker Comparison에서 확인할 수 있습니다.</p>}<div className="xlt-matrix-legend"><span>Sampled = Query로 관측한 값</span><span>Shared / Session = 소유 관계가 아닌 참고 context</span><span>Rolling = Phase 바깥까지 포함한 lookback</span><span>— = 연결이 확인된 observation 없음</span></div><p className="xlt-muted">Delta는 선언된 Workload field, 계측된 Phase와 entity가 일치할 때만 gauge window mean을 비교합니다. Rolling / Session 값에는 Phase delta가 없으며 Actor와 Critic update를 구분합니다.</p></>;
 }
 function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{subsystem:string;phases:string[];model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
@@ -1865,7 +1859,7 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
       <CompletedStepSelect rows={steps} selected={selected} timezone={range.getTimeZone()} label={boundaryPresentation(selected).label}
         optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>
-      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextTime(rangeState.value.from.valueOf(),range.getTimeZone())} → {formatContextTime(rangeState.value.to.valueOf(),range.getTimeZone(),'time')}</div></div>
+      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextTime(rangeState.value.from.valueOf(),range.getTimeZone())} → {formatContextTime(rangeState.value.to.valueOf(),range.getTimeZone())}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
   </section>;

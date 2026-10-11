@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useState} from 'react';
 import {type Context,type RecordRow,numeric,scalar,selectStep} from './context';
 import {formatContextTime} from './time-context';
 
@@ -14,6 +14,15 @@ export function completedStepChoices(rows:RecordRow[]):RecordRow[] {
     Math.abs(numeric(row.window_start_ms)!)<=8.64e15&&Math.abs(numeric(row.window_end_ms)!)<=8.64e15);
   return [...new Map(valid.map(row=>[completedStepKey(row),row])).values()]
     .sort((a,b)=>numeric(b.window_end_ms)!-numeric(a.window_end_ms)!);
+}
+export function durationComparable(rows:RecordRow[]):boolean {
+ return rows.length>0&&rows.every(row=>typeof row.boundary_scope==='string'&&!!row.boundary_scope&&
+  typeof row.boundary_accuracy==='string'&&!!row.boundary_accuracy)&&
+  new Set(rows.map(row=>JSON.stringify([row.boundary_scope,row.boundary_accuracy,row.producer||null,row.role||null]))).size===1;
+}
+export function orderCompletedSteps(rows:RecordRow[],duration=false):RecordRow[]{
+ const choices=completedStepChoices(rows);
+ return duration&&durationComparable(choices)?choices.sort((a,b)=>(numeric(b.step_duration_seconds)??-1)-(numeric(a.step_duration_seconds)??-1)):choices;
 }
 export function requestedStep(rows:RecordRow[],context:Context):RecordRow|undefined {
   const record=context.variables.record_id?.[0];
@@ -41,17 +50,18 @@ export function CompletedStepSelect({rows,selected,label,optionLabel,onStep,time
     onChange={event=>{const row=choices.find(row=>completedStepKey(row)===event.target.value);if(row)onStep(row);}}>
     <option value="">완료된 Observation을 선택하세요</option>
     {choices.map(row=><option key={completedStepKey(row)} value={completedStepKey(row)} data-record-id={String(row.record_id)}>
-      {completedStepKey(row)===completedStepKey(current)?'Selected · ':''}{scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {optionLabel(row)} · {scalar(row.observer_node||row.node)} · {formatContextTime(numeric(row.window_end_ms),timezone)}
+      {optionLabel(row)}{completedStepKey(row)===completedStepKey(current)?' · Selected':''} · {scalar(row.observer_node||row.node)} · {scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {formatContextTime(numeric(row.window_end_ms),timezone)}
     </option>)}
   </select>{retained&&<small role="status">선택한 Observation이 현재 응답에 없습니다. 선택 문맥을 유지합니다.</small>}</label>;
 }
 
 export function CompletedStepsTable({rows,selected,context,onSelect,limit=8,format}:{rows:RecordRow[];selected?:RecordRow;
  context:Context;onSelect:(context:Context)=>void;limit?:number;format:(value:unknown,unit:string)=>string}) {
-  const unique=completedStepChoices(rows);
+  const [duration,setDuration]=useState(false);
+  const unique=orderCompletedSteps(rows,duration);
   const multipleRuns=new Set(unique.map(row=>row.run_id)).size>1;
   const multipleClusters=new Set(unique.map(row=>row.cluster)).size>1;
-  return <div className="xlt-scroll"><table><thead><tr>
+  return <><label className="xlt-step-order">Completed observations <select aria-label="Completed observation order" value={duration&&durationComparable(unique)?'duration':'recent'} onChange={e=>setDuration(e.target.value==='duration')}><option value="recent">Most recent</option><option value="duration" disabled={!durationComparable(unique)}>Longest · same boundary / producer</option></select></label><div className="xlt-scroll"><table><thead><tr>
     {multipleClusters&&<th scope="col">Cluster</th>}{multipleRuns&&<th scope="col">Run</th>}
     <th scope="col">Step</th><th scope="col">Duration</th><th scope="col">Boundary</th>
     <th scope="col">Observer / worker</th><th scope="col">Next</th>
@@ -60,5 +70,5 @@ export function CompletedStepsTable({rows,selected,context,onSelect,limit=8,form
     <td>{scalar(row.step)}</td><td>{format(row.step_duration_seconds,'s')}</td><td>{scalar(row.boundary_accuracy)}</td>
     <td>{scalar(row.observer_node||row.node)} / {scalar(row.worker_id)}</td>
     <td><button onClick={()=>onSelect(selectStep(row,context))}>Analyze Step {scalar(row.step)} →</button></td>
-  </tr>)}</tbody></table>{!unique.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.</p>}</div>;
+  </tr>)}</tbody></table>{!unique.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. Loki Step history는 선택적 source입니다.</p>}</div></>;
 }

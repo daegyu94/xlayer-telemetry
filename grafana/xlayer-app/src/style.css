@@ -13,7 +13,7 @@
   --xl-teal:#116d5f;
   --xl-selected:#edf2ff;
   color:var(--xl-text);
-  font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  font:14px/1.5 Inter,"Noto Sans CJK KR","Noto Sans KR",system-ui,-apple-system,"Segoe UI",sans-serif;
   font-variant-numeric:tabular-nums;
   box-sizing:border-box;
   min-width:0;
@@ -771,7 +771,7 @@
 }
 
 .xlt-visible-range {
-  display:none!important;
+  display:block;
   color:var(--xl-muted);
   font-size:12px
 }
@@ -1052,15 +1052,15 @@
 }
 
 .xlt-native-panel>.xlt-panel {
-  height:290px
+  height:100%
 }
 
 .xlt-native-stat>.xlt-panel {
-  height:126px
+  height:100%
 }
 
 .xlt-native-text>.xlt-panel {
-  height:200px
+  height:100%
 }
 
 .xlt-native-group {
@@ -1387,21 +1387,21 @@
 }
 
 .xlt-investigate-grid>.xlt-investigation-section {
-  grid-column:1;
+  grid-column:1/-1;
   grid-row:1
 }
 
 .xlt-investigate-grid>.xlt-candidate-section {
-  grid-column:2;
-  grid-row:1/3
+  grid-column:1/-1;
+  grid-row:3
 }
 
 .xlt-investigate-grid>.xlt-candidate-section .xlt-candidates {
-  grid-template-columns:1fr
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))
 }
 
 .xlt-investigate-grid>p {
-  grid-column:1
+  grid-column:1/-1
 }
 
 .xlt-investigate-grid>section>h3 {
@@ -1478,14 +1478,14 @@ Grafana's global navigation stays available. */
 .xlt .xlt-page-description{font-size:14px;color:var(--xl-secondary)}
 .xlt section>h3,.xlt .xlt-section>h3,.xlt .xlt-workspace h3{font-size:16px}
 .xlt .xlt-card>h4,.xlt .xlt-evidence h4{font-size:15px}
-.xlt table,.xlt .xlt-events table,.xlt .xlt-investigation-section table{font-size:13px}
+.xlt table,.xlt .xlt-events table,.xlt .xlt-investigation-section table{font-size:14px}
 .xlt th{font-size:13px}.xlt td,.xlt th{line-height:1.5}
 .xlt button,.xlt select{font-size:13px!important}.xlt .xlt-nav a{font-size:14px}
 .xlt .xlt-context-step,.xlt .xlt-context-time>span,.xlt .xlt-context-meta{font-size:12px}
 .xlt .xlt-badge,.xlt .xlt-eyebrow,.xlt .xlt-muted,.xlt .xlt-kpi small{font-size:12px}
 .xlt .xlt-kpi .xlt-eyebrow{font-size:13px}.xlt .xlt-kpi{min-height:140px;gap:4px}
 .xlt .xlt-pressure-value small,.xlt .xlt-pressure .xlt-card>small{font-size:12px}
-.xlt [data-testid="data-testid Panel header"] h2{font-size:15px;color:var(--xl-text)}
+.xlt [data-testid^="data-testid Panel header "] h2{font-size:15px;color:var(--xl-text)}
 .xlt [data-testid^="data-testid VizLegend series"] button{font-size:12px!important;color:var(--xl-secondary);border:0;background:none;padding:0}
 .xlt .xlt-entity-select{max-width:190px;font-size:12px!important;height:34px}
 .xlt .xlt-matrix{min-width:920px}.xlt .xlt-matrix th:first-child{width:190px}
@@ -1578,7 +1578,8 @@ Grafana's global navigation stays available. */
 .xlt-resource-panel>header{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
 .xlt-resource-panel h3{margin:0;font-size:15px}
 .xlt-resource-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
-.xlt-resource-controls label{display:flex;gap:6px;align-items:center;font-size:12px}
+.xlt-resource-controls label{display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap}
+.xlt-resource-controls select{min-width:0}
 .xlt-resource-controls button,.xlt-resource-controls select{font:inherit;color:var(--xl-text);background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:5px;padding:5px 8px}
 .xlt-resource-controls button[aria-pressed=true]{border-color:#4566d5}
 .xlt-resource-note{font-size:12px;line-height:1.5;margin:8px 0}
@@ -1603,3 +1604,45 @@ Grafana's global navigation stays available. */
 
 .xlt .xlt-resource-cell{color:var(--xl-text)}
 .xlt .xlt-resource-cell:disabled{color:var(--xl-muted)}
+
+/* Presentation controls preserve query and entity context. */
+.xlt[data-density=compact] table{font-size:13px}
+.xlt[data-density=compact] td,.xlt[data-density=compact] th{padding-top:6px;padding-bottom:6px}
+.xlt button:focus-visible,.xlt select:focus-visible,.xlt a:focus-visible,.xlt summary:focus-visible{outline:2px solid var(--xl-primary);outline-offset:3px}
+.xlt-highlight-signals{margin:4px 0;font-size:13px}
+.xlt-highlight-signals>div{display:flex;gap:8px;justify-content:space-between}
+.xlt-highlight-signals dt,.xlt-highlight-signals dd{margin:0;min-width:0}
+.xlt-highlight-signals dd{text-align:right;font-variant-numeric:tabular-nums}
+.xlt-highlight-scope{font-size:12px;color:var(--xl-muted)}
+.xlt-highlight-scope p{margin:8px 0}
+.xlt-state-history{height:380px;min-height:380px}
+.xlt-matrix th:first-child{position:sticky;left:0;background:var(--xl-bg);z-index:1}
+.xlt-context-step option{font-variant-numeric:tabular-nums}
+@media(max-width:640px){
+ .xlt button,.xlt select,.xlt summary{min-height:44px}
+ .xlt-native-text{height:600px!important}
+ .xlt .xlt-matrix[data-focus=responsive]{min-width:0;width:100%}
+ .xlt .xlt-matrix[data-focus=responsive] th:nth-child(n+3),.xlt .xlt-matrix[data-focus=responsive] td:nth-child(n+3){display:none}
+ .xlt .xlt-matrix[data-focus=responsive] th:first-child{width:42%}
+ .xlt .xlt-matrix:not([data-focus=all]){min-width:0}
+}
+
+.xlt-reported-durations dl{margin:12px 0}
+.xlt-reported-durations dl>div{display:grid;grid-template-columns:minmax(130px,1fr) minmax(0,3fr);gap:12px;margin:8px 0}
+.xlt-reported-durations dt,.xlt-reported-durations dd{margin:0;font-size:14px}
+.xlt-reported-durations dd{display:flex;align-items:center;gap:10px}
+.xlt-reported-durations b{white-space:nowrap;min-width:7ch;text-align:right;font-size:13px}
+.xlt-duration-track{flex:1;height:18px;background:var(--xl-soft);border:1px solid var(--xl-border);border-radius:3px;overflow:hidden}
+.xlt-duration-track i{display:block;height:100%}
+.xlt-step-order{display:flex;gap:10px;align-items:center;margin:10px 0;font-size:13px}
+
+.xlt-native-panel>.xlt-state-history{min-height:0}
+.xlt-native-panel:has(.xlt-resource-panel){height:auto!important}
+.xlt-investigation-section table{table-layout:fixed;min-width:760px}
+.xlt-investigation-section th:nth-child(1){width:22%}
+.xlt-investigation-section th:nth-child(2),.xlt-investigation-section th:nth-child(3){width:10%}
+.xlt-investigation-section th:nth-child(4){width:14%}
+.xlt-investigation-section th:nth-child(5){width:25%}
+.xlt-investigation-section th:nth-child(6){width:19%}
+.xlt-investigation-section td{overflow-wrap:anywhere}
+.xlt-native-grid>.xlt-native-panel[data-panel-type=table]{grid-column:1/-1}

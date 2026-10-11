@@ -1,7 +1,7 @@
+import {useSceneData as useData} from './scene-data';
 import React,{useEffect,useMemo,useState} from 'react';
 import {getFieldDisplayName,getValueFormat} from '@grafana/data';
-import type {PanelData} from '@grafana/data';
-import type {VizPanel,SceneDataProvider} from '@grafana/scenes';
+import type {VizPanel} from '@grafana/scenes';
 import {matrixColorAlpha,metricLabel,resourceMatrix,resourceMetricAvailability,resourcePanelKey} from './resource-matrix';
 import type {Reduction,ResourceMatrixProfile,ResourceCell} from './resource-matrix';
 import {validDateMs} from './time-context';
@@ -10,13 +10,6 @@ const plans=new WeakMap<VizPanel,{profile:ResourceMatrixProfile;metrics:Record<s
 export function registerResourcePanel(panel:VizPanel,source:{type:string;targets?:any[]},profile?:ResourceMatrixProfile){
  if(source.type==='timeseries'&&profile)plans.set(panel,{profile,metrics:Object.fromEntries((source.targets||[]).map(t=>[t.refId,metricLabel(t.legendFormat,t.refId)]))});
  return panel;
-}
-function useData(provider:SceneDataProvider|undefined){
- const [data,setData]=useState<PanelData|undefined>(provider?.state.data);
- useEffect(()=>{setData(provider?.state.data);if(!provider)return;
-  const stop=provider.activate(),sub=provider.subscribeToState(s=>setData(s.data));
-  return ()=>{sub.unsubscribe();stop();};
- },[provider]);return data;
 }
 function valueText(cell:ResourceCell,unit:string){
  if(cell.value===undefined)return '—';
@@ -35,9 +28,8 @@ export function ResourcePanel({panel}:{panel:VizPanel}){
  return plan?<MatrixPanel key={key} panel={panel} plan={plan}/>:<panel.Component key={key} model={panel}/>;
 }
 function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<typeof plans.get>>}){
- // The Matrix replaces VizPanel's Scene wrapper, so retain its activation lifecycle.
- useEffect(()=>panel.activate(),[panel]);
- const state=panel.useState(),data=useData(state.$data);
+ // useData retains the owning panel lifecycle while replacing its renderer.
+ const state=panel.useState(),data=useData(state.$data,panel);
  const [mode,setMode]=useState<'matrix'|'series'>('matrix'),[reduction,setReduction]=useState<Reduction>('latest');
  const [metric,setMetric]=useState(''),[selected,setSelected]=useState<string|undefined>();
  const [original]=useState(state.fieldConfig);
