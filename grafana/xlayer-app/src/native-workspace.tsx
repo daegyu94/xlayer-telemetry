@@ -67,7 +67,7 @@ export type NativeWorkspaceModel = {
 
 const PRIMARY: Record<NativeDestination, { stats: number[]; panels: number[] }> = {
   start: { stats: [2, 3, 4, 5], panels: [6, 7] },
-  stage: { stats: [1, 2, 3], panels: [4, 21, 9, 22, 60, 12] },
+  stage: { stats: [1, 2, 3], panels: [4, 21, 9, 134, 135, 22, 60, 12] },
   summary: { stats: [], panels: [2, 4, 3, 6] },
   compute: { stats: [], panels: [2, 8, 6, 30, 9, 40] },
   storage: { stats: [], panels: [1, 30, 111, 112, 31, 4] },

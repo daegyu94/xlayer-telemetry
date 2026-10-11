@@ -29,7 +29,9 @@ export const DEEP_DIVE_SPECS:Array<{label:string;dashboard?:Destination;panel?:n
  {label:'3FS evidence',note:'Saved diagnosis · maximum reported per-entity p99; raw unit must be reported. No direct ClickHouse query is added.'},
  {label:'Local I/O mean',dashboard:'storage',panel:30,note:'Node/device completed I/O mean · seconds/operation; not connector/3FS p99 or Run-attributed I/O.'},
  {label:'GPU',dashboard:'compute',panel:2,note:'Sampled device utilization; not workload MFU.'},
- {label:'vLLM',dashboard:'stage',panel:9,note:'Sampled shared-engine waiting queue.'},
+ {label:'vLLM',dashboard:'stage',panel:9,note:'Engine별 Sampled request counts와 optional waiting-reason breakdowns.'},
+ {label:'vLLM KV cache',dashboard:'stage',panel:134,note:'Engine별 KV cache ratio입니다. Run attribution은 성립하지 않습니다.'},
+ {label:'vLLM preemptions',dashboard:'stage',panel:135,note:'Engine별 preemption rate per second입니다.'},
  {label:'Ray',dashboard:'stage',panel:22,note:'Shared session task states; not attributed to this update.'},
  {label:'Sandbox',dashboard:'stage',panel:12,note:'Worker/cgroup I/O pressure; not a physical SSD latency.'},
 ];

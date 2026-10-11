@@ -198,7 +198,7 @@ Stage Correlation은 완료 step의 phase duration과 rollout engine을 비교�
 `Completed RL stage duration`은 완료 시 보고한 phase 시간이며 진행 중 phase의 경과 시간이 아닙니다.
 Reward mean 하나도 모델 품질 추이를 증명하지 않습니다.
 
-처리량·response length·GPU 사용률을 단계 시간과 비교한 뒤, rollout이 느린 구간에서는 `Live rollout engine signals`의 waiting 요청·KV 사용률·preemption을 봅니다.
+처리량·response length·GPU 사용률을 단계 시간과 비교한 뒤, rollout이 느린 구간에서는 `Live rollout request queue`, `Live rollout KV cache utilization`, `Live rollout preemption rate`를 각각 확인합니다. Waiting reason은 total waiting의 부분집합이므로 중복 합산하지 않습니다.
 이 native vLLM 패널은 [endpoint를 등록](native-sources.md)했을 때만 채워집니다.
 `vLLM engine`으로 endpoint의 instance를 선택하고 legend에서 engine을 구분합니다.
 Service/engine signal을 함께 보되 서로 다른 engine의 queue·KV·preemption을 하나의 engine 상태로 읽지 않습니다.
@@ -206,7 +206,7 @@ Service/engine signal을 함께 보되 서로 다른 engine의 queue·KV·preemp
 Weight sync, policy lag, tool 시간은 해당 source가 기록된 경우에만 나타납니다.
 Policy lag는 초가 아닌 policy version 차이이며 `Weight sync and policy lag`의 오른쪽 축에서 `versions`로 표시합니다.
 `vLLM throughput & latency`는 prompt/generation tokens/s와 TTFT·queue·E2E latency p95를 engine·model별로 보여 줍니다.
-`Ray orchestration`은 task·actor state, logical CPU/GPU 자원, object store 위치별 bytes와 OOM eviction rate를 보여 줍니다.
+`Ray orchestration`은 task·actor state, logical CPU와 GPU resource count를 분리해 보여 줍니다. 둘 다 Scheduler의 logical resource이며 physical utilization이 아닙니다. Object store bytes와 OOM eviction rate는 별도 panel로 확인합니다.
 `Mooncake / KV storage`는 Store 배포의 기본 subsystem row이며 connector RPC·bytes, master RAM·lookup hit, client DFS bytes·successful keys·batch p95·errors를 보여 줍니다.
 초기에는 접혀 있고 별도의 feature 활성화 옵션은 없습니다.
 [Endpoint 연결](kv-storage.md) 후 Resource node를 선택하며, 지원하지 않거나 비활성인 client DFS 신호는 `N/A`로 남습니다.
@@ -222,7 +222,7 @@ Sampler/runtime을 연결했다면 행을 펼치고 `Sandbox node`를 해당 nod
 `Node`는 rollout/GPU context를 유지하며 `Sandbox node`는 colocated와 dedicated 배치 모두에서 독립적으로 동작합니다.
 `Sandbox worker and device pressure`의 CPU PSI는 cgroup 전체의 CPU 대기 비율이며, I/O PSI와 별도 원인 후보입니다.
 `Sandbox worker memory`의 peak는 cgroup 생성 이후의 high-water mark이므로 선택한 시간 구간의 peak가 아닙니다.
-`Sandbox CPU and memory events`는 CPU 사용·quota throttling과 memory high/max·OOM·OOM kill을 구분합니다.
+Sandbox CPU cores, throttled seconds/s, memory high/max·OOM event rates는 단위별 panel로 확인합니다. Memory high/max는 OOM kill과 구분합니다.
 오른쪽 축의 memory event rate는 OOM kill과 같지 않으며 source가 없으면 해당 series를 표시하지 않습니다.
 이 panel의 cgroup I/O와 local device busy는 서로 다른 scope입니다.
 Lifecycle latency는 Prometheus 집계가 아니라 정확한 `sandbox.*` EventRecorder span으로 [Cross-Layer Timeline](#bottleneck-summary-and-cross-layer-timeline)에서 확인합니다.

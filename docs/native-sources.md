@@ -22,7 +22,7 @@
 ```{admonition} Shared scope
 :class: important
 
-Native source에 VERL `run_id`가 자동으로 붙지 않습니다. Ray logical CPU/GPU는 physical utilization이 아니며 서로 다른 engine의 queue·KV·preemption을 합쳐 판정하지 않습니다.
+Native source에 VERL `run_id`가 자동으로 붙지 않습니다. Ray logical CPU와 GPU 자원은 서로 다른 panel로 보고하며 physical utilization과 구분합니다. 다른 engine의 queue·KV·preemption도 합쳐 판정하지 않습니다.
 ```
 
 ## 1. Configure
@@ -88,7 +88,7 @@ curl --fail --silent http://10.0.0.11:8000/metrics   | rg 'vllm:num_requests_wai
 
 ## 볼 화면
 
-- **Subsystems → Agent RL Stage Correlation:** Live rollout engine, vLLM latency, Ray orchestration.
+- **Subsystems → Agent RL Stage Correlation:** Rollout queue·KV cache·preemption은 단위별로 분리해 확인하며 vLLM latency와 Ray orchestration은 별도 signal로 유지합니다.
 - **Cross-Layer Signals:** 같은 시간의 workload·serving·shared resource 비교.
 - **Sources Explore:** dashboard에 없는 native metric 조회.
 

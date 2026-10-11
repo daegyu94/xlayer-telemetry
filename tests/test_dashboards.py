@@ -55,6 +55,14 @@ def test_dashboard_guidance_is_korean_and_layout_and_links_are_valid():
                 b = second["gridPos"]
                 assert not (a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
                             and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"])
+        for row in (panel for panel in panels if panel["type"] == "row" and panel.get("panels")):
+            children = row["panels"]
+            for index, first in enumerate(children):
+                a = first["gridPos"]
+                for second in children[index + 1:]:
+                    b = second["gridPos"]
+                    assert not (a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"]
+                                and a["y"] < b["y"] + b["h"] and b["y"] < a["y"] + a["h"])
 
 
 def test_optional_rows_keep_real_metric_panels_and_distinct_units():
@@ -65,10 +73,25 @@ def test_optional_rows_keep_real_metric_panels_and_distinct_units():
         assert expected in str(row["panels"])
         assert all(panel["datasource"]["uid"] == "telemetry-prometheus" for panel in row["panels"])
     dashboard = json.loads((ROOT / "examples/dashboards/agent-rl-stages.json").read_text())
-    live = next(panel for panel in dashboard["panels"] if panel["id"] == 9)
-    cache = next(item for item in live["fieldConfig"]["overrides"]
-                 if item["matcher"] == {"id": "byFrameRefID", "options": "B"})
-    assert {prop["id"]: prop["value"] for prop in cache["properties"]}["unit"] == "percentunit"
+    rollout = {panel["id"]: panel for panel in dashboard["panels"]}
+    queue = rollout[9]
+    assert queue["title"] == "Live rollout request queue"
+    assert {target["refId"] for target in queue["targets"]} == {"A", "D", "E", "F"}
+    kv = rollout[134]
+    assert kv["title"] == "Live rollout KV cache utilization"
+    assert [target["refId"] for target in kv["targets"]] == ["B"]
+    assert kv["fieldConfig"]["defaults"]["unit"] == "percentunit"
+    preemption = rollout[135]
+    assert preemption["title"] == "Live rollout preemption rate"
+    assert [target["refId"] for target in preemption["targets"]] == ["C"]
+    assert preemption["fieldConfig"]["defaults"]["unit"] == "suffix:preemptions/s"
+    ray_panels = {panel['id']: panel for panel in _panels(dashboard)}
+    assert 'Name="CPU"' in ray_panels[24]['targets'][0]['expr']
+    assert 'Name="GPU"' in ray_panels[136]['targets'][0]['expr']
+    sandbox_cpu = {panel['id']: panel for panel in _panels(dashboard)}
+    assert [target['refId'] for target in sandbox_cpu[16]['targets']] == ['A']
+    assert [target['refId'] for target in sandbox_cpu[138]['targets']] == ['D']
+    assert {target['refId'] for target in sandbox_cpu[139]['targets']} == {'B', 'C', 'E', 'F'}
 
 
 def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> None:
@@ -110,7 +133,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert "Completed RL stage duration (step boundary)" in {
         panel["title"] for panel in agent_rl["panels"]
     }
-    assert "Live rollout engine signals" in {
+    assert "Live rollout request queue" in {
         panel["title"] for panel in agent_rl["panels"]
     }
     agent_rl_variables = {
@@ -119,14 +142,15 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert "nodename" in agent_rl_variables["node"]["query"]
     live_rollout = next(
         panel for panel in agent_rl["panels"]
-        if panel["title"] == "Live rollout engine signals"
+        if panel["title"] == "Live rollout request queue"
     )
     assert all('node=~"$node"' in target["expr"] for target in live_rollout["targets"])
     completed_panels = {
         "Completed RL step",
         "Reward mean",
         "Completed RL stage duration (step boundary)",
-        "Completed step throughput and response length",
+        "Completed step throughput",
+        "Completed rollout output token length",
     }
     for panel in agent_rl["panels"]:
         if panel["title"] in completed_panels:
@@ -173,7 +197,12 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     sandbox_panels = {panel["title"]: panel for panel in _panels(agent_rl)
                       if panel["title"].startswith("Sandbox")}
     assert "sandbox_cpu_pressure_ratio" in str(sandbox_panels["Sandbox worker and device pressure"])
-    assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox CPU and memory events"])
+    assert "sandbox_cpu_usage_seconds_total" in str(sandbox_panels["Sandbox CPU usage"])
+    assert "sandbox_cpu_throttled_seconds_total" in str(sandbox_panels["Sandbox CPU throttling"])
+    assert "sandbox_oom_kill_total" in str(sandbox_panels["Sandbox memory and OOM event rates"])
+    assert {"Ray logical CPU resources", "Ray logical GPU resources"} <= {
+        panel["title"] for panel in _panels(agent_rl)
+    }
 
 
 def test_dashboard_list_has_a_task_based_entry_point_and_clear_order() -> None:
@@ -774,7 +803,8 @@ def test_subsystem_rows_work_without_run_and_preserve_native_semantics():
     assert 'histogram_quantile' in str(panels[21]['targets'])
     assert 'instance, model_name, engine, le' in str(panels[21]['targets'])
     assert all('rate(' not in str(panels[i]['targets']) for i in [22, 23, 24, 25])
-    assert 'Name=~"CPU|GPU"' in panels[24]['targets'][0]['expr']
+    assert 'Name="CPU"' in panels[24]['targets'][0]['expr']
+    assert 'Name="GPU"' in panels[136]['targets'][0]['expr']
     assert panels[25]['fieldConfig']['defaults']['unit'] == 'bytes'
     variables = {v['name']: v for v in dashboard['templating']['list']}
     assert variables['cluster']['query'] == 'label_values(up, cluster)'

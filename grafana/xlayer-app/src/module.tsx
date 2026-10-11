@@ -1,4 +1,5 @@
 import {ResourcePanel} from "./ResourcePanel";
+import {resourceMatrixProfile} from './resource-matrix';
 import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} from './completed-steps';
 import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
@@ -319,12 +320,12 @@ function makeScene(page: Page, catalog: Catalog) {
     queryCache.set(cacheKey, provider);
     return provider;
   };
-  const native = (key: Destination, id: number) => {
+  const native = (key: Destination, id: number, enableMatrix=true) => {
     const panel = findPanel(catalog[key], id);
     if(!panel)return undefined;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
-    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined);
+    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined);
   };
   const body = new Shell({
     page,
@@ -337,7 +338,7 @@ function makeScene(page: Page, catalog: Catalog) {
     contextControls:[new SceneTimePicker({isOnCanvas:false}),new SceneRefreshPicker({ intervals: ['5s','10s','30s','1m'] })],
   });
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
-  if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel))});}
+  if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
   const resourcePage=!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
   if(page==='runs')body.setState({steps:query('overview',20)});
   if(!resourcePage){
@@ -379,9 +380,9 @@ function makeScene(page: Page, catalog: Catalog) {
       events: query("timeline", 10),
       rewardAge: query("stage", 3, ["A"]),
       timeline: native("timeline", 2),
-      ...relatedPanels([{label:'GPU',panel:native('signals',5)},{label:'vLLM',panel:native('signals',2)},
+      ...relatedPanels([{label:'GPU',panel:native('signals',5,false)},{label:'vLLM',panel:native('signals',2)},
         {label:'KV Cache',panel:native('stage',28)},{label:'Storage',panel:native('stage',60)},
-        {label:'Network',panel:native('compute',9)}]),
+        {label:'Network',panel:native('compute',9,false)}]),
     });
   // Scene objects must be direct state properties / array elements. A plain
   // dictionary is not parented by Scenes and silently loses variable/time scope.

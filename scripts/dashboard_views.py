@@ -234,7 +234,7 @@ def build_run_investigation(dashboards):
     for index, (dashboard, panel_id, ref_id, title, unit) in enumerate((
         (stage, 21, 'A', 'Serving · highest TTFT p95 / engine', 's'),
         (compute, 2, 'A', 'GPU · busiest sampled device', 'percent'),
-        (stage, 9, 'B', 'Serving · highest KV use / engine', 'percentunit'),
+        (stage, 134, 'B', 'Serving · highest KV use / engine', 'percentunit'),
     )):
         source = next(p for p in _panels(dashboard['panels']) if p['id'] == panel_id)
         card = deepcopy(source)

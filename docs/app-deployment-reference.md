@@ -26,9 +26,11 @@ External Grafana 13.1은 기존 config의 `[feature_toggles]`에 `react19 = fals
 
 ### Series Readability
 
-GPU·SSD·NIC/RDMA의 Scenes resource 패널은 기본 **Matrix**에서 Cluster / Node × GPU / Device / Interface를 비교합니다. **Latest evaluation / Range mean / Range max**와 query별 Metric을 선택하고, 셀을 누르면 같은 응답에서 해당 source series의 상세 시계열을 확인합니다. 다른 entity·query의 값은 합치지 않으며 동일 좌표에 여러 identity가 있으면 Unknown으로 남깁니다.
+Matrix는 canonical panel에 device identity 차원이 선언된 경우에만 표시합니다. GPU Utilization과 Disk I/O Busy Ratio는 고정 0–100% 색상 척도를 사용하며, GPU·SSD·NIC/RDMA 값을 Node × GPU / Device / Interface로 비교합니다. Sandbox Pressure와 Node 집계 Network처럼 device label이 없는 관측은 Matrix에서 추정하지 않고 기존 Time series로 보여줍니다. 같은 좌표에 서로 다른 instance/process identity가 있으면 값을 합치지 않고 Unknown으로 표시합니다.
 
-**Time series**는 기존 전체 그래프와 native Series visibility를 제공합니다. 얇은 선·안정적인 색상·접힌 Legend를 유지하며, Matrix의 색상은 상대적인 수치 크기이지 Health나 Run ownership이 아닙니다. Missing·Stale·Unknown·Query Failure와 실제 0을 구분하고, Latest evaluation만으로 producer freshness를 보증하지 않습니다. Query·unit·scope·시간 범위와 Native Dashboard 원본은 유지합니다. KPI의 작은 그래프는 숫자·설명과 별도 행으로 배치합니다.
+**Latest evaluation / Range mean / Range max**를 선택하고, 셀을 누르면 같은 source series의 상세 시계열을 엽니다. Range mean은 수집 간격이 불규칙한 경우 시간 가중 평균이 아닙니다. Sandbox Pressure와 Node 집계 Network처럼 device identity가 없거나 ambiguous한 panel은 Matrix에서 제외하거나 identity를 Unknown으로 남깁니다.
+
+**Time series**는 기존 전체 관측과 native Series visibility를 제공합니다. Disk throughput·IOPS·latency의 색은 현재 선택된 같은 Metric 안에서만 상대 비교하며, 색상은 Health나 Run ownership을 뜻하지 않습니다. Missing·Stale·Unknown·Query Failure와 실제 0을 구분합니다. 선택한 Metric이 응답에서 빠지면 다른 Metric으로 바꾸지 않고 No data를 표시합니다. KPI의 작은 그래프는 숫자·설명과 별도 행에 배치합니다.
 
 ## 설치 / 상태 / Update
 

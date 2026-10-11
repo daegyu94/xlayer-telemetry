@@ -26,6 +26,7 @@ import {
 } from "./context";
 import { Sample } from "./semantics";
 import {preserveIdentity,normalizeSelection} from './identity-variable';
+import type {ResourceMatrixProfile} from './resource-matrix';
 
 class IdentityQueryVariable extends QueryVariable {
   protected interceptStateUpdateAfterValidation(update:any){
@@ -110,7 +111,7 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
     minInterval: "2s",
   });
 }
-export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
+export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
   const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
@@ -130,7 +131,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
           transformations: [...panel.transformations,...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
         })
       : data,
-  }),panel);
+  }),panel,matrixProfile);
 }
 export function variables(
   catalog: Catalog,

@@ -310,13 +310,13 @@
     {
       "id": 5,
       "type": "timeseries",
-      "title": "Completed step throughput and response length",
-      "description": "perf/throughput은 batch tokens를 전체 step duration과 GPU 수로 나눈 값입니다. Output tokens는 response length 평균이며 live rollout token rate와 구분합니다.",
+      "title": "Completed step throughput",
+      "description": "Step이 완료된 뒤 계산한 GPU당 throughput입니다. 평균 rollout output-token response length와 live vLLM token rate는 별도 panel에 표시합니다.",
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 16
+        "y": 16,
+        "w": 8,
+        "h": 8
       },
       "datasource": {
         "type": "prometheus",
@@ -327,16 +327,11 @@
           "refId": "A",
           "expr": "training_tokens_per_second_per_gpu{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}",
           "legendFormat": "tokens/s/GPU {{worker_id}}"
-        },
-        {
-          "refId": "B",
-          "expr": "rollout_output_tokens_mean{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}",
-          "legendFormat": "output tokens {{worker_id}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "suffix:tokens/s/GPU",
           "noValue": "N/A",
           "custom": {
             "lineWidth": 2,
@@ -345,44 +340,7 @@
             "showPoints": "auto"
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "A"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "suffix:tokens/s/GPU"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Throughput / GPU"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "short"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Output tokens"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {
@@ -406,8 +364,8 @@
       "description": "선택한 node의 device 사용률입니다. Worker GPU allocation과 run manifest를 확인하며 공유 GPU의 전체 사용률을 특정 Run에 귀속하지 않습니다.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 16
       },
       "datasource": {
@@ -516,12 +474,12 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Live rollout engine signals",
-      "description": "VERL step 완료와 독립적으로 수집하는 native vLLM metric입니다. Cluster·Node로 선택하며 Run으로 분리되지 않습니다. Metric 이름은 vLLM version에 따라 다를 수 있습니다. Waiting reasons are optional version-specific gauges. Deferred includes transient non-KV constraints. Do not add reason counts to total waiting; missing is not zero.",
+      "title": "Live rollout request queue",
+      "description": "Native vLLM waiting/running request 수와 선택적으로 제공되는 capacity/deferred reason입니다. Waiting reason은 total waiting의 부분집합이므로 합산하지 않습니다.",
       "gridPos": {
         "x": 0,
         "y": 32,
-        "w": 24,
+        "w": 8,
         "h": 8
       },
       "datasource": {
@@ -533,16 +491,6 @@
           "refId": "A",
           "expr": "vllm:num_requests_waiting{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
           "legendFormat": "waiting {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
-        },
-        {
-          "refId": "B",
-          "expr": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
-          "legendFormat": "KV cache {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
-        },
-        {
-          "refId": "C",
-          "expr": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
-          "legendFormat": "preemptions/s {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
         },
         {
           "refId": "D",
@@ -571,48 +519,7 @@
             "showPoints": "auto"
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "B"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percentunit"
-              },
-              {
-                "id": "min",
-                "value": 0
-              },
-              {
-                "id": "max",
-                "value": 1
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "KV cache"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byFrameRefID",
-              "options": "C"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "ops"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {
@@ -968,7 +875,7 @@
         {
           "id": 16,
           "type": "timeseries",
-          "title": "Sandbox CPU and memory events",
+          "title": "Sandbox CPU usage",
           "gridPos": {
             "h": 8,
             "w": 12,
@@ -984,31 +891,6 @@
               "refId": "A",
               "expr": "rate(sandbox_cpu_usage_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
               "legendFormat": "CPU cores"
-            },
-            {
-              "refId": "B",
-              "expr": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
-              "legendFormat": "OOM/s"
-            },
-            {
-              "refId": "C",
-              "expr": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
-              "legendFormat": "OOM kills/s"
-            },
-            {
-              "refId": "D",
-              "expr": "rate(sandbox_cpu_throttled_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
-              "legendFormat": "CPU throttled seconds/s"
-            },
-            {
-              "refId": "E",
-              "expr": "rate(sandbox_memory_high_events_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
-              "legendFormat": "Memory high events/s"
-            },
-            {
-              "refId": "F",
-              "expr": "rate(sandbox_memory_max_events_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
-              "legendFormat": "Memory max events/s"
             }
           ],
           "fieldConfig": {
@@ -1022,88 +904,7 @@
                 "showPoints": "auto"
               }
             },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "B"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "suffix:events/s"
-                  },
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "Memory events/s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "C"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "suffix:events/s"
-                  },
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "Memory events/s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "E"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "suffix:events/s"
-                  },
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "Memory events/s"
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byFrameRefID",
-                  "options": "F"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "suffix:events/s"
-                  },
-                  {
-                    "id": "custom.axisPlacement",
-                    "value": "right"
-                  },
-                  {
-                    "id": "custom.axisLabel",
-                    "value": "Memory events/s"
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "options": {
             "legend": {
@@ -1120,17 +921,17 @@
               "hideZeros": false
             }
           },
-          "description": "왼쪽은 CPU usage rate(cores)와 선택 cgroup 자체의 quota throttled seconds/s이며 throttling은 subtree 합계가 아닙니다. 오른쪽은 memory high/max·OOM·OOM kill의 events/s입니다. High는 memory.high 초과로 direct reclaim에 진입한 횟수, max는 memory.max 경계에 도달한 횟수로 실제 OOM kill과 다릅니다. Source가 없거나 rate 계산에 필요한 표본이 부족하면 N/A이며 0으로 채우지 않습니다. Sandbox node 필터는 rollout Node와 독립적입니다."
+          "description": "선언된 Sandbox worker/cgroup scope에서 수집한 CPU usage입니다. CPU core 단위로 표시합니다."
         },
         {
           "id": 17,
           "type": "stat",
           "title": "Sandbox sample age",
           "gridPos": {
-            "h": 4,
-            "w": 24,
             "x": 0,
-            "y": 65
+            "y": 73,
+            "w": 24,
+            "h": 4
           },
           "datasource": {
             "type": "prometheus",
@@ -1202,6 +1003,123 @@
             "colorMode": "none"
           },
           "description": "마지막 sandbox cgroup sample 이후 지난 시간입니다. 오래된 textfile 값을 현재 pressure로 해석하지 않습니다. Sandbox node 필터는 rollout Node와 독립적입니다."
+        },
+        {
+          "id": 138,
+          "type": "timeseries",
+          "title": "Sandbox CPU throttling",
+          "gridPos": {
+            "x": 0,
+            "y": 65,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "D",
+              "expr": "rate(sandbox_cpu_throttled_seconds_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "CPU throttled duration"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:seconds/s",
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            }
+          },
+          "description": "선언된 Sandbox cgroup의 CPU throttled duration rate입니다. 단위는 seconds/s이며 event 수가 아닙니다."
+        },
+        {
+          "id": 139,
+          "type": "timeseries",
+          "title": "Sandbox memory and OOM event rates",
+          "gridPos": {
+            "x": 12,
+            "y": 65,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "B",
+              "expr": "rate(sandbox_oom_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "OOM"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(sandbox_oom_kill_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "OOM kills"
+            },
+            {
+              "refId": "E",
+              "expr": "rate(sandbox_memory_high_events_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "Memory high"
+            },
+            {
+              "refId": "F",
+              "expr": "rate(sandbox_memory_max_events_total{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$sandbox_node\",role=\"sandbox\"}[$__rate_interval])",
+              "legendFormat": "Memory max"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:events/s",
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            }
+          },
+          "description": "Memory high/max 및 OOM event rate입니다. High/max event는 OOM kill과 구분합니다."
         }
       ],
       "options": {}
@@ -1619,8 +1537,8 @@
         {
           "id": 24,
           "type": "timeseries",
-          "title": "Ray logical CPU / GPU resources",
-          "description": "Ray scheduler의 logical CPU/GPU 자원 수입니다. 물리 CPU/GPU utilization이 아니며 USED/AVAILABLE을 분리합니다.",
+          "title": "Ray logical CPU resources",
+          "description": "Ray scheduler가 보고한 logical CPU resource count입니다. Host CPU utilization이 아닙니다.",
           "gridPos": {
             "x": 0,
             "y": 51,
@@ -1634,8 +1552,8 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (cluster, node, instance, SessionName, Name, State) (ray_resources{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\",Name=~\"CPU|GPU\"})",
-              "legendFormat": "{{node}} {{instance}} {{Name}} {{State}}"
+              "expr": "sum by (cluster, node, instance, SessionName, Name, State) (ray_resources{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\",Name=\"CPU\"})",
+              "legendFormat": "{{node}} {{instance}} CPU {{State}}"
             }
           ],
           "fieldConfig": {
@@ -1840,6 +1758,57 @@
               "refId": "A",
               "expr": "sum by (cluster, SessionName, State) (ray_placement_groups{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\"})",
               "legendFormat": "{{cluster}}/{{SessionName}} {{State}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            }
+          }
+        },
+        {
+          "id": 136,
+          "type": "timeseries",
+          "title": "Ray logical GPU resources",
+          "description": "Ray scheduler가 보고한 logical GPU resource count입니다. Device GPU utilization이 아닙니다.",
+          "gridPos": {
+            "x": 12,
+            "y": 67,
+            "w": 12,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (cluster, node, instance, SessionName, Name, State) (ray_resources{job=\"native\",telemetry_source=\"ray\",cluster=~\"$cluster\",node=~\"$node\",Name=\"GPU\"})",
+              "legendFormat": "{{node}} {{instance}} GPU {{State}}"
             }
           ],
           "fieldConfig": {
@@ -2853,6 +2822,158 @@
           }
         }
       ]
+    },
+    {
+      "id": 137,
+      "type": "timeseries",
+      "title": "Completed rollout output token length",
+      "description": "Framework가 보고한 rollout response의 평균 output-token length입니다. 초당 token 수가 아닙니다.",
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "B",
+          "expr": "rollout_output_tokens_mean{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}",
+          "legendFormat": "output tokens {{worker_id}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 134,
+      "type": "timeseries",
+      "title": "Live rollout KV cache utilization",
+      "description": "Engine별 Native vLLM KV cache usage ratio입니다. Engine capacity 관측이며 Run에 귀속된 값이 아닙니다.",
+      "gridPos": {
+        "x": 8,
+        "y": 32,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "B",
+          "expr": "vllm:kv_cache_usage_perc{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}",
+          "legendFormat": "KV cache {{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
+    },
+    {
+      "id": 135,
+      "type": "timeseries",
+      "title": "Live rollout preemption rate",
+      "description": "Engine별 Native vLLM preemption rate입니다. 단위는 preemption/s입니다.",
+      "gridPos": {
+        "x": 16,
+        "y": 32,
+        "w": 8,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "C",
+          "expr": "rate(vllm:num_preemptions_total{job=\"native\",cluster=~\"$cluster\",telemetry_source=\"vllm\",node=~\"$node\",instance=~\"$engine\"}[$__rate_interval])",
+          "legendFormat": "{{cluster}}/{{node}} {{instance}} {{model_name}} engine={{engine}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:preemptions/s",
+          "noValue": "N/A",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "spanNulls": false,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc",
+          "hideZeros": false
+        }
+      }
     }
   ],
   "refresh": "5s",
