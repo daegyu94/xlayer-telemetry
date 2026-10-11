@@ -28,7 +28,7 @@ def run(args):
                 assert not errors, errors
                 report['checks'].append(name)
             except Exception as error:
-                report['failures'].append({'check': name, 'error': str(error)[:1800], 'browser_errors': errors})
+                report['failures'].append({'check': name, 'error': (str(error) or type(error).__name__)[:1800], 'browser_errors': errors})
             finally:
                 page.screenshot(path=str(args.output / (name + '.png')), full_page=True)
                 page.close()
@@ -149,19 +149,33 @@ def run(args):
 
         def loading_state(page):
             held = []
-            page.route('**/api/ds/query*', lambda route: held.append(route))
-            page.goto(base + 'overview?' + urlencode(params))
-            card = page.locator('.xlt-kpi').filter(has=page.get_by_role('button', name='Worker throughput 설명', exact=True))
-            expect(card.locator('strong')).to_have_text('Loading…', timeout=15000)
-            assert held
-            expect(card).not_to_contain_text('일치하는 observation이 없습니다')
-            page.unroute('**/api/ds/query*')
-            for route in held:
-                try:
-                    route.fulfill(json={'results':{}})
-                except PlaywrightError as error:
-                    if 'Route is already handled!' not in str(error):
-                        raise
+            holding = True
+            def hold(route):
+                if holding:held.append(route)
+                else:route.continue_()
+            page.route('**/api/ds/query*', hold)
+            # Loading can render before Scenes dispatches its first query. Expose
+            # only fixture readiness; do not read browser state inside a route.
+            page.expose_function('xlayerHeldQueryCount', lambda: len(held))
+            try:
+                page.goto(base + 'overview?' + urlencode(params))
+                page.wait_for_function('async () => (await window.xlayerHeldQueryCount()) > 0', timeout=15000)
+                card = page.locator('.xlt-kpi').filter(has=page.get_by_role('button', name='Worker throughput 설명', exact=True))
+                expect(card.locator('strong')).to_have_text('Loading…', timeout=15000)
+                assert held, 'A native datasource request must be held before checking Loading'
+                expect(card).not_to_contain_text('일치하는 observation이 없습니다')
+                page.screenshot(path=str(args.output/'kpi-loading-held.png'),full_page=True)
+            finally:
+                report['held_native_query_count']=len(held)
+                holding = False
+                for route in held:
+                    try:
+                        queries=(route.request.post_data_json or {}).get('queries',[])
+                        route.fulfill(json={'results':{q['refId']:{'status':200,'frames':[]} for q in queries}})
+                    except PlaywrightError as error:
+                        if 'Route is already handled!' not in str(error):
+                            raise
+                page.unroute('**/api/ds/query*', hold)
         check('kpi-loading-is-not-no-data', loading_state)
         browser.close()
     report['status'] = 'failed' if report['failures'] else 'passed'
