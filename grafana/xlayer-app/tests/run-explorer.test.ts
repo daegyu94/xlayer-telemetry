@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns,readRunFilters,withRunFilters,metricIdentity} from '../src/run-explorer';
+import {compareRuns,RunEntry,runContext,resourceContext,comparisonLink,liveRuns,mergeRuns,readRunFilters,withRunFilters,metricIdentity,readComparisonSelection,toggleComparisonSelection,hasSavedStep} from '../src/run-explorer';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {RunComparisonMetric} from '../src/RunComparisonMetric';
@@ -47,6 +47,13 @@ test('rendered comparison values retain individual units, including B-only and m
  const only=compareRuns(a,b).metrics[0];assert.equal(only.a_unit,undefined);assert.equal(only.b_unit,'ms');
  b.metrics[0].unit=undefined;assert.equal(compareRuns(run('a'),b).metrics[0].b_unit,undefined);
 });
+test('fractional saved seconds remain inside valid Grafana resource link bounds',()=>{
+ const window={start:200.0005,end:200.9997};
+ const selected=resourceContext(run('a'),{analysis_window:window,trigger:'periodic',node:'monitor'},{node:'gpu-b'},readContext(''))!;
+ assert.equal(selected.from,'200000');assert.equal(selected.to,'201000');
+ assert.ok(Number(selected.from)<=window.start*1000&&Number(selected.to)>=window.end*1000);
+ assert.deepEqual(window,{start:200.0005,end:200.9997});
+});
 test('resource links use recorded periodic window/entity, never saved Step or stale filters',()=>{
  const a=run('a'),b=run('b');
  const observation={analysis_window:{start:200,end:260,accuracy:'sampled'},trigger:'periodic',node:'monitor',generated_at:'2026-10-10T00:05:00Z'};
@@ -92,4 +99,27 @@ test('Explorer filters survive share, Evidence context and URL reload without al
  assert.deepEqual(readRunFilters(runContext(run('a'),restored,true)),readRunFilters(restored));
  const cleared=withRunFilters(restored,{search:'',model:'',status:'',source:'',limitTime:false});
  assert.equal(readRunFilters(cleared).limitTime,false);assert.equal(readRunFilters(cleared).source,'');
+});
+
+test('comparison slots do not silently replace B and clearing A preserves B through URL reload',()=>{
+ assert.deepEqual(readComparisonSelection(readContext('?var-compare_run_a=.*&var-compare_run_b=$__all')),[undefined,undefined]);
+ const selected=readComparisonSelection(readContext('?var-compare_run_a=a&var-compare_run_b=b'));
+ assert.deepEqual(toggleComparisonSelection(selected,'c'),['a','b']);
+ const cleared=toggleComparisonSelection(selected,'a');assert.deepEqual(cleared,[undefined,'b']);
+ assert.deepEqual(readComparisonSelection(readContext('?var-compare_run_b=b')),cleared);
+ assert.deepEqual(toggleComparisonSelection(cleared,'c'),['c','b']);
+ assert.deepEqual(readComparisonSelection(readContext('?var-compare_run_a=a&var-compare_run_b=a')),['a',undefined]);
+});
+test('conflicting live IDs are excluded without last-write bias while exact retransmission is deduplicated',()=>{
+ const row={run_id:'a',cluster:'lab',node:'n',worker_id:'0',record_id:'bad',window_start_ms:1000,window_end_ms:2000,step_duration_seconds:1};
+ const other={...row,window_start_ms:3000,window_end_ms:5000,step_duration_seconds:2};
+ for(const records of [[row,other],[other,row]]){const result=liveRuns(records)[0];assert.equal(result.steps,0);assert.equal(result.identity_conflicts,1);assert.equal(result.average_step,undefined);assert.equal(result.selected_step,undefined);}
+ const valid={...row,record_id:'valid'};const result=liveRuns([row,other,valid,valid])[0];assert.equal(result.steps,1);assert.equal(result.identity_conflicts,1);assert.equal(result.average_step,undefined);assert.equal(result.selected_step?.record_id,'valid');
+ assert.equal(liveRuns([valid,valid])[0].steps,1);
+});
+test('invalid saved windows do not pin a Step onto the previous query window',()=>{
+ const row=run('a');row.selected_step={record_id:'bad',window_start_ms:1e24,window_end_ms:2e24};
+ const context=readContext('?from=1000&to=2000&var-record_id=old');const selected=runContext(row,context,true);
+ assert.equal(selected.from,'1000');assert.deepEqual(selected.variables.record_id,[]);assert.equal(hasSavedStep(row),false);
+ assert.equal(hasSavedStep(run('b')),true);
 });

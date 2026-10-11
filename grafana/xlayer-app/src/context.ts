@@ -1,3 +1,4 @@
+import {validDateMs} from './time-context';
 export const APP_ID = "xlayer-telemetry-app";
 export const APP_BASE = `/a/${APP_ID}`;
 export const VARIABLE_NAMES = [
@@ -82,7 +83,10 @@ export function appLink(page: string, context: Context): string {
 }
 export function sceneTime(value: string): string {
   // SceneTimeRange constructor accepts date math / ISO, not numeric URL epochs.
-  return /^\d+$/.test(value) ? new Date(Number(value)).toISOString() : value;
+  if(!/^[+-]?\d+$/.test(value))return value;
+  const milliseconds=Number(value);
+  if(!validDateMs(milliseconds))throw new Error('Time range의 날짜가 유효하지 않습니다.');
+  return new Date(milliseconds).toISOString();
 }
 /** URL ordering and native default filters do not change the investigation. */
 export function investigationKey(context: Context): string {

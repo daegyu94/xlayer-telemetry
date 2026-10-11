@@ -48,3 +48,13 @@ test('malformed windows are withheld and observer-qualified legacy URLs remain u
  assert.equal(requestedStep([a,other],readContext('?var-record_id=same-record&var-cluster=cluster-a&var-run_id=same-run&var-source_node=other')),other);
  assert.equal(requestedStep([a,other],readContext('?var-record_id=same-record&var-cluster=cluster-a&var-run_id=same-run')),undefined);
 });
+
+test('bounded choices pin an older selection beyond 40 and retain an absent observation explicitly',()=>{
+ for(const count of [39,40,41,45]){
+  const rows=Array.from({length:count},(_,index)=>({...a,record_id:String(index),window_start_ms:1000+index*2000,window_end_ms:2000+index*2000}));
+  const html=renderToStaticMarkup(React.createElement(CompletedStepSelect,{rows,selected:rows[0],label:'Step',optionLabel:()=> 'Step',onStep:()=>{},timezone:'UTC'}));
+  assert.ok(html.includes('data-record-id="0"'));assert.equal((html.match(/selected=""/g)||[]).length,1);assert.equal((html.match(/<option /g)||[]).length,Math.min(count,40)+1);
+ }
+ const html=renderToStaticMarkup(React.createElement(CompletedStepSelect,{rows:[b],selected:a,label:'Step',optionLabel:()=> 'Step',onStep:()=>{}}));
+ assert.ok(html.includes('현재 응답에 없습니다'));assert.equal((html.match(/selected=""/g)||[]).length,1);
+});

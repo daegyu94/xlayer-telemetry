@@ -115,12 +115,14 @@ def summarize(run: Path):
             and row.get('schema_version') == 1 and row.get('cluster',cluster) == cluster]
     partial = partial or len(rows)!=len(all_rows)
     unique = {}
-    conflict = False
+    conflicts = set()
     for row in rows:
         key = row['record_id']
-        if key in unique and unique[key] != row: conflict = True
+        if key in unique and unique[key] != row: conflicts.add(key)
         unique[key] = row
-    rows = list(unique.values())
+    # Conflicting payloads are not extra observations or an arbitrary last write.
+    rows = [row for key, row in unique.items() if key not in conflicts]
+    conflict = bool(conflicts)
     origin = {row.get('data_origin', declared_origin or 'observed') for row in rows}
     if declared_origin: origin.add(declared_origin)
     data_origin = next(iter(origin)) if len(origin)==1 else 'mixed' if origin else declared_origin or 'unknown'
@@ -185,7 +187,8 @@ def summarize(run: Path):
     return {'key':hashlib.sha256(_json([cluster,run_id,observer]).encode()).hexdigest()[:24], 'run_id':run_id,
         'cluster':cluster,'observer_node':observer,'model':model,'execution_mode':_text(config.get('execution_mode')),
         'fingerprint':_text(config.get('workload_fingerprint')), 'steps':len(rows),
-        'average_step':step_metrics[0]['value'] if len(step_metrics)==1 else None,
+        'average_step':step_metrics[0]['value'] if len(step_metrics)==1 and not conflict else None,
+        'identity_conflicts':len(conflicts),
         'from':min(starts) if starts else _stamp(manifest.get('created_at')),'to':max(ends) if ends else None,
         'status':status,'status_recorded_at':workload.get('recorded_at',health.get('observed_at')),
         'workload_exit_code':workload.get('exit_code') if type(workload.get('exit_code')) is int else None,
@@ -196,7 +199,8 @@ def summarize(run: Path):
             ('record_id','step','window_start_ms','window_end_ms','node','worker_id','boundary_scope')},
         'limitations':['Recorded status is not a live process check. Shared resources are not run-owned.',
             'Resource values describe the last saved diagnosis window, not a run average.'] +
-            (["Conflicting declared metadata: " + ', '.join(metadata_conflicts)] if metadata_conflicts else [])}
+            (["Conflicting declared metadata: " + ', '.join(metadata_conflicts)] if metadata_conflicts else []) +
+            (["Conflicting record IDs were excluded; Run average is withheld."] if conflict else [])}
 
 
 def catalog(root: Path, *, max_runs=MAX_RUNS):

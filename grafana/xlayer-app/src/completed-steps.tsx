@@ -1,5 +1,6 @@
 import React from 'react';
 import {type Context,type RecordRow,numeric,scalar,selectStep} from './context';
+import {formatContextTime} from './time-context';
 
 export function completedStepKey(row?:RecordRow):string|undefined {
   if(!row)return undefined;
@@ -30,16 +31,19 @@ export function requestedStep(rows:RecordRow[],context:Context):RecordRow|undefi
   return unique(requested.filter(row=>numeric(row.window_start_ms)===start&&numeric(row.window_end_ms)===end));
 }
 
-export function CompletedStepSelect({rows,selected,label,optionLabel,onStep}:{rows:RecordRow[];selected?:RecordRow;
- label:string;optionLabel:(row:RecordRow)=>string;onStep:(row:RecordRow)=>void}) {
-  const choices=completedStepChoices([...rows,...(selected?[selected]:[])]).slice(0,40);
-  return <label className="xlt-context-step">{label}<select aria-label="Completed Step" value={completedStepKey(selected)||''}
+export function CompletedStepSelect({rows,selected,label,optionLabel,onStep,timezone='UTC'}:{rows:RecordRow[];selected?:RecordRow;
+ label:string;optionLabel:(row:RecordRow)=>string;onStep:(row:RecordRow)=>void;timezone?:string}) {
+  const current=completedStepChoices(selected?[selected]:[])[0];
+  const recent=completedStepChoices(rows).filter(row=>completedStepKey(row)!==completedStepKey(current));
+  const choices=current?[current,...recent.slice(0,39)]:recent.slice(0,40);
+  const retained=current&&!rows.some(row=>completedStepKey(row)===completedStepKey(current));
+  return <label className="xlt-context-step">{label}<select aria-label="Completed Step" value={completedStepKey(current)||''}
     onChange={event=>{const row=choices.find(row=>completedStepKey(row)===event.target.value);if(row)onStep(row);}}>
     <option value="">완료된 Observation을 선택하세요</option>
     {choices.map(row=><option key={completedStepKey(row)} value={completedStepKey(row)} data-record-id={String(row.record_id)}>
-      {scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {optionLabel(row)} · {scalar(row.observer_node||row.node)} · {new Date(numeric(row.window_end_ms)!).toISOString()}
+      {completedStepKey(row)===completedStepKey(current)?'Selected · ':''}{scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {optionLabel(row)} · {scalar(row.observer_node||row.node)} · {formatContextTime(numeric(row.window_end_ms),timezone)}
     </option>)}
-  </select></label>;
+  </select>{retained&&<small role="status">선택한 Observation이 현재 응답에 없습니다. 선택 문맥을 유지합니다.</small>}</label>;
 }
 
 export function CompletedStepsTable({rows,selected,context,onSelect,limit=8,format}:{rows:RecordRow[];selected?:RecordRow;

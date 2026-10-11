@@ -4,8 +4,8 @@ import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} 
 import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
 import {relatedPanels} from './related-panels';
-import React, { useEffect, useState, useRef } from "react";
-import { AppPlugin, LoadingState, getValueFormat, dateTimeFormat, FieldType, ThemeContext, createTheme, PageLayoutType } from "@grafana/data";
+import React, { useEffect, useState, useRef,createContext,useContext } from "react";
+import { AppPlugin, LoadingState, getValueFormat,dateTimeParse, FieldType, ThemeContext, createTheme, PageLayoutType } from "@grafana/data";
 import { locationService } from "@grafana/runtime";
 import { Router } from "react-router-dom";
 import {Sparkline,useTheme2,Icon} from '@grafana/ui';
@@ -27,7 +27,6 @@ import {
   TextBoxVariable,
   SceneDataTransformer,
   VizPanel,
-  useSceneApp,
 } from "@grafana/scenes";
 import {
   Catalog,
@@ -83,6 +82,12 @@ import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './inf
 import { InfrastructureView } from './InfrastructureView';
 import {RunExplorerView} from './RunExplorerView';
 import {displaySummary,displayUiNote} from './ui-copy';
+import {formatContextTime,timeContextIssue,validTimezone} from './time-context';
+import {issueText} from './catalog-loading';
+const CatalogRetryContext=createContext({retry:()=>{},refreshing:false,error:''});
+function contextIssue(context:Context){
+ return timeContextIssue(context,(value,roundUp)=>dateTimeParse(sceneTime(value),{timeZone:context.timezone,roundUp}).valueOf());
+}
 
 function AsyncDecision({summary}:{summary?:RecordRow}) {
  let value:RecordRow;try{value=JSON.parse(String(summary?.async_decision||'null'));}catch{return null;}
@@ -450,7 +455,8 @@ function createApp() {
   });
 }
 function Ready() {
-  const app = useSceneApp(createApp);
+  // A catalog retry must discard the previous pages' cached scene metadata.
+  const [app] = useState(createApp);
   const [location, setLocation] = useState(locationService.getLocation());
   useEffect(
     () =>
@@ -472,8 +478,13 @@ function Root() {
   useEffect(()=>locationService.getHistory().listen(()=>setVisualTheme(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'))),[inheritedTheme.isDark]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
+  const [refresh,setRefresh]=useState(0),[revision,setRevision]=useState(0),[refreshing,setRefreshing]=useState(false);
+  const [context,setContext]=useState(()=>readContext(window.location.search));
+  useEffect(()=>locationService.getHistory().listen(()=>setContext(readContext(locationService.getLocation().search))),[]);
+  const invalidContext=contextIssue(context);
   useEffect(() => {
     let active = true;
+    setRefreshing(true);setError('');
     if (
       window.location.pathname === APP_BASE ||
       window.location.pathname === `${APP_BASE}/`
@@ -484,21 +495,21 @@ function Root() {
     }
     loadCatalog()
       .then((c) => {
-        loadedCatalog = c;
-        if (active) setStatus("ready");
+        if (active) {loadedCatalog=c;setStatus("ready");setRevision(v=>v+1);setRefreshing(false);}
       })
       .catch((e) => {
         if (active) {
           setError(e.message || String(e));
-          setStatus("error");
+          setStatus(current=>current==='ready'?'ready':'error');setRefreshing(false);
         }
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [refresh]);
+  if(invalidContext)return <div className="xlt"><p role="alert" className="xlt-error">{invalidContext}</p><p>Run 선택은 유지됩니다. 최근 30분으로 복구하면 시간 범위가 변경됩니다.</p><button onClick={()=>{const current=readContext(locationService.getLocation().search);locationService.replace(appLink(window.location.pathname.slice(APP_BASE.length+1)||'overview',{...current,from:'now-30m',to:'now',timezone:validTimezone(current.timezone)?current.timezone:'browser'}));}}>Use last 30 minutes</button></div>;
   return status === "ready" ? (
-    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><Ready /></ThemeContext.Provider>
+    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><CatalogRetryContext.Provider value={{retry:()=>setRefresh(v=>v+1),refreshing,error}}><Ready key={revision}/></CatalogRetryContext.Provider></ThemeContext.Provider>
   ) : (
     <div className="xlt">
       <p>
@@ -506,6 +517,7 @@ function Root() {
           ? "Provisioning된 XLayer Dashboard를 불러오는 중입니다…"
           : `Dashboard를 불러오지 못했습니다. ${displayUiNote(error)}`}
       </p>
+      {status==='error'&&<button onClick={()=>setRefresh(v=>v+1)} disabled={refreshing}>Retry dashboards</button>}
     </div>
   );
 }
@@ -620,6 +632,8 @@ function Link({
 function ShellView({ model }: { model: Shell }) {
   const state = model.useState();
   const theme=useTheme2();
+  const reload=useContext(CatalogRetryContext);
+  const catalogFailures=Object.entries(state.catalog.issues||{}).filter(([,issue])=>issue?.state==='query-failed');
   const stepData = useData(state.steps),
     summaryData = useData(state.summary),
     compareData = useData(state.comparison),
@@ -695,6 +709,7 @@ function ShellView({ model }: { model: Shell }) {
   return (
     <DashboardChrome page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
       contextBar={<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
+      {(catalogFailures.length>0||reload.error)&&<section className="xlt-notice" aria-label="Dashboard availability"><p role="alert">{reload.error?displayUiNote(reload.error):'일부 선택 Dashboard를 불러오지 못했습니다. 사용 가능한 Dashboard는 계속 사용할 수 있습니다.'}</p>{catalogFailures.map(([name,issue])=><p key={name}>{name}: {issueText(issue!)}</p>)}<button onClick={reload.retry} disabled={reload.refreshing}>Retry dashboards</button></section>}
       {state.nativeWorkspace&&<>
         <header className="xlt-header xlt-native-heading"><div><span className="xlt-eyebrow">{NATIVE_PAGES.find(p=>p.route===state.page)?.kicker}</span><h2>{NATIVE_PAGES.find(p=>p.route===state.page)?.title}</h2><p>{NATIVE_PAGES.find(p=>p.route===state.page)?.description}</p></div><a className="xlt-link" href={appLink('infrastructure',context)}>Locate in topology →</a></header>
         <p className="xlt-notice">{NATIVE_PAGES.find(p=>p.route===state.page)?.notice}</p>
@@ -1556,7 +1571,7 @@ function RecentEvents({
                 <td>
                   {time === undefined
                     ? "Unknown"
-                    : new Date(time).toLocaleTimeString()}
+                    : formatContextTime(time,context.timezone,'time')}
                   <small>
                     {r.boundary_accuracy === "calibrated"
                       ? `calibrated ±${format(r.time_uncertainty_seconds, "s")}`
@@ -1776,7 +1791,10 @@ function CommonStorageOverview({model,summary,context,onThreeFS}:{model:Shell;su
  </div>;
 }
 function DeepWorkspace({model,summary,candidate,evidence,panels,context,catalog}:{model:Shell;summary?:RecordRow;candidate?:RecordRow;evidence:RecordRow[];panels:(VizPanel|undefined)[];context:Context;catalog:Catalog}) {
- const[tab,setTab]=useState(()=>detailTabIndex(context.variables.detail_tab?.[0])),proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
+ const variable=sceneGraph.lookupVariable('detail_tab',model) as TextBoxVariable,tabState=variable.useState();
+ const tab=detailTabIndex(typeof tabState.value==='string'?tabState.value:context.variables.detail_tab?.[0]);
+ const setTab=(index:number)=>{const current=readContext(locationService.getLocation().search);locationService.push(appLink('deep-dive',{...current,variables:{...current.variables,detail_tab:[DEEP_DIVE_SPECS[index].label]}}));};
+ const proofs=evidence.filter(e=>e.candidate_id===candidate?.candidate_id),spec=DEEP_DIVE_SPECS[tab];
  const[clusterOpen,setClusterOpen]=useState(false),state=model.useState();
  const storageProofs=evidence.filter(e=>String(e.signal||'').startsWith('threefs_'));
  const groups=storageDetailGroups(DEEP_DIVE_SPECS);
@@ -1845,9 +1863,9 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
   return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
-      <CompletedStepSelect rows={steps} selected={selected} label={boundaryPresentation(selected).label}
+      <CompletedStepSelect rows={steps} selected={selected} timezone={range.getTimeZone()} label={boundaryPresentation(selected).label}
         optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>
-      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{dateTimeFormat(rangeState.value.from,{timeZone:range.getTimeZone(),format:'MMM D, HH:mm:ss'})} → {dateTimeFormat(rangeState.value.to,{timeZone:range.getTimeZone(),format:'HH:mm:ss'})}</div></div>
+      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextTime(rangeState.value.from.valueOf(),range.getTimeZone())} → {formatContextTime(rangeState.value.to.valueOf(),range.getTimeZone(),'time')}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
   </section>;
@@ -1864,7 +1882,7 @@ function WorkerComparison({model,selected,spans,clockStatus,clockProof}:{model:S
 }
 function PolicyLifecycle({events,context,catalog}:{events:RecordRow[];context:Context;catalog:Catalog}){
  const rows=appliedPolicies(events).filter(row=>!context.variables.run_id?.length||context.variables.run_id.includes('.*')||context.variables.run_id.includes('$__all')||context.variables.run_id.includes(String(row.run_id)));
- return <details className="xlt-completed-detail"><summary>Policy / KV Lifecycle · {new Set(rows.map(row=>`${row.cluster}/${row.run_id}/${row.node}/${row.worker_id}`)).size} workers with applied-version events</summary><p className="xlt-notice">Producer가 Worker scope로 보고한 weights.applied만 적용 경계로 사용합니다. Trainer version과 KV counter는 실제 적용 Coverage나 Causality를 증명하지 않습니다.</p>{!rows.length?<p className="xlt-empty">이 구간에 Worker의 Policy 적용 Event가 없습니다. Native weight 적용을 확인한 지점에서 명시적인 계측을 활성화하세요.</p>:<div className="xlt-scroll"><table><thead><tr><th>Applied boundary</th><th>Worker</th><th>Version</th><th>Next</th></tr></thead><tbody>{rows.slice(-12).reverse().map((row,index)=><tr key={index}><td>{new Date(eventTime(row)!).toLocaleTimeString()} · {row.boundary_accuracy==='calibrated'?'calibrated':'node clock'}</td><td>{scalar(row.node)} / {scalar(row.worker_id)}</td><td>v{scalar(row.policy_version)} · producer reported</td><td><Link to="timeline" context={{...context,variables:{...context.variables,run_id:[String(row.run_id)],trace_id:['.*'],record_id:[]}}} catalog={catalog}>Timeline / KV</Link></td></tr>)}</tbody></table></div>}</details>;
+ return <details className="xlt-completed-detail"><summary>Policy / KV Lifecycle · {new Set(rows.map(row=>`${row.cluster}/${row.run_id}/${row.node}/${row.worker_id}`)).size} workers with applied-version events</summary><p className="xlt-notice">Producer가 Worker scope로 보고한 weights.applied만 적용 경계로 사용합니다. Trainer version과 KV counter는 실제 적용 Coverage나 Causality를 증명하지 않습니다.</p>{!rows.length?<p className="xlt-empty">이 구간에 Worker의 Policy 적용 Event가 없습니다. Native weight 적용을 확인한 지점에서 명시적인 계측을 활성화하세요.</p>:<div className="xlt-scroll"><table><thead><tr><th>Applied boundary</th><th>Worker</th><th>Version</th><th>Next</th></tr></thead><tbody>{rows.slice(-12).reverse().map((row,index)=><tr key={index}><td>{formatContextTime(eventTime(row),context.timezone,'time')} · {row.boundary_accuracy==='calibrated'?'calibrated':'node clock'}</td><td>{scalar(row.node)} / {scalar(row.worker_id)}</td><td>v{scalar(row.policy_version)} · producer reported</td><td><Link to="timeline" context={{...context,variables:{...context.variables,run_id:[String(row.run_id)],trace_id:['.*'],record_id:[]}}} catalog={catalog}>Timeline / KV</Link></td></tr>)}</tbody></table></div>}</details>;
 }
 function Coverage({model}:{model:Shell}) {
   const state=model.useState();

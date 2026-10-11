@@ -1,6 +1,7 @@
 import React from 'react';
 import {Context,RecordRow,appLink} from './context';
 import {RunEntry,compareRuns,comparisonReason,resourceContext} from './run-explorer';
+import {formatContextTime} from './time-context';
 
 export const metricValue=(v:unknown)=>typeof v==='number'&&Number.isFinite(v)?v!==0&&Math.abs(v)<0.001?v.toPrecision(3):v.toLocaleString(undefined,{maximumFractionDigits:3}):'N/A';
 type ComparisonMetric=ReturnType<typeof compareRuns>['metrics'][number];
@@ -9,7 +10,7 @@ function ResourceLinks({run,observation,entity,context}:{run:RunEntry;observatio
  const selected=resourceContext(run,observation,entity,context);
  if(!selected)return <small>관측 시간 범위가 없어 이동할 수 없습니다</small>;
  return <small><span title={`${new Date(Number(selected.from)).toISOString()} → ${new Date(Number(selected.to)).toISOString()}`}>
-  {String(observation?.trigger||'Trigger unknown')} · {new Date(Number(selected.from)).toLocaleTimeString()} → {new Date(Number(selected.to)).toLocaleTimeString()}</span>
+  {String(observation?.trigger||'Trigger unknown')} · {formatContextTime(Number(selected.from),context.timezone,'time')} → {formatContextTime(Number(selected.to),context.timezone,'time')}</span>
   <br/><a href={appLink('investigate',selected)}>{run.run_id}: Resource Evidence →</a>
   <br/><a href={appLink('timeline',selected)}>Resource Timeline →</a></small>;
 }

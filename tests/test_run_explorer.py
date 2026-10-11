@@ -63,6 +63,25 @@ def test_multiworker_identity_does_not_become_a_run_average_and_wrong_run_record
     assert len([m for m in row['metrics'] if m['metric']=='step_duration_seconds']) == 2
 
 
+@pytest.mark.parametrize('reverse', [False, True])
+def test_conflicting_record_ids_are_excluded_and_do_not_choose_last_payload(tmp_path, reverse):
+    run = saved(tmp_path, 'a')
+    path = run/'telemetry-events/verl-steps.jsonl'
+    record = json.loads(path.read_text())
+    values = [record, {**record, 'window_start_ms': 500000, 'window_end_ms': 510000, 'step_duration_seconds': 99}]
+    if reverse:
+        values.reverse()
+    values += [{**record, 'record_id': 'valid'}, {**record, 'record_id': 'valid'}]
+    path.write_text(''.join(json.dumps(row)+'\n' for row in values))
+    row = runs.summarize(run)
+    assert row['steps'] == 1
+    assert row['identity_conflicts'] == 1
+    assert row['average_step'] is None
+    assert row['selected_step']['record_id'] == 'valid'
+    assert row['quality'] == 'partial'
+    assert any('Conflicting record IDs' in value for value in row['limitations'])
+
+
 def test_zero_partial_tail_and_synthetic_origin_are_preserved(tmp_path):
     run = saved(tmp_path, 'a', 0, data_origin='synthetic')
     saved(tmp_path, 'b', 1, data_origin='synthetic')

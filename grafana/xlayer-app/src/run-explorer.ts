@@ -1,7 +1,19 @@
 import {Context, RecordRow, appLink, numeric} from './context';
+import {validAbsoluteWindow} from './time-context';
 
 export type RunMetric={metric:string;value:number;unit?:string;scope:string;statistic?:string;entity:RecordRow;quality:string;accuracy?:string;workload_observed?:boolean;workload_shapes?:unknown[];observation?:string;exposure?:RecordRow;observation_context?:RecordRow};
-export type RunEntry={key:string;run_id:string;cluster?:string;observer_node?:string;model?:string;execution_mode?:string;fingerprint?:string;steps:number;average_step?:number;from?:number;to?:number;status:string;quality:string;data_origin:string;source:string;metrics:RunMetric[];selected_step?:RecordRow;live_records?:number};
+export type RunEntry={key:string;run_id:string;cluster?:string;observer_node?:string;model?:string;execution_mode?:string;fingerprint?:string;steps:number;average_step?:number;from?:number;to?:number;status:string;quality:string;data_origin:string;source:string;metrics:RunMetric[];selected_step?:RecordRow;live_records?:number;identity_conflicts?:number};
+export type ComparisonSelection=[string|undefined,string|undefined];
+export function readComparisonSelection(context:Context):ComparisonSelection {
+ const selected=(key:'compare_run_a'|'compare_run_b')=>{const value=context.variables[key]?.[0];return value&&value!=='.*'&&value!=='$__all'?value:undefined;};
+ const a=selected('compare_run_a'),b=selected('compare_run_b');
+ return [a,b===a?undefined:b];
+}
+export function toggleComparisonSelection(selected:ComparisonSelection,key:string):ComparisonSelection {
+ const index=selected.includes(key)?selected.indexOf(key):selected.indexOf(undefined);
+ if(index===-1)return selected;
+ const next:[string|undefined,string|undefined]=[...selected];next[index]=selected.includes(key)?undefined:key;return next;
+}
 export type RunCatalog={schema_version:number;generated_at?:number;truncated?:boolean;runs:RunEntry[]};
 const canonical=(value:unknown):string=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 export type RunFilters={search:string;model:string;status:string;source:string;limitTime:boolean};
@@ -68,16 +80,18 @@ export function parseRunCatalog(value:any):RunCatalog{
 export function liveRuns(rows:RecordRow[]):RunEntry[]{
  const groups=new Map<string,RecordRow[]>();
  for(const row of rows){if(!row.run_id||row.identity_conflict)continue;const key=canonical([row.cluster,row.run_id,row.observer_node||row.node]);groups.set(key,[...(groups.get(key)||[]),row]);}
- return [...groups].map(([key,items])=>{const unique=[...new Map(items.map(row=>[row.record_id||canonical(row),row])).values()];
-  const latest=[...unique].sort((a,b)=>Number(b.window_end_ms||0)-Number(a.window_end_ms||0))[0];
+ return [...groups].map(([key,items])=>{const records=new Map<string,RecordRow>(),conflicts=new Set<string>();
+  for(const row of items){const id=String(row.record_id||canonical(row));if(records.has(id)&&canonical(records.get(id))!==canonical(row))conflicts.add(id);else records.set(id,row);}
+  const unique=[...records].filter(([id])=>!conflicts.has(id)).map(([,row])=>row);
+  const latest=[...unique].sort((a,b)=>Number(b.window_end_ms||0)-Number(a.window_end_ms||0))[0]||items[0];
   const entities=new Set(unique.map(row=>canonical([row.node,row.worker_id,row.boundary_scope])));
-  const durations=unique.map(row=>numeric(row.step_duration_seconds)).filter((value):value is number=>value!==undefined);
+  const durations=unique.map(row=>numeric(row.step_duration_seconds)).filter((value):value is number=>value!==undefined&&value>=0);
   const starts=unique.map(row=>numeric(row.window_start_ms)).filter((v):v is number=>v!==undefined);
   const ends=unique.map(row=>numeric(row.window_end_ms)).filter((v):v is number=>v!==undefined);
   return {key:'live:'+key,run_id:String(latest.run_id),cluster:latest.cluster?String(latest.cluster):undefined,
-   observer_node:String(latest.observer_node||latest.node||''),steps:unique.length,average_step:entities.size===1&&durations.length?durations.reduce((a,b)=>a+b,0)/durations.length:undefined,
+   observer_node:String(latest.observer_node||latest.node||''),steps:unique.length,identity_conflicts:conflicts.size,average_step:!conflicts.size&&entities.size===1&&durations.length===unique.length?durations.reduce((a,b)=>a+b,0)/durations.length:undefined,
    from:starts.length?Math.min(...starts):undefined,to:ends.length?Math.max(...ends):undefined,
-   status:'unknown',quality:'partial',data_origin:unique.some(row=>row.data_origin==='synthetic')?'synthetic':'unknown',source:'loki_window',metrics:[],selected_step:latest};});
+   status:'unknown',quality:'partial',data_origin:unique.some(row=>row.data_origin==='synthetic')?'synthetic':'unknown',source:'loki_window',metrics:[],selected_step:unique.length?latest:undefined};});
 }
 export function mergeRuns(stored:RunEntry[],live:RunEntry[]){
  const same=(a:RunEntry,b:RunEntry)=>a.run_id===b.run_id&&a.cluster===b.cluster&&a.observer_node===b.observer_node;
@@ -85,10 +99,14 @@ export function mergeRuns(stored:RunEntry[],live:RunEntry[]){
 }
 export function runContext(run:RunEntry,context:Context,step=false):Context{
  const selected=run.selected_step||{};const start=numeric(step?selected.window_start_ms:run.from),end=numeric(step?selected.window_end_ms:run.to);
- return {...context,...(start!==undefined&&end!==undefined&&end>start?{from:String(start),to:String(end)}:{}),variables:{...context.variables,
+ const valid=validAbsoluteWindow(start,end);
+ return {...context,...(valid?{from:String(start),to:String(end)}:{}),variables:{...context.variables,
   run_id:[run.run_id],cluster:run.cluster?[run.cluster]:[],source_node:run.observer_node?[run.observer_node]:[],
-  record_id:step&&selected.record_id?[String(selected.record_id)]:[],candidate_id:[],trace_id:[],phase_worker:[],
+  record_id:step&&valid&&selected.record_id?[String(selected.record_id)]:[],candidate_id:[],trace_id:[],phase_worker:[],
   compare_run_a:[],compare_run_b:[]}};
+}
+export function hasSavedStep(run:RunEntry):boolean {
+ return typeof run.selected_step?.record_id==='string'&&!!run.selected_step.record_id&&validAbsoluteWindow(numeric(run.selected_step.window_start_ms),numeric(run.selected_step.window_end_ms));
 }
 export function comparisonLink(a:RunEntry,b:RunEntry,context:Context){return appLink('runs',{...context,variables:{...context.variables,compare_run_a:[a.key],compare_run_b:[b.key]}});}
 
@@ -96,10 +114,14 @@ export function resourceContext(run:RunEntry,observation:RecordRow|undefined,ent
  const window=observation?.analysis_window as RecordRow|undefined;
  const start=numeric(window?.start),end=numeric(window?.end);
  if(start===undefined||end===undefined||end<=start||Math.abs(start*1000)>8.64e15||Math.abs(end*1000)>8.64e15)return undefined;
+ // Grafana URL epochs are integer milliseconds; retain the complete saved
+ // seconds window with outward bounds instead of an invalid fractional epoch.
+ const from=Math.floor(start*1000),to=Math.ceil(end*1000);
+ if(!validAbsoluteWindow(from,to))return undefined;
  const selected=runContext(run,context);
  const label=(v:unknown)=>typeof v==='string'&&v?[v]:[];
  const step=observation?.trigger==='step_observed';
- return {...selected,from:String(start*1000),to:String(end*1000),variables:{...selected.variables,
+ return {...selected,from:String(from),to:String(to),variables:{...selected.variables,
   source_node:label(observation?.node),node:label(entity.node||entity.nodename),
   gpu:label(entity.gpu),engine:label(entity.instance),device:label(entity.device),
   worker:step?label(observation?.worker_id):[],record_id:step?label(observation?.trigger_record_id):[],

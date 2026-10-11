@@ -4,6 +4,7 @@ import type {PanelData} from '@grafana/data';
 import type {VizPanel,SceneDataProvider} from '@grafana/scenes';
 import {matrixColorAlpha,metricLabel,resourceMatrix,resourceMetricAvailability,resourcePanelKey} from './resource-matrix';
 import type {Reduction,ResourceMatrixProfile,ResourceCell} from './resource-matrix';
+import {validDateMs} from './time-context';
 
 const plans=new WeakMap<VizPanel,{profile:ResourceMatrixProfile;metrics:Record<string,string>}>();
 export function registerResourcePanel(panel:VizPanel,source:{type:string;targets?:any[]},profile?:ResourceMatrixProfile){
@@ -72,7 +73,7 @@ function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<ty
     const alpha=cell?matrixColorAlpha(cell.value,plan.profile.color,max,unitValue):undefined;
     const differing=additionalIdentityLabels(matching);
     const unavailableReason=matching.length>1?`복수의 source identity${differing.length?` (${differing.join(', ')})`:''}가 같은 좌표에 있습니다. 값을 합치지 않습니다.`:'이 좌표의 telemetry가 없습니다.';
-    return <td key={column}><button className="xlt-resource-cell" data-state={status} aria-pressed={selected===cell?.key&&!!cell} disabled={!cell||status!=='observed'} aria-label={`${row} · ${column} · ${text} · ${status}`} title={cell?`${JSON.stringify(cell.labels)}\n${cell.count} finite samples · Latest evaluation: ${Number.isFinite(cell.time)?new Date(cell.time!).toISOString():'Unknown'}`:unavailableReason} style={status==='observed'&&alpha!==undefined?{background:`rgba(69,102,213,${alpha})`}:undefined} onClick={()=>setSelected(cell?.key)}><b>{text}</b>{status!=='observed'&&<small>{status==='no-data'?'No data':status==='stale'?'Stale':'Unknown'}</small>}</button></td>;
+    return <td key={column}><button className="xlt-resource-cell" data-state={status} aria-pressed={selected===cell?.key&&!!cell} disabled={!cell||status!=='observed'} aria-label={`${row} · ${column} · ${text} · ${status}`} title={cell?`${JSON.stringify(cell.labels)}\n${cell.count} finite samples · Latest evaluation: ${validDateMs(cell.time)?new Date(cell.time).toISOString():'Unknown'}`:unavailableReason} style={status==='observed'&&alpha!==undefined?{background:`rgba(69,102,213,${alpha})`}:undefined} onClick={()=>setSelected(cell?.key)}><b>{text}</b>{status!=='observed'&&<small>{status==='no-data'?'No data':status==='stale'?'Stale':'Unknown'}</small>}</button></td>;
    })}</tr>)}</tbody></table></div>}
    {chosen&&<div className="xlt-resource-selection"><div className="xlt-resource-controls"><b>{chosen.row} · {chosen.column}</b><button onClick={()=>setSelected(undefined)}>Clear selection</button></div>{duplicate?<p className="xlt-empty">동일한 series 표시 이름이 중복돼 선택한 identity만 분리할 수 없습니다. Time series와 기존 필터에서 확인하세요.</p>:<div className="xlt-resource-detail"><panel.Component model={panel}/></div>}</div>}
   </>}

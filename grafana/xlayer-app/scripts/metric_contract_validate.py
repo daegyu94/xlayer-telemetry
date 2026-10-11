@@ -103,8 +103,12 @@ with sync_playwright() as p:
  assert not duplicate,duplicate
  report['shared_detail_query']={'extra_gpu_ray_queries_on_tab_selection':len(duplicate)}
  for label in ('Connector RPC','DFS batch','DFS bytes','Failures','3FS evidence','Local I/O mean'):
-  before=parse_qs(urlparse(page.url).query);page.get_by_role('button',name=label,exact=True).click();page.wait_for_timeout(350)
-  assert parse_qs(urlparse(page.url).query)==before,label
+  before=parse_qs(urlparse(page.url).query);page.get_by_role('button',name=label,exact=True).click()
+  page.wait_for_function('(label)=>new URLSearchParams(location.search).get("var-detail_tab")===label',arg=label)
+  after=parse_qs(urlparse(page.url).query)
+  assert after.pop('var-detail_tab')==[label]
+  before.pop('var-detail_tab',None)
+  assert after==before,label
  page.get_by_role('button',name='3FS evidence',exact=True).click()
  assert page.get_by_text('3FS · saved service observations',exact=True).count()==1
  common=page.locator('.xlt-common-storage')

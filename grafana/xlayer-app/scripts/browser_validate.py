@@ -587,13 +587,18 @@ def main():
         assert workspace['candidate_id'] if 'candidate_id' in workspace else workspace.get('var-candidate_id')
         for key in ['var-run_id','var-node','var-record_id']:assert workspace[key]==saved[key]
         assert 'per_run_3fs_client_bytes' in page.locator('.xlt-workspace').inner_text()
-        page.get_by_role('button',name='GPU',exact=True).click();page.wait_for_timeout(300)
+        page.get_by_role('button',name='GPU',exact=True).click()
+        page.wait_for_function("new URLSearchParams(location.search).get('var-detail_tab') === 'GPU'")
         capture('candidate-workspace')
         for width in [1280,390]:
             page.set_viewport_size({'width':width,'height':900});page.wait_for_timeout(300)
             assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth+1')
             capture(f'candidate-workspace-{width}')
-        page.set_viewport_size({'width':1440,'height':1000});page.go_back();page.get_by_role('heading',name='What changed?',exact=True).wait_for()
+        page.set_viewport_size({'width':1440,'height':1000});page.go_back()
+        # Metric tab changes now have their own history entry.
+        page.wait_for_function("new URLSearchParams(location.search).get('var-detail_tab') !== 'GPU'")
+        page.get_by_role('heading',name='Key Findings',exact=True).wait_for()
+        page.go_back();page.get_by_role('heading',name='What changed?',exact=True).wait_for()
         checks.append('Candidate Deep Dive workspace keeps selected Step, supporting/missing evidence and native metric tabs')
         page.get_by_role('button',name='Inspect measured timeline →',exact=True).click();page.wait_for_timeout(1800)
         assert 'Measured spans' in page.locator('.xlt').inner_text();capture('timeline')

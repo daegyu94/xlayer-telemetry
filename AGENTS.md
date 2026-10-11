@@ -84,8 +84,10 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 
 1. 브랜치·작업 트리와 최신 `main`을 확인하고 기존 변경을 보존합니다.
    요청한 작업의 브랜치를 `main`에서 만들며 새 기능보다 실제 call/data path와 기존 구현을 먼저 확인합니다.
+   기준 commit SHA·검증 환경·변경 전 관련 test 결과를 기록합니다. 조사 이후 `main`이 바뀌었으면 최신 코드에서 재현 조건과 수정 필요성을 다시 확인합니다.
 2. 문제의 재현 조건과 영향을 확인합니다.
    Bug 수정은 가능한 경우 실패하는 regression test로 재현한 뒤 최소 범위를 수정합니다.
+   정상 입력 하나만 검사하지 않고 실제 실패를 일으킨 입력·상태 전이·경계값을 남깁니다. 새 helper의 단독 성공에 더해 기존 public entrypoint나 실제 UI에서 같은 원인의 실패가 해소되는지 확인합니다.
 3. 연결된 계약을 함께 확인합니다.
    새 metric/source는 producer·contract·query·scope·optional missing 동작·dashboard/demo·문서, 새 config는 Python validator·shell 전달·CLI/help·package asset·문서가 영향을 받는지 점검합니다.
    관계없는 부분은 변경하지 않고 대규모 abstraction·dependency 추가는 실제 필요가 있을 때만 합니다.
@@ -93,6 +95,7 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
    CPU fixture·synthetic·VM 검증을 실제 GPU/VERL·Docker cgroup·3FS cluster·물리 multi-node 검증으로 보고하지 않습니다.
 5. 논리적 변경만 commit하고 `Signed-off-by`를 포함합니다.
    검증 후 로컬 `main`에 `--ff-only`로 병합하고 이번 작업 브랜치만 삭제하며, remote push·remote branch 삭제는 명시적인 요청이 있을 때 수행합니다.
+   Commit 대상과 검증한 코드가 일치하는지 staged diff와 `git diff --check`로 확인합니다. 검증 뒤 code나 검증 script를 수정하면 영향받는 검사를 다시 실행하고, push 직전에 remote head를 확인해 동시 변경을 덮어쓰지 않습니다.
 
 ## 검증 방법
 
@@ -123,6 +126,28 @@ git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
 위 test 파일은 모두 `tests/`에 있으며 변경한 collector/source의 개별 test도 함께 선택합니다.
 PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, optional tool 때문에 skip한 test를 통과한 검증에 포함하지 않습니다.
 관련 example과 실제 rendering이 필요한 경우의 실행 방법은 [Examples](examples/README.md)와 [Script 안내](scripts/README.md)를 따릅니다.
+
+## Regression Prevention
+
+수정 전후의 결과를 test 이름과 실패 원인으로 비교합니다. 기존 실패가 있으면 baseline 실패·새 실패·skip을 구분하고, 새 실패와 설명되지 않은 동작 변화는 해결한 뒤 작업 완료로 보고합니다. `/proc`·PID namespace·도구 부재 등 환경 차이는 관찰한 증거와 영향을 받는 test를 함께 기록하며 모든 실패를 환경 문제라고 단정하지 않습니다. 기존 실패를 숨기려고 ownership guard·assertion을 약화하거나 test를 삭제·skip 처리하지 않습니다.
+
+의도한 제품 동작이 바뀌면 기존 test의 계약을 명시적으로 갱신하고 새 결과와 유지해야 할 조건을 함께 검사합니다. 예를 들어 metric tab이 URL history에 저장되면 Back 한 번은 이전 tab, 다음 Back은 이전 화면을 복원해야 하며 Run·Step·time context는 두 경우 모두 유지해야 합니다. 실패한 assertion을 제거하거나 timeout만 늘려 정상 결과로 만들지 않습니다.
+
+| 변경 유형 | 함께 확인할 연결과 실패 조건 |
+| --- | --- |
+| URL·selection·navigation | Cluster·Run·observer/resource node·record/window·worker/entity·Timezone·theme·A/B 비교·tab/filter의 필요한 문맥 유지; Reload·Back·Forward·공유 링크·현재 응답에 없는 선택 |
+| Time·saved window | Native Grafana epoch/ISO/date math 유지; Date 범위 밖 숫자·역전·invalid Timezone·DST·epoch `0`; query window와 표시 시각 일치; Browser와 선택 Timezone이 다른 경우 |
+| Dashboard·datasource·retry | 필수/선택 source 구분; optional 404·403·429·503·timeout이 core를 막지 않음; failure를 no data/zero로 바꾸지 않음; 재시도 성공 후 metadata와 scene 갱신·조사 문맥 유지 |
+| Bounded list·집계·artifact | 제한 직전/직후와 오래된 선택 유지; exact duplicate와 동일 ID의 다른 payload 구분; conflict를 임의의 마지막 값으로 집계하지 않음; 비정상 record 하나가 정상 record 조회를 중단시키지 않음 |
+| Shared UI·scene lifecycle | Cached SceneApp/SceneAppPage·provider 재사용과 해제; Run/time 변경 중 이전 source의 값·선택 잔류 방지; native panel query 재사용·필요한 scope 유지 |
+
+URL에 저장하는 UI state는 Native Router/Scenes의 동기화된 값을 기준으로 사용하며 별도 React state를 추가하면 Reload·Back·Forward에서 두 상태가 일치하는지 확인합니다. Scene variable의 실제 type과 `skipUrlSync`, SceneApp factory/page cache의 수명을 읽고 URL 변경이나 component remount만으로 scene metadata가 갱신된다고 가정하지 않습니다. Timezone 표시 수정은 timestamp와 query bounds를 변경하지 않습니다.
+
+Frontend pure function/SSR 검사와 실제 Grafana 검사는 보완 관계입니다. 변경한 state 전이는 실제 Grafana에서 확인하고, native query의 Step window·identity와 Light/Dark·390px 등 영향받는 화면 조건도 검사합니다. 새 browser regression은 기존 `ci_demo.py` journey에 연결해 다음 CI에서도 실행되게 합니다. Browser 검사는 고정 sleep보다 실제 URL·DOM·query 응답의 완료 조건을 기다리며, 재시도 후 UI assertion은 준비된 최종 상태를 확인합니다.
+
+Coverage를 보고할 때 source 범위·line/branch 수치·미계측 파일·subprocess 포함 여부를 밝힙니다. 로드된 파일만의 높은 coverage를 전체 App coverage로 표시하지 않으며, 목록 제한·오류 후 복구·selection 변경 같은 시나리오가 실제 assertion에 포함되는지 별도로 확인합니다. CPU 검사의 기본 `pytest` 수집과 Grafana helper 수집은 다르므로 helper/CI script를 수정한 경우 `python -m pytest -q grafana/xlayer-app/scripts`도 실행합니다.
+
+검증 환경의 제약을 우회하려고 제품의 지원 버전·기본 test runner·운영 설정을 불필요하게 바꾸지 않습니다. 대체 검사로 검증했다면 원래 명령의 실패 이유·대체 명령·같은 fixture/assertion의 실행 여부와 미검증한 CI 환경을 밝힙니다. Dependency나 실행 명령을 바꾸는 수정은 선언한 최소 지원 버전과 CI 버전에서의 호환성을 함께 확인합니다.
 
 ## Dashboard·문서 작업
 

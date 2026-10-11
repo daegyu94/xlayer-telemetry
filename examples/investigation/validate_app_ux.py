@@ -1,5 +1,6 @@
 """CPU artifact + actual owned Grafana App UX checks; no GPU/veRL benchmark."""
 import argparse
+from datetime import datetime
 import json
 from pathlib import Path
 import sys
@@ -10,6 +11,11 @@ from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.manifest import make_agent_rl_manifest,write_manifest
 from xlayer_telemetry.step_history import StepHistoryWriter
 from xlayer_telemetry.operations.runs import publish
+
+
+def epoch_ms(value):
+    """Scenes may serialize integer URL epochs as equivalent ISO timestamps."""
+    return int(value) if value.lstrip('+-').isdigit() else round(datetime.fromisoformat(value.replace('Z','+00:00')).timestamp()*1000)
 
 
 def fixture(root):
@@ -103,16 +109,22 @@ def validate(url, output, browser_path=None):
         assert 'var-record_id' not in query and query['var-node']==['gpu-b'] and query['theme']==['dark']
         page.screenshot(path=str(output/'resource-units-window-desktop.png'),full_page=True)
         link.click()
-        page.get_by_role('navigation',name='XLayer investigation').wait_for(timeout=20000)
+        try:
+            page.get_by_role('navigation',name='XLayer investigation').wait_for(timeout=20000)
+        except Exception:
+            page.screenshot(path=str(output/'resource-navigation-failure.png'),full_page=True)
+            (output/'resource-navigation-failure.json').write_text(json.dumps({'url':page.url,
+                'browser_errors':errors,'body':page.locator('body').inner_text()[:24000]},indent=2)+'\n')
+            raise
         actual=parse_qs(urlparse(page.url).query)
-        assert actual['from']==query['from'] and actual['to']==query['to'] and actual.get('var-record_id') in (None,['.*'],['$__all'])
+        assert all(epoch_ms(actual[key][0])==epoch_ms(query[key][0]) for key in ('from','to')) and actual.get('var-record_id') in (None,['.*'],['$__all'])
         page.go_back(wait_until='domcontentloaded')
         metric=page.locator('[aria-label="Run Comparison"]').get_by_role('row').filter(has_text='storage_rpc_latency')
         metric.wait_for(timeout=10000)
         metric.get_by_role('link',name='Resource Timeline →',exact=True).first.click()
         page.get_by_role('navigation',name='XLayer investigation').wait_for(timeout=20000)
         actual=parse_qs(urlparse(page.url).query)
-        assert actual['from']==query['from'] and actual['to']==query['to'] and actual.get('var-record_id') in (None,['.*'],['$__all'])
+        assert all(epoch_ms(actual[key][0])==epoch_ms(query[key][0]) for key in ('from','to')) and actual.get('var-record_id') in (None,['.*'],['$__all'])
         page.screenshot(path=str(output/'resource-timeline.png'),full_page=True)
         # Missing catalog and failure are browser response faults, not a backend outage.
         endpoint='**/api/dashboards/uid/xlayer-run-catalog'

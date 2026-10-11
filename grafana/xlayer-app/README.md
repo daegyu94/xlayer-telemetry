@@ -63,6 +63,14 @@ apps:
 
 MFU·policy·wrapped-command는 producer와 freshness/identity 조건이 맞을 때만 표시합니다. 미수집·stale·모호한 source는 N/A / not reported입니다. 연결 계약은 [UI Telemetry Coverage](../../docs/ui-telemetry-coverage.md)를 따릅니다.
 
+Core Overview·Stage·Compute·Storage Dashboard가 정상이라면 선택적인 Logs·Summary 등의 Dashboard 조회 실패가 전체 App을 막지 않습니다. HTTP 오류는 Dashboard availability에 표시하며 **Retry dashboards**로 현재 Run·Step·시간 문맥을 유지한 채 다시 조회합니다. 필수 Dashboard 실패도 이름과 오류를 표시하고 같은 버튼으로 복구합니다. `404`인 선택 source는 미게시 상태로 유지하며 데이터 값 `0`으로 해석하지 않습니다.
+
+잘못된 날짜·역전된 범위·Timezone이 포함된 URL은 오류와 **Use last 30 minutes**를 표시합니다. 이 동작은 Run·Cluster 선택을 유지하지만 시간 범위를 명시적으로 변경합니다. 상단 범위·완료 Step·Recent Events·Run 및 비교 window의 시간 표시는 선택한 Grafana Timezone을 따릅니다. 완료 Step dropdown은 최대 40개이며 선택한 오래된 관측은 최신 목록과 함께 유지합니다. Deep Dive의 metric tab은 `var-detail_tab`에 저장되어 Reload·Back·Forward에서 복원됩니다.
+
+Experiments의 비교 A/B 선택은 URL과 항상 보이는 선택 영역에 유지됩니다. Search로 행이 숨겨져도 선택은 유지되며, 두 Run을 선택한 뒤에는 A 또는 B를 해제해야 다른 Run을 추가할 수 있습니다. Clipboard 권한이 없으면 복사 실패와 열린 **Share link**를 표시합니다. 동일 record ID의 서로 다른 payload는 conflict로 표시하고 Step 집계와 평균에서 제외하며, 유효한 window가 없는 저장 Step의 Evidence 링크는 제공하지 않습니다.
+
+저장 Resource observation의 초 단위 window에 소수점이 있으면 Evidence / Timeline 링크는 시작을 내림·종료를 올림한 정수 epoch milliseconds로 전달합니다. 원본 timestamp와 unit은 유지하고 전체 기록 구간을 포함하며, 링크 경계의 확장은 각 끝에서 1ms 미만입니다. Native Scenes가 같은 시간을 ISO로 직렬화해도 조사 구간은 같습니다.
+
 Reported stage의 `verl_stage` 등 metric dimension은 snapshot age의 ownership label과 구분합니다. Async `trainer_update`는 Update time으로 표시하며 legacy의 missing boundary는 Observation으로 남깁니다. Deep Dive의 Connector RPC / DFS / 3FS evidence / Local I/O mean은 기존 canonical panel과 저장 evidence를 재사용합니다. 동일 GPU/Ray Pressure query는 native Scenes proxy로 공유합니다.
 
 ## Live demo
@@ -110,6 +118,8 @@ python grafana/xlayer-app/scripts/browser_validate.py \
 Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합니다. 설치된 Chromium을 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 결과는 desktop·900px·390px capture와 validation JSON입니다. Test는 실제 Grafana query request의 Step interval도 확인합니다.
 
 `metric_contract_validate.py --url <owned-loopback-demo> --output <new-directory>`는 metrics-only veRL label·async presentation의 browser response fixture와 Storage layer context·GPU/Ray query 재사용을 검사합니다. `ci_demo.py`도 기본 journey 뒤에 이 검사를 실행합니다. Async fixture는 실제 veRL 실행이나 backend 장애 실험이 아닙니다.
+
+`ci_demo.py`의 기본 journey는 저장 Run fixture를 게시한 뒤 `context_recovery_validate.py`도 실행합니다. 실제 Grafana에서 선택/필수 Dashboard의 HTTP 503 response fixture와 재시도, 잘못된 URL의 복구, Browser와 다른 Timezone, Deep Dive Reload·Back·Forward, 세 번째 비교 선택 제한과 Clipboard 실패를 확인합니다. HTTP/Clipboard 오류는 Browser 경계에서 주입한 회귀 검사이며 실제 backend 장애를 일으키는 실험이 아닙니다.
 
 2026-10-08의 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 

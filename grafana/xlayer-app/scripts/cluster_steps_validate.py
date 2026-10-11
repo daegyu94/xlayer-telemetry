@@ -41,13 +41,21 @@ def main():
     def epoch(value):return int(value) if value.isdigit() else round(datetime.fromisoformat(value.replace('Z','+00:00')).timestamp()*1000)
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=True,args=['--no-sandbox'],**({'executable_path':args.browser} if args.browser else {}))
-        page=browser.new_page(viewport={'width':1440,'height':1000})
+        page=browser.new_page(viewport={'width':1440,'height':1000},locale='en-US',timezone_id='UTC')
         errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
         base=connection['grafana']+'/a/xlayer-telemetry-app/overview?'+urlencode({'from':'now-5m','to':'now','var-cluster':'$__all','var-run_id':run_id,'var-source_node':'gpu-node-0','var-node':'gpu-node-0'})
         for index,(cluster,row) in enumerate(rows):
             page.goto(base)
             options=page.locator('select[aria-label="Completed Step"] option[data-record-id="'+row['record_id']+'"]')
-            options.nth(1).wait_for(state='attached',timeout=30000)
+            try:
+                options.nth(1).wait_for(state='attached',timeout=30000)
+            except Exception:
+                page.screenshot(path=str(args.output/'selection-failure.png'),full_page=True)
+                (args.output/'selection-failure.json').write_text(json.dumps({'index':index,'url':page.url,
+                    'options':page.locator('select[aria-label="Completed Step"] option').all_text_contents(),
+                    'browser_errors':errors,'browser_locale':page.evaluate('navigator.language'),
+                    'body':page.locator('body').inner_text()[:24000]},indent=2)+'\n')
+                raise
             assert options.count()==2
             values=options.evaluate_all('(options)=>options.map(option=>({value:option.value,text:option.innerText}))')
             assert len({item['value'] for item in values})==2

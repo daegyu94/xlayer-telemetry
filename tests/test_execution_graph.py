@@ -89,3 +89,23 @@ def test_sdk_rank_gpu_and_reported_policy_identity_survive_projection():
     node = graph([record])['nodes'][0]
     assert {key: node[key] for key in ('rank', 'local_rank', 'gpu', 'policy_version')} == {
         'rank': 3, 'local_rank': 1, 'gpu': 'GPU-explicit', 'policy_version': 7}
+
+
+@pytest.mark.parametrize('duration', [1e300, 1e308])
+def test_finite_duration_scaling_overflow_keeps_the_record_unknown(duration):
+    record = span('bad')
+    record.update(duration_seconds=duration, duration_source='monotonic', clock_sampling={
+        'method': 'wall_bracketed_by_monotonic', 'monotonic_clock_id': 'boot:test',
+        'start_monotonic_time_ns': 0, 'end_monotonic_time_ns': 1_000_000_000,
+        'start_uncertainty_ns': 0, 'end_uncertainty_ns': 0})
+    result = graph([record, span('valid')])
+    assert not result['nodes'][0]['interval']['valid']
+    assert result['nodes'][1]['interval']['valid']
+
+
+def test_oversized_legacy_timestamp_does_not_abort_other_spans():
+    record = span('bad')
+    record['end_time_unix_nano'] = 10 ** 400
+    result = graph([record, span('valid')])
+    assert not result['nodes'][0]['interval']['valid']
+    assert result['nodes'][1]['interval']['valid']

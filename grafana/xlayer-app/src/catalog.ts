@@ -17,7 +17,6 @@ import {
 import { selectTargets } from "./data";
 export { records, samples } from "./data";
 import {
-  DASHBOARD_UIDS,
   Destination,
   RecordRow,
   decodeRecord,
@@ -27,6 +26,7 @@ import {
 import { Sample } from "./semantics";
 import {preserveIdentity,normalizeSelection} from './identity-variable';
 import type {ResourceMatrixProfile} from './resource-matrix';
+import {loadDashboardCatalog,type DashboardIssue} from './catalog-loading';
 
 class IdentityQueryVariable extends QueryVariable {
   protected interceptStateUpdateAfterValidation(update:any){
@@ -59,35 +59,14 @@ export type Panel = {
   collapsed?: boolean;
 };
 export type Dashboard = { title?: string; description?: string; panels: Panel[]; templating: { list: any[] } };
-export type Catalog = Partial<Record<Destination, Dashboard>>;
+export type Catalog = Partial<Record<Destination, Dashboard>>&{issues?:Partial<Record<Destination,DashboardIssue>>};
 export async function loadCatalog(): Promise<Catalog> {
-  const entries = await Promise.all(
-    Object.entries(DASHBOARD_UIDS).map(async ([key, uid]) => {
-      try {
-        const result = await getBackendSrv().get(
+  return loadDashboardCatalog(uid=>getBackendSrv().get(
           `/api/dashboards/uid/${uid}`,
           undefined,
           undefined,
           { showErrorAlert: false },
-        );
-        return [key, result.dashboard];
-      } catch (error: any) {
-        if (error.status === 404) return [key, undefined];
-        throw error;
-      }
-    }),
-  );
-  const catalog = Object.fromEntries(entries) as Catalog;
-  if (
-    !catalog.overview ||
-    !catalog.stage ||
-    !catalog.compute ||
-    !catalog.storage
-  )
-    throw new Error(
-      "Canonical XLayer dashboards are not provisioned. Run scripts/provision_dashboards.py first.",
-    );
-  return catalog;
+        ));
 }
 export function findPanel(
   dashboard: Dashboard | undefined,
@@ -159,6 +138,8 @@ export function variables(
       const visible = ["cluster", "run_id", "source_node", "node"].includes(
         name,
       );
+      // Investigation tabs need native URL sync, unlike absent metric filters.
+      if(name==='detail_tab')return new TextBoxVariable({name,value:selected?.[0]||'.*',hide:2,skipUrlSync:false});
       if (!definition)
         return new ConstantVariable({
           name,

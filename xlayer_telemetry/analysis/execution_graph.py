@@ -46,11 +46,14 @@ def _interval(record):
             mono_start, mono_end, start_uncertainty, end_uncertainty = (sampling[field] for field in fields)
             raw_start, raw_end = record.get('start_time_unix_nano'), record.get('end_time_unix_nano')
             elapsed_ns = mono_end - mono_start
-            duration_ns = round(duration * 1_000_000_000)
+            scaled_duration = duration * 1_000_000_000
+            # Finite seconds can overflow when scaled; malformed artifacts must
+            # remain an invalid interval rather than aborting the whole graph.
+            duration_ns = round(scaled_duration) if math.isfinite(scaled_duration) else None
             duration_rounding_ns = max(1, math.ceil(math.ulp(duration) * 1_000_000_000))
             raw_elapsed_ns = raw_end - raw_start if type(raw_start) is int and type(raw_end) is int else None
             method = sampling['method']
-            valid = (mono_end >= mono_start and raw_elapsed_ns is not None
+            valid = (duration_ns is not None and mono_end >= mono_start and raw_elapsed_ns is not None
                      and abs(elapsed_ns - duration_ns) <= duration_rounding_ns
                      and abs(raw_elapsed_ns - elapsed_ns) <= start_uncertainty + end_uncertainty + 1
                      and (method != 'single_clock' or record.get('duration_source') == 'injected_clock')
@@ -61,7 +64,11 @@ def _interval(record):
     elif valid:
         # Legacy records did not persist the wall/monotonic sampling bracket.
         # Retain the former narrow consistency check for backward compatibility.
-        if abs((end-start)/1e9-duration) > 1e-6:
+        try:
+            consistent = abs((end-start)/1e9-duration) <= 1e-6
+        except OverflowError:
+            consistent = False
+        if not consistent:
             valid = False  # Never repair an unbounded wall-clock discrepancy.
     uncertainty = finite_number(record.get('time_uncertainty_seconds')) if calibrated else 0.
     reference = record.get('time_reference') if calibrated else None
