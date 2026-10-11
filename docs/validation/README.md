@@ -34,6 +34,7 @@
 
 | 기록 | 검증 범위 |
 | --- | --- |
+| [최종 Product / UX / Telemetry QA](product-release-review-20261012.json) | 2026-10-12의 실제 Grafana·Scenario Explorer·경계 실패 재현과 수정. Synthetic backend, browser fault fixture, 물리 환경 Pending을 구분. |
 | [배포·복구·producer 계약](prehardware-contracts-20261010.json) | CPU failure injection·실제 writer/launcher·Docker 3노드 Prometheus/Loki 수집과 부분 장애. 공유 kernel의 clock·GPU·RDMA·3FS 성능 검증 아님. |
 | [Execution / Performance diagnosis](performance-diagnosis-20261010.json) | 독립 CPU fault oracle·기존 main과의 engine/SDK 비용 비교·bounded Graph/Path 측정. GPU·framework 자동 tracing·물리 multi-node는 제외. |
 | [문서 Runbook / Reference](documentation-ux-20261009.json) | Public Pages·독자 경로·전용 CLI/synthetic smoke·6 viewport·기존 code block/anchor 보존 검증. |

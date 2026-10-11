@@ -1,0 +1,303 @@
+{
+  "review": "Final product / UX / telemetry / architecture QA",
+  "date": "2026-10-12",
+  "baseline": "e4b68f9aba940b178496fda99041ceb4c4db0e63",
+  "remote_main_at_start": "019eea5a51722054da4a076d217c7263c7935c45",
+  "status": "accepted_for_cpu_synthetic_development_scope",
+  "environment": {
+    "python": "3.12.3",
+    "node": "20.20.0",
+    "grafana": "13.1.7",
+    "scenes": "6.20.0",
+    "playwright": "1.56.0",
+    "prometheus": "3.5.0",
+    "browser": "Chromium 141.0.7390.37 (Playwright revision 1194), headless Linux",
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "widths": [
+      1440,
+      1024,
+      390
+    ],
+    "loki": "3.7.3"
+  },
+  "findings": [
+    {
+      "id": "R01",
+      "priority": "P1",
+      "problem": "Scenario selection reused another scenario’s passed validation",
+      "reproduction": "Select normal while slow-rollout is ready: Query remains passed",
+      "fix": "Scope stages, errors, Stop and replay links to selected execution; show Not started and current owner",
+      "evidence": "artifacts/final-product-review/reproduced/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R02",
+      "priority": "P2",
+      "problem": "Scenario status polling stopped after five minutes",
+      "reproduction": "Virtual browser clock reaches 120 polls; no further status request",
+      "fix": "Sequential continuous polling; discard prior command epochs",
+      "evidence": "artifacts/final-product-review/reproduced/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R03",
+      "priority": "P2",
+      "problem": "Replay verification never recovered from a temporary HTTP failure",
+      "reproduction": "First controller GET returns 503, next succeeds; Run stays blocked",
+      "fix": "Retry verification and preserve Run/generation/preferences; live Explorer never downgrades to cached legacy catalog after connection loss",
+      "evidence": "artifacts/final-product-review/reproduced/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R04",
+      "priority": "P2",
+      "problem": "Pending KPI query displayed No data",
+      "reproduction": "Hold native datasource responses; Worker throughput reads No data",
+      "fix": "Display Loading and suppress contradictory no-observation explanation until terminal response",
+      "evidence": "artifacts/final-product-review/reproduced/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R05",
+      "priority": "P2",
+      "problem": "Synthetic provenance disappeared in Metric library",
+      "reproduction": "Open compute in a verified synthetic generation; badge absent",
+      "fix": "Carry provenance into common application chrome on all workspace routes",
+      "evidence": "artifacts/final-product-review/rereview-1-provenance/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R06",
+      "priority": "P2",
+      "problem": "Mobile scenario cards displaced execution controls",
+      "reproduction": "390px screenshot places selected replay action below seven catalog cards",
+      "fix": "Use a compact mobile selector; keep URL/Back/Forward/Reload and first-viewport action",
+      "evidence": "artifacts/final-product-review/baseline-ui/slow-rollout-dark-390.png",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R07",
+      "priority": "P2",
+      "problem": "Mobile keyboard navigation left focus outside the open drawer",
+      "reproduction": "Enter on Open navigation does not focus Close navigation",
+      "fix": "Focus entry, constrain Tab/Shift+Tab to drawer, restore trigger on Escape",
+      "evidence": "artifacts/final-product-review/keyboard-reproduction/validation.json",
+      "status": "fixed_and_revalidated"
+    },
+    {
+      "id": "R08",
+      "priority": "P2",
+      "problem": "Investigation summary used half the grid and overflowed its action",
+      "reproduction": "Actual desktop summary fails full-grid-width assertion; CSS selector cannot match markup",
+      "fix": "Correct scoped direct-child selector; test both themes at three widths",
+      "evidence": "artifacts/final-product-review/investigation-reproduction.log",
+      "status": "fixed_and_revalidated"
+    }
+  ],
+  "baseline_tests": {
+    "frontend": {
+      "passed": 203,
+      "failed": 0
+    },
+    "focused_python": {
+      "passed": 19,
+      "failed": 0
+    }
+  },
+  "loops": [
+    "Independent baseline source review, actual slow-rollout workflow, four failing browser boundary regressions",
+    "Fresh source/UI review: provenance, compact mobile selection, keyboard focus and investigation geometry; reproduce then correct",
+    "Final full CPU, actual single-Grafana scenario suite, repeated input signature, full Grafana journey and targeted revalidation"
+  ],
+  "architecture": {
+    "decision": "Retain Scenes, canonical datasource/panel contracts, Grafana UI and scoped Emotion; no dependency or telemetry engine changes",
+    "strengths": [
+      "Generation-specific backend stores and stale-response guard",
+      "Explicit worker/resource identity and measured-vs-shared scope",
+      "Native URL/time context and canonical panels"
+    ],
+    "followups": [
+      "Separate the large Shell/KPI rendering module when a concrete feature requires it",
+      "Reduce compatibility styling overlap; new geometry regression covers the discovered selector defect",
+      "Measure sustained telemetry/query overhead and large-history behavior with actual workloads"
+    ]
+  },
+  "product_assessment": {
+    "strengths": [
+      "Four primary destinations and four core indicators; exact observation boundary retained",
+      "Step delta, scoped candidate/evidence and subsystem investigation connected",
+      "Missing, stale, unknown, zero and failed query retain distinct semantics"
+    ],
+    "limits": [
+      "Recorded progress is not process liveness or end-to-end workload health",
+      "Single-job scenario candidate oracle uses controlled synthetic producer values; multi-job uses actual DiagnosticEngine results",
+      "No first-time external user study or full accessibility certification"
+    ]
+  },
+  "pending": [
+    "Physical multi-node clock offset, uncertainty and source recovery",
+    "Real VERL/vLLM sync/async multi-job, replica/policy and request ownership",
+    "GPU/RDMA/Mooncake/3FS measurements, shared-resource attribution and overhead",
+    "Disposable ClickHouse integration (six skipped cases)",
+    "Actual LLM inference; tests cover invocation/projection fixtures",
+    "Long-running overhead/retention, screen readers and exhaustive canvas interactions",
+    "Remote GitHub Actions Node 22 environment"
+  ],
+  "cleanup": {
+    "status": "completed",
+    "owned_processes_stopped": true,
+    "owned_state_removed": [
+      "/tmp/xlayer-final-review-state",
+      "/tmp/xlayer-final-review-ci",
+      "/tmp/xlayer-final-review-ci2",
+      "/tmp/xlayer-final-review-multijob"
+    ],
+    "existing_user_demo_preserved": true,
+    "artifacts": "Small JSON/log evidence and representative captures retained; no backend databases",
+    "capture_retention": "artifacts/final-product-review/capture-retention.json"
+  },
+  "tests": {
+    "cpu": {
+      "passed": 1935,
+      "failed": 0,
+      "skipped": 6,
+      "skip_reason": "Owned disposable ClickHouse not configured",
+      "warning": "Expected duplicate ZIP member rejection fixture"
+    },
+    "frontend": {
+      "passed": 203,
+      "failed": 0,
+      "skipped": 0
+    },
+    "grafana_helper_python": {
+      "passed": 47,
+      "failed": 0,
+      "skipped": 0
+    },
+    "documentation": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0
+    },
+    "typecheck": "passed",
+    "production_build": "passed",
+    "documentation_build": "passed",
+    "compileall_and_shell_syntax": "passed",
+    "targeted_browser": {
+      "passed": 8,
+      "failed": 0,
+      "layer": "Actual Grafana with HTTP/clock response fixtures",
+      "evidence": "artifacts/final-product-review/release-final/validation.json"
+    }
+  },
+  "scenario_integration": {
+    "status": "passed",
+    "unique_scenarios": 7,
+    "executions": 8,
+    "same_grafana": true,
+    "repeated_input_signature_equal": true,
+    "cancel_during_collection": "passed",
+    "lifecycle": "Start/switch/Stop/Reset and expired URL verified; repeated scenario in --scenarios exercises Replay",
+    "scenarios": [
+      {
+        "scenario": "normal",
+        "status": "passed",
+        "generation": 10
+      },
+      {
+        "scenario": "slow-rollout",
+        "status": "passed",
+        "generation": 11
+      },
+      {
+        "scenario": "recorded-error",
+        "status": "passed",
+        "generation": 12
+      },
+      {
+        "scenario": "storage-regression",
+        "status": "passed",
+        "generation": 13
+      },
+      {
+        "scenario": "multi-job",
+        "status": "passed",
+        "generation": 14
+      },
+      {
+        "scenario": "partial-telemetry",
+        "status": "passed",
+        "generation": 15
+      },
+      {
+        "scenario": "async-replicas",
+        "status": "passed",
+        "generation": 16
+      },
+      {
+        "scenario": "normal",
+        "status": "passed",
+        "generation": 17
+      }
+    ],
+    "evidence": "artifacts/final-product-review/scenarios/validation.json",
+    "scope": "Actual exporter/SDK → Prometheus/Loki → query/diagnosis projection → Grafana; synthetic workload, not physical distribution"
+  },
+  "validated_source_sha256": {
+    "grafana/xlayer-app/scripts/ci_demo.py": "dda4678bac422c0d15bf9376db76d086d153277dc437b06f7ae695e587c7b6b8",
+    "grafana/xlayer-app/scripts/redesign_validate.py": "610c15382d237038c85f4f8c838900297d9243ed9a99824d84bf56fc1ea08607",
+    "grafana/xlayer-app/scripts/release_review_validate.py": "7b2141988f2d4db80a26b056e2319acd4451c2d49c166f80cda4fa9b0c4abca5",
+    "grafana/xlayer-app/src/DashboardChrome.tsx": "12d19f61f827f5e2ea938c12e8ae300ccd2d84c413ccc1e9083c9a9fe55fd394",
+    "grafana/xlayer-app/src/DemoBoundary.tsx": "85e0820fdced76d2416cc3265705390e24ca2c476716a75440f5548a09fa85e2",
+    "grafana/xlayer-app/src/ScenarioExplorer.tsx": "bb84b4e4f81cf0908a22628a522a4d347343bec4b001b4fffe9373e65e26ed9f",
+    "grafana/xlayer-app/src/design-system/product-layout.ts": "a52078dc9f7a930361ceb043ff3b608c9cac5efc7a4091cf162de0c4ceb58119",
+    "grafana/xlayer-app/src/design-system/styles.ts": "8501c71e3863ab1c40070fab4cf3e6c7315e76f96ad89602f7ec6d7b859d47e1",
+    "grafana/xlayer-app/src/module.tsx": "475ce1f82ae360789aa20a4126c685def9c81cac0ce9f4ea315d036f5ed57d41"
+  },
+  "grafana_regression": {
+    "status": "passed",
+    "complete_fresh_ci_runs": 2,
+    "final_run": "artifacts/final-product-review/ci-final.log",
+    "route_captures": 52,
+    "readability_captures": 24,
+    "contrast_below_threshold": 0,
+    "below_12px": 0,
+    "qualified_dom_samples": 3710,
+    "native_quality_checks": 13,
+    "selected_step_requests": 22,
+    "requests_matching_selected_window": 22,
+    "bounded_baseline_requests": 5,
+    "product_workflow": "artifacts/final-product-review/ci-final/product-journey/validation.json",
+    "boundary_regressions": "artifacts/final-product-review/ci-final/release-review/validation.json",
+    "interpretation": "DOM/keyboard/canvas samples and actual browser workflows; not exhaustive accessibility or performance certification"
+  },
+  "multi_job_deep_integration": {
+    "status": "passed",
+    "runs": [
+      "demo-deepseek",
+      "demo-llama",
+      "demo-qwen"
+    ],
+    "replicas": 2,
+    "native_endpoints_without_run_labels": 4,
+    "checks": [
+      "Actual producer missing/stale vs Prometheus",
+      "Replica waiting 0 vs 14 and separate node identity",
+      "Registration/serving/applied-policy distinction",
+      "Three-Run native filter and baseline selection",
+      "Endpoint drill-down / native dashboard Back context",
+      "Saved Run artifacts and comparison pipeline"
+    ],
+    "evidence": "artifacts/final-product-review/multi-job/multi-job/validation.json",
+    "hardware": "pending"
+  },
+  "remaining_review_blockers": {
+    "P0": 0,
+    "P1": 0,
+    "P2": 0,
+    "qualification": "Reproduced issues within this review scope; does not replace pending physical validation"
+  }
+}

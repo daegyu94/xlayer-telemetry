@@ -25,7 +25,7 @@ export const productLayout = `
 .xlt-secondary-signals,.xlt-execution-details {margin:16px 0;background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:8px;padding:16px}
 .xlt-secondary-signals>summary,.xlt-execution-details>summary {cursor:pointer;font-weight:600}
 .xlt-secondary-signals .xlt-kpis {margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
-.xlt-investigate-grid>.xlt-content .xlt-run-brief {grid-column:1/-1;grid-row:1}
+.xlt-investigate-grid>.xlt-run-brief {grid-column:1/-1;grid-row:1}
 .xlt-investigate-grid>.xlt-candidate-section {grid-row:2}
 .xlt-investigate-grid>p {grid-row:3}
 .xlt-investigate-grid>.xlt-investigation-section {grid-row:4}
@@ -66,6 +66,7 @@ export const productLayout = `
 .xlt-demo-link {display:block;margin:18px 12px;color:var(--xl-secondary);font-size:13px}
 .xlt-demo-link small {display:block;color:var(--xl-muted);font-size:12px}
 .xlt-scenario-layout {display:grid;grid-template-columns:minmax(200px,.75fr) minmax(0,1.6fr);gap:22px;align-items:start}
+.xlt-scenario-picker {display:none}
 .xlt-scenario-list {display:flex;flex-direction:column;gap:8px}
 .xlt-scenario-list a {display:flex;flex-direction:column;gap:4px;border:1px solid var(--xl-border);border-radius:8px;padding:14px;background:var(--xl-bg);color:var(--xl-text)}
 .xlt-scenario-list a[aria-current=page] {border-color:var(--xl-primary);background:var(--xl-selected);box-shadow:inset 3px 0 var(--xl-primary)}
@@ -78,7 +79,7 @@ export const productLayout = `
 .xlt-replays {padding:0;list-style:none;max-height:460px;overflow:auto}
 .xlt-replays li {padding:12px 0;border-bottom:1px solid var(--xl-border)}
 .xlt-replays small {display:block;color:var(--xl-muted);font-size:12px;margin:5px 0}
-@container(max-width:700px) {.xlt-scenario-layout {grid-template-columns:1fr}.xlt-scenario-list {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.xlt-scenario-selected{padding:16px}}
+@container(max-width:700px) {.xlt-scenario-layout {grid-template-columns:1fr}.xlt-scenario-list {display:none}.xlt-scenario-picker {display:grid;gap:8px}.xlt-scenario-selected{padding:16px}}
 .xlt-kpi-label {display:flex;align-items:center;justify-content:space-between;gap:5px}
 & .xlt-help {display:inline-flex;align-items:center;justify-content:center;padding:2px;border:0;background:transparent;color:var(--xl-muted);min-width:22px;min-height:22px}
 .xlt-kpi-detail {font-size:12px;color:var(--xl-muted);margin-top:auto}

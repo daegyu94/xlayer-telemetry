@@ -152,6 +152,8 @@ def run(args):
                     '--dashboard-output',str(args.state/'dashboards')],cwd=ROOT,check=True,timeout=20)
                 validators += ([sys.executable,str(explorer),'--url',connection['grafana'],'--output',str(args.output/'runs'),
                     *(['--browser',args.browser] if args.browser else [])],)
+                validators += ([sys.executable,str(SCRIPTS/'release_review_validate.py'),'--url',connection['grafana'],
+                    '--output',str(args.output/'release-review'),*(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'context_recovery_validate.py'),'--url',connection['grafana'],
                     '--output',str(args.output/'context-recovery'),*(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'quality_validate.py'),'--url',connection['grafana'],

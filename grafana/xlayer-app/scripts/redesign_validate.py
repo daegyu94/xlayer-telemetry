@@ -60,6 +60,21 @@ def run(args):
         for key in ('var-cluster','var-run_id','var-record_id','var-source_node','from','to','timezone'):
             assert selected.get(key), key
         page.locator('.xlt-candidates .xlt-card').first.wait_for(timeout=15000)
+        investigation_url=page.url
+        for width in (1440,1024,390):
+            for theme in ('light','dark'):
+                page.set_viewport_size({'width':width,'height':1000 if width>390 else 844})
+                page.goto(investigation_url.replace('theme=light','theme='+theme))
+                page.locator('.xlt-investigate-grid>.xlt-run-brief').wait_for(timeout=20000)
+                brief=page.locator('.xlt-investigate-grid>.xlt-run-brief').bounding_box()
+                grid=page.locator('.xlt-investigate-grid').bounding_box()
+                action=page.locator('.xlt-investigate-grid .xlt-primary-action').bounding_box()
+                assert brief and grid and brief['width']>=grid['width']-.5, 'Investigation summary must span the grid'
+                assert action and action['x']+action['width']<=brief['x']+brief['width'], 'Investigation action overflows summary'
+                capture(f'investigation-{theme}-{width}')
+        page.set_viewport_size({'width':1440,'height':1000});page.goto(investigation_url)
+        page.locator('.xlt-candidates .xlt-card').first.wait_for(timeout=15000)
+        report['checks'].append('Investigation summary spans the grid and contains its action in Light/Dark × 1440/1024/390px')
         capture('investigation')
         page.locator('.xlt-candidates .xlt-card').first.get_by_role('button',name='Open Evidence →',exact=True).click()
         page.get_by_role('complementary',name='Evidence detail').wait_for(timeout=15000)
@@ -86,7 +101,7 @@ def run(args):
         page.locator('.xlt-execution-details > summary').click()
         page.locator('.xlt-execution-details > summary').click()
         page.locator('.xlt-execution-details canvas').first.wait_for(timeout=20000)
-        report['checks'].append('Lazy native timeline activates and survives fold/unfold')
+        report['checks'].append('Native timeline renders and survives fold/unfold')
         page.goto(url.replace('verl-agent-demo','missing-greenfield-run'))
         page.get_by_text('No diagnosis recorded',exact=True).wait_for(timeout=20000)
         expect(page.locator('.xlt-progress strong')).to_have_text('Not reported')

@@ -68,3 +68,24 @@ Raw Worker 표, 전체 폭 comparison, Timeline 높이, metric/resource 안내, 
 Scenario Explorer는 하나의 Grafana에서 Run / Stop / Reset / Replay를 수행합니다. 일곱 시나리오의 입력 서명·예상 duration/candidate와 실제 query·diagnosis·UI를 분리 검사하고, generation별 store/Run ID와 이전 응답 차단을 확인했습니다. 수집 중 Stop과 Reset, expired URL도 실제 UI에서 검증했습니다. 자세한 조건과 남은 실장비·접근성 검증 범위는 [검증 JSON](../validation/dashboard-greenfield-20261012.json), 사용 방법과 Scenario Coverage Matrix는 [Live Demo](../demo.md#scenario-driven-live-demo)를 따릅니다.
 
 최종 `ci_demo.py`도 원래의 validator별 180초 deadline 안에서 전체 순서를 통과했습니다. 지연 request fixture의 browser 재진입을 제거했고, 기존 old-Run KPI/Step assertion은 유지했습니다. 마지막 CI stack까지 종료·정리했으며 기존 사용자 demo와 remote는 변경하지 않았습니다.
+
+## Final product review · 2026-10-12
+
+`e4b68f9`의 clean `main`을 기준으로 제품·데이터 흐름·실제 Grafana를 다시 검토했습니다. 기존 통과 결과를 재사용해 완료 판정을 내리지 않고, fresh synthetic stack과 별도 HTTP/clock fixture에서 아래 문제를 재현했습니다. 이 리뷰의 상세 조건·결과·Pending 범위는 [Final Product Review 기록](../validation/product-release-review-20261012.json)에 있습니다.
+
+| ID | Priority | 재현한 문제 | 수정·회귀 경로 |
+| --- | --- | --- | --- |
+| R01 | P1 | 다른 시나리오를 선택해도 이전 실행의 검증이 passed로 표시 | 선택한 실행에 stage·error·Stop·replay 진입을 연결; 미실행은 Not started |
+| R02 | P2 | 5분 뒤 Scenario 상태 갱신 중단 | 한 번에 한 요청으로 계속 갱신; 실제 browser clock으로 122회 이후 확인 |
+| R03 | P2 | 일시적인 replay 확인 실패 뒤 조사 화면 복구 중단 | 동일 generation 재확인·자동 복구; 알려진 controller를 legacy catalog로 대체하지 않음 |
+| R04 | P2 | KPI query 진행 중 No data와 관측 없음 설명 | Loading을 구분하고 완료 전 no-observation 설명을 보류 |
+| R05 | P2 | Metric library에서 Synthetic 표시 소실 | 검증된 replay 출처를 공통 chrome에서 유지 |
+| R06 | P2 | 모바일 시나리오 목록 아래로 실행 버튼이 밀림 | 좁은 화면의 selector·첫 viewport action·URL 이력 보존 |
+| R07 | P2 | 키보드로 모바일 메뉴를 열어도 focus는 바깥에 잔류 | 메뉴 focus 진입·Tab 순환·Escape 복귀 |
+| R08 | P2 | Investigation 요약이 반쪽 폭이고 버튼이 영역을 넘음 | 실제 DOM과 맞지 않는 CSS 선택자 수정; theme/viewport별 geometry assertion |
+
+첫 재리뷰에서 상태 복구를 확인한 뒤 출처·모바일 탐색 문제를 찾았고, 다음 실제 화면 리뷰에서 요약 배치의 결함을 추가로 확인했습니다. 수정된 동작은 `release_review_validate.py`와 `redesign_validate.py`에 남겨 `ci_demo.py`가 계속 실행하도록 연결했습니다. 지연 HTTP fixture 정리 중의 `Route is already handled`는 제품 실패와 구분했으며, 이미 취소된 route만 정리 과정에서 허용하고 Loading assertion은 유지했습니다.
+
+네 기본 메뉴·네 핵심 KPI와 Candidate → Evidence → Subsystem 구조는 유지했습니다. Scope·단위·baseline·shared resource 해석과 canonical query 경로를 바꿀 근거는 발견하지 못했으며, 큰 Shell 모듈과 compatibility styling의 추가 분리는 후속 유지보수 후보입니다. Synthetic 통과는 실제 process liveness·GPU/VERL 학습·물리 multi-node·RDMA·3FS 성능·전체 접근성 인증을 뜻하지 않습니다.
+
+최종 결과는 Python 3.12.3 / Node 20.20.0 / Grafana 13.1.7 / Playwright 1.56.0 기준입니다. 전체 CPU **1,935 passed / 0 failed / 6 skipped**(disposable ClickHouse 미설정), frontend **203 passed**, Grafana helper **47 passed**, 문서 계약 **10 passed**, typecheck·build·문서 build가 통과했습니다. Fresh stack의 전체 Grafana journey 두 번, 동일 Explorer의 일곱 scenario와 Normal 재생, 별도 세 Job·두 Replica 심층 journey가 통과했습니다. 최종 UI의 52개 route capture·24개 가독성 capture에서 실패는 없었고, native Step 요청 22개 모두 선택 window와 일치했습니다. 남은 재현 결함 없이 CPU/Synthetic 개발 범위를 완료했으며, 이 작업의 service·state는 정리하고 기존 사용자 demo는 보존했습니다.

@@ -732,7 +732,7 @@ function ShellView({ model }: { model: Shell }) {
               />
   );
   return (
-    <DashboardChrome page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
+    <DashboardChrome synthetic={synthetic||!!context.variables.demo_generation?.[0]} page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
       contextBar={state.page==='demo'?null:<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
       {(catalogFailures.length>0||reload.error)&&<section className="xlt-notice" aria-label="Dashboard availability"><p role="alert">{reload.error?displayUiNote(reload.error):'일부 선택 Dashboard를 불러오지 못했습니다. 사용 가능한 Dashboard는 계속 사용할 수 있습니다.'}</p>{catalogFailures.map(([name,issue])=><p key={name}>{name}: {issueText(issue!)}</p>)}<button onClick={reload.retry} disabled={reload.refreshing}>Retry dashboards</button></section>}
       {state.nativeWorkspace&&<>
@@ -749,7 +749,6 @@ function ShellView({ model }: { model: Shell }) {
         <div>
           <span className="xlt-eyebrow">
             {WORKSPACE_PAGES.find(p=>p.route===state.page)?.kicker}{' '}
-            {synthetic && <a className="xlt-badge" href={appLink('demo',context)}>Synthetic demo</a>}
           </span>
           <h2>
             {state.page === "overview"
@@ -1274,6 +1273,8 @@ function Kpi({
   const theme=useTheme2();
   const data = useData(provider),
     values = samples(data);
+  const queryPending=!!provider&&(!data||data.state===LoadingState.Loading||data.state===LoadingState.NotStarted);
+  const queryError=data?.state===LoadingState.Error;
   const application=["Reward","Step time","Worker throughput","Reported rollout"].includes(spec.name);
   const selection=resolveKpiEntity(values,{scope:application?'application':'resource',selectedRuns:context.variables.run_id,worker:application?context.variables.worker:undefined,phase:spec.phase,ages:application?ages:undefined,requireFreshness:application,maxAgeSeconds:maxAge??300,ageIdentityKeys:application?APPLICATION_AGE_IDENTITY_KEYS:undefined,evaluationTime:data?.timeRange?.to.valueOf()});
   const latest=selection.sample,age=selection.age,stale=selection.state==='stale';
@@ -1309,7 +1310,7 @@ function Kpi({
       <strong className={!projected&&reported===undefined&&selection.state!=='observed'?"xlt-kpi-state":undefined}>
         {!projected && reported===undefined && data?.state === LoadingState.Error ? (
           "Query error"
-        ) : !projected && reported===undefined && !data && provider ? (
+        ) : !projected && reported===undefined && queryPending ? (
           "Loading…"
         ) : !projected&&reported===undefined&&selection.state!=='observed'?(
           selection.state==='multiple'?'Multiple entities':selection.state==='freshness-unknown'?'Freshness unknown':selection.state==='stale'?'Stale':selection.state==='invalid'?'Invalid data':'No data'
@@ -1339,7 +1340,7 @@ function Kpi({
               : `Sample age ${format(age, "s")}`}
         </small>
       )}
-      {!projected&&reported===undefined&&selection.state!=='observed'&&<small title={displayUiNote(selection.reason)}>{selection.state==='multiple'?`${selection.entities.length} entities · ${displayUiNote(entitySelectionHint(selection.entities.map(s=>s.labels)))}`:selection.state==='freshness-unknown'?'일치하는 producer age를 확인할 수 없습니다':selection.state==='stale'?'Producer age가 허용 범위를 초과했습니다':selection.state==='invalid'?'서로 충돌하는 source data입니다':'일치하는 observation이 없습니다'}</small>}
+      {!projected&&reported===undefined&&!queryPending&&!queryError&&selection.state!=='observed'&&<small title={displayUiNote(selection.reason)}>{selection.state==='multiple'?`${selection.entities.length} entities · ${displayUiNote(entitySelectionHint(selection.entities.map(s=>s.labels)))}`:selection.state==='freshness-unknown'?'일치하는 producer age를 확인할 수 없습니다':selection.state==='stale'?'Producer age가 허용 범위를 초과했습니다':selection.state==='invalid'?'서로 충돌하는 source data입니다':'일치하는 observation이 없습니다'}</small>}
       {reported !== undefined && (
         <small>Selected {boundary.label} · reported duration</small>
       )}

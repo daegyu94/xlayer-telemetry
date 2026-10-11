@@ -192,7 +192,7 @@ Grafana와 datasource UID는 유지하고 Prometheus/Loki/exporter만 replay별�
 
 같은 시나리오는 workload·phase duration·source fault의 입력 서명을 재현합니다. Timestamp·Run/record/span ID는 새로 생성되며 원본 시각을 현재로 바꾸거나 backdated Prometheus sample을 만들지 않습니다. **Expected results & composition**에는 기대 duration·candidate·허용된 복합 조건을, **Validation stages**에는 생성·수집·실제 query·diagnosis·UI 검증 상태를 표시합니다. UI workflow는 browser regression이 실행한 경우에만 passed로 보고하며 미실행은 pending입니다.
 
-`partial-telemetry`는 같은 generation 안에서 missing/stale pair와 recovery pair를 연속 생성합니다. 다른 조합은 registry의 검증된 구성만 허용하며 임의의 source 조건을 합쳐 잘못된 인과관계를 만들지 않습니다. Explorer는 활성 generation의 최근 28개 관측 링크를 보관합니다. 수집 중 UI는 제한된 자동 refresh를 사용하고 이후에는 **Refresh scenarios**로 확인할 수 있습니다.
+`partial-telemetry`는 같은 generation 안에서 missing/stale pair와 recovery pair를 연속 생성합니다. 다른 조합은 registry의 검증된 구성만 허용하며 임의의 source 조건을 합쳐 잘못된 인과관계를 만들지 않습니다. Explorer는 활성 generation의 최근 28개 관측 링크를 보관합니다. Explorer가 열려 있는 동안에는 한 번에 하나의 상태 요청으로 자동 갱신합니다. 일시적인 연결 실패에는 마지막 기록을 보존하되 `Unverified`로 표시하고 실행 명령·replay 진입을 보류하며, 연결 복구 후 같은 문맥으로 재개합니다. 선택만 한 다른 시나리오에는 기존 실행의 검증 결과를 표시하지 않습니다. 좁은 화면에서는 **Scenario** 선택 목록으로 바꾸며 선택·Back/Forward·Reload는 같은 URL 상태를 사용합니다.
 
 기존 `live_demo.py --scenario ...`는 개별 producer 개발을 위한 advanced launcher입니다. 사용자 기본 경로와 통합 E2E는 `scenario_lab.py`의 단일 Explorer를 사용합니다.
 
@@ -206,6 +206,6 @@ python grafana/xlayer-app/scripts/ci_scenarios.py \
   --scenarios normal slow-rollout recorded-error partial-telemetry async-replicas
 ```
 
-Playwright와 Chromium이 필요하며 기존 설치를 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 정상 결과는 최상위 `validation.json`이 `passed`, `owned_processes_stopped=true`이며 `browser/validation.json`의 각 scenario가 `passed`입니다. 하나의 Grafana에서 Explorer의 실제 버튼으로 모든 시나리오를 선택·실행합니다. 실패 시 scenario·사용자 workflow·화면과 bounded service log를 남깁니다. 기존 `ci_demo.py`에는 네 KPI·disclosure·URL 회귀가 연결되어 있고, Grafana CI의 scenario matrix는 정상·지연·오류·복구·async 경로를 반복 검사합니다.
+Playwright와 Chromium이 필요하며 기존 설치를 재사용하려면 `--browser /path/to/chromium`을 지정합니다. 정상 결과는 최상위 `validation.json`이 `passed`, `owned_processes_stopped=true`이며 `browser/validation.json`의 각 scenario가 `passed`입니다. 하나의 Grafana에서 Explorer의 실제 버튼으로 모든 시나리오를 선택·실행합니다. 실패 시 scenario·사용자 workflow·화면과 bounded service log를 남깁니다. 기존 `ci_demo.py`에는 네 KPI·disclosure·URL 회귀와 `release_review_validate.py`의 검증 소속·통신 복구·장시간 polling·Loading·Synthetic 출처·모바일 선택 검사가 연결되어 있고, Grafana CI의 scenario matrix는 정상·지연·오류·복구·async 경로를 반복 검사합니다.
 
 Runner는 자신이 만든 process만 종료합니다. 결과를 확인한 뒤 지정한 state directory만 제거하며 browser 보고서는 Git에 추가하지 않습니다. 실제 GPU/VERL model weights·물리 multi-node clock/RDMA·3FS cluster population·장시간 overhead는 **Pending**이며 synthetic/UI 통과와 별도로 검증해야 합니다.

@@ -25,7 +25,7 @@ export const getProductStyles=(theme:GrafanaTheme2)=>{
   '& .xlt-sidebar-foot':{borderTop:`1px solid ${t.border}`,margin:s(4,1,0),paddingTop:s(2),fontSize:t.small,color:t.muted},
   '& .xlt-sidebar-foot small':{display:'block',marginTop:s(1),color:t.muted},
   '& .xlt-topbar':{display:'flex',alignItems:'center',justifyContent:'space-between',gap:s(2),padding:s(1.5,3),background:t.bg,borderBottom:`1px solid ${t.border}`},
-  '& .xlt-breadcrumb':{display:'flex',alignItems:'center',gap:s(1.5),fontSize:t.small},
+  '& .xlt-breadcrumb':{display:'flex',flexWrap:'wrap',minWidth:0,alignItems:'center',gap:s(1.5),fontSize:t.small},
   '& .xlt-breadcrumb i':{fontStyle:'normal',color:t.muted,margin:s(0,1)},
   '& .xlt-content':{width:'100%',maxWidth:'100rem',padding:s(3),margin:'0 auto'},
   '& .xlt-header':{display:'flex',alignItems:'start',justifyContent:'space-between',flexWrap:'wrap',gap:s(2),marginBottom:s(2)},
