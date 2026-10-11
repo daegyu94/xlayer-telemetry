@@ -116,3 +116,58 @@ done
                           "RESUMED_CONTENT": str(marker)}, capture_output=True, text=True, timeout=10)
     assert result.returncode == 22
     assert not marker.exists(), "curl must not append a new URL's bytes to an unrelated partial archive"
+
+
+def test_public_install_uses_selected_python_outside_checkout(tmp_path, monkeypatch):
+    """A staged wheel has no checkout PYTHONPATH and no activated environment."""
+    import venv
+    import sys
+    from setuptools import build_meta
+    import shutil
+    source = tmp_path / 'source'
+    source.mkdir()
+    for name in ('pyproject.toml', 'README.md'):
+        shutil.copy2(ROOT/name, source/name)
+    for name in ('xlayer_telemetry', 'scripts', 'config', 'examples/dashboards', 'examples/live-demo'):
+        shutil.copytree(ROOT/name, source/name, ignore=shutil.ignore_patterns('__pycache__'))
+    monkeypatch.chdir(source)
+    wheel_dir = tmp_path / 'wheel'
+    wheel_dir.mkdir()
+    wheel = wheel_dir / build_meta.build_wheel(str(wheel_dir))
+    environment = tmp_path / 'environment'
+    venv.EnvBuilder(with_pip=True).create(environment)
+    python = environment / 'bin/python'
+    if sys.version_info < (3, 11):
+        # Reuse the already-installed declared runtime dependency offline.
+        import tomli
+        site = subprocess.check_output([str(python), '-c',
+            'import sysconfig; print(sysconfig.get_paths()["purelib"])'], text=True).strip()
+        shutil.copytree(Path(tomli.__file__).parent, Path(site)/'tomli')
+    subprocess.run([str(python), '-m', 'pip', 'install', '--no-deps', str(wheel)],
+                   check=True, capture_output=True, timeout=30)
+    fake = tmp_path / 'bin'
+    fake.mkdir()
+    # Stop after interpreter selection; no network or archives are required.
+    (fake / 'curl').write_text('''#!/usr/bin/env bash
+while (( $# )); do
+ if [[ $1 == --output ]]; then printf test > "$2"; break; fi
+ shift
+done
+''')
+    (fake / 'tar').write_text('#!/bin/sh\nexit 0\n')
+    (fake / 'python3').write_text('#!/bin/sh\necho wrong-python >&2\nexit 91\n')
+    # The real selected Python resolves the packaged release module. Its URL
+    # arrives at this download, where a fixture intentionally ends installation.
+    (fake / 'sha256sum').write_text('#!/bin/sh\ncase "$1" in grafana.tar.gz.part) echo selected-python-reached >&2; exit 73;; *) exec /usr/bin/sha256sum "$@";; esac\n')
+    for path in fake.iterdir(): path.chmod(0o755)
+    config = tmp_path / 'config'
+    config.write_text(f'TELEMETRY_HOME={str(tmp_path / "state")!r}\n')
+    env = {key: value for key, value in os.environ.items()
+           if key not in {'PYTHONPATH', 'PYTHON', 'TELEMETRY_PYTHON', 'VIRTUAL_ENV'}}
+    env['PATH'] = str(fake) + ':/usr/bin:/bin'
+    result = subprocess.run([str(environment / 'bin/xltel'), '--config', str(config),
+                             'install-tools', '--role', 'server'], cwd=tmp_path,
+                            env=env, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 73, result.stdout + result.stderr
+    assert 'selected-python-reached' in result.stderr
+    assert 'wrong-python' not in result.stderr

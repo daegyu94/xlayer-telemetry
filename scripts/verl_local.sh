@@ -146,7 +146,8 @@ case "$action" in
     ;;
   install)
     for role in "${managed_roles[@]}"; do
-      TOOLS_DIR="$tools_dir" bash "$repo_root/scripts/install_telemetry_tools.sh" "$role"
+      TOOLS_DIR="$tools_dir" PYTHON="${TELEMETRY_PYTHON:-${PYTHON:-python3}}" \
+        bash "$repo_root/scripts/install_telemetry_tools.sh" "$role"
     done
     ;;
   up)
@@ -294,7 +295,7 @@ case "$action" in
     if [[ -n "${DIAGNOSTICS_CONFIG:-}" ]]; then
       extra_args+=(--diagnostics-config "$DIAGNOSTICS_CONFIG")
     fi
-    TELEMETRY_PYTHON="$telemetry_python" \
+    exec env TELEMETRY_PYTHON="$telemetry_python" \
       bash "$repo_root/scripts/run_verl_with_telemetry.sh" \
         --output "$run_root" --run-id "$RUN_ID" --node "$node_name" \
         --execution-mode "${EXECUTION_MODE:-auto}" \

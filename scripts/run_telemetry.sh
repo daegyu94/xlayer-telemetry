@@ -601,7 +601,13 @@ EOF
   if [[ "${ENABLE_LOGS:-0}" == 1 ]]; then
     validation_args+=(--loki-url "http://$loki_listen_addr:$loki_port")
   fi
-  "${PYTHON:-python3}" -m xlayer_telemetry.stack "${validation_args[@]}"
+  # wait is interruptible by the shell's traps; a foreground validator would
+  # defer TERM until its full readiness timeout and outlive rollback's budget.
+  "${PYTHON:-python3}" -m xlayer_telemetry.stack "${validation_args[@]}" &
+  validator_pid=$!
+  pids+=("$validator_pid")
+  wait "$validator_pid"
+  unset 'pids[-1]'
   printf 'Monitoring server ready: Prometheus=http://127.0.0.1:%s Grafana=http://127.0.0.1:%s\n' "$prometheus_port" "$grafana_port"
 else
   echo 'Use node, storage, or server' >&2

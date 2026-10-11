@@ -6,6 +6,7 @@ import json
 import math
 import os
 import socket
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -212,4 +213,10 @@ def main():
 
 
 if __name__ == "__main__":
+    # Unwind subprocess.run so it kills and reaps an in-flight nvidia-smi.
+    # Default SIGTERM would exit Python before the subprocess context cleans up.
+    def interrupted(signum, frame):
+        raise SystemExit(128 + signum)
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     main()
