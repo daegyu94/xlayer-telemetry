@@ -70,13 +70,13 @@ class BoundedWriter:
         # A fork inherits data and locks, not the writer thread. Never acquire
         # an inherited lock or replay a parent's buffered events in the child.
         discarded = len(self._queue) + int(self._inflight)
-        self._pid = os.getpid()
         self._condition = threading.Condition()
         self._queue = deque()
         self._queued_bytes = 0
         self._thread = None
         self._inflight = False
         self._counts = dict(accepted=0, written=0, dropped=0, write_errors=0, flush_timeouts=0, fork_discarded=discarded)
+        self._pid = os.getpid()
 
     def submit(self, item) -> bool:
         self._check_pid()
@@ -181,3 +181,15 @@ class BoundedWriter:
                     "queued": len(self._queue), "inflight": self._inflight,
                     "queued_bytes": self._queued_bytes,
                     "closed": self._closed, "failed": self._failed}
+
+
+def _after_fork():
+    # Python runs this before returning from fork, while the child has only the
+    # forking thread. Reset all live writers before user threads can first-use
+    # them; moving the PID assignment alone cannot serialize lazy resets.
+    for writer in list(_LIVE):
+        writer._check_pid()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_after_fork)

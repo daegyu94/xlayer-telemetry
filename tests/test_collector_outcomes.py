@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from xlayer_telemetry.events import EventRecorder
+from xlayer_telemetry.worker_events import WorkerEventRecorder
 from xlayer_telemetry.sandbox import SandboxRecorder
 from xlayer_telemetry.metrics.textfile import collect_snapshots, build_metrics
 
@@ -50,7 +51,7 @@ def test_docker_adapter_emits_result_without_changing_subprocess_behavior(tmp_pa
         if case=='launch':raise FileNotFoundError('docker')
         if case=='check':raise subprocess.CalledProcessError(2,'docker')
         return subprocess.CompletedProcess('docker',2 if case=='nonzero' else 0)
-    namespace={'os':os,'EventRecorder':EventRecorder,'SandboxRecorder':SandboxRecorder,
+    namespace={'os':os,'_SANDBOX_EVENTS':WorkerEventRecorder(producer='sandbox',role='sandbox'),'SandboxRecorder':SandboxRecorder,
         '_ACTIVE_TOOL':ContextVar('tool',default=None),'_ACTIVE_TOOL_NAME':ContextVar('name',default=None),
         'subprocess':SimpleNamespace(run=run,TimeoutExpired=subprocess.TimeoutExpired,CalledProcessError=subprocess.CalledProcessError)}
     exec(compile(ast.Module(body=[node],type_ignores=[]),'adapter','exec'),namespace)

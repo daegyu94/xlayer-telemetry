@@ -20,8 +20,11 @@ import sys
 
 from verl.tools.function_tool import FUNCTION_TOOL_REGISTRY, function_tool
 
-from xlayer_telemetry.events import EventRecorder
+from xlayer_telemetry.worker_events import WorkerEventRecorder
 from xlayer_telemetry.sandbox import SandboxRecorder
+
+_AGENT_EVENTS = WorkerEventRecorder(producer="agent", role="rollout")
+_SANDBOX_EVENTS = WorkerEventRecorder(producer="sandbox", role="sandbox")
 
 
 _ACTIVE_TOOL = ContextVar("xlayer_active_tool", default=None)
@@ -42,8 +45,7 @@ def _observed_tool(name, fn):
                 raise _InvalidToolArguments(str(exc)) from exc
             return fn(*args, **kwargs)
 
-        events = EventRecorder.from_env(
-            producer="agent", role="rollout", worker_id=str(os.getpid()))
+        events = _AGENT_EVENTS.get()
         try:
             if events is None:
                 return invoke()
@@ -79,8 +81,7 @@ class _ObservedSubprocess:
                        for part in command[2:]):
                     raise ValueError("Docker grader already sets --cgroup-parent")
                 command = [*command[:2], "--cgroup-parent", parent_cgroup, *command[2:]]
-            events = EventRecorder.from_env(
-                producer="sandbox", role="sandbox", worker_id=str(os.getpid()))
+            events = _SANDBOX_EVENTS.get()
             if events is not None:
                 parent = _ACTIVE_TOOL.get()
                 sandbox = SandboxRecorder(

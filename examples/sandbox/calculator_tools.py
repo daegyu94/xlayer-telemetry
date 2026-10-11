@@ -15,8 +15,11 @@ import re
 import uuid
 
 from verl.tools.function_tool import function_tool
-from xlayer_telemetry.events import EventRecorder
+from xlayer_telemetry.worker_events import WorkerEventRecorder
 from xlayer_telemetry.sandbox import SandboxRecorder
+
+_AGENT_EVENTS = WorkerEventRecorder(producer="agent", role="rollout")
+_SANDBOX_EVENTS = WorkerEventRecorder(producer="sandbox", role="sandbox")
 
 # Parse arithmetic inside the external environment; never evaluate Python code.
 PROGRAM = '''import ast,json,operator,sys
@@ -57,10 +60,8 @@ def calculate(expression: str) -> str:
     Args:
         expression: Arithmetic numbers, parentheses and + - * / operators.
     """
-    events = EventRecorder.from_env(
-        producer="agent", role="rollout", worker_id=str(os.getpid()))
-    sandbox_events = EventRecorder.from_env(
-        producer="sandbox", role="sandbox", worker_id=str(os.getpid()))
+    events = _AGENT_EVENTS.get()
+    sandbox_events = _SANDBOX_EVENTS.get()
     parent = (events.span("tool.call", phase="tool_interaction",
                           attributes={"tool": "calculate"})
               if events else nullcontext())
