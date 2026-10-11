@@ -89,3 +89,15 @@ Scenario Explorer는 하나의 Grafana에서 Run / Stop / Reset / Replay를 수�
 네 기본 메뉴·네 핵심 KPI와 Candidate → Evidence → Subsystem 구조는 유지했습니다. Scope·단위·baseline·shared resource 해석과 canonical query 경로를 바꿀 근거는 발견하지 못했으며, 큰 Shell 모듈과 compatibility styling의 추가 분리는 후속 유지보수 후보입니다. Synthetic 통과는 실제 process liveness·GPU/VERL 학습·물리 multi-node·RDMA·3FS 성능·전체 접근성 인증을 뜻하지 않습니다.
 
 최종 결과는 Python 3.12.3 / Node 20.20.0 / Grafana 13.1.7 / Playwright 1.56.0 기준입니다. 전체 CPU **1,935 passed / 0 failed / 6 skipped**(disposable ClickHouse 미설정), frontend **203 passed**, Grafana helper **47 passed**, 문서 계약 **10 passed**, typecheck·build·문서 build가 통과했습니다. Fresh stack의 전체 Grafana journey 두 번, 동일 Explorer의 일곱 scenario와 Normal 재생, 별도 세 Job·두 Replica 심층 journey가 통과했습니다. 최종 UI의 52개 route capture·24개 가독성 capture에서 실패는 없었고, native Step 요청 22개 모두 선택 window와 일치했습니다. 남은 재현 결함 없이 CPU/Synthetic 개발 범위를 완료했으며, 이 작업의 service·state는 정리하고 기존 사용자 demo는 보존했습니다.
+
+## P2 regression follow-up · 2026-10-12
+
+`019eea5`의 GitHub Actions run `38131248944`에서 단일·멀티worker 모두 `clock_unverified` assertion으로 실패한 로그와 당시 빈 비교 패널 캡처를 확인했습니다. 로컬 기준은 이를 포함한 `c0a9b24`입니다. 과거 artifact에는 query 응답이 없어 원래 실패를 경고 데이터 누락으로 단정하지 않았으며, 현재 실제 응답에서 `clock_unverified`와 null delta를 확인한 뒤 가시 품질 셀까지 별도로 검사했습니다.
+
+| 문제 | 수정 | 회귀 근거 |
+| --- | --- | --- |
+| 3FS 비교 경고 검사 | 패널 viewport 노출 → 실제 응답의 Run/record·경고·delta 확인 → 표 행과 가상화된 품질 열 준비 → 가시 셀 검사. 실패 JSON·화면 보존 | 단일·멀티worker `ci_demo.py` 모두 10초 storage 응답 지연을 포함해 통과. 경고 assertion과 비교 의미는 유지 |
+| LLM Job 간 worker 혼합 | `worker`·`worker_id`·`rank` namespace에 관측 `run_id` 추가 | Source-config 수집 경로에서 다른 Run/다른 signal 거부, 동일 Run 및 동일 signal 비교 허용, 공유 GPU 소유권 불변 |
+| Prometheus query timeout의 backend 전체 차단 | 503 오류 본문을 8 KiB로 제한해 명시된 timeout만 query-local 오류로 분류 | 첫 timeout 뒤 disk/RDMA 근거 보존, 일반 503 차단, 손상·과대·읽기 실패 body와 전체 budget 소진 검사 |
+
+수정 전 새 CPU 회귀 5개가 실패했고 수정 후 전체 CPU **1,951 passed / 0 failed / 6 skipped**, LLM **101 passed**, Prometheus/QueryBudget **51 passed**, Grafana helper **47 passed**입니다. Skip은 disposable ClickHouse 미설정이며, 문서 계약·build·compileall·shell syntax도 통과했습니다. 실제 Grafana 13.1.7 / Playwright 1.56.0의 단일·멀티worker 전체 journey가 통과했고, query 응답 지연은 browser fault fixture, 3FS 값은 synthetic collection fixture로 구분합니다. 실행 로그·응답·대표 화면은 `artifacts/p2-regressions/`에 보존하며, 이 작업이 만든 stack과 임시 다운로드는 정리했습니다.

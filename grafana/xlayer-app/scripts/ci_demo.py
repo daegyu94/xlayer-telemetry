@@ -117,7 +117,8 @@ def run(args):
             if args.browser:
                 contracts.extend(['--browser', args.browser])
             series = [sys.executable, str(SCRIPTS / 'storage_series_validate.py'),
-                      '--url', connection['grafana'], '--output', str(args.output / 'storage-series')]
+                      '--url', connection['grafana'], '--output', str(args.output / 'storage-series'),
+                      '--delay-storage-ms', '10000']
             if args.browser:
                 series.extend(['--browser', args.browser])
             clocks = [sys.executable, str(SCRIPTS / 'clock_quality_validate.py'),
