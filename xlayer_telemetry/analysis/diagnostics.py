@@ -26,7 +26,7 @@ from .diagnosis_analysis import (
     recent_baseline_history, select_baseline, select_vllm_observations,
     validate_baseline_policy, validate_run_engine_instances, resource_run_relation, vllm_identity,
 )
-from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
+from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified, project_clock_quality
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from . import scheduling
 from .evidence_quality import quality, check_source, source_for_entity, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
@@ -1591,32 +1591,9 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         "baseline_end_ms": math.ceil(baseline["end"] * 1000) if finite(baseline.get("end")) is not None else None,
     }
     symptom = report.get("symptom", {})
-    clock=report.get('clock_quality',{})
-    def clock_extents(quality):
-        bounds,ages=[],[]
-        for entry in quality.get('nodes',{}).values():
-            uncertainty=finite(entry.get('uncertainty_seconds'))
-            offsets=[finite((entry.get(field) or {}).get(key)) for field in ('offset_seconds','ntp_offset_seconds') for key in ('min','max')]
-            offsets=[abs(value) for value in offsets if value is not None]
-            if uncertainty is not None:
-                bounds.append(uncertainty+(max(offsets) if offsets else 0))
-            age=finite((entry.get('sample_age_seconds') or {}).get('max'))
-            if age is not None:
-                ages.append(age)
-        return max(bounds) if bounds else None,max(ages) if ages else None
-    clock_bound,clock_age=clock_extents(clock)
-    baseline_bound,baseline_age=clock_extents(clock.get('baseline',{}))
     strong = [item for item in report.get("candidates", []) if item.get("state") == "strong_signal"]
     rows = [{**common, "row_kind": "summary", "verdict": report.get("verdict"),
-             "correlation_clock_status": report.get('clock_quality',{}).get('status','not_reported'),
-             "baseline_clock_status": report.get('clock_quality',{}).get('baseline',{}).get('status','not_reported'),
-             "correlation_clock_scope": report.get('clock_quality',{}).get('operating_scope','not_reported'),
-             "correlation_clock_method": report.get('clock_quality',{}).get('method','node_exporter_screening'),
-             "clock_required_nodes": report.get('clock_quality',{}).get('required_nodes',[]),
-             "correlation_clock_uncertainty_seconds": clock_bound,
-             "correlation_clock_sample_age_seconds": clock_age,
-             "baseline_clock_uncertainty_seconds": baseline_bound,
-             "baseline_clock_sample_age_seconds": baseline_age,
+             **project_clock_quality(report.get('clock_quality', {})),
              "step_duration_seconds": symptom.get("step_duration_seconds"),
              "candidate_count": len(report.get("candidates", [])),
              "strong_candidate_count": len(strong),

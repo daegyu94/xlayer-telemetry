@@ -177,3 +177,47 @@ def test_selected_report_cli_passes_metadata_to_both_model_calls_and_grafana(tmp
                 if json.loads(line).get("observation_id")]
     assert [(row["evidence_type"], row["unit"], row["window_statistic"]) for row in evidence] == [
         ("supporting", "seconds/operation", "max"), ("counter", "bytes/s", "mean")]
+
+
+@pytest.mark.parametrize('status', ['aligned', 'unsafe', 'unknown', 'unchecked'])
+def test_reviewed_projection_preserves_observed_clock_without_rule_verdict(tmp_path, status):
+    from xlayer_telemetry.analysis.diagnostics import _investigation_rows
+    source=report()
+    source['candidates']=[]
+    for row in source['comparison']['signals']:
+        row['delta_percent']=(row['current']-row['baseline'])/row['baseline']*100
+    source['clock_quality']={'status':status,'method':'observed-clock-fixture','operating_scope':'cross-node',
+        'required_nodes':['n','peer'], 'nodes':{
+            'n':{'uncertainty_seconds':.01,'offset_seconds':{'min':-.02,'max':.03},'sample_age_seconds':{'max':.2}},
+            'peer':{'uncertainty_seconds':.02,'ntp_offset_seconds':{'min':-.04,'max':.01},'sample_age_seconds':{'max':.5}}},
+        'baseline':{'status':'unknown','nodes':{'n':{'uncertainty_seconds':.1,'sample_age_seconds':{'max':2}}}}}
+    packet=llm.packet_from_report(source)
+    result={'record_type':'llm_diagnosis','generated_at':'2026-10-12T00:00:00Z',
+        'semantic_review':{'decision':'accept'},'context':packet['context'],'current_interval':packet['current_interval'],
+        'observation_packet':packet,'diagnosis':answer()}
+    # A model's answer is not authorized to replace producer clock evidence.
+    result['diagnosis']['clock_quality']={'status':'aligned','required_nodes':['invented']}
+    summary=json.loads(project_result(tmp_path,result).read_text().splitlines()[0])
+    rule=_investigation_rows(source)[0]
+    fields=[key for key in rule if key.startswith(('correlation_clock_','baseline_clock_','clock_required_'))]
+    assert {key:summary.get(key) for key in fields}=={key:rule[key] for key in fields}
+    assert summary['clock_required_nodes']==['n','peer']
+    assert summary['correlation_clock_uncertainty_seconds']==pytest.approx(.06)
+    assert summary['correlation_clock_sample_age_seconds']==.5
+    assert summary['strong_candidate_count']==0 and summary['primary_candidate'] is None
+    assert summary['verdict']==answer()['assessment']
+    assert 'secret-' not in json.dumps(summary) and 'invented' not in json.dumps(summary)
+
+
+def test_reviewed_projection_does_not_create_absent_clock_bounds(tmp_path):
+    packet=llm.packet_from_report(report())
+    packet['clock_quality']={'status':'unknown'}
+    result={'record_type':'llm_diagnosis','generated_at':'2026-10-12T00:00:00Z',
+        'semantic_review':{'decision':'accept'},'context':packet['context'],'current_interval':packet['current_interval'],
+        'observation_packet':packet,'diagnosis':answer()}
+    summary=json.loads(project_result(tmp_path,result).read_text().splitlines()[0])
+    assert summary['correlation_clock_status']=='unknown'
+    assert summary['clock_required_nodes']==[]
+    assert summary['correlation_clock_uncertainty_seconds'] is None
+    assert summary['correlation_clock_sample_age_seconds'] is None
+    assert summary['baseline_clock_status']=='not_reported'

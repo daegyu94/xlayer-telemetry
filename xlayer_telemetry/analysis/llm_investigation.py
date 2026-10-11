@@ -9,6 +9,7 @@ import uuid
 
 from ..fileio import atomic_write_text, json_objects
 from ..measurements import finite_number
+from .clock_quality import project_clock_quality
 
 
 def selected_report(root: Path, record_id: str) -> dict:
@@ -45,7 +46,8 @@ def project_result(root: Path, result: dict) -> Path:
               "data_origin": result.get("data_origin", "unknown"),
               "workload_comparability": packet.get("baseline_comparability", "unverified")}
     answer = result["diagnosis"]
-    rows = [{**common, "row_kind": "summary", "verdict": answer["assessment"],
+    rows = [{**common, **project_clock_quality(packet.get("clock_quality", {})),
+             "row_kind": "summary", "verdict": answer["assessment"],
              "summary": answer["summary"], "candidate_count": len(answer["candidates"]),
              "step_duration_seconds": next((item.get("current") for item in packet["observations"] if item["signal"] == "step_duration_seconds"), None),
              "primary_candidate": None, "strong_candidate_count": 0,

@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any, Callable, Iterable
 
+from ..measurements import finite_number
 from ..prometheus import escape_label
 from ..time_alignment import validate_alignment
 
@@ -248,3 +249,35 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def project_clock_quality(clock: dict) -> dict:
+    """Flatten observed clock bounds for either diagnosis method; no verdicts."""
+    def extents(quality):
+        bounds, ages = [], []
+        for entry in quality.get('nodes', {}).values():
+            uncertainty = finite_number(entry.get('uncertainty_seconds'))
+            offsets = [finite_number((entry.get(field) or {}).get(key))
+                       for field in ('offset_seconds', 'ntp_offset_seconds') for key in ('min', 'max')]
+            offsets = [abs(value) for value in offsets if value is not None]
+            if uncertainty is not None:
+                bounds.append(uncertainty + (max(offsets) if offsets else 0))
+            age = finite_number((entry.get('sample_age_seconds') or {}).get('max'))
+            if age is not None:
+                ages.append(age)
+        return max(bounds) if bounds else None, max(ages) if ages else None
+
+    baseline = clock.get('baseline', {})
+    bound, age = extents(clock)
+    baseline_bound, baseline_age = extents(baseline)
+    return {
+        'correlation_clock_status': clock.get('status', 'not_reported'),
+        'baseline_clock_status': baseline.get('status', 'not_reported'),
+        'correlation_clock_scope': clock.get('operating_scope', 'not_reported'),
+        'correlation_clock_method': clock.get('method', 'node_exporter_screening'),
+        'clock_required_nodes': clock.get('required_nodes', []),
+        'correlation_clock_uncertainty_seconds': bound,
+        'correlation_clock_sample_age_seconds': age,
+        'baseline_clock_uncertainty_seconds': baseline_bound,
+        'baseline_clock_sample_age_seconds': baseline_age,
+    }
