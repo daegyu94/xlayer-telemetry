@@ -1445,7 +1445,7 @@ Grafana's global navigation stays available. */
   white-space:nowrap
 }
 
-/* Mini trends occupy the value row rather than increasing every KPI card's height. */
+/* KPI values and mini trends occupy separate rows, including narrow cards. */
 .xlt-kpi {
   position:relative;
   min-height:116px;
@@ -1458,12 +1458,12 @@ Grafana's global navigation stays available. */
 }
 
 .xlt-kpi .xlt-spark {
-  position:absolute;
-  right:14px;
-  top:39px;
-  width:90px;
-  height:25px;
-  margin:0
+  position:static;
+  width:110px;
+  height:29px;
+  flex-shrink:0;
+  margin:4px 0;
+  align-self:flex-end
 }
 
 .xlt-kpi .xlt-spark svg {
@@ -1572,3 +1572,34 @@ Grafana's global navigation stays available. */
 @media(max-width:520px){.xlt-cluster-map-compute-grid,.xlt-cluster-map-storage-grid{grid-template-columns:1fr}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:35px}}
 .xlt .xlt-cluster-map-header h3{font-weight:700}.xlt .xlt-resource-inspector-header h3{font-weight:650}
 .xlt-run-search{align-items:end;gap:12px;flex-wrap:wrap}.xlt-run-search label{display:flex;flex-direction:column;gap:6px}.xlt-run-search input:not([type=checkbox]){min-height:34px;min-width:200px;background:var(--xl-bg);color:var(--xl-text);border:1px solid var(--xl-border);border-radius:6px;padding:6px 9px}.xlt-run-explorer section+section{margin-top:18px}.xlt-run-explorer input[type=checkbox]{width:16px;height:16px}.xlt-run-explorer small{display:block}.xlt-run-explorer details a{overflow-wrap:anywhere}
+
+/* Resource matrices use the existing Scenes query and a bounded scroll area. */
+.xlt .xlt-resource-panel{height:auto;min-width:0;padding:12px;background:var(--xl-bg);border-radius:8px}
+.xlt-resource-panel>header{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+.xlt-resource-panel h3{margin:0;font-size:15px}
+.xlt-resource-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.xlt-resource-controls label{display:flex;gap:6px;align-items:center;font-size:12px}
+.xlt-resource-controls button,.xlt-resource-controls select{font:inherit;color:var(--xl-text);background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:5px;padding:5px 8px}
+.xlt-resource-controls button[aria-pressed=true]{border-color:#4566d5}
+.xlt-resource-note{font-size:12px;line-height:1.5;margin:8px 0}
+.xlt-resource-scroll{max-height:320px;overflow:auto}
+.xlt-resource-scroll table{width:100%;border-collapse:separate;border-spacing:4px;font-size:13px}
+.xlt-resource-scroll th{white-space:nowrap;text-align:left;font-weight:500;color:var(--xl-text)}
+.xlt-resource-scroll td{padding:0;min-width:72px}
+.xlt-resource-cell{width:100%;min-height:42px;border:1px solid var(--xl-border);border-radius:5px;color:var(--xl-text);font:inherit;background:var(--xl-bg);padding:6px;cursor:pointer}
+.xlt-resource-cell:disabled{cursor:default;opacity:1;color:var(--xl-muted)}
+.xlt-resource-cell b,.xlt-resource-cell small{display:block}
+.xlt-resource-cell[aria-pressed=true]{outline:2px solid #4566d5;outline-offset:-2px}
+.xlt-resource-detail{height:260px;min-width:0}
+.xlt-resource-selection{border-top:1px solid var(--xl-border);margin-top:12px}
+.xlt-panel:has(>.xlt-resource-panel),.xlt-native-panel:has(>.xlt-resource-panel){height:auto!important;min-height:270px}
+.xlt-panel:has(>.xlt-resource-panel)>div{height:auto}
+@media(max-width:640px){.xlt-resource-panel{padding:8px}.xlt-resource-scroll{max-height:210px}}
+
+.xlt-resource-scroll tr>th:first-child{position:sticky;left:0;z-index:1;background:var(--xl-bg);max-width:190px;white-space:normal;min-width:120px}
+/* The generic table minimum must not push a NIC's only column offscreen. */
+.xlt .xlt-resource-scroll table{min-width:0}
+.xlt-resource-scroll tr>th:first-child{width:150px}
+
+.xlt .xlt-resource-cell{color:var(--xl-text)}
+.xlt .xlt-resource-cell:disabled{color:var(--xl-muted)}

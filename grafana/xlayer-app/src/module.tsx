@@ -1,3 +1,4 @@
+import {ResourcePanel} from "./ResourcePanel";
 import {completedStepKey,requestedStep,CompletedStepSelect,CompletedStepsTable} from './completed-steps';
 import { MatrixCellButton } from './MatrixCellButton';
 import {MatrixEntityControl} from './MatrixEntityControl';
@@ -526,7 +527,7 @@ function useData(provider: SceneDataProvider | undefined) {
 function Native({ panel }: { panel?: VizPanel }) {
   return panel ? (
     <div className="xlt-panel">
-      <panel.Component model={panel} />
+      <ResourcePanel panel={panel} />
     </div>
   ) : (
     <div className="xlt-empty">
@@ -698,7 +699,7 @@ function ShellView({ model }: { model: Shell }) {
         <p className="xlt-notice">{NATIVE_PAGES.find(p=>p.route===state.page)?.notice}</p>
         <details className="xlt-filters"><summary>Resource and native panel filters</summary><div>{state.catalog[state.nativeWorkspace.destination]?.templating.list.filter(v=>VARIABLE_NAMES.includes(v.name)&&!['cluster','run_id'].includes(v.name)).map(v=>{const variable=sceneGraph.lookupVariable(v.name,model);return variable?<VariableValueSelectWrapper key={v.name} variable={variable} showAlways/>:null;})}</div></details>
         <NativeHighlights destination={state.nativeWorkspace.destination} sources={state.nativeWorkspace.panels} panels={state.nativePanels||[]}/>
-        <NativeWorkspace workspace={state.nativeWorkspace} panels={state.nativePanels||[]} context={context}/>
+        <NativeWorkspace workspace={state.nativeWorkspace} panels={state.nativePanels||[]} context={context} View={ResourcePanel}/>
         <footer>Correlation ≠ Attribution ≠ Causality. 상관관계만으로 소유 관계나 원인을 단정할 수 없습니다. No data는 측정값 0과 다릅니다.</footer>
       </>}
       {!state.nativeWorkspace&&<>

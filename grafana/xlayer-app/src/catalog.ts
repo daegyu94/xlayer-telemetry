@@ -1,3 +1,4 @@
+import {registerResourcePanel} from "./ResourcePanel";
 import { PHASE_COLORS } from "./matrix-presentation";
 import { map } from "rxjs";
 import { timelineLanes } from "./mockup";
@@ -117,7 +118,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
   const fields=panel.type==='timeseries'&&panel.fieldConfig?.defaults?.custom?.drawStyle!=='points'
     ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:panel.options?.legend?.enableFacetedFilter?(panel.fieldConfig?.defaults?.custom?.lineWidth??1):1.5}}}
     : panel.fieldConfig;
-  return new VizPanel({
+  return registerResourcePanel(new VizPanel({
     pluginId: panel.type,
     title: panel.title,
     description: panel.description,
@@ -129,7 +130,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner): VizPanel {
           transformations: [...panel.transformations,...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
         })
       : data,
-  });
+  }),panel);
 }
 export function variables(
   catalog: Catalog,

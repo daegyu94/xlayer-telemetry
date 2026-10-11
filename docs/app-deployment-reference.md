@@ -26,7 +26,9 @@ External Grafana 13.1은 기존 config의 `[feature_toggles]`에 `react19 = fals
 
 ### Series Readability
 
-GPU·SSD·NIC/RDMA의 다중 series 패널은 영역 채우기 없이 얇은 선·이름 기준의 안정적인 색상을 사용합니다. Legend는 목록만 접고 모든 series는 그대로 표시하며, native **Series visibility**에서 이름·label로 범위를 좁힙니다. Tooltip은 가까운 series 하나를 보여주며 짧은 Step / Timeline의 sample 점과 3FS collection-point no-line 표시는 유지합니다. Query·unit·source scope·sampling·attribution 의미를 바꾸지 않습니다.
+GPU·SSD·NIC/RDMA의 Scenes resource 패널은 기본 **Matrix**에서 Cluster / Node × GPU / Device / Interface를 비교합니다. **Latest evaluation / Range mean / Range max**와 query별 Metric을 선택하고, 셀을 누르면 같은 응답에서 해당 source series의 상세 시계열을 확인합니다. 다른 entity·query의 값은 합치지 않으며 동일 좌표에 여러 identity가 있으면 Unknown으로 남깁니다.
+
+**Time series**는 기존 전체 그래프와 native Series visibility를 제공합니다. 얇은 선·안정적인 색상·접힌 Legend를 유지하며, Matrix의 색상은 상대적인 수치 크기이지 Health나 Run ownership이 아닙니다. Missing·Stale·Unknown·Query Failure와 실제 0을 구분하고, Latest evaluation만으로 producer freshness를 보증하지 않습니다. Query·unit·scope·시간 범위와 Native Dashboard 원본은 유지합니다. KPI의 작은 그래프는 숫자·설명과 별도 행으로 배치합니다.
 
 ## 설치 / 상태 / Update
 
@@ -162,6 +164,8 @@ CI 다운로드 cache도 매번 고정 publisher checksum과 대조합니다. [M
 ## Validation Scope
 
 2026-10-11의 격리된 CPU/Synthetic 환경에서 Grafana 13.1.7의 기존 Scenes 조사 경로·Multi-worker·Multi-job, GPU/Storage/Network Legend의 Light/Dark·1440px/390px 조작을 검증했습니다. Legacy 12.1.0에서도 기본 Scenes browser journey를 확인했습니다. Ubuntu 22.04 container에서는 binary 실행과 `/api/health`만 확인했으므로, 기존 Ubuntu 22.04 CPU CI는 유지합니다.
+
+후속 Matrix UI 변경은 단일 Job의 기존 live stack에서 GPU/Storage/Network의 계산 선택·단일 series 상세·Legend·KPI 그래프/텍스트 분리를 Light/Dark·1440px/390px에서 검증했습니다. Matrix 숫자의 대비도 확인했으며, 이 변경 이후 Multi-worker / Multi-job browser journey를 별도로 다시 실행한 것은 아닙니다.
 
 실제 GPU·RDMA·물리 Multi-node·3FS cluster 성능과 운영 DB upgrade/restore는 이번 검증 범위가 아닙니다. App CI는 Grafana 13.1.7을 기본으로 검사하며 React 19 runtime·13.2 이상은 검증하지 않았습니다. Browser report·Screenshot은 CI artifact에 보존하고 과거 검증 기록을 현재 버전의 보증으로 해석하지 않습니다.
 

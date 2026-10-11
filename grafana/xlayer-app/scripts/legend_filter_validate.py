@@ -1,10 +1,11 @@
-"""Native Legend controls inside the unchanged Scenes resource screens."""
+"""Resource Matrix, selected series and KPI layout inside existing Scenes."""
 import argparse,json
 from pathlib import Path
 from urllib.parse import urlencode,parse_qs,urlparse
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 from design_validate import owned_origin
+from readability_validate import effective_colors, contrast_ratio
 
 
 def validate(args):
@@ -29,6 +30,29 @@ def validate(args):
                         navigation=page.locator('.xlt').get_by_role('link',name='Overview',exact=True,include_hidden=True)
                         navigation.wait_for(state='attached',timeout=30000)
                         assert navigation.count()==1
+                        matrix=page.locator('.xlt-resource-panel').filter(has=page.get_by_role('heading',name=title,exact=True))
+                        matrix.wait_for(timeout=30000)
+                        cell=matrix.locator('.xlt-resource-cell[data-state=observed]').first
+                        cell.wait_for(timeout=30000)
+                        assert matrix.locator('table').count()==1
+                        styles=matrix.locator('.xlt-resource-cell[data-state=observed] b').evaluate_all("""els=>els.map(e=>{const color=getComputedStyle(e).color,layers=[];for(let n=e;n;n=n.parentElement){const s=getComputedStyle(n);layers.push({color:s.backgroundColor,opacity:Number(s.opacity)})}return {color,layers}})""")
+                        ratios=[contrast_ratio(*effective_colors(s['color'],s['layers'])) for s in styles]
+                        assert min(ratios)>=4.5,min(ratios)
+                        before_selection=parse_qs(urlparse(page.url).query)
+                        cell.click()
+                        matrix.locator('.xlt-resource-selection canvas').first.wait_for(timeout=30000)
+                        assert matrix.locator('.xlt-resource-selection').get_by_role('button',name='Clear selection').count()==1
+                        selected_plot=matrix.locator('.xlt-resource-selection')
+                        expect(selected_plot.locator('[data-testid^="data-testid VizLegend series "]')).to_have_count(1,timeout=10000)
+                        assert 'No data' not in selected_plot.inner_text()
+                        assert parse_qs(urlparse(page.url).query)==before_selection
+                        matrix.get_by_role('button',name='Clear selection').click()
+                        assert matrix.locator('.xlt-resource-selection').count()==0
+                        matrix.get_by_label('Matrix calculation').select_option('mean')
+                        matrix.get_by_label('Matrix calculation').select_option('max')
+                        matrix.get_by_label('Matrix calculation').select_option('latest')
+                        matrix.screenshot(path=str(args.output/f'matrix-{route}-{title.lower().replace(" ", "-").replace("/", "-")}-{theme}-{width}.png'))
+                        matrix.get_by_role('button',name='Time series',exact=True).click()
                         panel=page.get_by_test_id('data-testid Panel header '+title)
                         control=panel.get_by_role('button',name='Series visibility',exact=True)
                         control.wait_for(timeout=30000);control.scroll_into_view_if_needed()
@@ -51,11 +75,16 @@ def validate(args):
                         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                         panel.screenshot(path=str(args.output/f'{route}-{title.lower().replace(" ", "-").replace("/", "-")}-{theme}-{width}.png'))
                         checks.append({'route':route,'panel':title,'theme':theme,'width':width,
-                                       'label_selection':True,'select_deselect_clear':True,'context_preserved':True})
+                                       'minimum_cell_contrast':round(min(ratios),2),'matrix_selection':True,'reductions':True,'label_selection':True,'select_deselect_clear':True,'context_preserved':True})
+                    page.goto(origin+'/a/xlayer-telemetry-app/overview?'+urlencode(params))
+                    page.locator('.xlt-kpi .xlt-spark').first.wait_for(timeout=30000)
+                    overlaps=page.locator('.xlt-kpi').evaluate_all("""cards=>cards.flatMap(card=>{const s=card.querySelector('.xlt-spark');if(!s)return [];const a=s.getBoundingClientRect();return [...card.querySelectorAll('strong,small,.xlt-eyebrow')].filter(e=>{const b=e.getBoundingClientRect();return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top}).map(e=>e.innerText)})""")
+                    assert not overlaps,overlaps
+                    page.locator('.xlt-kpis').screenshot(path=str(args.output/f'kpis-{theme}-{width}.png'))
                     page.close()
         finally:browser.close()
     assert not errors,errors
-    result={'checks':checks,'browser_errors':errors,'scope':'Scenes UI + native legend; synthetic data; no operation attribution'}
+    result={'checks':checks,'browser_errors':errors,'scope':'Scenes resource Matrix + native legend + KPI overlap;  synthetic data; no operation attribution'}
     (args.output/'validation.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))
 

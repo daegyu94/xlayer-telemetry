@@ -144,7 +144,8 @@ export function buildNativeWorkspace(
   return model;
 }
 
-function NativePanel({ source, panel }: { source: Panel; panel?: VizPanel }) {
+type PanelView = React.ComponentType<{panel:VizPanel}>;
+function NativePanel({ source, panel, View }: { source: Panel; panel?: VizPanel; View?:PanelView }) {
   const stat = source.type === 'stat';
   const text = source.type === 'text';
   return <div
@@ -153,42 +154,44 @@ function NativePanel({ source, panel }: { source: Panel; panel?: VizPanel }) {
     data-panel-type={source.type}
     style={{ height: stat ? 126 : text ? undefined : source.type === 'table' ? 290 : 270 }}
   >
-    {panel ? <panel.Component model={panel} /> : <p className="xlt-empty">기존 panel을 사용할 수 없습니다 · {source.title}</p>}
+    {panel ? View ? <View panel={panel} /> : <panel.Component model={panel} /> : <p className="xlt-empty">기존 panel을 사용할 수 없습니다 · {source.title}</p>}
   </div>;
 }
 
-function NativeGroup({ group, workspace, panels }: {
+function NativeGroup({ group, workspace, panels, View }: {
   group: NativeWorkspaceGroup;
   workspace: NativeWorkspaceModel;
   panels: Array<VizPanel | undefined>;
+  View?:PanelView;
 }) {
   const [open, setOpen] = useState(false);
   if (!group.panelIndices.length) return null;
   return <details className="xlt-native-group" onToggle={event => setOpen(event.currentTarget.open)}>
     <summary>{group.title}<span className="xlt-native-group-count">panel {group.panelIndices.length}개</span></summary>
     {open && <div className="xlt-native-grid">
-      {group.panelIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} />)}
+      {group.panelIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} View={View} />)}
     </div>}
   </details>;
 }
 
-export function NativeWorkspace({ workspace, panels, context }: {
+export function NativeWorkspace({ workspace, panels, context, View }: {
   workspace: NativeWorkspaceModel;
   panels: Array<VizPanel | undefined>;
   context?: Context;
+  View?:PanelView;
 }) {
   if (!workspace.available) return <section className="xlt-native-workspace">
     <p className="xlt-empty">기존 Dashboard를 사용할 수 없습니다. Optional source가 비활성화되어 있거나 Dashboard가 provisioning되지 않았을 수 있습니다. 측정값 0이나 성공한 query의 빈 결과가 아닙니다.</p>
   </section>;
   return <div className="xlt-native-workspace" data-native-destination={workspace.destination}>
     {!!workspace.statIndices.length && <div className="xlt-native-kpis">
-      {workspace.statIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} />)}
+      {workspace.statIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} View={View} />)}
     </div>}
     <div className="xlt-native-grid">
-      {workspace.primaryIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} />)}
+      {workspace.primaryIndices.map(index => <NativePanel key={index} source={workspace.panels[index]} panel={panels[index]} View={View} />)}
     </div>
     <div className="xlt-native-catalog">
-      {workspace.groups.map(group => <NativeGroup key={`${workspace.destination}:${group.id}`} group={group} workspace={workspace} panels={panels} />)}
+      {workspace.groups.map(group => <NativeGroup key={`${workspace.destination}:${group.id}`} group={group} workspace={workspace} panels={panels} View={View} />)}
     </div>
     {context && <div className="xlt-actions xlt-native-footer">
       <a className="xlt-link" href={dashboardLink(workspace.destination as Destination, context)}>전체 Grafana Dashboard 열기 ↗</a>
