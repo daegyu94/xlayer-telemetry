@@ -104,4 +104,6 @@ Scenario Explorer는 하나의 Grafana에서 Run / Stop / Reset / Replay를 수�
 
 첫 push의 원격 CI에서는 위 3FS 검사가 단일·멀티worker 모두 통과했지만 새 product/scenario validator의 시작 단계가 별도로 실패했습니다. CI의 기본 Chromium headless shell에서 locale 미지정 시 `navigator.language=en-US@posix`와 Grafana bootstrap의 `Invalid language tag`를 재현했습니다. 기존 validator처럼 `en-US`를 명시하고 브라우저 종류·버전·timeout은 유지했으며, 실제 기본 headless shell에서 Scenario lifecycle과 제품 경로·경계 검사를 재검증했습니다. 또 `ci_scenarios.py`가 호출자의 상대 output 경로를 다른 cwd의 child에 그대로 넘겨 실패 artifact가 upload 경로 밖에 저장되던 문제를 재현하고, child 실행 전 절대 경로로 고정했습니다. Helper regression은 48개가 통과하며, 초기 UI 실패에도 기존 bounded console/HTTP/DOM 진단을 남깁니다.
 
-후속 원격 Single-worker 실행에서는 Loading 문구가 먼저 렌더되고 HTTP query가 아직 fixture에 도착하지 않은 순간의 `assert held` 경합도 확인했습니다. 실제 보류된 요청 수를 browser binding으로 기다린 뒤 같은 Loading/관측 없음 assertion을 검사하도록 바꿨고, 성공·실패 모두 보류된 route를 정리합니다. 기본 headless shell의 8개 경계 검사를 다시 통과했으며 보류 상태의 화면과 요청 수를 별도로 보존합니다. 제품의 Loading 의미나 기존 assertion을 완화하지 않았습니다.
+후속 원격 Single-worker 실행에서는 Loading 문구가 먼저 렌더되고 HTTP query가 아직 fixture에 도착하지 않은 순간의 `assert held` 경합도 확인했습니다. `wait_for_function`의 비동기 predicate는 Promise 자체를 truthy로 취급하므로 요청 수를 조회하는 비동기 조건식만으로는 준비 완료를 보장하지 못했습니다.
+
+실제 route 도착 시 설정하는 `asyncio.Event`를 15초 상한으로 기다리는 binding과, Promise 완료를 기다리는 `page.evaluate`를 사용합니다. 독립 browser probe에서 이벤트 전 미완료·이벤트 후 완료를 확인했고 기본 headless shell의 8개 경계 검사도 통과했습니다. 기존 Loading/관측 없음 assertion은 유지하며 성공·실패 모두 보류 route를 정리하고 보류 상태의 화면·요청 수를 보존합니다.

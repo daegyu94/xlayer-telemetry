@@ -3,6 +3,7 @@
 These test UI fault handling, not backend failures or hardware behavior.
 """
 import argparse
+import asyncio
 import json
 from pathlib import Path
 from urllib.parse import urlencode
@@ -149,17 +150,25 @@ def run(args):
 
         def loading_state(page):
             held = []
+            query_arrived = asyncio.Event()
             holding = True
             def hold(route):
-                if holding:held.append(route)
+                if holding:
+                    held.append(route)
+                    query_arrived.set()
                 else:route.continue_()
+            async def wait_for_query():
+                await asyncio.wait_for(query_arrived.wait(), timeout=15)
+                return len(held)
             page.route('**/api/ds/query*', hold)
             # Loading can render before Scenes dispatches its first query. Expose
             # only fixture readiness; do not read browser state inside a route.
-            page.expose_function('xlayerHeldQueryCount', lambda: len(held))
+            page.expose_function('xlayerWaitForHeldQuery', wait_for_query)
             try:
                 page.goto(base + 'overview?' + urlencode(params))
-                page.wait_for_function('async () => (await window.xlayerHeldQueryCount()) > 0', timeout=15000)
+                # evaluate awaits the binding Promise; wait_for_function treats
+                # a Promise as truthy before its eventual Boolean value exists.
+                assert page.evaluate('() => window.xlayerWaitForHeldQuery()') > 0
                 card = page.locator('.xlt-kpi').filter(has=page.get_by_role('button', name='Worker throughput 설명', exact=True))
                 expect(card.locator('strong')).to_have_text('Loading…', timeout=15000)
                 assert held, 'A native datasource request must be held before checking Loading'
