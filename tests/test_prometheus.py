@@ -1,4 +1,6 @@
 """Shared range parsing preserves labels, counter evidence and failure semantics."""
+from http.client import HTTPException
+
 import pytest
 
 from xlayer_telemetry import prometheus
@@ -130,3 +132,27 @@ def test_malformed_counter_matrix_is_missing_without_discarding_other_sources(mo
     assert 'prometheus:vllm_preemptions_total:RuntimeError' in report['missing_sources']
     assert report['evidence']['disk_read_bytes_per_second']['mean'] == 15
     assert not report['query_execution']['sources']['prometheus']['unavailable']
+
+
+@pytest.mark.parametrize('failure', [None, OSError('read failed'), HTTPException('bad framing')])
+def test_error_body_read_is_bounded_and_closed(monkeypatch, failure):
+    import io
+    from urllib.error import HTTPError
+    from urllib.request import Request
+    class Body(io.BytesIO):
+        sizes = []
+        def read(self, size=-1):
+            self.sizes.append(size)
+            if failure is not None:
+                raise failure
+            return super().read(size)
+    body = Body(b'{"status":"error","errorType":"timeout"}')
+    error = HTTPError('http://unused', 503, 'Unavailable', {}, body)
+    def request(*args, **kwargs):
+        raise error
+    monkeypatch.setattr(prometheus, 'urlopen', request)
+    expected = HTTPError if failure else prometheus.PrometheusQueryTimeout
+    with pytest.raises(expected):
+        prometheus._read_json(Request('http://unused'), 1)
+    assert body.sizes == [prometheus.MAX_ERROR_RESPONSE_BYTES + 1]
+    assert body.closed

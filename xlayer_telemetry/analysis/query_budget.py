@@ -50,7 +50,8 @@ class QueryBudget:
                         return getattr(target, attribute)(*args, **kwargs)
                     except (OSError, RuntimeError, ValueError) as error:
                         state["failed"] += 1
-                        # Invalid PromQL/JSON must not suppress unrelated queries.
+                        # Query-local failures (including PrometheusQueryTimeout) must
+                        # not suppress unrelated queries; transport errors still do.
                         if isinstance(error, OSError) and (not isinstance(error, HTTPError) or error.code == 429 or error.code >= 500):
                             state["unavailable"] = True
                         raise

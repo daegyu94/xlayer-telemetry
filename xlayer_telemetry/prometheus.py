@@ -11,10 +11,12 @@ import json
 import math
 import statistics
 from typing import Any, Iterable, Mapping
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_ERROR_RESPONSE_BYTES = 8 * 1024
 MAX_RESULT_SERIES = 1000
 MAX_RESULT_POINTS = 200000
 MAX_ANNOTATION_COUNT = 1000
@@ -126,10 +128,35 @@ def range_summary(detail: Mapping[str, Any]) -> dict[str, Any] | None:
             'query_result': detail.get('result_quality', {})}
 
 
+class PrometheusQueryTimeout(RuntimeError):
+    """A server-side query timeout, not an unavailable backend transport."""
+
+
+def _query_timeout_response(error: HTTPError) -> bool:
+    # Only the structured Prometheus timeout envelope narrows a 503's scope.
+    # Unreadable, oversized or proxy-generated responses retain outage behavior.
+    if error.code != 503:
+        return False
+    try:
+        with error:
+            body = error.read(MAX_ERROR_RESPONSE_BYTES + 1)
+        if len(body) > MAX_ERROR_RESPONSE_BYTES:
+            return False
+        payload = json.loads(body)
+        return (isinstance(payload, dict) and payload.get('status') == 'error'
+                and payload.get('errorType') == 'timeout')
+    except (OSError, HTTPException, ValueError, RecursionError):
+        return False
+
+
 def _read_json(request: Request, timeout: float) -> Any:
     try:
         with urlopen(request, timeout=timeout) as response:
             body = response.read(MAX_RESPONSE_BYTES + 1)
+    except HTTPError as error:
+        if _query_timeout_response(error):
+            raise PrometheusQueryTimeout("Prometheus query timed out") from None
+        raise
     except HTTPException:
         # Bad framing is a source-local transport failure, not a failed entire
         # analysis. Keep partial bodies and backend connection details private.

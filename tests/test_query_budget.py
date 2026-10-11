@@ -144,3 +144,69 @@ def test_missing_baseline_is_explicit_without_discarding_current_data():
     report = DiagnosticEngine({'prometheus':{'url':'http://unused'}},prometheus=Prom()).analyze(current,[base])
     assert report['evidence']
     assert 'prometheus:gpu_utilization_percent:baseline_no_data' in report['missing_sources']
+
+
+@pytest.mark.parametrize('timeout_body,continues', [
+    (b'{"status":"error","errorType":"timeout","error":"query timed out"}', True),
+    (b'{"status":"error","errorType":"unavailable"}', False),
+    (b'{"status":"success","errorType":"timeout"}', False),
+    (b'{"status":"error","error":"timeout"}', False),
+    (b'<html>upstream unavailable</html>', False),
+    (b'[]', False),
+    (b'['*2000+b'0'+b']'*2000, False),
+    (b'{"status":"error","errorType":"timeout","padding":"' + b'x'*8192 + b'"}', False),
+], ids=['query-timeout', 'backend-unavailable', 'success-envelope', 'missing-type', 'proxy-html', 'array-envelope', 'deep-json', 'oversized-body'])
+def test_prometheus_query_timeout_preserves_later_diagnostic_evidence(monkeypatch, timeout_body, continues):
+    import json
+    from urllib.parse import parse_qs, urlparse
+    from xlayer_telemetry import prometheus
+    requests = []
+    def response(request, timeout):
+        params = parse_qs(urlparse(request.full_url).query)
+        expression = params['query'][0]
+        requests.append(expression)
+        if len(requests) == 1:
+            raise HTTPError(request.full_url, 503, 'Service Unavailable', {}, io.BytesIO(timeout_body))
+        start, end = float(params['start'][0]), float(params['end'][0])
+        return io.BytesIO(json.dumps({'status': 'success', 'data': {'resultType': 'matrix', 'result': [
+            {'metric': {'node': 'n', 'device': 'disk0'}, 'values': [[start, '1'], [end, '2']]}
+        ]}}).encode())
+    monkeypatch.setattr(prometheus, 'urlopen', response)
+    engine = DiagnosticEngine({'prometheus': {'url': 'http://unused'}}, clock=lambda: 100)
+    monkeypatch.setattr(engine, '_queries', lambda *args, **kwargs: {
+        'ray_pending_tasks': 'ray_query', 'disk_utilization_percent': 'disk_query',
+        'rdma_transmit_wait_rate': 'rdma_query',
+    })
+    report = engine.analyze(None, [])
+    state = report['query_execution']['sources']['prometheus']
+    assert state['failed'] == 1
+    assert state['unavailable'] is not continues
+    if continues:
+        assert requests == ['ray_query', 'disk_query', 'rdma_query']
+        assert 'disk_utilization_percent' in report['evidence']
+        assert 'rdma_transmit_wait_rate' in report['evidence']
+        assert state['skipped'] == 0
+        assert any('PrometheusQueryTimeout' in item for item in report['missing_sources'])
+    else:
+        assert requests == ['ray_query'] and state['skipped'] == 2
+        assert 'disk_utilization_percent' not in report['evidence']
+
+
+def test_query_timeout_still_consumes_the_shared_deadline(monkeypatch):
+    from xlayer_telemetry import prometheus
+    now = [0]
+    calls = []
+    def response(request, timeout):
+        calls.append(timeout); now[0] += timeout
+        raise HTTPError(request.full_url, 503, 'Service Unavailable', {},
+                        io.BytesIO(b'{"status":"error","errorType":"timeout"}'))
+    monkeypatch.setattr(prometheus, 'urlopen', response)
+    budget = QueryBudget(2, clock=lambda: now[0])
+    client = budget.wrap(PrometheusClient('http://unused', 5), 'prometheus', configurable_timeout=True)
+    with pytest.raises(RuntimeError, match='query timed out'):
+        client.query_range('ray_query', 0, 1, 1)
+    with pytest.raises(QueryBudgetExceeded):
+        client.query_range('disk_query', 0, 1, 1)
+    assert calls == [2]
+    assert budget.summary()['budget_exhausted']
+    assert not budget.summary()['sources']['prometheus']['unavailable']

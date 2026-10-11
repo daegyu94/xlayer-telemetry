@@ -213,9 +213,9 @@ Ray의 documented object-store/eviction 계약은
 Prometheus의 current·baseline·clock·freshness query와 3FS 조회가 budget을 공유합니다.
 남은 시간보다 긴 HTTP timeout은 줄이고 budget이 소진되면 추가 요청을 생략합니다.
 
-연결 오류·timeout·HTTP 429/5xx가 발생한 backend에는 같은 analysis에서 재요청하지 않습니다.
-다른 backend 조회는 남은 budget으로 진행하며, 다음 analysis에서 다시 연결합니다.
-빈 결과·잘못된 query·malformed JSON은 backend 전체의 연결 장애로 취급하지 않습니다.
+연결 오류·socket timeout·HTTP 429/5xx가 발생한 backend에는 같은 analysis에서 재요청하지 않습니다. 다른 backend 조회는 남은 budget으로 진행하며, 다음 analysis에서 다시 연결합니다. 정상 HTTP 응답의 빈 결과·잘못된 query·malformed JSON은 backend 전체의 연결 장애로 취급하지 않습니다.
+
+Prometheus의 HTTP 503 응답이 `status=error`, `errorType=timeout`을 명시하면 개별 query 실패(`PrometheusQueryTimeout`)로 기록하고 같은 backend의 후속 조회를 남은 budget으로 계속합니다. 오류 본문은 8 KiB 상한으로 읽으며, 일반 503·본문 손상·상한 초과·읽기 실패에는 기존 backend 차단을 유지합니다. 실패한 query를 즉시 재시도하거나 전체 분석 시간 제한을 늘리지 않습니다.
 
 `query_execution`에 backend별 `attempted`·`failed`·`skipped`와 `unavailable`, 소요 시간을 기록하고 `show_run`에도 표시합니다.
 생략된 query는 `missing_sources`로 남아 기존 bounded retry 대상이 됩니다.
