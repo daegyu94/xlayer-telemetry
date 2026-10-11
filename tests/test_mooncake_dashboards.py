@@ -152,3 +152,28 @@ def test_mooncake_queries_with_real_promtool(tmp_path):
     path.write_text(json.dumps(fixture))
     result = subprocess.run([tool, "test", "rules", str(path)], capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('present', [('read', 'write'), ('read',), ('write',)])
+def test_llm_example_preserves_both_error_counters(tmp_path, present):
+    tool = os.environ.get('PROMTOOL') or shutil.which('promtool')
+    if not tool:
+        pytest.skip('set PROMTOOL to evaluate example counter queries')
+    source = json.loads((ROOT / 'examples/mooncake/prometheus.json').read_text())
+    queries = [q for q in source['queries'] if 'mooncake_dfs_' in q['query'] and '_errors_total' in q['query']]
+    labels = '{job="native",telemetry_source="mooncake",cluster="training-cluster",node="rollout-0",component="mooncake-client-0",client_mode="real",cluster_id="store",error="TIMEOUT"}'
+    series = [{'series': f'mooncake_dfs_{op}_errors_total'+labels,
+               'values': '0 0 0' if op == 'read' else '8 0 3'} for op in present]
+    checks = []
+    for query in queries:
+        assert query['kind'] == 'counter' and query['scope'] == 'client'
+        for minute in (0, 1, 2):
+            expected = [{'labels': f'mooncake_dfs_{op}_errors_total'+labels,
+                         'value': 0 if op == 'read' else (8, 0, 3)[minute]}
+                        for op in present if f'mooncake_dfs_{op}_errors_total' in query['query']]
+            checks.append({'expr': query['query'], 'eval_time': f'{minute}m', 'exp_samples': expected})
+    path = tmp_path / 'errors.json'
+    path.write_text(json.dumps({'evaluation_interval': '1m', 'tests': [
+        {'interval': '1m', 'input_series': series, 'promql_expr_test': checks}]}))
+    result = subprocess.run([tool, 'test', 'rules', str(path)], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stdout + result.stderr

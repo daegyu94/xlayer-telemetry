@@ -66,8 +66,15 @@
       "scope": "client"
     },
     {
-      "signal": "mooncake_dfs_failed_keys",
-      "query": "mooncake_dfs_read_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"} or mooncake_dfs_write_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
+      "signal": "mooncake_dfs_read_failed_keys",
+      "query": "mooncake_dfs_read_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
+      "unit": "keys",
+      "scope": "client",
+      "kind": "counter"
+    },
+    {
+      "signal": "mooncake_dfs_write_failed_keys",
+      "query": "mooncake_dfs_write_errors_total{job=\"native\",telemetry_source=\"mooncake\",cluster=\"training-cluster\",node=\"rollout-0\",component=\"mooncake-client-0\"}",
       "unit": "keys",
       "scope": "client",
       "kind": "counter"
