@@ -20,7 +20,7 @@ def run(args):
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True, args=['--no-sandbox'], **({'executable_path': args.browser} if args.browser else {}))
         def check(name, test):
-            page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+            page = browser.new_page(viewport={'width': 1440, 'height': 1000}, locale='en-US')
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             try:

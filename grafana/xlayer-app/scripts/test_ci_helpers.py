@@ -291,3 +291,29 @@ def test_service_startup_waits_for_migrations_and_still_bounds_failure(monkeypat
         def poll(self):return 1
     with pytest.raises(RuntimeError,match='Owned service exited'):
         demo.wait_for_service('http://127.0.0.1:1/api/health',Exited(),Stop(),migrations)
+
+
+def test_scenario_ci_keeps_browser_artifacts_in_the_callers_output(tmp_path, monkeypatch):
+    from argparse import Namespace
+    monkeypatch.syspath_prepend(str(SCRIPTS))
+    scenario = load('ci_scenarios')
+    caller=tmp_path/'caller';caller.mkdir()
+    child_cwd=tmp_path/'repo';child_cwd.mkdir()
+    monkeypatch.chdir(caller)
+    monkeypatch.setattr(scenario,'ROOT',child_cwd)
+    calls=[]
+    class Process:
+        def wait(self, **kwargs):return 0
+    def start(command, **kwargs):
+        calls.append((command,kwargs['cwd']))
+        return Process()
+    monkeypatch.setattr(scenario.subprocess,'Popen',start)
+    monkeypatch.setattr(scenario,'wait_for_service',lambda *args,**kwargs:None)
+    monkeypatch.setattr(scenario,'stop_owned',lambda *args,**kwargs:None)
+    scenario.run(Namespace(output=Path('results'),state=Path('state'),tools=Path('tools'),scenarios=['normal'],browser=None))
+    browser_command,cwd=calls[1]
+    output=Path(browser_command[browser_command.index('--output')+1])
+    assert output.is_absolute()
+    assert output==caller/'results/browser'
+    assert cwd==child_cwd
+    assert json.loads((caller/'results/validation.json').read_text())['status']=='passed'

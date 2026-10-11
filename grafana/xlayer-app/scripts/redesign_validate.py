@@ -11,6 +11,7 @@ from design_validate import owned_origin
 
 def run(args):
     from playwright.sync_api import sync_playwright, expect
+    from browser_validate import EntryDiagnostics
     origin = owned_origin(args.url)
     args.output.mkdir(parents=True, exist_ok=False)
     report = {'checks': [], 'captures': [], 'browser_errors': [], 'data_origin': 'synthetic SDK + native Grafana queries'}
@@ -20,7 +21,7 @@ def run(args):
     url = origin + '/a/xlayer-telemetry-app/overview?' + urlencode(params)
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True, args=['--no-sandbox'], **({'executable_path': args.browser} if args.browser else {}))
-        page = browser.new_page(viewport={'width': 1440, 'height': 1000}, timezone_id='Asia/Seoul')
+        page = browser.new_page(viewport={'width': 1440, 'height': 1000}, timezone_id='Asia/Seoul', locale='en-US')
         page.on('pageerror', lambda error: report['browser_errors'].append(str(error)))
         def capture(name):
             page.screenshot(path=str(args.output / (name+'.png')), full_page=True)
@@ -30,7 +31,13 @@ def run(args):
         def ready():
             page.locator('.xlt-primary-kpis .xlt-progress strong').filter(has_text='Step').wait_for(timeout=30000)
             page.locator('.xlt-slow-steps li button').first.wait_for(timeout=15000)
-        page.goto(url); ready()
+        diagnostics=EntryDiagnostics(page,args.output,'product',report['browser_errors'])
+        try:
+            page.goto(url); ready()
+        except Exception as error:
+            diagnostics.fail(error,'Product journey / initial Run entry')
+            browser.close()
+            raise
         assert page.locator('nav[aria-label="XLayer investigation"] a').count() == 4
         assert page.locator('.xlt-primary-kpis .xlt-kpi').count() == 4
         assert page.locator('.xlt-secondary-signals').get_attribute('open') is None

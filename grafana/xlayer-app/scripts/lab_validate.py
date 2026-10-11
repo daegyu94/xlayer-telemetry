@@ -8,12 +8,14 @@ from design_validate import owned_origin
 
 def run(args):
     from playwright.sync_api import sync_playwright,expect
+    from browser_validate import EntryDiagnostics
     origin=owned_origin(args.url);args.output.mkdir(parents=True,exist_ok=False)
     report={'grafana':origin,'scenarios':[],'browser_errors':[],'scope':'One Grafana; per-replay synthetic stores; no hardware validation'}
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=True,args=['--no-sandbox'],**({'executable_path':args.browser} if args.browser else {}))
-        page=browser.new_page(viewport={'width':1440,'height':1000},timezone_id='Asia/Seoul')
+        page=browser.new_page(viewport={'width':1440,'height':1000},timezone_id='Asia/Seoul',locale='en-US')
         page.on('pageerror',lambda error:report['browser_errors'].append(str(error)))
+        diagnostics=EntryDiagnostics(page,args.output,'scenario',report['browser_errors'])
         previous_url=None;previous_generation=None;signatures={}
         try:
             page.goto(origin+'/a/xlayer-telemetry-app/demo?theme=light&timezone=UTC')
@@ -98,6 +100,7 @@ def run(args):
             report['lifecycle']='Start/switch/Stop/Reset and expired URL verified; repeated scenario in --scenarios exercises Replay'
             assert not report['browser_errors'],report['browser_errors']
         except Exception as error:
+            diagnostics.fail(error,'Scenario Explorer / '+(report['scenarios'][-1]['workflow'] if report['scenarios'] else 'initial controls'))
             report['failure']=str(error)[:3000]
             page.screenshot(path=str(args.output/'failure.png'),full_page=True)
             raise

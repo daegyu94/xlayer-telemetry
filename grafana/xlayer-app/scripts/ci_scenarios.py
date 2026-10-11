@@ -14,6 +14,8 @@ from xlayer_telemetry.demos.journeys import SCENARIO_IDS
 
 
 def run(args):
+    # Child validators run from ROOT, so resolve caller-relative paths first.
+    args.output=args.output.resolve();args.state=args.state.resolve()
     args.output.mkdir(parents=True,exist_ok=False)
     if args.state.exists():raise ValueError('--state must be a new disposable directory')
     with socket.socket() as probe:
