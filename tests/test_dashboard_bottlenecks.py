@@ -68,7 +68,7 @@ def test_optional_bottleneck_rows_preserve_scope_and_missing_evidence():
         for row in (p for p in dashboard["panels"] if p["id"] in ids):
             assert row["collapsed"] and row["panels"]
             for panel in row["panels"]:
-                assert panel["fieldConfig"]["defaults"]["noValue"] == "N/A"
+                assert panel["fieldConfig"]["defaults"]["noValue"] == ("Unknown" if panel['type']=='status-history' else "N/A")
                 for target in panel["targets"]:
                     expr = target["expr"]
                     assert 'cluster=~"$cluster"' in expr

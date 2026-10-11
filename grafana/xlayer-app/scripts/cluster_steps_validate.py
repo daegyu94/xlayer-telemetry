@@ -65,7 +65,9 @@ def main():
             assert table.get_by_role('row').count()==3
             table.screenshot(path=str(args.output/'all-clusters.png'))
             if index==0:
-                option=next(item['value'] for item in values if item['text'].startswith(cluster+' /'))
+                expected=[cluster,row['run_id'],row.get('observer_node') or row['node'],row['record_id'],row['window_start_ms'],row['window_end_ms']]
+                option=next(item['value'] for item in values if json.loads(item['value'])==expected)
+                assert all(item['text'].startswith('Step 500') for item in values)
                 page.get_by_role('combobox',name='Completed Step').select_option(option)
             else:
                 table.get_by_role('row').filter(has_text=cluster).get_by_role('button',name='Analyze Step 500 →',exact=True).click()

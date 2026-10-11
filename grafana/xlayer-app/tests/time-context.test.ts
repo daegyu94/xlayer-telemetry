@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {formatContextTime,timeContextIssue,validAbsoluteWindow,validTimezone} from '../src/time-context';
+import {formatContextTime,formatContextRange,timeContextIssue,validAbsoluteWindow,validTimezone} from '../src/time-context';
 import {readContext,sceneTime} from '../src/context';
 test('out-of-range numeric URL time is rejected before Date conversion',()=>{
  for(const value of ['999999999999999999999','8640000000000001','-8640000000000001'])assert.throws(()=>sceneTime(value),error=>error instanceof Error&&!(error instanceof RangeError)&&error.message.includes('Time range'));
@@ -28,4 +28,10 @@ test('selected timezone formats the same instant independent of browser locale, 
  assert.match(formatContextTime(Date.parse('2026-03-08T07:01:00Z'),'America/New_York','time'),/03:01:00/);
  assert.match(formatContextTime(0,'UTC'),/1970/);
  assert.equal(formatContextTime(1e24,'UTC'),'Time unknown');assert.equal(formatContextTime(time,'bad'),'Time unknown');
+});
+test('visible range retains both dates across midnight in the selected timezone and labels window duration',()=>{
+ const start=Date.parse('2026-10-11T23:59:40Z'),end=Date.parse('2026-10-12T00:00:20Z');
+ const utc=formatContextRange(start,end,'UTC');assert.match(utc,/11 Oct/);assert.match(utc,/12 Oct/);assert.match(utc,/window 40 s/);
+ const seoul=formatContextRange(start,end,'Asia/Seoul');assert.match(seoul,/08:59:40/);assert.match(seoul,/09:00:20/);
+ assert.equal(formatContextRange(1e24,end,'UTC'),'Time range unknown');
 });

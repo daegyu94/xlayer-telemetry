@@ -36,6 +36,12 @@ export function resourcePanelKey(panel:object){
 }
 
 export type ResourceMetricAvailability='loading'|'error'|'empty'|'missing'|'present';
+export function initialResourceMode(result:{state:string;cells:ResourceCell[]}):'matrix'|'series'|undefined{
+ if(result.state==='unsupported')return 'series';
+ if(result.state!=='ready')return undefined;
+ const resources=new Set(result.cells.filter(cell=>cell.dimensionValid).map(cell=>JSON.stringify([cell.row,cell.column])));
+ return resources.size===1?'series':'matrix';
+}
 export function resourceMetricAvailability(result:{state:string;metrics:string[]},refId:string):ResourceMetricAvailability{
  if(result.state==='loading')return 'loading';
  if(result.state==='error')return 'error';

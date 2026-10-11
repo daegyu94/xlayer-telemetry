@@ -230,7 +230,7 @@
         "x": 0,
         "y": 3,
         "w": 24,
-        "h": 4
+        "h": 9
       },
       "datasource": {
         "type": "loki",
@@ -1172,9 +1172,9 @@
       "title": "What changed? · Same-run baseline",
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 12,
         "w": 24,
-        "h": 7
+        "h": 9
       },
       "datasource": {
         "type": "loki",
@@ -2042,9 +2042,9 @@
       "title": "Bottleneck candidates and evidence",
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 21,
         "w": 24,
-        "h": 7
+        "h": 9
       },
       "datasource": {
         "type": "loki",
@@ -2999,7 +2999,7 @@
       "title": "Evidence details: supporting, counter, and missing",
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 30,
         "w": 24,
         "h": 9
       },
@@ -4107,7 +4107,7 @@
       "title": "Deep dive",
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 39,
         "w": 24,
         "h": 4
       },

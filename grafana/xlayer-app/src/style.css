@@ -771,7 +771,7 @@
 }
 
 .xlt-visible-range {
-  display:none!important;
+  display:block!important;
   color:var(--xl-muted);
   font-size:12px
 }
@@ -1387,21 +1387,21 @@
 }
 
 .xlt-investigate-grid>.xlt-investigation-section {
-  grid-column:1;
+  grid-column:1/-1;
   grid-row:1
 }
 
 .xlt-investigate-grid>.xlt-candidate-section {
-  grid-column:2;
-  grid-row:1/3
+  grid-column:1/-1;
+  grid-row:3
 }
 
 .xlt-investigate-grid>.xlt-candidate-section .xlt-candidates {
-  grid-template-columns:1fr
+  grid-template-columns:repeat(2,minmax(0,1fr))
 }
 
 .xlt-investigate-grid>p {
-  grid-column:1
+  grid-column:1/-1
 }
 
 .xlt-investigate-grid>section>h3 {
@@ -1603,3 +1603,19 @@ Grafana's global navigation stays available. */
 
 .xlt .xlt-resource-cell{color:var(--xl-text)}
 .xlt .xlt-resource-cell:disabled{color:var(--xl-muted)}
+
+/* Reading layouts keep native query/identity contracts and expose full content. */
+.xlt-native-text,.xlt-native-panel[data-panel-type=table]{grid-column:1/-1}
+.xlt-native-kpis{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}
+.xlt-panel:has(>.xlt-native-timeline),.xlt-native-panel:has(>.xlt-native-timeline){height:auto!important}
+.xlt-native-timeline{min-width:0;flex-shrink:0}
+.xlt-native-timeline>div{height:100%}
+[data-native-destination=summary] .xlt-native-panel[data-panel-type=table]{grid-column:1/-1}
+.xlt-comparison-table td:first-child{max-width:240px;white-space:normal;overflow-wrap:anywhere}
+.xlt-comparison-table th,.xlt-comparison-table td{font-variant-numeric:tabular-nums}
+.xlt-comparison-table td:nth-child(2),.xlt-comparison-table td:nth-child(3),.xlt-comparison-table td:nth-child(4){white-space:nowrap}
+.xlt-comparison-table td:last-child{max-width:220px;white-space:normal;overflow-wrap:anywhere}
+.xlt-comparison-table details small{display:block;margin:5px 0}
+.xlt-native-highlights details{font-size:12px}
+.xlt-native-highlights details p{font-size:12px;line-height:1.5;margin:6px 0}
+@container(max-width:1024px){.xlt-investigate-grid>.xlt-candidate-section .xlt-candidates{grid-template-columns:1fr}}

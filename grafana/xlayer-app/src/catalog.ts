@@ -13,6 +13,7 @@ import {
   TextBoxVariable,
   ConstantVariable,
   DataProviderProxy,
+  SceneDataNode,
 } from "@grafana/scenes";
 import { selectTargets } from "./data";
 export { records, samples } from "./data";
@@ -93,7 +94,7 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
 export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
-  const data = shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
+  const data = panel.type==='text'&&!panel.targets?.length?new SceneDataNode({}):shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
   // Styling only: collection-point charts keep their original no-line contract.
   const fields=panel.type==='timeseries'&&panel.fieldConfig?.defaults?.custom?.drawStyle!=='points'
     ? {...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,custom:{...panel.fieldConfig?.defaults?.custom,fillOpacity:0,lineWidth:panel.options?.legend?.enableFacetedFilter?(panel.fieldConfig?.defaults?.custom?.lineWidth??1):1.5}}}

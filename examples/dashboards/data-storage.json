@@ -836,8 +836,10 @@
             "lineWidth": 2,
             "fillOpacity": 5,
             "spanNulls": false,
-            "showPoints": "auto"
-          }
+            "showPoints": "auto",
+            "axisSoftMax": 1
+          },
+          "min": 0
         },
         "overrides": []
       },
@@ -859,9 +861,9 @@
     },
     {
       "id": 33,
-      "type": "timeseries",
+      "type": "status-history",
       "title": "Filesystem read-only and collection errors",
-      "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다.",
+      "description": "Read-only와 device_error gauge입니다. 0은 실제 관측된 false, 1은 read-only 또는 filesystem stat 수집 오류입니다. 서로 다른 상태이며 filesystem 자체의 request error rate는 아닙니다. 관측 gap은 보간하지 않으며 Unknown과 실제 0을 구분합니다.",
       "gridPos": {
         "x": 0,
         "y": 55,
@@ -886,29 +888,63 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "noValue": "N/A",
+          "unit": "none",
+          "noValue": "Unknown",
           "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 5,
-            "spanNulls": false,
-            "showPoints": "auto"
-          }
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Reported false",
+                  "color": "blue"
+                },
+                "1": {
+                  "text": "Reported true",
+                  "color": "orange"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "Unknown",
+                  "color": "gray"
+                }
+              }
+            },
+            {
+              "type": "regex",
+              "options": {
+                "pattern": "^(?!0(?:\\.0+)?$|1(?:\\.0+)?$).*",
+                "result": {
+                  "text": "Unknown / invalid",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
       "options": {
+        "showValue": "auto",
+        "rowHeight": 0.8,
+        "colWidth": 0.9,
         "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ]
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc",
+          "mode": "single",
+          "sort": "none",
           "hideZeros": false
         }
       }

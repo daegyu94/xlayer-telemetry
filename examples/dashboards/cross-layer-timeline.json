@@ -2236,7 +2236,7 @@
         },
         {
           "id": 13,
-          "type": "timeseries",
+          "type": "status-history",
           "title": "Node clock synchronization status",
           "gridPos": {
             "x": 0,
@@ -2260,25 +2260,65 @@
               "unit": "none",
               "links": [],
               "custom": {
-                "showPoints": "auto",
-                "lineWidth": 2,
-                "fillOpacity": 5,
+                "fillOpacity": 70,
+                "lineWidth": 0,
                 "spanNulls": false
-              }
+              },
+              "noValue": "Unknown",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Sync not reported",
+                      "color": "orange"
+                    },
+                    "1": {
+                      "text": "Sync reported",
+                      "color": "blue"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "gray"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": "^(?!0(?:\\.0+)?$|1(?:\\.0+)?$).*",
+                    "result": {
+                      "text": "Unknown / invalid",
+                      "color": "gray"
+                    }
+                  }
+                }
+              ]
             },
             "overrides": []
           },
           "options": {
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
-              "hideZeros": false
-            },
+            "showValue": "auto",
+            "rowHeight": 0.8,
+            "colWidth": 0.9,
             "legend": {
+              "showLegend": false,
+              "displayMode": "list",
               "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none",
+              "hideZeros": false
             }
           },
-          "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다."
+          "description": "1은 kernel이 synchronized, 0은 unsynchronized, 데이터 없음은 unknown입니다. Sample freshness도 확인해야 하며 이 값만으로 정밀한 시간 정렬이 보장되지는 않습니다. 관측 gap은 보간하지 않으며 Unknown과 실제 0을 구분합니다."
         }
       ]
     },

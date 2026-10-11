@@ -152,6 +152,9 @@ def run(args):
                     *(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'context_recovery_validate.py'),'--url',connection['grafana'],
                     '--output',str(args.output/'context-recovery'),*(['--browser',args.browser] if args.browser else [])],)
+                validators += ([sys.executable,str(SCRIPTS/'quality_validate.py'),'--url',connection['grafana'],
+                    '--context',str(args.output/'ci-validation.json'),'--output',str(args.output/'quality'),
+                    *(['--browser',args.browser] if args.browser else [])],)
                 validators += ([sys.executable,str(SCRIPTS/'llm_invocation_validate.py'),'--url',connection['grafana'],
                     '--state',str(args.state),'--context',str(args.output/'ci-validation.json'),
                     '--output',str(args.output/'llm-invocations'),*(['--browser',args.browser] if args.browser else [])],)

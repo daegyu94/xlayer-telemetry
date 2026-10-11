@@ -1,9 +1,18 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import type {PanelData} from '@grafana/data';
-import {resourceMatrix,resourceMatrixProfile,resourceMetricAvailability,matrixColorAlpha,resourcePanelKey} from '../src/resource-matrix';
+import {initialResourceMode,resourceMatrix,resourceMatrixProfile,resourceMetricAvailability,matrixColorAlpha,resourcePanelKey} from '../src/resource-matrix';
 const frame=(labels:any,values:any[],refId='A',times=[1000,2000])=>({refId,length:times.length,fields:[{name:'Time',type:'time',values:times,config:{}},{name:'Value',type:'number',labels,values,config:{}}]});
 const data=(series:any[],state='Done')=>({state,series,timeRange:{from:{valueOf:()=>1000},to:{valueOf:()=>2000}},request:{intervalMs:1000}} as unknown as PanelData);
+test('initial mode waits for terminal data and counts resources independently of read/write metric refs',()=>{
+ const profile=resourceMatrixProfile('storage',1)!;
+ const single=[frame({cluster:'c',node:'n',device:'sda'},[0,1],'A'),frame({cluster:'c',node:'n',device:'sda'},[1,2],'B')];
+ assert.equal(initialResourceMode(resourceMatrix(undefined,profile,'latest')),undefined);
+ assert.equal(initialResourceMode(resourceMatrix(data([]),profile,'latest')),undefined);
+ assert.equal(initialResourceMode(resourceMatrix(data([],'Error'),profile,'latest')),undefined);
+ assert.equal(initialResourceMode(resourceMatrix(data(single),profile,'latest')),'series');
+ assert.equal(initialResourceMode(resourceMatrix(data([...single,frame({cluster:'c',node:'n',device:'sdb'},[2,3])]),profile,'latest')),'matrix');
+});
 test('resource matrix keeps cluster/node/device/query identity and measured zero',()=>{
  const m=resourceMatrix(data([frame({cluster:'a',nodename:'n',gpu:'0'},[1,0]),frame({cluster:'b',nodename:'n',gpu:'0'},[2,3]),frame({cluster:'a',nodename:'n',gpu:'1'},[4,5]),frame({cluster:'a',nodename:'n',gpu:'0'},[6,7],'B')]),resourceMatrixProfile('compute',2)!, 'latest');
  assert.equal(m.rows.length,2);assert.deepEqual(m.columns,['0','1']);assert.equal(m.metrics.length,2);assert.equal(m.cells.length,4);assert.equal(m.cells[0].value,0);assert.equal(m.cells[0].status,'observed');assert.equal(new Set(m.cells.map(c=>c.key)).size,4);

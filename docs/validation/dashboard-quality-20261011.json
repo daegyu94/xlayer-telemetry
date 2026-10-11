@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-11",
+  "baseline_commit": "3e48c0e8f34aa2d19ebbbac53ce98e5846cad76d",
+  "scope": "CPU/synthetic SDK + actual Prometheus/Loki/Grafana Browser; not GPU/VERL weights, RDMA, ClickHouse or physical multi-node validation",
+  "environment": {
+    "python": "3.12.3",
+    "node": "20.20.0",
+    "grafana": "13.1.7",
+    "fonts": "OS Noto CJK fallback; no product font dependency"
+  },
+  "module_sha256": "44462359703cbf2d33a72f50be909ede705f07f94876018dc3e122fa7f04882a",
+  "baseline": {
+    "python_helper_passed": 1949,
+    "skipped": 24,
+    "frontend_passed": 191
+  },
+  "final": {
+    "python_helper_promtool_passed": 1971,
+    "skipped": 6,
+    "skip_reason": "ClickHouse integration backend not available",
+    "frontend_passed": 196,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "compileall": "passed",
+    "bash_syntax": "passed",
+    "canonical_query_targets": "all panel IDs and targets identical to baseline",
+    "documentation_build": "passed"
+  },
+  "browser": {
+    "single_worker_ci": "passed",
+    "multi_worker": "passed",
+    "multi_job": "passed",
+    "context_recovery": "passed",
+    "cluster_collision": "passed",
+    "panel_quality": {
+      "checks": 33,
+      "failures": 0,
+      "widths": [
+        1440,
+        1024,
+        390
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "worker_fixture_counts": [
+        1,
+        4,
+        16
+      ]
+    },
+    "before_after": {
+      "grafana_before": "13.1.7",
+      "grafana_after": "13.1.7",
+      "same_backend_context_viewport": true,
+      "baseline_design_captures": 52,
+      "after_design_captures": 52
+    },
+    "readability": {
+      "captures": 30,
+      "failures": 0,
+      "dom_contrast_below_threshold": 0,
+      "dom_text_below_12px": 0,
+      "limits": "DOM/visible text sample; not a full accessibility or canvas-font certification"
+    },
+    "page_errors": 0,
+    "limits": "Worker-count and HTTP/clipboard faults are explicit browser response fixtures; no backend outage or distributed hardware proof"
+  },
+  "loops": [
+    {
+      "id": 1,
+      "resolved": [
+        "query-less Native Text readiness",
+        "synchronous activation/retained terminal frames",
+        "panel ownership activation"
+      ],
+      "evidence": "Actual before Text body missing, prefix-cache/IOPS Loading; after body/links and native plot populated"
+    },
+    {
+      "id": 2,
+      "resolved": [
+        "raw Worker tables",
+        "full-width comparison/evidence",
+        "lane-based Timeline height",
+        "metric/resource hints",
+        "first Ready resource mode",
+        "Step-first full identity and visible selected timezone range"
+      ],
+      "evidence": "Source queries preserved; Node/tsx contracts and actual multi-worker journey passed"
+    },
+    {
+      "id": 3,
+      "resolved": [
+        "Worker frame merge and first-visible value/unit",
+        "Timeline axis overflow reserve",
+        "accessible comparison headers",
+        "age threshold retention",
+        "full identity cluster browser selection"
+      ],
+      "evidence": "1/4/16 Worker/zero, canvas bounds, 33 panel checks, single/multi-job Browser and regression passed"
+    }
+  ],
+  "artifacts": {
+    "root": "artifacts/quality-review",
+    "paired": "paired/comparison.html",
+    "quality": "reviewed-quality/validation.json",
+    "design": "design-final/iteration-3/validation.json",
+    "readability": "readability-final/iteration-3/validation.json",
+    "single_worker": "ci-single-final"
+  },
+  "cleanup": "Owned demo/Grafana processes stopped; owned backend state and downloaded Grafana archive/binary removed; bounded logs and final Browser evidence retained.",
+  "pending": [
+    "Physical multi-node/multi-job Agent RL",
+    "GPU/RDMA/shared-storage accuracy and overhead",
+    "Actual 3FS/ClickHouse population",
+    "Comprehensive screen reader/hover/color-vision assessment",
+    "Long-history RSS/restart measurement",
+    "GitHub Actions Node 22 execution of this revision"
+  ]
+}

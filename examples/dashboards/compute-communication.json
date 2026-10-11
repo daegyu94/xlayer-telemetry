@@ -1074,9 +1074,9 @@
         },
         {
           "id": 35,
-          "type": "timeseries",
+          "type": "status-history",
           "title": "Node exporter collector health",
-          "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다.",
+          "description": "선택 collector별 1=success, 0=failure입니다. Scrape up이어도 collector가 실패할 수 있습니다. Collector 또는 kernel feature가 없으면 N/A이며 성공으로 채우지 않습니다. 관측 gap은 보간하지 않으며 Unknown과 실제 0을 구분합니다.",
           "gridPos": {
             "x": 12,
             "y": 75,
@@ -1096,29 +1096,63 @@
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
+              "unit": "none",
+              "noValue": "Unknown",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
+                "fillOpacity": 70,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Reported failure",
+                      "color": "orange"
+                    },
+                    "1": {
+                      "text": "Reported success",
+                      "color": "blue"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "gray"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": "^(?!0(?:\\.0+)?$|1(?:\\.0+)?$).*",
+                    "result": {
+                      "text": "Unknown / invalid",
+                      "color": "gray"
+                    }
+                  }
+                }
+              ]
             },
             "overrides": []
           },
           "options": {
+            "showValue": "auto",
+            "rowHeight": 0.8,
+            "colWidth": 0.9,
             "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
+              "showLegend": false,
+              "displayMode": "list",
+              "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
+              "mode": "single",
+              "sort": "none",
               "hideZeros": false
             }
           }
@@ -1893,9 +1927,9 @@
         },
         {
           "id": 56,
-          "type": "timeseries",
+          "type": "status-history",
           "title": "DCGM endpoint scrape health",
-          "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다.",
+          "description": "kind=dcgm으로 등록한 native endpoint별 up입니다. 1은 scrape 성공일 뿐 field 지원·GPU 정상 상태를 보장하지 않습니다. Endpoint 미등록은 N/A입니다. 관측 gap은 보간하지 않으며 Unknown과 실제 0을 구분합니다.",
           "gridPos": {
             "x": 0,
             "y": 85,
@@ -1915,29 +1949,63 @@
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "short",
-              "noValue": "N/A",
+              "unit": "none",
+              "noValue": "Unknown",
               "custom": {
-                "lineWidth": 2,
-                "fillOpacity": 5,
-                "spanNulls": false,
-                "showPoints": "auto"
-              }
+                "fillOpacity": 70,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Scrape Down",
+                      "color": "orange"
+                    },
+                    "1": {
+                      "text": "Scrape Up",
+                      "color": "blue"
+                    }
+                  }
+                },
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "Unknown",
+                      "color": "gray"
+                    }
+                  }
+                },
+                {
+                  "type": "regex",
+                  "options": {
+                    "pattern": "^(?!0(?:\\.0+)?$|1(?:\\.0+)?$).*",
+                    "result": {
+                      "text": "Unknown / invalid",
+                      "color": "gray"
+                    }
+                  }
+                }
+              ]
             },
             "overrides": []
           },
           "options": {
+            "showValue": "auto",
+            "rowHeight": 0.8,
+            "colWidth": 0.9,
             "legend": {
-              "displayMode": "table",
-              "placement": "bottom",
-              "calcs": [
-                "lastNotNull",
-                "max"
-              ]
+              "showLegend": false,
+              "displayMode": "list",
+              "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
-              "sort": "desc",
+              "mode": "single",
+              "sort": "none",
               "hideZeros": false
             }
           }

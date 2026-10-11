@@ -82,6 +82,8 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 
 ## 변경 절차
 
+장기 품질 개선 작업은 [Quality Goals](docs/development/quality-goals.md)의 gate와 [Quality Backlog](docs/development/quality-backlog.md)의 재현·loop 결과를 이어서 확인합니다. 실제 hardware validation의 Pending 상태는 기존 Validation 기록과 구분해 유지하며 긴 master prompt를 이 지침에 복제하지 않습니다.
+
 1. 브랜치·작업 트리와 최신 `main`을 확인하고 기존 변경을 보존합니다.
    요청한 작업의 브랜치를 `main`에서 만들며 새 기능보다 실제 call/data path와 기존 구현을 먼저 확인합니다.
    기준 commit SHA·검증 환경·변경 전 관련 test 결과를 기록합니다. 조사 이후 `main`이 바뀌었으면 최신 코드에서 재현 조건과 수정 필요성을 다시 확인합니다.

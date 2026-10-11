@@ -157,6 +157,16 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 ## Design comparison
 
+장기 품질 기준과 개선 기록은 [Quality Goals](../../docs/development/quality-goals.md)와 [Quality Backlog](../../docs/development/quality-backlog.md)에서 관리합니다. 원본 query·unit·identity를 유지한 panel-level rendering 검사는 기존 실제 Grafana demo와 아래 helper를 사용합니다.
+
+```bash
+python scripts/quality_validate.py --url http://127.0.0.1:23400 \
+  --context ../../artifacts/grafana-app-browser/ci-validation.json \
+  --output ../../artifacts/quality-review --full-matrix
+```
+
+`--context`는 기존 Browser journey가 검증한 선택 Step window입니다. 정상 결과는 `validation.json`의 `failures=[]`이며, Text 본문·lazy plot / Matrix terminal state·Change 열·Timeline 축·1/4/16 Worker 표와 실제 0을 확인합니다. Worker 수 확대는 Browser response fixture이며 실제 분산 실행의 검증은 아닙니다.
+
 디자인 원본은 `design/dashboard-preview.html`입니다. 이 파일의 가상 수치는 디자인 확인용이며 plugin bundle이나 synthetic exporter의 데이터로 사용하지 않습니다.
 
 기존 loopback demo가 실행된 상태에서 13개 화면을 같은 해상도로 비교합니다.

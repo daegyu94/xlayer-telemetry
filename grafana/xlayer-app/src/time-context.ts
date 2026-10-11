@@ -18,6 +18,12 @@ export function formatContextTime(value:unknown,timezone:string,mode:'time'|'dat
  return new Intl.DateTimeFormat('en-GB',{timeZone,hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',timeZoneName:'short',
   ...(mode==='date-time'?{year:'numeric',month:'short',day:'2-digit'} as const:{})}).format(value);
 }
+export function formatContextRange(start:unknown,end:unknown,timezone:string):string{
+ if(!validAbsoluteWindow(start,end)||!validTimezone(timezone))return 'Time range unknown';
+ const from=start as number,to=end as number,timeZone=timezone==='browser'?undefined:timezone.toLowerCase()==='utc'?'UTC':timezone;
+ const date=new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'});
+ return `${formatContextTime(from,timezone)} → ${formatContextTime(to,timezone,date.format(from)===date.format(to)?'time':'date-time')} · window ${((to-from)/1000).toLocaleString('en-GB',{maximumFractionDigits:3})} s`;
+}
 /** The caller supplies Grafana's parser so date math keeps native semantics. */
 export function timeContextIssue(context:Context,parse:(value:string,roundUp:boolean)=>number|undefined):string|undefined {
  if(!validTimezone(context.timezone))return 'Timezone이 유효하지 않습니다. Time range를 다시 선택하세요.';

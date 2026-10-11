@@ -1,22 +1,16 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {getFieldDisplayName,getValueFormat} from '@grafana/data';
-import type {PanelData} from '@grafana/data';
-import type {VizPanel,SceneDataProvider} from '@grafana/scenes';
-import {matrixColorAlpha,metricLabel,resourceMatrix,resourceMetricAvailability,resourcePanelKey} from './resource-matrix';
+import type {VizPanel} from '@grafana/scenes';
+import {initialResourceMode,matrixColorAlpha,metricLabel,resourceMatrix,resourceMetricAvailability,resourcePanelKey} from './resource-matrix';
 import type {Reduction,ResourceMatrixProfile,ResourceCell} from './resource-matrix';
 import {validDateMs} from './time-context';
+import {useSceneData} from './scene-data';
+import {timelinePanelHeight} from './native-panel-layout';
 
 const plans=new WeakMap<VizPanel,{profile:ResourceMatrixProfile;metrics:Record<string,string>}>();
 export function registerResourcePanel(panel:VizPanel,source:{type:string;targets?:any[]},profile?:ResourceMatrixProfile){
  if(source.type==='timeseries'&&profile)plans.set(panel,{profile,metrics:Object.fromEntries((source.targets||[]).map(t=>[t.refId,metricLabel(t.legendFormat,t.refId)]))});
  return panel;
-}
-function useData(provider:SceneDataProvider|undefined){
- const [data,setData]=useState<PanelData|undefined>(provider?.state.data);
- useEffect(()=>{setData(provider?.state.data);if(!provider)return;
-  const stop=provider.activate(),sub=provider.subscribeToState(s=>setData(s.data));
-  return ()=>{sub.unsubscribe();stop();};
- },[provider]);return data;
 }
 function valueText(cell:ResourceCell,unit:string){
  if(cell.value===undefined)return '—';
@@ -32,17 +26,24 @@ function additionalIdentityLabels(cells:ResourceCell[]){
 export function ResourcePanel({panel}:{panel:VizPanel}){
  const plan=plans.get(panel);
  const key=resourcePanelKey(panel);
- return plan?<MatrixPanel key={key} panel={panel} plan={plan}/>:<panel.Component key={key} model={panel}/>;
+ return plan?<MatrixPanel key={key} panel={panel} plan={plan}/>:['state-timeline','status-history'].includes(panel.state.pluginId)?<NativeTimelinePanel key={key} panel={panel}/>:<panel.Component key={key} model={panel}/>;
+}
+function NativeTimelinePanel({panel}:{panel:VizPanel}){
+ useEffect(()=>panel.activate(),[panel]);
+ const state=panel.useState(),data=useSceneData(state.$data);
+ return <div className="xlt-native-timeline" data-query-state={data?.state||'Loading'} style={{height:timelinePanelHeight(data)+24,paddingBottom:24,boxSizing:'border-box'}}><panel.Component model={panel}/></div>;
 }
 function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<typeof plans.get>>}){
  // The Matrix replaces VizPanel's Scene wrapper, so retain its activation lifecycle.
  useEffect(()=>panel.activate(),[panel]);
- const state=panel.useState(),data=useData(state.$data);
- const [mode,setMode]=useState<'matrix'|'series'>('matrix'),[reduction,setReduction]=useState<Reduction>('latest');
+ const state=panel.useState(),data=useSceneData(state.$data);
+ const [selectedMode,setMode]=useState<'matrix'|'series'>(),[reduction,setReduction]=useState<Reduction>('latest');
+ const mode=selectedMode||'matrix';
  const [metric,setMetric]=useState(''),[selected,setSelected]=useState<string|undefined>();
  const [original]=useState(state.fieldConfig);
  const unit=state.fieldConfig.defaults.unit||'';
  const matrix=useMemo(()=>resourceMatrix(data,plan.profile,reduction,unit),[data,plan.profile,reduction,unit]);
+ useEffect(()=>{if(selectedMode===undefined){const initial=initialResourceMode(matrix);if(initial)setMode(initial);}},[matrix,selectedMode]);
  const metricRefs=Object.keys(plan.metrics),activeMetric=metric||metricRefs[0]||'';
  const activeMetricKey=activeMetric?JSON.stringify([activeMetric]):'';
  const cells=matrix.cells.filter(c=>c.metric===activeMetricKey),chosen=cells.find(c=>c.key===selected);
@@ -59,7 +60,7 @@ function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<ty
  },[panel,mode,chosen?.key,duplicate,names.join('\0'),original]);
  const max=Math.max(0,...cells.filter(c=>c.status==='observed').map(c=>c.value||0));
  const messages={error:'Query Failure · 조회에 실패했습니다',loading:'Loading · 데이터를 조회하고 있습니다','no-data':'No data · 수집된 데이터가 없습니다',unsupported:`Matrix의 ${plan.profile.dimension} identity가 보고되지 않아 원본 Time series를 표시합니다.`};
- return <section className="xlt-resource-panel" data-resource-title={state.title}>
+ return <section className="xlt-resource-panel" data-resource-title={state.title} data-query-state={data?.state||'Loading'}>
   <header><h3>{state.title}</h3><div className="xlt-resource-controls"><button aria-pressed={mode==='matrix'} disabled={unsupported} onClick={()=>setMode('matrix')}>Matrix</button><button aria-pressed={mode==='series'} onClick={()=>setMode('series')}>Time series</button></div></header>
   {mode==='series'?<>{unsupported&&<p className="xlt-empty" role="status">{messages.unsupported}</p>}<div className="xlt-resource-detail"><panel.Component model={panel}/></div></>:<>
    <div className="xlt-resource-controls"><label>Calculation <select aria-label="Matrix calculation" value={reduction} onChange={e=>setReduction(e.target.value as Reduction)}><option value="latest">Latest evaluation</option><option value="mean">Range mean</option><option value="max">Range max</option></select></label>

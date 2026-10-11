@@ -2,6 +2,8 @@
 
 **목적:** 사용자 guide와 구현·계약·실측 기록을 함께 유지합니다.
 
+제품 품질의 Hard Gate와 반복 개선 절차는 [Quality Goals](development/quality-goals.md), 재현 근거·우선순위·loop 결과는 [Quality Backlog](development/quality-backlog.md)에서 관리합니다. 실제 환경의 검증 범위는 기존 Validation 문서를 따릅니다.
+
 ## 개발 환경
 
 ```bash

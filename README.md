@@ -18,6 +18,8 @@ VERL 기반 Agent RL의 느린 Step을 GPU·vLLM·Ray·network·storage·sandbox
 
 ### Next Milestones
 
+반복 개선의 [Quality Goals](docs/development/quality-goals.md)와 [Quality Backlog](docs/development/quality-backlog.md)는 현재 loop의 근거·검증 결과·미충족 gate를 기록합니다.
+
 - [ ] Physical multi-node에서 clock quality·identity·telemetry 수집·correlation 검증
 - [ ] Concurrent multi-job·multi-model·rollout replica의 격리·coverage·조사 흐름 검증
 - [ ] 실제 Agent RL workload와 Mooncake / 3FS storage 경로의 end-to-end validation

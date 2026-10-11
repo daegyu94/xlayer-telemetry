@@ -34,6 +34,7 @@ test('actual table and dropdown render both clusters and select only the full id
  const context=readContext('');const label=(row:any)=>`Step ${row.step} · 1 s`;
  const select=renderToStaticMarkup(React.createElement(CompletedStepSelect,{rows:[a,b],selected:a,label:'Step',optionLabel:label,onStep:()=>{}}));
  assert.ok(select.includes('cluster-a'));assert.ok(select.includes('cluster-b'));
+ assert.match(select,/data-record-id="same-record"[^>]*>Step 128/);
  assert.equal((select.match(/<option /g)||[]).length,3);assert.equal((select.match(/selected=""/g)||[]).length,1);
  const table=renderToStaticMarkup(React.createElement(CompletedStepsTable,{rows:[a,b],selected:a,context,onSelect:()=>{},format:()=> '1 s'}));
  assert.ok(table.includes('cluster-a'));assert.ok(table.includes('cluster-b'));

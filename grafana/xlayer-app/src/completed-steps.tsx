@@ -41,7 +41,7 @@ export function CompletedStepSelect({rows,selected,label,optionLabel,onStep,time
     onChange={event=>{const row=choices.find(row=>completedStepKey(row)===event.target.value);if(row)onStep(row);}}>
     <option value="">완료된 Observation을 선택하세요</option>
     {choices.map(row=><option key={completedStepKey(row)} value={completedStepKey(row)} data-record-id={String(row.record_id)}>
-      {completedStepKey(row)===completedStepKey(current)?'Selected · ':''}{scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {optionLabel(row)} · {scalar(row.observer_node||row.node)} · {formatContextTime(numeric(row.window_end_ms),timezone)}
+      {optionLabel(row)} · {scalar(row.observer_node||row.node)} · {scalar(row.cluster,'Cluster unknown')} / {scalar(row.run_id)} · {scalar(row.producer)} / {scalar(row.role)} / {scalar(row.worker_id)} · {scalar(row.record_id)} · {formatContextTime(numeric(row.window_start_ms),timezone,'time')} → {formatContextTime(numeric(row.window_end_ms),timezone)}{completedStepKey(row)===completedStepKey(current)?' · Selected':''}
     </option>)}
   </select>{retained&&<small role="status">선택한 Observation이 현재 응답에 없습니다. 선택 문맥을 유지합니다.</small>}</label>;
 }

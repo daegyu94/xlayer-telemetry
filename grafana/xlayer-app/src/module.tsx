@@ -82,7 +82,7 @@ import { INFRA_PANELS, infrastructure, resourceSelection, logPanel } from './inf
 import { InfrastructureView } from './InfrastructureView';
 import {RunExplorerView} from './RunExplorerView';
 import {displaySummary,displayUiNote} from './ui-copy';
-import {formatContextTime,timeContextIssue,validTimezone} from './time-context';
+import {formatContextTime,formatContextRange,timeContextIssue,validTimezone} from './time-context';
 import {issueText} from './catalog-loading';
 const CatalogRetryContext=createContext({retry:()=>{},refreshing:false,error:''});
 function contextIssue(context:Context){
@@ -121,7 +121,8 @@ import {
 } from "./mockup";
 import { DashboardChrome } from './DashboardChrome';
 import {WORKSPACE_PAGES,themeContext} from './navigation';
-import {nativeHighlight} from './native-highlight';
+import {nativeHighlight,nativeHighlightHint} from './native-highlight';
+import {useSceneData as useData} from './scene-data';
 import {NATIVE_PAGES,buildNativeWorkspace,NativeWorkspace,NativeWorkspaceModel} from './native-workspace';
 import "./style.css";
 
@@ -523,20 +524,6 @@ function Root() {
 }
 export const plugin = new AppPlugin().setRootPage(Root);
 
-function useData(provider: SceneDataProvider | undefined) {
-  const [snapshot, setSnapshot] = useState({provider,data:provider?.state.data});
-  useEffect(() => {
-    setSnapshot({provider,data:provider?.state.data});
-    if (!provider) return;
-    const deactivate = provider.activate();
-    const sub = provider.subscribeToState((s) => setSnapshot({provider,data:s.data}));
-    return () => {
-      sub.unsubscribe();
-      deactivate();
-    };
-  }, [provider]);
-  return snapshot.provider===provider?snapshot.data:provider?.state.data;
-}
 function Native({ panel }: { panel?: VizPanel }) {
   return panel ? (
     <div className="xlt-panel">
@@ -971,14 +958,14 @@ function ShellView({ model }: { model: Shell }) {
                 </p>
                 <DataStatus provider={state.comparison} />
                 <div className="xlt-scroll">
-                  <table>
+                  <table className="xlt-comparison-table" role="table" aria-label="Current and Baseline signals">
                     <thead>
                       <tr>
-                        <th>Signal</th>
-                        <th>Current</th>
-                        <th>Baseline</th>
-                        <th>Change</th>
-                        <th>Scope / observation</th>
+                        <th scope="col" role="columnheader">Signal</th>
+                        <th scope="col" role="columnheader">Current</th>
+                        <th scope="col" role="columnheader">Baseline</th>
+                        <th scope="col" role="columnheader">Change</th>
+                        <th scope="col" role="columnheader">Quality / Scope</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -997,8 +984,11 @@ function ShellView({ model }: { model: Shell }) {
                               <Delta row={r} />
                             </td>
                             <td>
-                              {scalar(r.observation_scope)} ·{" "}
-                              {scalar(r.window_statistic, "Unknown statistic")}
+                              <details><summary>{r.quality_warnings?'Limited':r.comparison_status&&r.comparison_status!=='not_reported'?scalar(r.comparison_status):'Unknown quality'}</summary>
+                                <small>{scalar(r.observation_scope)} · {scalar(r.window_statistic, "Unknown statistic")}</small>
+                                <small className="xlt-entity">{scalar(r.entity,'Entity not reported')}</small>
+                                {!!r.quality_warnings&&<small>{scalar(r.quality_warnings)}</small>}
+                              </details>
                             </td>
                           </tr>
                         ))}
@@ -1227,8 +1217,9 @@ function NativeHighlights({destination,sources,panels}:{destination:Destination;
  return ids[destination]?<div className="xlt-kpis xlt-native-highlights">{ids[destination]!.map(id=>{const index=sources.findIndex(p=>p.id===id);return index>=0?<NativeHighlight key={id} source={sources[index]} panel={panels[index]}/>:null;})}</div>:null;
 }
 function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:VizPanel}){
+ useEffect(()=>panel.activate(),[panel]);
  const data=useData(panel.state.$data),result=nativeHighlight(data);
- return <article className="xlt-card xlt-kpi"><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple entities':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?`${result.entities.length} signal entity · Node / Device를 선택하세요`:'반환된 최신 query evaluation입니다. Source scope를 유지합니다.'}</small><small>이 summary만으로 producer freshness가 확인되지는 않습니다.</small><small className="xlt-entity" title={source.description}>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</small></article>;
+ return <article className="xlt-card xlt-kpi" data-query-state={data?.state||'Loading'}><span className="xlt-eyebrow">{source.title}</span><strong className={result.state==='observed'?undefined:'xlt-kpi-state'}>{result.state==='observed'?format(result.sample?.value,source.fieldConfig?.defaults?.unit||result.sample?.unit||''):result.state==='multiple'?'Multiple signals':result.state==='error'?'Query failure':result.state==='loading'?'Loading':result.state==='invalid'?'Unknown':'No data'}</strong><small>{result.state==='multiple'?nativeHighlightHint(result.entities):'반환된 최신 query evaluation입니다. Source scope를 유지합니다.'}</small><small>Producer freshness는 별도 확인이 필요합니다.</small><details><summary>Source / Scope</summary><p>{source.description||'Native source 관측이며 Run별 사용량으로 귀속하지 않습니다.'}</p></details></article>;
 }
 function Steps({rows,selected,context,onSelect,limit=8}:{rows:RecordRow[];selected?:RecordRow;context:Context;
  onSelect:(context:Context)=>void;limit?:number}){
@@ -1865,7 +1856,7 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
       <CompletedStepSelect rows={steps} selected={selected} timezone={range.getTimeZone()} label={boundaryPresentation(selected).label}
         optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>
-      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextTime(rangeState.value.from.valueOf(),range.getTimeZone())} → {formatContextTime(rangeState.value.to.valueOf(),range.getTimeZone(),'time')}</div></div>
+      <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextRange(rangeState.value.from.valueOf(),rangeState.value.to.valueOf(),range.getTimeZone())}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
   </section>;

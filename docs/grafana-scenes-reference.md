@@ -84,6 +84,14 @@ Reported worker duration은 실제 adapter의 `verl_stage` 같은 metric 차원�
 
 ## KPI / Evidence
 
+Native Text는 query 없는 완료 상태의 Scene data를 사용해 원본 본문과 context link를 표시합니다. Native highlight와 Matrix는 provider의 동기 activation·cached terminal frame·Error / empty를 보존하며 source가 교체되면 이전 provider의 frame을 현재 값으로 읽지 않습니다.
+
+Worker sample age, wrapped command state, completed Step identity는 Worker / producer / node별 표로 읽습니다. 값을 평균내지 않고 단위·scope·원본 label을 유지하며 `Query evaluation`은 producer의 실제 기록 시각이나 process 생존 확인이 아닙니다. Source / Scope 상세에서 native signal의 의미를 확인합니다.
+
+Resource panel은 첫 Ready 데이터에서 한 resource이면 Time series, 여러 resource이면 Matrix로 시작합니다. Loading / Error / empty는 초기 resource 수로 취급하지 않으며 이후 데이터 갱신은 사용자가 선택한 mode를 바꾸지 않습니다. 같은 resource의 read / write처럼 여러 metric이 있어도 resource 개수로 중복 계산하지 않습니다. 단일 resource의 복수 field / query와 여러 device를 구분해 선택 안내를 표시합니다.
+
+Measured Timeline은 lane 수에 맞는 높이로 native header·legend·시간축 공간을 확보합니다. Scrape / collector / filesystem / clock의 discrete 상태는 Status history에서 원래 query·entity·gap을 보존합니다. `Reported Up`과 kernel의 `Sync reported`는 serving / workload 정상 또는 정밀 clock alignment를 증명하지 않으며 Ray state count와 XID code는 binary health로 바꾸지 않습니다.
+
 | 표시 | 읽는 방법 |
 | --- | --- |
 | KPI sparkline | 같은 Run/scope/entity의 실제 history가 두 관측 이상일 때만 표시 |
