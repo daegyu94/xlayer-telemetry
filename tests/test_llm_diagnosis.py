@@ -693,3 +693,45 @@ def test_korean_prose_keeps_technical_terms_in_english():
     result["summary"] = "GPU utilization이 감소했고 storage busy가 증가했습니다."
     result["candidates"][0]["missing_evidence"] = ["특정 run의 I/O인지 확인할 attribution evidence가 없습니다."]
     llm.validate_korean_prose(result)
+
+
+@pytest.mark.parametrize('identity,value', [('worker', '0'), ('worker_id', 'driver'), ('rank', '0')])
+def test_source_config_keeps_application_worker_identity_run_scoped(monkeypatch, identity, value):
+    def query(self, expression, start, end, step):
+        return {'series': [
+            {'labels': {'cluster': 'c', 'node': 'n', identity: value, 'run_id': run},
+             'stats': {'mean': 20, 'sample_count': 2}}
+            for run in ('job-a', 'job-b')
+        ]}
+    monkeypatch.setattr(llm.PrometheusClient, 'query_range_detail', query)
+    source = llm.collect_packet({
+        'prometheus_url': 'http://unused', 'current_interval': {'start': 10, 'end': 20},
+        'queries': [{'signal': signal, 'query': signal, 'unit': 's', 'scope': 'application'}
+                    for signal in ('step_duration_seconds', 'rollout_duration_seconds')],
+    })
+    def observation(run, signal):
+        return next(row['id'] for row in source['observations']
+                    if row['labels']['run_id'] == run and row['signal'] == signal)
+    a_step = observation('job-a', 'step_duration_seconds')
+    a_rollout = observation('job-a', 'rollout_duration_seconds')
+    b_step = observation('job-b', 'step_duration_seconds')
+    b_rollout = observation('job-b', 'rollout_duration_seconds')
+    with pytest.raises(ValueError, match=f'different {identity} entities'):
+        llm.validate_diagnosis(candidate_answer([a_step, b_rollout]), source)
+    llm.validate_diagnosis(candidate_answer([a_step, a_rollout]), source)
+    llm.validate_diagnosis(candidate_answer([a_step, b_step]), source)
+
+
+def test_worker_run_scope_does_not_assign_shared_gpu_ownership():
+    source = packet()
+    source['observations'] = [
+        {'id': 'm1', 'signal': 'step_duration_seconds', 'current': 20,
+         'observation_scope': 'application',
+         'labels': {'node': 'n', 'worker_id': 'driver', 'run_id': 'job-a'}},
+        {'id': 'm2', 'signal': 'gpu_utilization_percent', 'current': 95,
+         'observation_scope': 'device', 'labels': {'node': 'n', 'gpu': '0'}},
+        {'id': 'm3', 'signal': 'gpu_power_watts', 'current': 300,
+         'observation_scope': 'device', 'labels': {'node': 'n', 'gpu': '0'}},
+    ]
+    llm.validate_diagnosis(candidate_answer(['m1', 'm2', 'm3']), source)
+    assert all('run_id' not in row['labels'] for row in source['observations'][1:])

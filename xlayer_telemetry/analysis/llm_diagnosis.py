@@ -518,7 +518,9 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                         # services can both expose engine 0 for distinct models.
                         namespace += tuple(labels.get(key) for key in ("instance", "component", "model_name", "model"))
                     if label in ("worker", "worker_id", "rank"):
-                        namespace += (labels.get("role"), labels.get("producer"))
+                        # Application worker/rank names are local to a Run.
+                        # Shared engine/GPU identities keep their own namespace.
+                        namespace += (labels.get("run_id"), labels.get("role"), labels.get("producer"))
                     scoped.append(((*namespace, labels[label]), row["signal"]))
             if len({value for value, _ in scoped}) > 1 and len({signal for _, signal in scoped}) > 1:
                 raise ValueError(f"candidate combines different {label} entities and signals")

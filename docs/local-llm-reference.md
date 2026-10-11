@@ -11,7 +11,7 @@ Rule catalog·threshold·기존 판정은 입력하지 않으며 명시적으로
 ![Scoped observation packet에서 가설 생성과 별도 evidence review로 이어지는 LLM 진단](figures/diagrams/llm-diagnosis.svg)
 
 CLI로 선택한 구간을 분석한 뒤 [structured JSON schema](https://docs.ollama.com/capabilities/structured-outputs)·evidence ID·관측 구간을 검사합니다.
-없는 ID, 현재 값 없는 evidence, 같은 ID의 supporting/counter 중복과 label로 확인되는 engine·worker·rank 혼합을 거부합니다.
+없는 ID, 현재 값 없는 evidence, 같은 ID의 supporting/counter 중복과 label로 확인되는 engine·worker·rank 혼합을 거부합니다. Application worker/rank는 관측 label의 `run_id`까지 포함해 구분하므로 다른 Job의 서로 다른 signal을 같은 worker의 근거로 합치지 않습니다. 같은 signal의 Job 간 비교는 허용하며 shared GPU·storage에는 Run 소유권을 추가하지 않습니다.
 Entity는 cluster·node 및 role·producer까지 구분하되 누락된 label의 동일성은 입증하지 못합니다.
 
 초안은 새 대화 문맥의 evidence review를 거쳐야 하며 실패한 검토를 최종 진단으로 채택하지 않습니다.
