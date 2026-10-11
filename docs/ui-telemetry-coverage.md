@@ -64,19 +64,27 @@ vLLM의 [MFU 관련 native metric](https://docs.vllm.ai/en/stable/usage/metrics/
 
 ## Explicit Policy Version in Events
 
-`CorrelationContext(..., policy_version=...)` 또는 `EventRecorder.policy_applied()`·`span()`에 실제 적용 version을 전달합니다. 아래는 application에 넣는 integration fragment입니다.
+`CorrelationContext(..., policy_version=...)` 또는 `EventRecorder.policy_applied()`·`span()`에 실제 적용 version을 전달합니다. 아래는 application에 넣는 integration fragment입니다. Worker를 시작하기 전에 해당 host의 identity를 환경변수로 지정합니다.
+
+```bash
+export TELEMETRY_NODE=rollout-node-0
+```
+
+Event 기록에는 기존 Run의 `TELEMETRY_EVENTS_DIR`와 `TELEMETRY_RUN_ID`도 필요합니다.
 
 ```python
+from contextlib import nullcontext
 from xlayer_telemetry.events import EventRecorder
 
 events = EventRecorder.from_env(producer="my_rollout", role="rollout",
-                                 node="rollout-node-0", worker_id="rollout-0")
+                                 worker_id="rollout-0")
 # applied_version은 해당 worker가 실제 적용을 확인한 native version입니다.
 if events is not None:
     events.policy_applied(applied_version, step=training_step)
-    with events.span("rollout.generate", phase="rollout",
-                     step=training_step, policy_version=applied_version):
-        result = generate_sequences(batch)
+with (events.span("rollout.generate", phase="rollout",
+                  step=training_step, policy_version=applied_version)
+      if events is not None else nullcontext()):
+    result = generate_sequences(batch)
 ```
 
 **정상 결과:** `weights.applied` event에 top-level `policy_version`·`policy_version_source="producer_reported"`와 `attributes.policy_scope="worker_applied"`가 기록됩니다. Version 값은 Prometheus label에 추가되지 않습니다.

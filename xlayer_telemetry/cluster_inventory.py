@@ -337,7 +337,7 @@ def render_inventory(path: Path, output: Path, prometheus_url: str | None = None
     """Write a new private bundle; never merge with existing user configuration.
 
     Server paths are local to the machine rendering the bundle. Node configs
-    contain only portable identity/toggles and optional host-local home paths.
+    contain portable identity/target declarations, toggles and optional host-local home paths.
     Topology publication remains an explicit host-local deployment step.
     """
     normalized = load_inventory(path)
@@ -367,7 +367,8 @@ def render_inventory(path: Path, output: Path, prometheus_url: str | None = None
         files[f'topology/{kind}-topology.json'] = _json_bytes(document)
     for node in compiled['nodes']:
         node_values: dict[str, Any] = {'CLUSTER_NAME': compiled['cluster']['name'], 'NODE_NAME': node['name'],
-            'NODE_ADDR': node['address'], 'ENABLE_GPU_METRICS': bool(node['gpus'])}
+            'NODE_ADDR': node['address'], 'ENABLE_GPU_METRICS': bool(node['gpus']),
+            'TELEMETRY_TARGETS': compiled['telemetry_targets']}
         if prometheus_url is not None:
             node_values['PROMETHEUS_URL'] = prometheus_url
         if 'telemetry_home' in node:

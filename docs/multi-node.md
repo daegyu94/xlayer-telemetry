@@ -60,7 +60,7 @@ xltel --config "$HOME/.config/xlayer/cluster-bundle/server.toml" config validate
 | Topology publisher 한 곳 | 생성한 topology JSON을 host-local 디렉터리에 복사하고 그 node config에 `TOPOLOGY_DIR` 지정 |
 | Run / Rollout Replica | 기존 Run별 Diagnosis/SDK 설정을 유지. Inventory가 동적 실행 배치를 대신하지 않음 |
 
-`status --role node/server`는 exporter의 `up`과 설정 주소의 `configuration_status`를 구분합니다. 명백한 IP 불일치는 `mismatch`, 중복 target은 `ambiguous`, 확인하지 못한 주소는 `unknown`이며 DNS 이름과 IP의 동등성을 추정하지 않습니다. Topology publisher를 비활성화하거나 종료하면 XLayer의 `topology.prom`만 정리하고 사용자 textfile은 보존합니다.
+`status --role node/server`는 exporter의 `up`과 설정 주소의 `configuration_status`를 구분합니다. 명백한 IP 불일치는 `mismatch`, 중복 target은 `ambiguous`, 확인하지 못한 주소는 `unknown`이며 DNS 이름과 IP의 동등성을 추정하지 않습니다. 생성된 node 설정에도 전체 `TELEMETRY_TARGETS`가 포함되어, publisher 검증은 다른 등록 host를 미등록으로 취급하지 않습니다. 기존 bundle에는 `server.toml`의 같은 값을 publisher node 설정에 복사하거나 inventory에서 새 bundle을 생성하세요. 이 목록은 검증·조회용 선언이며 node role에서 다른 collector를 시작하지 않습니다. Topology publisher를 비활성화하거나 종료하면 XLayer의 `topology.prom`만 정리하고 사용자 textfile은 보존합니다.
 
 예제에서는 등록한 `monitoring-0` collector를 publisher로 사용할 수 있습니다. 같은 host의 생성된 node 설정에서 다음 경로를 실제 bundle 위치로 지정합니다.
 

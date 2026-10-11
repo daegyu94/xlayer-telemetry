@@ -72,7 +72,10 @@ def configuration_report(config: dict[str, str], *, live: bool = False,
         observations['interpretation'] = 'Scrape availability만 확인합니다. Metric 존재·freshness·device mapping·serving 상태·physical connectivity를 증명하지 않습니다.'
         if observed.get('target_discovery',{}).get('status') == 'unavailable':
             issue('warning','live_discovery_unavailable','prometheus','Target 상태를 조회할 수 없습니다. Node Down으로 판정하지 않습니다.')
-        for target in observed.get('collector_targets',[]):
+        for index, target in enumerate(observed.get('collector_targets',[])):
+            if target.get('configuration_status') == 'mismatch':
+                issue('warning','collector_configuration_mismatch',f'collector_targets[{index}]',
+                      'Scrape 중인 collector 주소가 현재 설정과 다릅니다. Prometheus에 적용된 target 설정을 확인하세요.')
             if target.get('health') != 'up':
                 issue('warning','collector_observation_incomplete','collector_targets','등록된 collector의 scrape 상태를 확인하세요. 이 결과로 node 제거·hardware 장애를 단정하지 않습니다.')
         for index, source in enumerate(observed.get('native_sources', {}).get('sources', [])):

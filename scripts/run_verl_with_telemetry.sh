@@ -167,7 +167,7 @@ if ((is_main_ppo)); then
         logger_value="${argument#trainer.logger=}"
       fi
     done
-    file_logger_pattern='(^|\[|,)[[:space:]]*"?file"?[[:space:]]*(\]|,|$)'
+    file_logger_pattern="(^|\[|,)[[:space:]]*(file|\"file\"|'file')[[:space:]]*(\]|,|$)"
     if [[ ! "$logger_value" =~ $file_logger_pattern ]]; then
       echo "trainer.logger override must include file for the telemetry bridge" >&2
       exit 2
