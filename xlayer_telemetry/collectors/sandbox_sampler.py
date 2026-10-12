@@ -41,11 +41,12 @@ def parse_io_devices(raw: str) -> dict[str, dict[str, int]]:
     return devices
 
 
-def read_io_devices(directory: Path) -> dict[str, dict[str, int]]:
+def read_io_devices(directory: Path) -> dict[str, dict[str, int]] | None:
+    """An empty readable io.stat is zero I/O; an unavailable file is unknown."""
     try:
         return parse_io_devices((directory / "io.stat").read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {}
+        return None
 
 
 def parse_io_stat(raw: str) -> dict[str, int]:

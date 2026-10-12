@@ -73,18 +73,21 @@ class SandboxRecorder:
                 if before is not None:
                     after = read_cgroup(cgroup)
                     devices_after = read_io_devices(cgroup)
+                    # A device first appears in readable io.stat after its first I/O.
                     device_deltas = {
-                        device: {key: value-devices_before[device][key]
+                        device: {key: value-devices_before.get(device, {}).get(key, 0)
                                  for key, value in values.items()
-                                 if key in devices_before.get(device, {}) and value >= devices_before[device][key]}
+                                 if (device not in devices_before or key in devices_before[device])
+                                 and value >= devices_before.get(device, {}).get(key, 0)}
                         for device, values in devices_after.items()
-                    }
+                    } if devices_before is not None and devices_after is not None else {}
                     deltas = {
                         "io_devices": device_deltas,
                         "device_mapping": {
                             "configured_major_minor": device_major_minor,
                             "status": "unconfigured" if device_major_minor is None else "observed" if device_major_minor in device_deltas else "unmatched",
                             "observed_major_minors": sorted(device_deltas),
+                            "counter_status": "observed" if devices_before is not None and devices_after is not None else "unavailable",
                             "attribution": "cgroup_block_io_not_tool_or_device_ownership",
                         },
                     }

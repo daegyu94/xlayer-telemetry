@@ -412,3 +412,25 @@ def test_quota_and_memory_event_counters_handle_invalid_values_and_resets(
     ), 0)
     assert metrics == expected
     format_gauges(exposed)
+
+@pytest.mark.parametrize("baseline_available", [True, False])
+def test_first_device_io_retains_delta_without_inventing_missing_baseline(tmp_path, baseline_available):
+    cgroup = tmp_path / 'cgroup'
+    cgroup.mkdir()
+    if baseline_available:
+        (cgroup / 'io.stat').write_text('')
+    (cgroup / 'memory.current').write_text('1024')
+    events = EventRecorder(tmp_path / 'events', CorrelationContext(
+        run_id='run-1', producer='sandbox', role='sandbox', worker_id='worker-1', node='sandbox-2'))
+    sandbox = SandboxRecorder(events, runtime='docker', filesystem='overlayfs',
+                              deployment='dedicated', sandbox_node='sandbox-2')
+    with sandbox.span('exec', cgroup=cgroup):
+        (cgroup / 'io.stat').write_text('259:0 rbytes=0 wbytes=16781312 rios=0 wios=33\n')
+    observation = json.loads(events.path.read_text().splitlines()[0])['attributes']
+    if baseline_available:
+        assert observation['io_devices']['259:0']['wbytes'] == 16781312
+        assert observation['io_devices']['259:0']['wios'] == 33
+    else:
+        assert observation['io_devices'] == {}
+        assert observation['device_mapping']['counter_status'] == 'unavailable'
+        assert 'io_write_bytes_delta' not in observation
