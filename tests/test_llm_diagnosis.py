@@ -822,3 +822,20 @@ def test_worker_run_scope_does_not_assign_shared_gpu_ownership():
     ]
     llm.validate_diagnosis(candidate_answer(['m1', 'm2', 'm3']), source)
     assert all('run_id' not in row['labels'] for row in source['observations'][1:])
+
+
+def test_saved_async_report_keeps_measurement_boundary_without_rule_conclusions():
+    report = {
+        'run_id': 'separated-job', 'execution_mode': 'async',
+        'boundary_scope': 'trainer_update', 'verdict': 'rule-sentinel',
+        'candidates': [{'id': 'rule-sentinel'}],
+        'analysis_window': {'start': 10, 'end': 20, 'accuracy': 'approximate'},
+        'comparison': {'signals': [{'signal': 'rollout_duration_seconds',
+                                    'current': 0.0168, 'scope': 'application'}]},
+    }
+    source = llm.packet_from_report(report)
+    assert source['context']['execution_mode'] == 'async'
+    assert source['context']['boundary_scope'] == 'trainer_update'
+    assert llm.model_view(source)['context'] == source['context']
+    assert source['observations'][0]['current'] == 0.0168
+    assert 'rule-sentinel' not in json.dumps(source)

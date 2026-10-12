@@ -342,8 +342,8 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Completed RL stage duration (step boundary)",
-      "description": "VERL은 step 완료 후 timing_s/*를 기록합니다. 현재 phase나 phase 실행 순서는 알 수 없습니다. 진행 중 상태는 직접 계측한 span과 native metric으로 확인합니다.",
+      "title": "Completed training stage duration (reported boundary)",
+      "description": "VERL의 timing_s/*는 완료된 sync step 또는 async trainer-update 경계의 scalar입니다. Async timing_s/gen은 trainer의 rollout 결과 수신·대기 시간일 수 있으며 전체 rollout 실행 시간이나 trajectory 소유권을 나타내지 않습니다. 현재 phase나 phase 실행 순서는 알 수 없습니다. 진행 중 상태는 직접 계측한 span과 native metric으로 확인합니다.",
       "gridPos": {
         "h": 9,
         "w": 24,

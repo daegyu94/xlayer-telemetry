@@ -141,6 +141,8 @@ Optional `window_statistic`은 scalar 요약값에 적용한 `max`·`mean` 등�
 ```
 
 표와 함께 interval·run·topology·missing source·관측 한계를 전달하며 rule 판정은 제외합니다.
+Saved report의 `context.execution_mode`·`boundary_scope`도 보존합니다.
+Async trainer-update의 `rollout_duration_seconds`는 결과 수신·대기 시간일 수 있으므로 전체 rollout 실행 시간, 동시 Tool 소유권이나 phase 순서로 해석하지 않습니다.
 원본은 최대 128KiB·64 series, 전송 observation은 64KiB, 초안을 포함한 review 입력은 96KiB입니다.
 멀티노드의 반복 clock check metadata는 node별 table과 공통 field로 전송하며 원본 packet·통계·identity·clock status는 보존합니다.
 초과하면 잘라내거나 review를 생략하지 않고 selector를 좁히도록 오류를 반환합니다.

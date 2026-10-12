@@ -130,7 +130,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     assert {"phase", "role", "worker"} <= {
         item["name"] for item in agent_rl["templating"]["list"]
     }
-    assert "Completed RL stage duration (step boundary)" in {
+    assert "Completed training stage duration (reported boundary)" in {
         panel["title"] for panel in agent_rl["panels"]
     }
     assert "Live rollout request queue" in {
@@ -148,7 +148,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
     completed_panels = {
         "Completed RL step",
         "Reward mean",
-        "Completed RL stage duration (step boundary)",
+        "Completed training stage duration (reported boundary)",
         "Completed step throughput",
         "Completed rollout output token length",
     }
