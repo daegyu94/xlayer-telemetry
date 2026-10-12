@@ -10,6 +10,20 @@ from typing import Any, Iterator, TextIO
 import uuid
 
 
+def read_json_object(path: Path, *, max_bytes: int | None = None,
+                     encoding: str | None = "utf-8") -> dict[str, Any] | None:
+    """Read snapshots with the caller's byte limit and existing codec policy."""
+    try:
+        with path.open("rb") as stream:
+            body = stream.read() if max_bytes is None else stream.read(max_bytes + 1)
+        if max_bytes is not None and len(body) > max_bytes:
+            return None
+        value = json.loads(body if encoding is None else body.decode(encoding))
+        return value if isinstance(value, dict) else None
+    except (OSError, ValueError, RecursionError):
+        return None
+
+
 @contextmanager
 def atomic_text_writer(path: Path) -> Iterator[TextIO]:
     """Replace a snapshot with a unique temporary file, even within one PID.

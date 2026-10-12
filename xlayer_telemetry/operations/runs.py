@@ -16,7 +16,7 @@ import time
 from ..analysis.jsonl_cache import JSONLCache
 from ..analysis.diagnosis_analysis import workload_matches
 from ..analysis.evidence_quality import correlation_quality_issues
-from ..fileio import atomic_write_text
+from ..fileio import atomic_write_text, read_json_object
 from ..measurements import finite_number
 
 CATALOG_UID = 'xlayer-run-catalog'
@@ -28,13 +28,7 @@ _CACHE = JSONLCache(max_records=MAX_RECORDS, max_bytes=4*1024*1024, max_files=2)
 
 
 def _object(path, *, max_bytes=1024 * 1024):
-    try:
-        with path.open('rb') as stream: body = stream.read(max_bytes + 1)
-        if len(body) > max_bytes: return {}
-        value = json.loads(body)
-        return value if isinstance(value, dict) else {}
-    except (OSError, ValueError, RecursionError):
-        return {}
+    return read_json_object(path, max_bytes=max_bytes, encoding=None) or {}
 
 
 def _text(value):

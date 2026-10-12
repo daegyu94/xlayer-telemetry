@@ -14,15 +14,11 @@ from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlsplit, urlunsplit
 
-from .fileio import json_objects
+from .fileio import json_objects, read_json_object
 
 
 def _load(path: Path) -> dict[str, Any] | None:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-        return value if isinstance(value, dict) else None
-    except (OSError, ValueError):
-        return None
+    return read_json_object(path)
 
 
 def _flatten(data: dict[str, Any]) -> list[str]:

@@ -10,7 +10,7 @@ import re
 import signal
 import time
 
-from .fileio import atomic_write_text, json_objects
+from .fileio import atomic_write_text, json_objects, read_json_object
 from .measurements import finite_number
 
 
@@ -39,11 +39,7 @@ def _workload_observation(now: float) -> dict:
 
 
 def _read(root: Path) -> dict:
-    try:
-        value = json.loads((root / "telemetry-health.json").read_text())
-        return value if isinstance(value, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    return read_json_object(root / "telemetry-health.json") or {}
 
 
 def observe(root: Path, pids: dict[str, int], *, now: float | None = None,

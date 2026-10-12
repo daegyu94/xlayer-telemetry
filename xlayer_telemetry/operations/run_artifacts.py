@@ -5,16 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..fileio import read_json_object
 from ..measurements import finite_number
 from ..time_alignment import sample_time
 
 
 def _object(path: Path) -> dict:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-        return value if isinstance(value, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    return read_json_object(path) or {}
 
 
 def _string(value: object) -> str | None:

@@ -16,7 +16,7 @@ import zipfile
 
 from ..grafana_release import grafana_home
 from .config import ConfigError, assets_root
-from ..fileio import atomic_write_text
+from ..fileio import atomic_write_text, read_json_object
 from .._http_transport import request_bytes
 
 APP_ID = 'xlayer-telemetry-app'
@@ -66,15 +66,7 @@ def detected_version(config):
 
 
 def _read(path: Path) -> dict:
-    try:
-        with path.open('rb') as stream:
-            body = stream.read(1024 * 1024 + 1)
-        if len(body) > 1024 * 1024:
-            return {}
-        result = json.loads(body)
-        return result if isinstance(result, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    return read_json_object(path, max_bytes=1024 * 1024, encoding=None) or {}
 
 
 def _paths(config, external=False, plugins_dir=None, provisioning_dir=None):
