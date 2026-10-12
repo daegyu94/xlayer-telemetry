@@ -92,7 +92,9 @@ def test_custom_producer_and_first_seen_device_remain_observable(tmp_path):
     rows=[json.loads(line) for path in (tmp_path/'events').glob('*.jsonl') for line in path.read_text().splitlines()]
     resource=next(row for row in rows if row['name']=='sandbox.resource_sample')
     assert resource['attributes']['device_mapping']['observed_major_minors']==['259:0']
-    assert resource['attributes']['io_devices']['259:0']=={}  # No pre-operation counter, no invented delta.
+    # A readable empty io.stat is the zero baseline before the first device I/O.
+    assert resource['attributes']['io_devices']['259:0']=={'rbytes':32,'wbytes':0,'rios':1,'wios':0}
+    assert resource['attributes']['device_mapping']['counter_status']=='observed'
     result=device_window(tmp_path/'events','r','worker',0,time.time()+1,'259:0')
     assert result['status']=='observed' and result['observation_count']==1
     assert device_window(tmp_path/'events','other','worker',0,time.time()+1)['observation_count']==0
