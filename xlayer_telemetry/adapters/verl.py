@@ -277,7 +277,7 @@ def iter_file_records(
                     consumed_tail = line[-256:]
                     try:
                         record = json.loads(line.decode("utf-8"))
-                    except (json.JSONDecodeError, UnicodeDecodeError):
+                    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
                         continue
                     if isinstance(record, dict):
                         yield FileRecord(record, live=follow and start >= backlog_end)

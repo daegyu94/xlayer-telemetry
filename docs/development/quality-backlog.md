@@ -229,3 +229,19 @@ Grafana 13.1.7 / Playwright 1.56.0 기본 headless shell의 전체 단일worker 
 Python 3.10.20의 관련 검사 원 명령은 **140 passed / 1 failed**이며 실패는 standalone interpreter를 복사하는 nested `venv.EnvBuilder(with_pip=True)`의 `ensurepip` 단계입니다. 제품 실행 전 `encodings`를 찾지 못했고 변경 전 main의 동일 테스트에서도 같은 실패를 확인했습니다. 제품·test 파일·지원 버전을 바꾸지 않고 임시 runner에서 `EnvBuilder`의 symlink 생성만 지정해 **동일 fixture/assertion 1 passed**를 확인했습니다. Ubuntu 22.04의 CI interpreter 환경을 재실행한 것으로 보고하지 않습니다.
 
 R13은 이전 revision의 외부 조건부 실환경 기록으로 추가했으며 원본 run artifact는 가져오지 않았습니다. 이번 follow visibility는 cached-descriptor fixture, tail은 독립 local process, scrape는 loopback endpoint이며 실제 GPU·물리 multi-node·3FS FUSE cache·clock 정렬의 최신 재검증은 Pending입니다. Quiet window는 remote writer 완료를 증명하지 않고 kernel의 uninterruptible I/O process는 watchdog 이후에도 남을 수 있습니다. 실행 로그·JUnit은 `artifacts/multinode-logger-review/`에 보존하며 작업 전용 process·SQL container·임시 Python 환경만 정리하고 기존 3FS stack은 유지합니다.
+
+## 2026-10-12 — Repository artifact·LLM evidence boundary review
+
+기준은 remote `main` `9e7bf96d6d9ef7517fc0341b8da45ae50d5d92d2`입니다. SDK·adapter·collector·CLI/lifecycle·analysis·dashboard provisioning·frontend의 파일과 호출 경로를 목록화하고 error isolation·identity·bounded I/O·missing evidence 계약을 검토했습니다. 모든 코드 줄이나 실제 환경의 모든 상태를 인증하는 리뷰는 아니며, 재현된 결함에만 최소 수정을 적용했습니다. 새 dependency·abstraction·UI 구조 변경은 없습니다.
+
+| 재현 결함 | 최소 수정 / 회귀 |
+| --- | --- |
+| Diagnosis signal 이름이 없으면 `xltel runs list` 전체가 KeyError로 실패 | 잘못된 signal만 제외하고 Run quality는 partial로 유지. 정상 signal·동일 Run의 step·다른 Run 보존; non-object·invalid name도 public CLI에서 검사 |
+| 깊은 manifest JSON의 RecursionError가 정상 peer catalog를 중단 | 기존 bounded object reader에서 decoder 오류를 격리. 정상 peer는 조회 가능 |
+| 유한 duration 두 개의 중간 합계가 overflow해 catalog JSON 생성 실패 | 표준 `statistics.mean` 사용. 각 값 `1e308`인 유효 record 두 개의 평균도 finite이며 public CLI 조회 성공 |
+| 깊은 logger JSON 하나가 뒤의 정상 step bridge를 중단 | 기존 decode 실패 처리에 RecursionError 추가. 실제 bridge CLI에서 앞뒤 유효 step과 history 보존 |
+| LLM packet의 서로 다른 engine이 aggregate evaluation count·freshness 품질을 공유 | 기존 `source_for_entity`·`selected_quality` 재사용. Current/baseline의 engine별 evaluation·고유 source timestamp·age를 보존하고 한 engine의 source가 없으면 unknown으로 유지 |
+
+수정 전 새 회귀 **5 failed**, 수정 후 추가 타입·missing-source 경계 포함 **8 passed**입니다. 전체 Python 3.12.3 CPU baseline **2,060 passed**, final **2,068 passed / 0 failed / 0 skipped**이며 실제 Prometheus 3.5.0·작업 전용 ClickHouse 25.1.5.31을 사용했습니다. Duplicate archive member의 기존 fault-fixture warning 1개는 baseline/final에 동일합니다. Python 3.10.20의 같은 관련 검사 **206 passed**, frontend **204 passed**·typecheck·production build, Grafana helper **48 passed**, 문서 계약 **10 passed**·build·compileall·전체 tracked shell syntax도 통과했습니다.
+
+Frontend 코드는 변경하지 않았으며 실제 Grafana 화면·실제 모델 추론·GPU/VERL·물리 multi-node·3FS FUSE cache는 이번에 재실행하지 않았습니다. LLM sampling 검증은 query-response fixture이고 기존에 저장한 observation packet의 품질 값은 자동 수정되지 않으므로 수정된 품질로 분석하려면 관측을 다시 수집합니다. 실행 로그와 JUnit은 `artifacts/ponytail-review/`에 보존하며 작업 전용 SQL container·임시 Python 환경만 정리하고 기존 사용자 stack·run artifact는 유지합니다. CI workflow는 비활성화 상태를 유지하며 이번 리뷰에는 remote push가 포함되지 않습니다.

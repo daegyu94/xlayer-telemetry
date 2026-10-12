@@ -7,6 +7,7 @@ from datetime import datetime
 import hashlib
 from itertools import islice
 from fractions import Fraction
+from statistics import mean
 import json
 import os
 from pathlib import Path
@@ -32,7 +33,7 @@ def _object(path, *, max_bytes=1024 * 1024):
         if len(body) > max_bytes: return {}
         value = json.loads(body)
         return value if isinstance(value, dict) else {}
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return {}
 
 
@@ -147,7 +148,7 @@ def summarize(run: Path):
             values = [finite_number(row.get('step_duration_seconds') if name=='step_duration_seconds' else (row.get('stage_durations_seconds') or {}).get(name[6:])) for row in group]
             valid = [value for value in values if value is not None and value >= 0]
             if not valid: continue
-            metrics.append({'metric':name,'unit':'s','value':sum(valid)/len(valid),'scope':'application',
+            metrics.append({'metric':name,'unit':'s','value':mean(valid),'scope':'application',
                 'statistic':'mean_recorded_duration','entity':entity,'count':len(valid),
                 'accuracy':next(iter(accuracy)) if len(accuracy)==1 else 'mixed',
                 'quality': quality if len(valid)==len(group) else 'partial',
@@ -158,6 +159,9 @@ def summarize(run: Path):
     reports = [report for report in reports if report.get('run_id')==run_id and report.get('record_type')=='bottleneck_diagnosis']
     latest = reports[-1] if reports else {}
     for signal in (latest.get('comparison') or {}).get('signals', []):
+        if not isinstance(signal, dict) or not _text(signal.get('signal')):
+            report_partial = True
+            continue
         if signal.get('scope') == 'application' or finite_number(signal.get('current')) is None: continue
         labels = signal.get('labels')
         if not isinstance(labels,dict): labels = {}
@@ -194,7 +198,7 @@ def summarize(run: Path):
         'workload_exit_code':workload.get('exit_code') if type(workload.get('exit_code')) is int else None,
         'telemetry_status':telemetry_status,
         'metadata_conflicts':metadata_conflicts,
-        'quality':'partial' if partial or conflict or metadata_conflicts or telemetry_status=='partial' or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
+        'quality':'partial' if partial or report_partial or conflict or metadata_conflicts or telemetry_status=='partial' or len(metrics)>100 or data_origin not in {'observed','synthetic'} else 'complete','metrics':metrics[:100],
         'data_origin':data_origin,'source':'stored_artifact','selected_step':{key:selected.get(key) for key in
             ('record_id','step','window_start_ms','window_end_ms','node','worker_id','boundary_scope')},
         'limitations':['Recorded status is not a live process check. Shared resources are not run-owned.',

@@ -410,7 +410,7 @@ Custom query에 `offset`·`@`·subquery나 추가 bare metric이 있으면 원�
 Source timestamp가 분석 구간 종료보다 미래이면 `source_timestamp_in_future`를 표시하고 age를 0으로 보정하지 않습니다.
 
 Evidence와 comparison은 `sampling_quality.current`·`baseline`에 interval 길이, query step, range window와 evaluation count를 보존합니다.
-Entity를 선택한 evidence는 해당 entity의 evaluation count를 사용합니다. 다른 engine/device의 sample 수를 빌리지 않습니다. Source timestamp count는 반환된 source series별 고유 timestamp 수의 최솟값이며, 여러 entity의 sample을 합쳐 충분한 coverage처럼 표시하지 않습니다.
+Rule evidence와 LLM observation은 해당 entity의 evaluation count를 사용합니다. 다른 engine/device의 sample 수나 freshness 증거를 빌리지 않으며 해당 series의 source timestamp가 없으면 freshness를 unknown으로 남깁니다. Source timestamp count는 반환된 source series별 고유 timestamp 수의 최솟값이며, 여러 entity의 sample을 합쳐 충분한 coverage처럼 표시하지 않습니다.
 예를 들어 6초 step의 `[1m]` rate에는 `range_window_exceeds_interval`이 표시됩니다.
 이 값은 step 전후 활동을 포함할 수 있으므로 해당 step의 정밀한 resource 사용량으로 해석하지 않습니다.
 

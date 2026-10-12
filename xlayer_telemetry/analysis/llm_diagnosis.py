@@ -18,7 +18,7 @@ from typing import Any
 from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
-from .evidence_quality import quality, check_source, result_quality_issues, validate_sampling, validate_quality
+from .evidence_quality import quality, check_source, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
@@ -315,6 +315,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
     for query in queries:
         matrices = []
         qualities = {}
+        source_samples = {}
         for name, window in (("current", current), ("baseline", baseline)):
             if window is None:
                 matrices.append({})
@@ -322,7 +323,8 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
             try:
                 detail = client.query_range_detail(query["query"], window["start"], window["end"], step)
                 series = {json.dumps(item["labels"], sort_keys=True): item for item in detail["series"]}
-                source_sample = check_source(client, query["query"], window["start"], window["end"], step) if config.get("sampling", {}).get("check_source_freshness") else {}
+                source_sample = check_source(client, query["query"], window["start"], window["end"], step, per_entity=True) if config.get("sampling", {}).get("check_source_freshness") else {}
+                source_samples[name] = source_sample
                 qualities[name] = quality(query["query"], window["start"], window["end"], step, detail.get("aggregate"), source=source_sample, result=detail.get("result_quality"))
                 missing.extend(f"{name}:{query['signal']}:{issue}" for issue in result_quality_issues(qualities[name]))
                 if not series:
@@ -343,13 +345,23 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                     if query.get("kind") == "counter":
                         value["sampled_increase"] = increase
                 return value
+            labels = json.loads(identity)
+            entity_quality = {}
+            for name, window, matrix in (("current", current, now), ("baseline", baseline, before)):
+                if name not in qualities:
+                    continue
+                entity_stats = matrix.get(identity, {}).get("stats", {})
+                entity_quality[name] = selected_quality(quality(
+                    query["query"], window["start"], window["end"], step, entity_stats,
+                    source=source_for_entity(source_samples.get(name, {}), labels),
+                    result=qualities[name].get("query_result")), entity_stats)
             observations.append({
                 "id": f"m{len(observations) + 1}", "signal": query["signal"],
                 "unit": query["unit"], "observation_scope": query["scope"],
                 "kind": query.get("kind", "gauge"),
-                "labels": json.loads(identity), "query": query["query"],
+                "labels": labels, "query": query["query"],
                 "current": stats(now), "baseline": stats(before), "source": "prometheus",
-                "sampling_quality": qualities,
+                "sampling_quality": entity_quality,
             })
     return {
         "schema_version": 1, "record_type": "llm_observation_packet", "data_origin": "observed",
