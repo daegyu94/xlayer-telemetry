@@ -80,7 +80,7 @@ def test_recent_stage_and_step_selection_share_five_prior_observations():
 
 class FreshPressureMetrics:
     def query_range_detail(self, query, start, end, step):
-        if query.startswith('timestamp('):
+        if query.startswith('timestamp(') or query.startswith('telemetry_gpu_sample_timestamp_seconds +'):
             stats = {'max': end - 1}
             return {'aggregate': stats, 'series': [{'stats': stats, 'source_timestamps': [start + 1, end - 1]}]}
         labels = {'node': 'node', 'instance': 'endpoint'}

@@ -55,6 +55,7 @@ GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 �
 기본값은 `0`이며 PID churn을 상시 Prometheus 시계열에 넣지 않습니다. 짧은 진단에서만 켜고 `GPU_MAX_PROCESSES`(기본 256, 최대 4096)로 snapshot별 행을 제한합니다.
 `telemetry_gpu_process_collection_enabled`와 `telemetry_gpu_process_samples_truncated`로 설정·잘린 행 수를 구분합니다. 이 한도는 보존 기간 전체의 PID churn이나 nvidia-smi 응답 크기 자체의 한도가 아닙니다.
 `telemetry_gpu_process_sample_timestamp_seconds`는 opt-in process memory 관측값이 하나 이상 있을 때만 노출하며, 실제 측정값 `0`과 일부 행 오류가 있어도 남은 유효한 관측은 보존합니다.
+Collection quality도 device 값에는 `telemetry_gpu_sample_timestamp_seconds`, process 값에는 독립 process timestamp를 사용합니다. Sampler가 멈춰 textfile 값이 남아 있어도 exporter의 새로운 scrape가 producer 관측 시각을 갱신하지 않으며, cluster·instance·job과 GPU/PID identity를 보존합니다. Timestamp가 없으면 freshness는 unknown으로 남깁니다.
 Process 수집 비활성화·전체 실패·관측값 없음에서는 이 시각을 생략하며 device 수집 성공 시각과 독립적으로 freshness를 판단합니다.
 Compute & Communication의 process-memory panel은 이 시각을 우선하고, 이 metric이 없는 이전 collector·저장된 data에서만 device 시각으로 대체합니다.
 Process 시각이 존재하지만 stale이면 fresh device 시각으로 우회하지 않으며, 두 경로 모두 기존 node·instance·GPU selector와 `0 ≤ age < 30s` freshness 조건을 유지합니다. 미래 timestamp와 만료된 관측은 숨기며 실제 측정값 `0`은 보존합니다.

@@ -20,6 +20,14 @@ MAX_ERROR_RESPONSE_BYTES = 8 * 1024
 MAX_RESULT_SERIES = 1000
 MAX_RESULT_POINTS = 200000
 MAX_ANNOTATION_COUNT = 1000
+GPU_PRODUCER_TIMESTAMPS = {
+    name: 'telemetry_gpu_sample_timestamp_seconds' for name in (
+        'telemetry_gpu_utilization_percent', 'telemetry_gpu_memory_used_bytes',
+        'telemetry_gpu_memory_total_bytes', 'telemetry_gpu_power_watts',
+        'telemetry_gpu_temperature_celsius', 'telemetry_gpu_sm_clock_mhz',
+    )
+} | {'telemetry_gpu_process_memory_bytes': 'telemetry_gpu_process_sample_timestamp_seconds'}
+PRODUCER_TIMESTAMP_JOIN = ' + on(cluster, instance, job) group_right() (0 * '
 
 
 def escape_label(value: str) -> str:
@@ -185,7 +193,9 @@ class PrometheusClient:
         return {'aggregate': series_stats(series), 'result_quality': result_quality, 'series': [
             {'labels': item['labels'], 'stats': series_stats([item]),
              **({'source_timestamps': [value for _, value in item['points']]}
-                if query.startswith('timestamp(') else {})}
+                if query.startswith('timestamp(') or any(
+                    query.startswith(gauge+PRODUCER_TIMESTAMP_JOIN)
+                    for gauge in set(GPU_PRODUCER_TIMESTAMPS.values())) else {})}
             for item in series
         ]}
 
