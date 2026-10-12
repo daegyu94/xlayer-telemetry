@@ -25,3 +25,13 @@ def test_catalogue_distinguishes_definitions_bridge_aliases_and_manual_hooks():
 def test_generated_catalogue_is_current_and_never_calls_smart_a_supported_source():
     assert coverage.render(ROOT) == (ROOT/'docs/_includes/metric-coverage.md').read_text()
     assert all('smart' not in row['collection'].lower() for row in coverage.catalogue(ROOT))
+
+
+def test_generated_textfile_diagnostics_are_real_collectors_not_manual_hooks():
+    rows = {row['name']: row for row in coverage.catalogue(ROOT)}
+    for key in ('snapshot_reads', 'snapshot_cache_hits', 'snapshot_rejections', 'sample_rejections'):
+        row = rows[f'telemetry_application_{key}_total']
+        assert row['collection'] == 'collector_optional'
+        assert 'xlayer_telemetry/metrics/textfile.py' in row['producer_refs']
+    assert rows['training_tokens_per_second']['collection'] == 'explicit_integration'
+    assert not rows['telemetry_application_snapshot_reads_total']['automatic_from_span']

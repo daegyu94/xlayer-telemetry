@@ -80,10 +80,10 @@ Raw 이름은 query에서 참조하는 관측입니다. Counter→rate·histogra
 | `host_memory_pressure_ratio`<br>ratio · node | `node_pressure_memory_waiting_seconds_total` | Native endpoint/version 필요 | host | 비교 context만; rule 없음 | compute-communication |
 | `host_memory_peak_bytes`<br>bytes · node | `host_memory_peak_bytes` | 명시 SDK/integration 필요 | — | — | — |
 | `host_pinned_memory_used_bytes`<br>bytes · process | `host_pinned_memory_used_bytes` | 명시 SDK/integration 필요 | — | — | — |
-| `telemetry_application_snapshot_reads_total`<br>operations · collector process | `telemetry_application_snapshot_reads_total` | 명시 SDK/integration 필요 | — | — | — |
-| `telemetry_application_snapshot_cache_hits_total`<br>operations · collector process | `telemetry_application_snapshot_cache_hits_total` | 명시 SDK/integration 필요 | — | — | — |
-| `telemetry_application_snapshot_rejections_total`<br>operations · collector process | `telemetry_application_snapshot_rejections_total` | 명시 SDK/integration 필요 | — | — | — |
-| `telemetry_application_sample_rejections_total`<br>operations · collector process | `telemetry_application_sample_rejections_total` | 명시 SDK/integration 필요 | — | — | — |
+| `telemetry_application_snapshot_reads_total`<br>operations · collector process | `telemetry_application_snapshot_reads_total` | Collector 설정/field가 제공될 때 | — | — | — |
+| `telemetry_application_snapshot_cache_hits_total`<br>operations · collector process | `telemetry_application_snapshot_cache_hits_total` | Collector 설정/field가 제공될 때 | — | — | — |
+| `telemetry_application_snapshot_rejections_total`<br>operations · collector process | `telemetry_application_snapshot_rejections_total` | Collector 설정/field가 제공될 때 | — | — | — |
+| `telemetry_application_sample_rejections_total`<br>operations · collector process | `telemetry_application_sample_rejections_total` | Collector 설정/field가 제공될 때 | — | — | — |
 
 # network
 
@@ -113,9 +113,9 @@ Raw 이름은 query에서 참조하는 관측입니다. Counter→rate·histogra
 | `rl_stage_duration_seconds`<br>s · step, phase, and worker | `rl_stage_duration_seconds` | VERL key가 보고될 때 | — | actor_update_duration_seconds, checkpoint_duration_seconds, communication_duration_seconds, critic_update_duration_seconds, rollout_duration_seconds | agent-rl-stages |
 | `rl_stage_time_per_token_seconds`<br>s/token · step, phase, and worker | `rl_stage_time_per_token_seconds` | VERL key가 보고될 때 | — | — | — |
 | `policy_version`<br>version · trainer or rollout replica | `policy_version` | VERL key가 보고될 때 | — | — | run-overview |
-| `telemetry_wrapped_workload_state`<br>boolean · wrapped command and launcher node | `telemetry_wrapped_workload_state` | 명시 SDK/integration 필요 | — | — | run-overview |
-| `telemetry_wrapped_workload_observed_timestamp_seconds`<br>s · wrapped command and launcher node clock | `telemetry_wrapped_workload_observed_timestamp_seconds` | 명시 SDK/integration 필요 | — | — | run-overview |
-| `telemetry_wrapped_workload_exit_code`<br>exit code · wrapped command | `telemetry_wrapped_workload_exit_code` | 명시 SDK/integration 필요 | — | — | — |
+| `telemetry_wrapped_workload_state`<br>boolean · wrapped command and launcher node | `telemetry_wrapped_workload_state` | Collector 설정/field가 제공될 때 | — | — | run-overview |
+| `telemetry_wrapped_workload_observed_timestamp_seconds`<br>s · wrapped command and launcher node clock | `telemetry_wrapped_workload_observed_timestamp_seconds` | Collector 설정/field가 제공될 때 | — | — | run-overview |
+| `telemetry_wrapped_workload_exit_code`<br>exit code · wrapped command | `telemetry_wrapped_workload_exit_code` | Collector 설정/field가 제공될 때 | — | — | — |
 | `policy_version_lag`<br>versions · rollout replica | `policy_version_lag` | 명시 SDK/integration 필요 | default | policy_version_lag | agent-rl-stages |
 | `mooncake_master_batch_put_start_requests_total`<br>RPC · shared-master RPC | `master_batch_put_start_requests_total` | Native endpoint/version 필요 | — | — | agent-rl-stages |
 | `mooncake_master_batch_put_start_items_total`<br>keys · shared-master request keys | `master_batch_put_start_items_total` | Native endpoint/version 필요 | — | — | agent-rl-stages |
