@@ -13,9 +13,11 @@ test('theme-derived semantic text meets AA on every product surface in both mode
   for(const foreground of ['muted','text','secondary','primary','warning','danger','teal'] as const){
    for(const background of ['bg','soft','canvas','selected'] as const){
     const ratio=colorManipulator.getContrastRatio(tokens[foreground],tokens[background],theme.colors.background.canvas);
-    assert.ok(ratio>=4.5,`${mode} ${foreground}/${background}: ${ratio}`);
+    const minimum=["text","secondary","muted"].includes(foreground)?7:4.5;
+    assert.ok(ratio>=minimum,`${mode} ${foreground}/${background}: ${ratio} < ${minimum}`);
    }
   }
+  assert.equal(new Set([tokens.text,tokens.secondary,tokens.muted]).size,3,`${mode} retains three legible text levels`);
   assert.ok(tokens.small>=12);
  }
 });

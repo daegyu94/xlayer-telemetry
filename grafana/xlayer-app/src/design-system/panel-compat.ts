@@ -4,10 +4,10 @@ export const panelCompatibility = `
 /* Dashboard design tokens shared by App and canonical Scenes panels. */
 
 .xlt-sidebar-foot {
-  border-top:1px solid #2c3b50;
+  border-top:1px solid var(--xl-border);
   margin:30px 10px 0;
   padding:15px 0;
-  color:#aebcd0;
+  color:var(--xl-secondary);
   font-size:12px
 }
 
@@ -15,7 +15,7 @@ export const panelCompatibility = `
   display:block;
   font-size:12px;
   margin-top:5px;
-  color:#92a5c0
+  color:var(--xl-muted)
 }
 
 .xlt-main {
