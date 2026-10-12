@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 def network_fixture(output, loki):
     from xlayer_telemetry.demos.diagnosis import generate
     from xlayer_telemetry.analysis.diagnosis_analysis import evaluate_rules, compare_signals
-    from xlayer_telemetry.analysis.diagnostics import write_report
+    from xlayer_telemetry.analysis.diagnostic_artifacts import write_report
     run_id = 'network-review-' + str(time.time_ns())
     report = generate(output, run_id=run_id, node='gpu-node-0', publish_diagnosis=False)
     baseline = {'communication_duration_seconds':1, 'rdma_bytes_per_second':10, 'gpu_utilization_percent':90}

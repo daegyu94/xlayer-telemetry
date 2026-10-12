@@ -111,7 +111,7 @@ def catalogue(root=ROOT):
     for profile in METRIC_PROFILES:
         query_sets[profile]={name:tokens(expr) for name,expr in profile_queries({'metric_profiles':[profile],'mooncake_master_node':'declared'},'audit').items()}
     rules=function_literals(root/'xlayer_telemetry/analysis/diagnosis_analysis.py',{'evaluate_rules'})
-    rules |= function_literals(root/'xlayer_telemetry/analysis/diagnostics.py',{'_findings'})
+    rules |= function_literals(root/'xlayer_telemetry/analysis/diagnostic_signals.py',{'legacy_findings'})
     panels=panel_queries(root); rows=[]
     for metric in contract:
         name=metric['name']; raw=RAW_NAMES.get(name,[name]); refs=[]

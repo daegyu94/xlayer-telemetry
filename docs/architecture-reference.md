@@ -57,7 +57,7 @@ DeepFlow의 eBPF·network/service path visibility는 환경에 있을 때 소비
 Nsight Systems·PyTorch Profiler 같은 전문 profiler는 저수준 상세 분석 도구이므로 XLayer는 상시 저비용 관측에서 의심 구간을 고르고 필요한 때 그 도구로 이동합니다.
 DCGM 또는 기존 GPU sampler, Node Exporter, Loki도 기존 역할 그대로 사용합니다.
 
-`analysis/diagnosis_analysis.py`는 framework와 독립적인 signal·scope·baseline·participant로 rule을 평가하고, `analysis/diagnostics.py`는 VERL 이력과 Prometheus·3FS를 연결합니다.
+`analysis/diagnostics.py`는 VERL 이력·clock·baseline과 외부 source를 연결하는 coordinator입니다. `analysis/metric_observations.py`는 Rule·LLM의 Prometheus 관측 수집·sampling 품질을 공유하고, `analysis/diagnostic_signals.py`와 `analysis/diagnosis_analysis.py`는 signal 변환과 판정을 담당합니다. `analysis/diagnostic_artifacts.py`는 진단 journal과 immutable Grafana/Loki projection을 저장하며 기존 `DiagnosticEngine`·`write_report` import 경로는 유지합니다.
 [공통 Prometheus client](https://github.com/daegyu94/xlayer-telemetry/blob/main/xlayer_telemetry/prometheus.py)는 rule·LLM·clock 검사에서 같은 series parser를 사용합니다.
 
 `SandboxRecorder`는 외부 runtime lifecycle을 기존 span으로 기록하고, `collectors/sandbox_sampler.py`는 안정적인 cgroup v2 subtree를 Node Exporter textfile로 노출합니다.
@@ -209,6 +209,8 @@ Logger의 stage duration에는 start/end timestamp가 없어 시간 구간은 �
 발견 모드는 기본 300초 freshness·run 종료 상태를 확인하되 원본 파일은 보존합니다.
 
 ![Workload run artifact와 node collector state의 경로·보존 범위](figures/diagrams/artifact-layout.svg)
+
+Snapshot object decoding은 `fileio.read_json_object()`를 사용하며 byte limit·codec·missing 반환 정책은 호출자가 결정합니다. Cache signature 검사·record schema·scope validation과 JSONL recovery는 각각의 reader에 남겨 서로 다른 artifact 계약을 합치지 않습니다.
 
 JSON snapshot은 최신 상태를 빠르게 노출하기 위한 것이므로 모든 step의 이력이 아닙니다.
 원본 step scalar 이력은 VERL file logger에, 관측된 완료 경계는 event JSONL에 남습니다.

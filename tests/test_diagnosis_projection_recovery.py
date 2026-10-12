@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from xlayer_telemetry.analysis import diagnostics
+from xlayer_telemetry.analysis import diagnostics, diagnostic_artifacts
 from xlayer_telemetry.analysis.deadline import IsolatedAnalyzer
 
 
@@ -35,7 +35,7 @@ def inputs(tmp_path):
 @pytest.mark.parametrize("restart", [False, True])
 def test_final_report_recovers_projection_without_reanalysis(tmp_path, monkeypatch, failed_file, restart):
     history, output, config, engine, backend = inputs(tmp_path)
-    atomic_write = diagnostics.atomic_write_text
+    atomic_write = diagnostic_artifacts.atomic_write_text
 
     def disk_full(path, text):
         if path.name == failed_file:
@@ -43,7 +43,7 @@ def test_final_report_recovers_projection_without_reanalysis(tmp_path, monkeypat
         return atomic_write(path, text)
 
     with monkeypatch.context() as fault:
-        fault.setattr(diagnostics, "atomic_write_text", disk_full)
+        fault.setattr(diagnostic_artifacts, "atomic_write_text", disk_full)
         with pytest.raises(OSError, match="No space"):
             diagnostics.run_once(engine, history, output, periodic_when_idle=False)
     journal = (output / "diagnostics.jsonl").read_bytes()
@@ -66,7 +66,7 @@ def test_final_report_recovers_projection_without_reanalysis(tmp_path, monkeypat
 
 def test_isolated_prepare_recovery_is_persisted_only_by_controller(tmp_path, monkeypatch):
     history, output, config, engine, backend = inputs(tmp_path)
-    atomic_write = diagnostics.atomic_write_text
+    atomic_write = diagnostic_artifacts.atomic_write_text
 
     def disk_full(path, text):
         if path.parent.name == "investigation":
@@ -74,7 +74,7 @@ def test_isolated_prepare_recovery_is_persisted_only_by_controller(tmp_path, mon
         return atomic_write(path, text)
 
     with monkeypatch.context() as fault:
-        fault.setattr(diagnostics, "atomic_write_text", disk_full)
+        fault.setattr(diagnostic_artifacts, "atomic_write_text", disk_full)
         with pytest.raises(OSError):
             diagnostics.run_once(engine, history, output, periodic_when_idle=False)
     journal = (output / "diagnostics.jsonl").read_bytes()
@@ -90,7 +90,7 @@ def test_isolated_prepare_recovery_is_persisted_only_by_controller(tmp_path, mon
 def test_recovery_does_not_publish_provisional_or_skip_retry_interval(tmp_path, monkeypatch):
     history, output, config, engine, backend = inputs(tmp_path)
     engine.prometheus.query_range = lambda *args: None
-    atomic_write = diagnostics.atomic_write_text
+    atomic_write = diagnostic_artifacts.atomic_write_text
 
     def fail_latest(path, text):
         if path.name == "latest.json":
@@ -98,7 +98,7 @@ def test_recovery_does_not_publish_provisional_or_skip_retry_interval(tmp_path, 
         return atomic_write(path, text)
 
     with monkeypatch.context() as fault:
-        fault.setattr(diagnostics, "atomic_write_text", fail_latest)
+        fault.setattr(diagnostic_artifacts, "atomic_write_text", fail_latest)
         with pytest.raises(OSError):
             diagnostics.run_once(engine, history, output, periodic_when_idle=False)
     journal = (output / "diagnostics.jsonl").read_bytes()
@@ -122,7 +122,7 @@ def test_recovered_latest_uses_journal_order_after_older_step_retry(tmp_path, mo
     original_stat = second_projection.stat()
     final_retry = first | {"analysis_status": "final", "revision": 2, "retry_at": None,
                            "generated_at": "2026-01-01T00:00:03Z"}
-    atomic_write = diagnostics.atomic_write_text
+    atomic_write = diagnostic_artifacts.atomic_write_text
 
     def fail_latest(path, text):
         if path.name == "latest.json":
@@ -130,7 +130,7 @@ def test_recovered_latest_uses_journal_order_after_older_step_retry(tmp_path, mo
         return atomic_write(path, text)
 
     with monkeypatch.context() as fault:
-        fault.setattr(diagnostics, "atomic_write_text", fail_latest)
+        fault.setattr(diagnostic_artifacts, "atomic_write_text", fail_latest)
         with pytest.raises(OSError):
             diagnostics.write_report(output, final_retry)
     journal = (output / "diagnostics.jsonl").read_bytes()

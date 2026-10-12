@@ -16,9 +16,10 @@ import time
 from typing import Any
 
 from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
+from .metric_observations import collect_query
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
-from .evidence_quality import quality, check_source, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
+from .evidence_quality import quality, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
 from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
@@ -321,11 +322,11 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 matrices.append({})
                 continue
             try:
-                detail = client.query_range_detail(query["query"], window["start"], window["end"], step)
-                series = {json.dumps(item["labels"], sort_keys=True): item for item in detail["series"]}
-                source_sample = check_source(client, query["query"], window["start"], window["end"], step, per_entity=True) if config.get("sampling", {}).get("check_source_freshness") else {}
-                source_samples[name] = source_sample
-                qualities[name] = quality(query["query"], window["start"], window["end"], step, detail.get("aggregate"), source=source_sample, result=detail.get("result_quality"))
+                observed = collect_query(client, query["query"], window["start"], window["end"], step,
+                    check_freshness=config.get("sampling", {}).get("check_source_freshness", False))
+                series = {json.dumps(item["labels"], sort_keys=True): item for item in observed.series}
+                source_samples[name] = observed.source_samples
+                qualities[name] = observed.sampling_quality
                 missing.extend(f"{name}:{query['signal']}:{issue}" for issue in result_quality_issues(qualities[name]))
                 if not series:
                     missing.append(f"{name}:{query['signal']}:no_data")

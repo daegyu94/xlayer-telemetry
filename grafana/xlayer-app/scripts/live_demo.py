@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from xlayer_telemetry.demos.live import Demo, prometheus_config
 from xlayer_telemetry.demos.diagnosis import generate
-from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, _investigation_rows, write_report
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
+from xlayer_telemetry.analysis.diagnostic_artifacts import _investigation_rows, write_report
 from xlayer_telemetry.demos.scenario import make_scenario
 from xlayer_telemetry.demos.validation import stage, schedule_signature, check_query, check_diagnosis, check_live_queue, check_multi_quality
 from xlayer_telemetry.demos.journeys import SCENARIO_IDS, SCENARIOS, scenario_definition, publish_explorer, observation_link

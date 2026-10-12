@@ -18,7 +18,7 @@ from ci_demo import native_dashboard_back
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT))
-from xlayer_telemetry.analysis.diagnostics import write_report
+from xlayer_telemetry.analysis.diagnostic_artifacts import write_report
 from xlayer_telemetry.analysis.llm_diagnosis import packet_from_report, validate_diagnosis
 from xlayer_telemetry.analysis.llm_investigation import project_result
 

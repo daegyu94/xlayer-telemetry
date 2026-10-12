@@ -13,7 +13,7 @@ import json
 from .scenario import validate_scenario
 
 from ..analysis.diagnosis_analysis import compare_signals, evaluate_rules
-from ..analysis.diagnostics import write_report
+from ..analysis.diagnostic_artifacts import write_report
 from ..events import CorrelationContext, EventRecorder
 from ..adapters.verl import measured_phase
 from ..manifest import make_agent_rl_manifest, write_manifest

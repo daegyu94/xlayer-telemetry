@@ -26,20 +26,25 @@ from .diagnosis_analysis import (
     recent_baseline_history, select_baseline, select_vllm_observations,
     validate_baseline_policy, validate_run_engine_instances, resource_run_relation, vllm_identity,
 )
-from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified, project_clock_quality
+from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from . import scheduling
-from .evidence_quality import quality, check_source, source_for_entity, result_quality_issues, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
+from .evidence_quality import quality, source_for_entity, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
 from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
 from .rollout_state import validate_observations, load_serving_context, comparison_issues, apply_serving_limits
 from ..sandbox import device_window
-from ..fileio import append_jsonl, atomic_write_text, json_objects
+from ..fileio import atomic_write_text, json_objects
 # Keep the established import path for SDK callers.
 from ..prometheus import PrometheusClient, escape_label
+from .diagnostic_signals import (_LATENCY_NAME, _DISTRIBUTION_LABELS, _distribution_identity,
+                                 _distribution_index, signal_values, legacy_findings)
+from .diagnostic_artifacts import (_existing_reports, _investigation_path, _write_investigation,
+                                   write_report, _projection_recovery, _investigation_rows, repair_projections)
+from .metric_observations import collect_metrics
 from .query_budget import QueryBudget
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
-from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, project_storage_series, project_storage_summary, validate_series_settings
+from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, validate_series_settings
 from .storage_overview import storage_overview
 from .robust_differential import duration_quality, assess as robust_assess, settings as robust_settings, apply_limits as apply_robust_limits
 
@@ -86,45 +91,6 @@ DEFAULT_THRESHOLDS = {
 _ALLOWED_3FS_FILTERS = {"host", "mount_name", "instance", "io", "uid", "pod", "method"}
 _DATABASE = re.compile(r"^[A-Za-z0-9_]+$")
 _ENVIRONMENT_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_LATENCY_NAME = re.compile(r"latency|duration|elapsed|cost|time", re.IGNORECASE)
-_DISTRIBUTION_LABELS = ("host", "tag", "mount_name", "instance", "io", "uid",
-                        "method", "pod", "thread", "statusCode")
-
-
-def _distribution_identity(row: Mapping[str, Any]) -> tuple | None:
-    """Legacy unlabeled rows match only legacy rows, never explicit entities."""
-    name = row.get("metricName")
-    if not isinstance(name, str):
-        return None
-    if "labels" not in row:
-        if any(key in row for key in _DISTRIBUTION_LABELS):
-            # Do not turn a partially annotated custom/legacy row into the
-            # metric-only compatibility identity.
-            return None
-        return (("metricName", name),)
-    labels = row["labels"]
-    if (not isinstance(labels, Mapping) or set(labels) != set(_DISTRIBUTION_LABELS)
-            or any(not isinstance(value, str) for value in labels.values())):
-        return None
-    return (("metricName", name), *((key, labels[key]) for key in _DISTRIBUTION_LABELS))
-
-
-def _distribution_index(rows: list[dict[str, Any]]) -> dict[tuple, dict[str, Any]]:
-    """Reject duplicate identities rather than choosing a last response row."""
-    result, ambiguous = {}, set()
-    for row in rows:
-        key = _distribution_identity(row)
-        count = finite(row.get("count"))
-        if key is None or count is None or count <= 0:
-            continue
-        if key in result or key in ambiguous:
-            result.pop(key, None)
-            ambiguous.add(key)
-        else:
-            result[key] = row
-    return result
-
-
 @dataclass
 class ThreeFSClient:
     url: str
@@ -679,12 +645,6 @@ class DiagnosticEngine:
         baseline_window_valid = (finite(baseline_window.get("start")) is not None
                                  and finite(baseline_window.get("end")) is not None
                                  and baseline_window["start"] < baseline_window["end"])
-        baseline_metrics: dict[str, Any] = {}
-        executed_queries: dict[str, str] = {}
-        sampling_quality: dict[str, dict] = {}
-        source_samples: dict[str, dict] = {}
-        current_series: dict[str, list[dict[str, Any]]] = {}
-        baseline_series: dict[str, list[dict[str, Any]]] = {}
         clock_config = self.config.get("clock", {})
         def clock_query(expression, start, end, query_step):
             if hasattr(prometheus,'query_range'):
@@ -729,47 +689,14 @@ class DiagnosticEngine:
                        'baseline': load_serving_context(self.config, baseline_window,
                            clock_quality.get('baseline', {}), reader=reader) if baseline_record else {}}
 
-        def query_with_detail(query: str, window_start: float, window_end: float) -> tuple[dict[str, float] | None, list[dict[str, Any]], dict | None]:
-            if hasattr(prometheus, "query_range_detail"):
-                detail = prometheus.query_range_detail(query, window_start, window_end, step)
-                return detail["aggregate"], detail["series"], detail.get("result_quality")
-            return prometheus.query_range(query, window_start, window_end, step), [], None
-
-        for name, template in queries.items():
-            try:
-                query = str(template)
-                for key, value in query_context.items():
-                    query = query.replace("{" + key + "}", escape_label(value))
-                executed_queries[name] = query
-                stats, series, result_quality = query_with_detail(query, float(start), end)
-                source_sample = check_source(prometheus, query, float(start), end, step, per_entity=True) if self.config.get("sampling", {}).get("check_source_freshness") else {}
-                source_samples[name] = {'current': source_sample}
-                sampling_quality[name] = {"current": quality(query, float(start), end, step, stats, source=source_sample, result=result_quality)}
-                missing.extend(f"prometheus:{name}:current:{issue}"
-                               for issue in result_quality_issues(sampling_quality[name]["current"]))
-                if stats is None:
-                    missing.append("prometheus:" + name)
-                else:
-                    evidence[name] = stats
-                    current_series[name] = series
-                if baseline_window_valid:
-                    prior, prior_series, prior_quality = query_with_detail(
-                        query, float(baseline_window["start"]),
-                        float(baseline_window["end"]),
-                    )
-                    baseline_start, baseline_end = float(baseline_window["start"]), float(baseline_window["end"])
-                    prior_source = check_source(prometheus, query, baseline_start, baseline_end, step, per_entity=True) if self.config.get("sampling", {}).get("check_source_freshness") else {}
-                    source_samples[name]['baseline'] = prior_source
-                    sampling_quality[name]["baseline"] = quality(query, baseline_start, baseline_end, step, prior, source=prior_source, result=prior_quality)
-                    missing.extend(f"prometheus:{name}:baseline:{issue}"
-                                   for issue in result_quality_issues(sampling_quality[name]["baseline"]))
-                    if prior is not None:
-                        baseline_metrics[name] = prior
-                        baseline_series[name] = prior_series
-                    else:
-                        missing.append(f"prometheus:{name}:baseline_no_data")
-            except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
-                missing.append(f"prometheus:{name}:{type(exc).__name__}")
+        observations = collect_metrics(prometheus, queries, query_context, float(start), end, step,
+            baseline_window=baseline_window if baseline_window_valid else None,
+            check_freshness=self.config.get("sampling", {}).get("check_source_freshness", False))
+        evidence.update(observations.evidence)
+        missing.extend(observations.missing)
+        baseline_metrics, executed_queries = observations.baseline, observations.executed_queries
+        sampling_quality, source_samples = observations.sampling_quality, observations.source_samples
+        current_series, baseline_series = observations.current_series, observations.baseline_series
 
         sandbox_device_mapping = None
         if sandbox_config.get("enabled") and sandbox_config.get("events_dir"):
@@ -1360,309 +1287,12 @@ class DiagnosticEngine:
             "candidates": candidates,
         }
 
-    @staticmethod
-    def _signals(
-        record: Mapping[str, Any] | None,
-        metrics: Mapping[str, Any],
-        threefs_rows: list[dict[str, Any]],
-    ) -> dict[str, float]:
-        signals: dict[str, float] = {}
-        record = record or {}
-        duration = finite(record.get("step_duration_seconds"))
-        if duration is not None:
-            signals["step_duration_seconds"] = duration
-        stages = record.get("stage_durations_seconds", {})
-        if isinstance(stages, Mapping):
-            for signal, names in {
-                "rollout_duration_seconds": ("rollout",),
-                "actor_update_duration_seconds": ("update_actor",),
-                "critic_update_duration_seconds": ("update_critic",),
-                "checkpoint_duration_seconds": ("save_checkpoint",),
-                "communication_duration_seconds": ("weight_sync", "all_reduce", "collective"),
-            }.items():
-                values = [finite(stages.get(name)) for name in names]
-                if signal == "rollout_duration_seconds" and values[0] is None:
-                    values.append(finite(stages.get("gen")))
-                if signal == "communication_duration_seconds" and finite(stages.get("weight_sync")) is None:
-                    values.append(finite(stages.get("update_weights")))
-                if any(value is not None for value in values):
-                    signals[signal] = sum(value or 0 for value in values)
-        fields = {
-            "gpu_utilization_percent": "mean",
-            "host_memory_available_ratio": "min",
-            "host_swap_activity": "max",
-            "disk_busy_ratio": "max",
-            "tool_duration_seconds": "max",
-            "sandbox_io_pressure_ratio": "max",
-            "sandbox_device_busy_ratio": "max",
-            "storage_device_busy_ratio": "max",
-            "disk_read_bytes_per_second": "mean",
-            "rdma_bytes_per_second": "mean",
-            "vllm_requests_waiting": "max",
-            "vllm_kv_cache_usage": "max",
-            "vllm_preemptions_total": "max_series_delta",
-            "gpu_memory_usage_ratio": "max",
-            "gpu_evictions_delta": "max",
-            "network_utilization_ratio": "max",
-            "threefs_throughput_bytes_per_second": "mean",
-            "storage_request_bytes": "mean",
-        }
-        fields.update({name: spec.statistic for name, spec in PROFILE_SIGNALS.items()})
-        for name, field in fields.items():
-            stats = metrics.get(name)
-            if isinstance(stats, Mapping):
-                value = finite(stats.get(field))
-                if value is not None:
-                    target = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
-                    signals[target] = value / 100 if name in {"vllm_kv_cache_usage", "gpu_memory_usage_ratio"} and value > 1 else value
-        latencies = [finite(row.get("max_observed_p99")) for row in _distribution_index(threefs_rows).values()
-                     if _LATENCY_NAME.search(row["metricName"])]
-        latencies = [value for value in latencies if value is not None]
-        if len(latencies) == 1:
-            signals["threefs_p99_latency"] = latencies[0]
-        return signals
+    _signals = staticmethod(signal_values)
 
-    def _findings(
-        self,
-        evidence: Mapping[str, Any],
-        threefs_rows: list[dict[str, Any]],
-        threefs_baseline: list[dict[str, Any]],
-        start: float,
-        end: float,
-        execution_mode: str,
-        *, baseline_window: Mapping[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        findings: list[dict[str, Any]] = []
-        slow_names = {item["stage"] for item in evidence.get("slow_stages", [])}
-        waiting = finite(evidence.get("vllm_requests_waiting", {}).get("max"))
-        kv = finite(evidence.get("vllm_kv_cache_usage", {}).get("max"))
-        kv_ratio = kv / 100 if kv is not None and kv > 1 else kv
-        preemptions = finite(evidence.get("vllm_preemptions_total", {}).get("max_series_delta"))
-        if (waiting is not None and waiting >= self.thresholds["vllm_waiting"] or
-                kv_ratio is not None and kv_ratio >= self.thresholds["vllm_kv_usage"] or
-                preemptions is not None and preemptions > 0):
-            finding = {"component": "vllm", "candidate": "rollout_capacity_or_kv_pressure", "signals": {"waiting_max": waiting, "kv_usage_max_ratio": kv_ratio, "preemptions_delta": preemptions}}
-            if execution_mode == "async":
-                finding["attribution"] = "continuous_window"
-            else:
-                finding["correlates_with_slow_stage"] = "gen" in slow_names
-            findings.append(finding)
-        pending = finite(evidence.get("ray_pending_tasks", {}).get("max"))
-        if pending is not None and pending >= self.thresholds["ray_pending_tasks"]:
-            findings.append({"component": "ray", "candidate": "scheduling_backlog", "observation_scope": "cluster/session", "signals": {"pending_tasks_max": pending}})
-        lag = finite(evidence.get("policy_version_lag", {}).get("max"))
-        if lag is not None and lag >= self.thresholds["policy_version_lag"]:
-            findings.append({"component": "verl_async", "candidate": "policy_version_lag", "signals": {"version_lag_max": lag}})
-        memory = finite(evidence.get("host_memory_available_ratio", {}).get("min"))
-        disk = finite(evidence.get("disk_busy_ratio", {}).get("max"))
-        gpu = finite(evidence.get("gpu_utilization_percent", {}).get("mean"))
-        if (memory is not None and memory <= self.thresholds["memory_available_ratio"] or
-                disk is not None and disk >= self.thresholds["disk_busy_ratio"]):
-            findings.append({"component": "host", "candidate": "memory_or_storage_pressure", "signals": {"memory_available_min_ratio": memory, "disk_busy_max_ratio": disk, "gpu_utilization_mean_percent": gpu}, "correlates_with_slow_stage": bool(slow_names)})
-        latency_rows = {identity: row for identity, row in _distribution_index(threefs_rows).items()
-                        if _LATENCY_NAME.search(row["metricName"])}
-        baseline_by_identity = _distribution_index(threefs_baseline)
-        elevated = []
-        for identity, row in latency_rows.items():
-            baseline = baseline_by_identity.get(identity, {})
-            counts = [finite(item.get("count")) for item in (row, baseline)]
-            current_p99 = finite(row.get("max_observed_p99"))
-            baseline_p99 = finite(baseline.get("max_observed_p99"))
-            # Distribution cells without sampled operations are not latency
-            # observations, even when the backend returns a retained p99 value.
-            if (any(count is None or count <= 0 for count in counts)
-                    or current_p99 is None or baseline_p99 is None or baseline_p99 <= 0):
-                continue
-            exposure = distribution_comparison_quality([row], [baseline], {'start': start, 'end': end},
-                baseline_window or {'start': start - (end - start), 'end': start})
-            if exposure['status'] != 'shared_report_window':
-                continue
-            ratio = current_p99 / baseline_p99
-            if ratio >= self.thresholds["threefs_latency_slowdown_ratio"]:
-                elevated.append({**row, "baseline_max_observed_p99": baseline_p99, "ratio": ratio})
-        if elevated:
-            findings.append({"component": "3fs", "candidate": "latency_regression", "signals": {"metrics": elevated, "window_seconds": end - start}, "attribution": "shared_storage_window"})
-        return findings
-
-
-def _existing_reports(path: Path, *, cache: JSONLCache | None = None) -> tuple[dict[str, dict[str, Any]], dict[str, Any] | None]:
-    reports: dict[str, dict[str, Any]] = {}
-    latest = None
-    try:
-        for value in (cache.read(path) if cache is not None else json_objects(path)):
-            if value.get("record_type") == "bottleneck_diagnosis":
-                latest = value
-            record_id = value.get("trigger_record_id")
-            if isinstance(record_id, str):
-                reports[record_id] = value
-    except FileNotFoundError:
-        pass
-    return reports, latest
-
-
-def _investigation_path(directory: Path, report: Mapping[str, Any]) -> Path | None:
-    if report.get("trigger") != "step_observed" or report.get("analysis_status") == "provisional":
-        return None
-    key = re.sub(r"[^A-Za-z0-9_.-]", "_", str(report.get("trigger_record_id") or report.get("generated_at")))
-    return directory / "investigation" / f"{key}.jsonl"
-
-
-def _write_investigation(directory: Path, report: Mapping[str, Any], *, missing_only: bool = False) -> None:
-    path = _investigation_path(directory, report)
-    if path is None or (missing_only and path.is_file()):
-        return
-    # Completed projections are immutable for Alloy/Loki. Recovery only creates
-    # missing files, so existing tailed records are not replayed.
-    rows = _investigation_rows(report)
-    atomic_write_text(path, "".join(
-        json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in rows))
-
-
-def write_report(directory: Path, report: Mapping[str, Any]) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    encoded = json.dumps(report, separators=(",", ":"), sort_keys=True) + "\n"
-    append_jsonl(directory / "diagnostics.jsonl", encoded)
-    atomic_write_text(directory / "latest.json", json.dumps(report, indent=2, sort_keys=True) + "\n")
-    _write_investigation(directory, report)
-
-
-def _projection_recovery(engine, output, reports, latest):
-    """Plan repair from the journal; only the controller may persist files."""
-    missing = []
-    verified = getattr(engine, "_verified_projections", set())
-    for report in reports.values():
-        path = _investigation_path(output, report)
-        if path is None:
-            continue
-        identity = (str(path.absolute()), str(report.get("revision")), str(report.get("generated_at")))
-        if identity in verified:
-            continue
-        if not path.is_file():
-            missing.append(report)
-        elif len(verified) < 100_000:
-            # The files are immutable; remember successful checks within this
-            # worker lifetime, bounded independently of the report log length.
-            verified.add(identity)
-    recover_latest = None
-    if latest is not None:
-        try:
-            published = json.loads((output / "latest.json").read_text(encoding="utf-8"))
-        except (FileNotFoundError, ValueError):
-            published = None
-        if published != latest:
-            recover_latest = latest
-    return {"investigation": missing, "latest": recover_latest}
-
-
-def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
-    def evidence_text(item: Mapping[str, Any]) -> str:
-        labels = ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items())
-        suffix = f":{labels}" if labels else ""
-        return f"{item['signal']}={item['value']} ({item['observation_scope']}{suffix})"
-
-    def quality_fields(value):
-        value = (value or {}).get("current", {})
-        return {"query_step_seconds": value.get("query_step_seconds"),
-                "range_window_seconds": value.get("range_window_seconds"),
-                "evaluation_count": value.get("evaluation_count"),
-                "source_age_seconds": value.get("source_age_seconds"),
-                "quality_warnings": ", ".join(value.get("warnings", []))}
-
-    window = report.get("analysis_window", {})
-    comparison = report.get("comparison", {})
-    baseline = comparison.get("baseline_interval") or {}
-    common = {
-        "schema_version": 1, "run_id": report.get("run_id"), "node": report.get("node"),
-        "diagnosis_method": report.get("diagnosis_method", "rule"), "generated_at": report.get("generated_at"),
-        "workload_comparability": comparison.get("workload_comparability", "unverified"),
-        "sandbox_device_mapping": (report.get("sandbox_device_mapping") or {}).get("status", "not_configured"),
-        "data_origin": report.get("data_origin", "observed"),
-        "step": report.get("step"), "record_id": report.get("trigger_record_id"),
-        "boundary_scope": report.get("boundary_scope"), "execution_mode": report.get("execution_mode"),
-        "worker_id": report.get("worker_id"),
-        "observed_at": window.get("end"), "boundary_accuracy": window.get("accuracy"),
-        "time_reference": alignment_metadata(window).get("reference_id"),
-        "time_reference_session": alignment_metadata(window).get("reference_session"),
-        "time_uncertainty_seconds": alignment_metadata(window).get("uncertainty_seconds"),
-        "window_start_ms": math.floor(window["start"] * 1000) if finite(window.get("start")) is not None else None,
-        "window_end_ms": math.ceil(window["end"] * 1000) if finite(window.get("end")) is not None else None,
-        "baseline_record_id": comparison.get("baseline_record_id"),
-        "baseline_start_ms": math.floor(baseline["start"] * 1000) if finite(baseline.get("start")) is not None else None,
-        "baseline_end_ms": math.ceil(baseline["end"] * 1000) if finite(baseline.get("end")) is not None else None,
-    }
-    symptom = report.get("symptom", {})
-    strong = [item for item in report.get("candidates", []) if item.get("state") == "strong_signal"]
-    rows = [{**common, "row_kind": "summary", "verdict": report.get("verdict"),
-             **project_clock_quality(report.get('clock_quality', {})),
-             "step_duration_seconds": symptom.get("step_duration_seconds"),
-             "candidate_count": len(report.get("candidates", [])),
-             "strong_candidate_count": len(strong),
-             "primary_candidate": strong[0].get("id") if strong else None,
-             "missing_sources": ", ".join(report.get("missing_sources", [])),
-             "run_model_identifier": report['run_model'].get('identifier') if isinstance(report.get('run_model'), Mapping) else None,
-             "run_model_source": report['run_model'].get('source') if isinstance(report.get('run_model'), Mapping) else None,
-             "storage_overview": json.dumps(report.get('storage_overview'), separators=(',', ':')),
-             **({'async_decision': json.dumps(report['async_decision'], separators=(',', ':'))} if report.get('async_decision') else {}),
-             **({'rollout_replicas': json.dumps(report['rollout_replicas'], separators=(',', ':'))}
-                if report.get('rollout_replicas') is not None else {})}]
-    for replica in report.get('rollout_replicas', []):
-        for entity in replica.get('entities', []) or [{}]:
-            rows.append({**common, 'row_kind': 'replica', 'replica_id': replica['id'],
-                         'replica_status': replica['status'], 'replica_clock_status': replica['clock_status'],
-                         'replica_nodes': replica['nodes'], 'replica_endpoint': replica['instance'],
-                         'run_relation': 'configured', 'resource_attribution': 'not_established',
-                         'replica_entity': entity.get('identity'), 'replica_signals': entity.get('signals', {}),
-                         'replica_missing_sources': entity.get('missing_sources', [])})
-    for candidate in report.get("candidates", []):
-        rows.append({**common, "row_kind": "candidate", "candidate_id": candidate.get("id"),
-                     "component": candidate.get("component"), "state": candidate.get("state"),
-                     "summary": candidate.get("summary"),
-                     "evidence_summary": "; ".join(evidence_text(item) for item in candidate.get("evidence", [])),
-                     "counter_evidence_summary": ", ".join(item["signal"] for item in candidate.get("counter_evidence", [])),
-                     "missing_evidence_summary": ", ".join(candidate.get("missing_evidence", [])),
-                     "observation_scope": candidate.get("observation_scope")})
-        rows[-1]['resource_attribution'] = candidate.get('resource_attribution', 'not_established')
-        rows[-1]['run_relation'] = candidate.get('run_relation', 'not_reported')
-        rows[-1]['signal_strength'] = candidate.get('signal_strength', candidate.get('state'))
-        rows[-1]['context_status'] = candidate.get('context_status')
-        rows[-1]['replica_id'] = candidate.get('replica_id')
-        rows[-1]['serving_context'] = json.dumps(candidate.get('serving_context'), separators=(',', ':'))
-        for kind, items in (("supporting", candidate.get("evidence", [])),
-                            ("counter", candidate.get("counter_evidence", []))):
-            for item in items:
-                rows.append({**common, "row_kind": "evidence", "candidate_id": candidate.get("id"),
-                             "evidence_type": kind, "signal": item.get("signal"),
-                             "current": item.get("value"), "baseline": item.get("baseline"),
-                             "observation_scope": item.get("observation_scope"),
-                             "source": item.get("source"),
-                             "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
-                             "query": item.get("query"),
-                             "entity": ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items()),
-                             "sampling_quality": json.dumps(item.get("sampling_quality"), separators=(",", ":")),
-                             **quality_fields(item.get("sampling_quality"))})
-        for name in candidate.get("missing_evidence", []):
-            rows.append({**common, "row_kind": "evidence", "candidate_id": candidate.get("id"),
-                         "evidence_type": "missing", "signal": name,
-                         "current": None, "baseline": None,
-                         "observation_scope": candidate.get("observation_scope"),
-                         "source": None, "entity": ""})
-    for signal in comparison.get("signals", []):
-        if signal.get("baseline") is None:
-            continue
-        rows.append({**common, "row_kind": "comparison", "signal": signal["signal"],
-                     "observation_scope": signal["scope"],
-                     "entity": ",".join(f"{key}={value}" for key, value in signal.get("labels", {}).items()),
-                     "current": signal["current"],
-                     "baseline": signal["baseline"], "delta_percent": signal["delta_percent"],
-                     "unit": signal.get("unit"), "window_statistic": signal.get("window_statistic"),
-                     "query": signal.get("query"),
-                     "comparison_status": signal.get('comparison_status', 'not_reported'),
-                     "comparison_quality": json.dumps(signal.get('comparison_quality'), separators=(',', ':')),
-                     "sampling_quality": json.dumps(signal.get("sampling_quality"), separators=(",", ":")),
-                     **quality_fields(signal.get("sampling_quality"))})
-    rows.extend(project_storage_series(report.get("storage_series", {}), common))
-    rows.extend(project_storage_summary(report.get("storage_series", {}), common))
-    return rows
+    def _findings(self, evidence, threefs_rows, threefs_baseline, start, end,
+                  execution_mode, *, baseline_window=None):
+        return legacy_findings(self.thresholds, evidence, threefs_rows, threefs_baseline,
+                               start, end, execution_mode, baseline_window=baseline_window)
 
 
 def _prepare_batch(engine, history_path, output, *, periodic_when_idle=True,
@@ -1723,11 +1353,7 @@ def run_once(
     if plan.get("record_type") == "bottleneck_diagnosis":
         write_report(output, plan)  # Failed scheduling cannot finalize any step.
         return 0
-    recovery = plan.get("projection_recovery", {})
-    for report in recovery.get("investigation", []):
-        _write_investigation(output, report, missing_only=True)
-    if recovery.get("latest") is not None:
-        atomic_write_text(output / "latest.json", json.dumps(recovery["latest"], indent=2, sort_keys=True) + "\n")
+    repair_projections(output, plan.get("projection_recovery", {}))
     for record, previous in plan["pending"]:
         attempted_at = engine.clock()
         attempted_elapsed = scheduling.elapsed(engine)
