@@ -15,12 +15,13 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: ${GRAFANA_IMAGE:-grafana/grafana:12.1.0}
+    image: grafana/grafana:13.1.7
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/run-overview.json
-      GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE-}
+      GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE-vizLegendFacetedFilter}
+      GF_FEATURE_TOGGLES_REACT19: "false"
       GF_USERS_DEFAULT_THEME: ${GF_USERS_DEFAULT_THEME:-light}
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"

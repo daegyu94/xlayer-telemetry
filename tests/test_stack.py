@@ -122,7 +122,7 @@ def test_validate_stack_applies_target_health_policy(
 
     def read_json(url: str) -> dict:
         if url.endswith("/api/health"):
-            return {"database": "ok"}
+            return {"database": "ok", "version": "13.1.7"}
         if "/api/v1/targets" in url:
             return {
                 "status": "success",
@@ -169,7 +169,7 @@ def test_validate_stack_checks_loki_when_requested(
 
     def read_json(url: str) -> dict:
         if url.endswith("/api/health"):
-            return {"database": "ok"}
+            return {"database": "ok", "version": "13.1.7"}
         if url.endswith("/loki/api/v1/labels"):
             return {"status": "success", "data": []}
         if "/api/v1/targets" in url:

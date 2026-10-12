@@ -85,13 +85,15 @@ if [[ "$role" == server ]]; then
 "${PYTHON:-python3}" - "${PROMETHEUS_SAMPLE_LIMIT:-100000}" "${PROMETHEUS_TARGET_LIMIT:-1024}" \
   "${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}" "${NATIVE_SCRAPE_INTERVAL_SECONDS:-5}" \
   "${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}" "${GPU_PROCESS_METRICS:-0}" "${GPU_MAX_PROCESSES:-256}" "${PROMETHEUS_LABEL_LIMIT:-64}" <<'PYBUDGET'
-import sys
+import os, sys
+from xlayer_telemetry.grafana_release import release
 from xlayer_telemetry.operations.config import ConfigError, validate_collection_budgets
 keys = ("PROMETHEUS_SAMPLE_LIMIT", "PROMETHEUS_TARGET_LIMIT", "PROMETHEUS_BODY_SIZE_LIMIT_MB",
         "NATIVE_SCRAPE_INTERVAL_SECONDS", "NATIVE_SCRAPE_TIMEOUT_SECONDS", "GPU_PROCESS_METRICS", "GPU_MAX_PROCESSES", "PROMETHEUS_LABEL_LIMIT")
 try:
+    release(os.environ.get("GRAFANA_VERSION") or None)
     validate_collection_budgets(dict(zip(keys, sys.argv[1:])))
-except ConfigError as error:
+except ValueError as error:
     print(error, file=sys.stderr)
     raise SystemExit(2)
 PYBUDGET

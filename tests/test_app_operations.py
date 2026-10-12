@@ -14,7 +14,7 @@ def no_existing_grafana(monkeypatch):
 def bundle(tmp_path, value='one', **metadata):
     path = tmp_path / f'{value}.zip'
     plugin = {'id': app.APP_ID, 'type': 'app', 'info': {'version': '0.1.0'},
-              'dependencies': {'grafanaDependency': '>=12.1.0'}, **metadata}
+              'dependencies': {'grafanaDependency': '13.1.7'}, **metadata}
     with zipfile.ZipFile(path, 'w') as archive:
         for name, body in {'plugin.json': json.dumps(plugin), 'module.js': value, 'img/logo.svg': '<svg/>'}.items():
             archive.writestr(f'{app.APP_ID}/{name}', body)
@@ -126,7 +126,8 @@ def test_mismatched_datasource_and_old_served_bundle_do_not_report_ready(tmp_pat
     path,digest=bundle(tmp_path);settings=config(tmp_path)
     app.install_package(settings,path,digest,allow_unsigned=True)
     def api(config,path):
-        if path=='/api/health':return {'version':'12.1.0'}
+        if path=='/api/health':return {'version':'13.1.7'}
+        if path=='/api/frontend/settings':return {'featureToggles':{'react19':False}}
         if '/plugins/' in path:return {'enabled':True,'signature':'unsigned'}
         if path=='/api/datasources':return [{'type':'prometheus','uid':'other'}]
         return {'dashboard':{'panels':[{'datasource':{'uid':'required','type':'prometheus'}}]}}
@@ -246,7 +247,7 @@ def test_failed_third_update_preserves_working_install_and_existing_rollback(tmp
 
 
 @pytest.mark.parametrize('requirement', ['>=12.1.0', '>=12.1.0 <13.2.0'])
-@pytest.mark.parametrize('version,compatible', [('12.0.9', False), ('12.1.0', True), ('13.1.9', True), ('13.2.0', False), ('14.0.0', False)])
+@pytest.mark.parametrize('version,compatible', [('12.0.9', False), ('12.1.0', False), ('13.1.7', True), ('13.1.8', False), ('13.1.9', False), ('13.2.0', False), ('14.0.0', False)])
 def test_react18_package_compatibility_has_a_runtime_ceiling(tmp_path, monkeypatch, requirement, version, compatible):
     archive, digest = bundle(tmp_path, dependencies={'grafanaDependency': requirement})
     settings = config(tmp_path)
@@ -270,7 +271,7 @@ def test_status_does_not_certify_a_legacy_unbounded_receipt_on_react19(tmp_path,
 
 def test_manifest_matches_installer_react18_ceiling():
     metadata = json.loads((Path(__file__).parents[1] / 'grafana/xlayer-app/src/plugin.json').read_text())
-    assert metadata['dependencies']['grafanaDependency'] == '>=12.1.0 <13.2.0'
+    assert metadata['dependencies']['grafanaDependency'] == '13.1.7'
 
 
 @pytest.mark.parametrize('flags,expected', [({'react19':True},'fail'),({'react19':False},'pass'),({},'pass'),(None,'unknown')])

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..grafana_release import grafana_home
+from ..grafana_release import grafana_home, DEFAULT_GRAFANA_VERSION
 
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -128,8 +128,14 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
         results = list(pool.map(lambda item: probe(item[0], json_body=item[1]), endpoints.values()))
     for name, result in zip(endpoints, results):
         services[name] = {"health": result["health"], "ownership": "endpoint_only"}
-        if name == "grafana" and result["health"] == "healthy" and result["data"].get("database") != "ok":
-            services[name]["health"] = "degraded"
+        if name == "grafana" and result["health"] == "healthy":
+            version = result["data"].get("version")
+            services[name].update(version=version if isinstance(version, str) else None,
+                                  expected_version=DEFAULT_GRAFANA_VERSION,
+                                  version_matches=version == DEFAULT_GRAFANA_VERSION)
+            if result["data"].get("database") != "ok" or version != DEFAULT_GRAFANA_VERSION:
+                services[name]["health"] = "degraded"
+                services[name]["action"] = "XLayer requires Grafana 13.1.7; inspect /api/health and the upgrade guide."
     services.setdefault("loki", {"health": "disabled"})
     services["server"]["health"] = ("healthy" if all(services[name]["health"] in {"healthy", "disabled"}
                                     for name in ("prometheus", "grafana", "loki")) else "degraded")
@@ -279,6 +285,11 @@ def doctor(config: dict[str, str], *, role: str = "all", correlation: bool = Fal
             continue
         check(name, os.access(path, os.X_OK), "Run xltel install-tools.",
               optional=name in {"Loki", "Alloy"} and config["ENABLE_LOGS"] == "0")
+    if role != "node":
+        observed = probe(config["GRAFANA_URL"] + "/api/health", json_body=True)
+        if observed["health"] == "healthy":
+            check("Grafana server version", observed["data"].get("version") == DEFAULT_GRAFANA_VERSION,
+                  "XLayer requires Grafana 13.1.7; inspect /api/health and the upgrade guide.")
     if config["ENABLE_GPU_METRICS"] == "1" and role != "server":
         from ..tool_check import _run_version
         available, _, _ = _run_version(("nvidia-smi", "--version"))

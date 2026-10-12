@@ -16,7 +16,7 @@
 
 ## 준비
 
-- Managed 기본은 Grafana **13.1.7**이며 기존 Scenes UI를 유지하는 공식 `react19=false` 호환 모드를 사용합니다. 기존 12.1.0 선택을 유지하며 선언 범위는 `>=12.1.0 <13.2.0`입니다. React 19 runtime 및 13.2 이상은 현재 App bundle의 검증 범위 밖입니다. [Upgrade / Rollback](../../docs/app-deployment-reference.md#managed-grafana-upgrade)을 확인하세요.
+- Grafana는 **13.1.7만 허용**하며 기존 Scenes UI를 유지하는 공식 `react19=false` 호환 모드를 사용합니다. 12.1을 포함한 다른 server 버전은 config·health·installer에서 거부합니다. `@grafana/*` 12.1 개발 library는 server 지원 버전을 뜻하지 않습니다. React 19 runtime은 현재 App bundle의 검증 범위 밖입니다. [Upgrade / Rollback](../../docs/app-deployment-reference.md#managed-grafana-upgrade)을 확인하세요.
 - CI prebuilt ZIP + SHA256 또는 checkout + Node 20 이상·npm. Python core runtime에는 npm dependency가 추가되지 않습니다.
 - 기존 XLayer dashboard를 `scripts/provision_dashboards.py`로 provision합니다.
 - Prometheus는 core입니다. Loki Step/span/diagnosis는 optional입니다.
@@ -126,7 +126,7 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 
 2026-10-08의 네 페이지 UI를 실제 Grafana 12.1.0의 live demo에서 1440px·1280px·900px·390px로 검증했습니다. Browser error는 0개이며 선택 Step의 native datasource 요청 25/25개가 실제 window와 일치했습니다. 최종 완료 범위·test 수·남은 한계는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md#validation)에서 확인합니다.
 
-현재 Grafana 13.1.7의 React 18 호환 모드에서도 기존 Scenes 조사 경로와 native Legend의 Light/Dark·Desktop/Mobile 조작을 확인했습니다. Legacy 12.1.0 기본 경로와 실제 장비 미검증 항목은 [Validation Scope](../../docs/app-deployment-reference.md#validation-scope)를 확인하세요.
+현재 Grafana 13.1.7의 React 18 호환 모드에서도 기존 Scenes 조사 경로와 native Legend의 Light/Dark·Desktop/Mobile 조작을 확인했습니다. 12.1.0의 과거 검증 기록과 실제 장비 미검증 항목은 [Validation Scope](../../docs/app-deployment-reference.md#validation-scope)를 확인하세요.
 
 `--multi-worker`를 추가하면 네 worker의 exact rollout span·명시 `weights.applied` event와 느린 peer 하나를 생성합니다. Analyze의 **Worker Comparison**에서 cohort를 확인하고 **Execution worker**를 선택합니다. 선택한 identity는 URL에 보존하며 observer와 resource node를 구분합니다. 기본 demo는 단일 execution path를 유지합니다.
 

@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import zipfile
 
-from ..grafana_release import grafana_home
+from ..grafana_release import grafana_home, DEFAULT_GRAFANA_VERSION
 from .config import ConfigError, assets_root
 from ..fileio import atomic_write_text, read_json_object
 from .._http_transport import request_bytes
@@ -24,7 +24,7 @@ REPOSITORY = 'daegyu94/xlayer-telemetry'
 MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_FILES = 1000
 # Retain the tested version scope. React runtime is checked separately below.
-GRAFANA_CEILING = (13, 2, 0)
+GRAFANA_CEILING = (13, 1, 8)
 PROVISIONING = f'apiVersion: 1\napps:\n  - type: {APP_ID}\n    org_id: 1\n    disabled: false\n'
 
 
@@ -39,6 +39,8 @@ def semver(value):
 
 
 def dependency_bounds(value):
+    if value == DEFAULT_GRAFANA_VERSION:
+        return semver(value), GRAFANA_CEILING
     match = re.fullmatch(r'>=(\d+\.\d+\.\d+)(?:\s+<(\d+\.\d+\.\d+))?', value) if isinstance(value, str) else None
     if not match:
         return None
@@ -49,7 +51,7 @@ def dependency_bounds(value):
 
 def grafana_compatible(version, dependency):
     bounds, actual = dependency_bounds(dependency), semver(version)
-    return bool(bounds and actual and bounds[0] <= actual < bounds[1])
+    return bool(version == DEFAULT_GRAFANA_VERSION and bounds and actual and bounds[0] <= actual < bounds[1])
 
 
 def detected_version(config):
@@ -163,7 +165,7 @@ def install_package(config, archive, sha256, *, allow_unsigned=False, update=Fal
         metadata, manifest = _unpack(Path(archive), unpacked, sha256, allow_unsigned)
         version=detected_version(config)
         if version and not grafana_compatible(version, metadata['dependencies']['grafanaDependency']):
-            raise AppError('Grafana version is outside the plugin range or React 18 ceiling (<13.2.0); existing files were preserved.')
+            raise AppError('Grafana version must be 13.1.7 and within the plugin range; existing files were preserved.')
         with _locked(state):
             receipt_path = state / 'installed.json'
             old = _read(receipt_path)
@@ -311,10 +313,10 @@ def status(config, **paths):
     local = local_state(config, **paths)
     health, loaded, datasources = api(config, '/api/health'), api(config, f'/api/plugins/{APP_ID}/settings'), api(config, '/api/datasources')
     version = health.get('version') if isinstance(health, dict) else None
-    dependency = local['receipt'].get('dependency', '>=12.1.0 <13.2.0')
+    dependency = local['receipt'].get('dependency', DEFAULT_GRAFANA_VERSION)
     compatible = grafana_compatible(version, dependency)
-    checks = [{'component': 'Grafana', 'status': 'pass' if version else 'unknown', 'detail': version or 'API unavailable or access not verified'},
-        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{dependency}; 13.2+ unverified; Grafana 13 requires React 18 compatibility mode'},
+    checks = [{'component': 'Grafana', 'status': 'pass' if version == DEFAULT_GRAFANA_VERSION else 'fail' if version else 'unknown', 'detail': version or 'API unavailable or access not verified'},
+        {'component': 'Declared compatibility', 'status': 'pass' if compatible else 'unknown' if not version else 'fail', 'detail': f'{dependency}; XLayer requires 13.1.7 with React 18 compatibility mode'},
         {'component': 'Plugin package integrity', 'status': 'pass' if local['integrity'] == 'verified' else 'fail', 'detail': local['integrity']},
         {'component': 'Plugin enabled', 'status': 'pass' if isinstance(loaded, dict) and loaded.get('enabled') else 'unknown', 'detail': 'Grafana API observation'},
         {'component': 'Datasources', 'status': 'pass' if isinstance(datasources, list) and any(row.get('type') == 'prometheus' for row in datasources) else 'unknown', 'detail': 'Prometheus availability; Loki optional'}]

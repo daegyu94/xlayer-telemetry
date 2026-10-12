@@ -110,7 +110,7 @@ def test_status_checks_identity_health_and_freshness(tmp_path, monkeypatch):
     (run / "telemetry-metrics/verl-trainer-driver.json").write_text(json.dumps({"step": 124, "observed_at": time.time()-3600}))
     from xlayer_telemetry.operations import health
     monkeypatch.setattr(health, "probe", lambda url, **kw: {"health": "healthy", "data":
-        {"database": "ok", "status": "success", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up", "scrapeUrl": "http://127.0.0.1:19100/metrics"}]}}})
+        {"database": "ok", "version": "13.1.7", "status": "success", "data": {"activeTargets": [{"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up", "scrapeUrl": "http://127.0.0.1:19100/metrics"}]}}})
     result = status(config)
     assert result["investigation_url"] == "http://127.0.0.1:13000/d/xlayer-start-here?var-cluster=training-cluster&var-node=gpu-local"
     assert result["status"] == "healthy"
@@ -218,7 +218,7 @@ while true; do sleep 0.1; done
     config_path_.write_text(config_path_.read_text() + "ENABLE_GPU_METRICS=0\n")
     class Backend(BaseHTTPRequestHandler):
         def do_GET(self):
-            payload = {"database": "ok", "status": "success", "data": {"activeTargets": [
+            payload = {"database": "ok", "version": "13.1.7", "status": "success", "data": {"activeTargets": [
                 {"labels": {"job": "telemetry", "cluster": "training-cluster", "nodename": "gpu-local"}, "health": "up", "scrapeUrl": "http://127.0.0.1:19100/metrics"}]}}
             self.send_response(200)
             self.end_headers()
@@ -309,7 +309,7 @@ def test_status_json_with_real_unavailable_backend_and_logs(tmp_path):
 def test_status_json_real_http_backend(tmp_path):
     class Backend(BaseHTTPRequestHandler):
         def do_GET(self):
-            payload = {"database": "ok", "status": "success", "data": {"activeTargets": []}}
+            payload = {"database": "ok", "version": "13.1.7", "status": "success", "data": {"activeTargets": []}}
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps(payload).encode())

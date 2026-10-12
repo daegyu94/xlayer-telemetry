@@ -19,7 +19,7 @@
 ```{admonition} 선택 사항
 :class: note
 
-App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 plugin을 자동 설치하지 않습니다. Managed 기본은 Grafana OSS 13.1.7의 React 18 호환 모드·Scenes 6.20.0이며 기존 UI를 유지합니다. Legacy 12.1.0의 기본 Scenes 경로도 확인했습니다. [검증 범위](app-deployment-reference.md#validation-scope)를 확인하세요.
+App은 선택적 PoC입니다. 기존 dashboard를 유지하며 `xltel up`이 plugin을 자동 설치하지 않습니다. Grafana OSS 13.1.7만 지원하며 React 18 호환 모드·Scenes 6.20.0으로 기존 UI를 유지합니다. 12.1.0의 Scenes 경로는 과거 검증 기록이며 현재 선택할 수 없습니다. [검증 범위](app-deployment-reference.md#validation-scope)를 확인하세요.
 ```
 
 ## 준비 조건

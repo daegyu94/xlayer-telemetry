@@ -15,7 +15,7 @@ def check(tmp_path, monkeypatch, addresses, *, discovered=True, configured='10.0
                 'health': 'up', **({'scrapeUrl': f'http://{value}:19100/metrics'} if value else {})} for value in addresses]
     def probe(url, **kwargs):
         if '/targets' in url and not discovered: return {'health': 'unreachable', 'data': None}
-        return {'health': 'healthy', 'data': {'database': 'ok', 'status': 'success', 'data': {'activeTargets': targets}}}
+        return {'health': 'healthy', 'data': {'database': 'ok', 'version': '13.1.7', 'status': 'success', 'data': {'activeTargets': targets}}}
     monkeypatch.setattr(health, 'probe', probe)
     return health.status(config, role='server')
 

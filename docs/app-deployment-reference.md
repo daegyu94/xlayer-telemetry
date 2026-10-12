@@ -2,7 +2,7 @@
 
 **찾아보는 목적:** App build 산출물·개발용 package·실제 Grafana browser CI와 운영 서명의 경계를 확인합니다. 일반 설치와 조사 흐름은 [App guide](grafana-scenes-poc.md)를 따릅니다.
 
-Managed Grafana의 기본 버전은 **13.1.7**이며 기존 App + Scenes UI와 Scenes 6.20.0을 유지합니다. 실제 Grafana 13.1도 기본 React 19 runtime을 사용하므로, XLayer는 공식 `[feature_toggles] react19 = false` 설정을 별도 owned `grafana-compat.ini`로 적용합니다. 선언·installer 범위 `>=12.1.0 <13.2.0`은 모든 runtime의 호환성을 뜻하지 않으며, `app status`는 Grafana 13의 관측된 frontend flag도 검사합니다. React 19 JSX runtime externalization·최소 Grafana 버전 조정과 13.2 이상 검증은 Future Work입니다. [공식 migration 안내](https://grafana.com/developers/plugin-tools/migration-guides/update-from-grafana-versions/migrate-12_x-to-13_x/).
+Managed Grafana는 **13.1.7만 지원**하며 기존 App + Scenes UI와 Scenes 6.20.0을 유지합니다. Grafana 13의 기본 React 19 runtime 대신 공식 `[feature_toggles] react19 = false` 설정을 별도 owned `grafana-compat.ini`로 적용합니다. Config·installer·startup·health·App·browser 검증은 다른 버전을 거부하며, 기존 12.1 서버가 응답해도 정상으로 인정하지 않습니다. App의 `@grafana/*` 12.1 개발 dependency는 API library 버전이며 운영 Grafana 선택 범위가 아닙니다. [공식 migration 안내](https://grafana.com/developers/plugin-tools/migration-guides/update-from-grafana-versions/migrate-12_x-to-13_x/).
 
 ## 배포 단계
 
@@ -20,9 +20,9 @@ Managed Grafana의 기본 버전은 **13.1.7**이며 기존 App + Scenes UI와 S
 2. **Configure:** 기존 TOML `[telemetry]`에서 `GRAFANA_VERSION = "13.1.7"`을 지정합니다. `GF_FEATURE_TOGGLES_ENABLE = "vizLegendFacetedFilter"`가 기본값이며, 명시한 빈 문자열은 opt-out으로 유지합니다.
 3. **Install / Start:** `xltel install-tools --role server`로 publisher SHA256을 확인한 archive를 설치하고 `xltel up --role server`를 실행합니다. 새 binary는 `grafana-13.1.7/`에 설치되며 기존 `grafana-v12.1.0/`을 삭제하지 않습니다. Fresh SQLite migration에는 bounded startup 대기 시간을 사용합니다.
 4. **Verify:** `xltel app status`와 `/a/xlayer-telemetry-app/overview`에서 기존 Scenes UI·선택 context·query·drill-down을 확인합니다. Version 범위와 React runtime·실제 served bundle 검사는 별개입니다.
-5. **Rollback:** Server를 종료한 뒤 **업그레이드 전 DB·config backup을 복구**하고 `GRAFANA_VERSION = "12.1.0"`으로 시작합니다. 13이 migration한 DB에 12 binary만 연결해서 downgrade하지 않습니다. `app rollback`은 plugin backup을 복구하며 Grafana DB를 되돌리는 명령이 아닙니다.
+5. **Rollback:** 12로 복구해야 한다면 server를 종료한 뒤 **업그레이드 전 DB·config backup과 당시 XLayer revision/tooling을 함께 복구**합니다. 현재 revision은 `GRAFANA_VERSION = "12.1.0"`을 허용하지 않습니다. 13이 migration한 DB에 12 binary만 연결해서 downgrade하지 않습니다. `app rollback`은 plugin backup을 복구하며 Grafana DB를 되돌리는 명령이 아닙니다.
 
-External Grafana 13.1은 기존 config의 `[feature_toggles]`에 `react19 = false`와 `vizLegendFacetedFilter = true`를 적용해야 현재 App bundle을 사용할 수 있습니다. XLayer는 external config·DB·NTP 서비스를 직접 수정하지 않습니다.
+External Grafana도 13.1.7이어야 하며 기존 config의 `[feature_toggles]`에 `react19 = false`와 `vizLegendFacetedFilter = true`를 적용해야 현재 App bundle을 사용할 수 있습니다. XLayer는 external config·DB·NTP 서비스를 직접 수정하지 않습니다.
 
 ### Series Readability
 
@@ -165,7 +165,7 @@ CI 다운로드 cache도 매번 고정 publisher checksum과 대조합니다. [M
 
 ## Validation Scope
 
-2026-10-11의 격리된 CPU/Synthetic 환경에서 Grafana 13.1.7의 기존 Scenes 조사 경로·Multi-worker·Multi-job, GPU/Storage/Network Legend의 Light/Dark·1440px/390px 조작을 검증했습니다. Legacy 12.1.0에서도 기본 Scenes browser journey를 확인했습니다. Ubuntu 22.04 container에서는 binary 실행과 `/api/health`만 확인했으므로, 기존 Ubuntu 22.04 CPU CI는 유지합니다.
+2026-10-11의 격리된 CPU/Synthetic 환경에서 Grafana 13.1.7의 기존 Scenes 조사 경로·Multi-worker·Multi-job, GPU/Storage/Network Legend의 Light/Dark·1440px/390px 조작을 검증했습니다. 당시 Legacy 12.1.0에서도 기본 Scenes browser journey를 확인했으나 현재 선택할 수 없습니다. Ubuntu 22.04 container에서는 binary 실행과 `/api/health`만 확인했으므로, 기존 Ubuntu 22.04 CPU CI는 유지합니다.
 
 후속 Matrix UI 변경은 단일 Job의 기존 live stack에서 GPU/Storage/Network의 계산 선택·단일 series 상세·Legend·KPI 그래프/텍스트 분리를 Light/Dark·1440px/390px에서 검증했습니다. Matrix 숫자의 대비도 확인했으며, 이 변경 이후 Multi-worker / Multi-job browser journey를 별도로 다시 실행한 것은 아닙니다.
 

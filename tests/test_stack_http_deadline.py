@@ -84,7 +84,7 @@ def test_stack_backend_size_failure_still_writes_summary(tmp_path, monkeypatch):
     monkeypatch.setattr(stack, "_wait_until_ready", lambda *args: None)
     def read(url):
         if "/api/health" in url:
-            return {"database": "ok"}
+            return {"database": "ok", "version": "13.1.7"}
         raise RuntimeError("HTTP response exceeds byte limit")
     monkeypatch.setattr(stack, "_read_json", read)
     output = tmp_path / "summary.json"

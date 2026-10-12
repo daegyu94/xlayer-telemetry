@@ -16,19 +16,14 @@ _RELEASES={
         'sha256':{'amd64':'7c168c1fe147e5f3550fa15e5f59362bde5719ab98c905a91a37aa969203c92f',
                   'arm64':'25a9f6d3eb090c6520a76fae2b20a2574e115b1faa40da8b0747e7b7211f6536'},
     },
-    '12.1.0': {
-        'url':'https://dl.grafana.com/oss/release/grafana-12.1.0.linux-{arch}.tar.gz',
-        'home':'grafana-v12.1.0',
-        'sha256':{'amd64':'69923cf95824008a6a7529f242295ecc2bc6b1dc4e5142c889971e88407d8712',
-                  'arm64':'2f53c7a99a09c21088707dc3d933f4a4455c33e458a9e8df564485e3b7c7b6e7'},
-    },
+
 }
 
 
 def release(version=None,arch='amd64'):
     version=DEFAULT_GRAFANA_VERSION if version is None else version
     if version not in _RELEASES or arch not in {'amd64','arm64'}:
-        raise ValueError('GRAFANA_VERSION must be a pinned managed release (12.1.0 or 13.1.7); architecture must be amd64 or arm64')
+        raise ValueError('GRAFANA_VERSION must be 13.1.7; other versions are unsupported; architecture must be amd64 or arm64')
     entry=_RELEASES[version]
     return {'version':version,'home':entry['home'],'url':entry['url'].format(arch=arch),'sha256':entry['sha256'][arch]}
 
@@ -38,14 +33,14 @@ def grafana_home(tools,version=None):
 
 
 def default_toggles(version=None):
-    return LEGEND_TOGGLE if release(version)['version']==DEFAULT_GRAFANA_VERSION else ''
+    release(version)
+    return LEGEND_TOGGLE
 
 def compatibility_config(version=None):
     # Grafana 13 ships both runtimes. The existing Scenes bundle embeds React
     # 18 JSX helpers; use Grafana's official runtime flag without changing UI.
-    if release(version)['version']==DEFAULT_GRAFANA_VERSION:
-        return '[feature_toggles]\nreact19 = false\n'
-    return '# Legacy Grafana uses its existing React runtime.\n'
+    release(version)
+    return '[feature_toggles]\nreact19 = false\n'
 
 
 if __name__=='__main__':

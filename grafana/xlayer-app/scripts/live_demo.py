@@ -95,7 +95,7 @@ def wait_for_service(url, owner, stopping, request, *, timeout=90):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tools', type=Path)
-    parser.add_argument('--grafana-version',choices=('12.1.0',DEFAULT_GRAFANA_VERSION),default=DEFAULT_GRAFANA_VERSION)
+    parser.add_argument('--grafana-version',choices=(DEFAULT_GRAFANA_VERSION,),default=DEFAULT_GRAFANA_VERSION)
     parser.add_argument('--output', type=Path, help='New, disposable state directory')
     parser.add_argument('--grafana-port', type=int, default=23400)
     parser.add_argument('--scenario', choices=(*SCENARIO_IDS, 'alternating'), default='alternating',

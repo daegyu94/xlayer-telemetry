@@ -139,6 +139,12 @@ def _launch(config: dict[str, str], action: str, role: str = "all") -> int:
         code = child.wait()
         if code and action in {"up", "install"}:
             print("xltel: check xltel doctor and xltel logs; use xltel install-tools for missing monitoring binaries.", file=sys.stderr)
+        if code == 0 and action == "up" and role != "node":
+            from .operations.health import probe
+            from .grafana_release import DEFAULT_GRAFANA_VERSION
+            observed = probe(config["GRAFANA_URL"].rstrip("/") + "/api/health", json_body=True)
+            if observed["health"] != "healthy" or observed["data"].get("version") != DEFAULT_GRAFANA_VERSION:
+                raise ConfigError("Grafana version must be 13.1.7; inspect /api/health and follow the upgrade guide. Existing services were preserved.")
         return code if code >= 0 else 128 - code
     finally:
         for sig, handler in previous.items():
@@ -151,6 +157,8 @@ def _print_health(result: dict) -> None:
     for name, data in result["services"].items():
         label = "managed " + name if name in {"server", "node"} else name
         print(f"{label:<22} {data.get('process', data.get('ownership', '-')):<24} {data.get('health', '-')}")
+        if name == "grafana" and data.get("action"):
+            print("  " + data["action"])
     for name, data in result["metrics"].items():
         label = "VERL saved snapshot" if name == "verl" else name + " metrics"
         print(f"{label:<22} {data.get('scope', 'sample'):<24} {data['health']}")

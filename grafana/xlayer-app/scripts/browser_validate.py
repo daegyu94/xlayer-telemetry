@@ -20,10 +20,12 @@ def observed_grafana_version(url):
     try:
         with urllib.request.urlopen(url+'/api/health',timeout=5) as response:
             payload=json.load(response)
-        version=payload.get('version') if isinstance(payload,dict) else None
-        return version if isinstance(version,str) and re.fullmatch(r'\d+\.\d+\.\d+',version) else 'unknown'
+        actual=payload.get('version') if isinstance(payload,dict) else None
     except (OSError,ValueError):
-        return 'unknown'
+        actual=None
+    assert actual == '13.1.7', 'Grafana 13.1.7 is required; unknown or unsupported API version cannot pass this journey'
+    return actual
+
 
 
 def diagnostic_text(value, limit=24000):

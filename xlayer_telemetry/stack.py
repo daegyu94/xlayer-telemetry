@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 from xlayer_telemetry._http_transport import request_bytes
 from xlayer_telemetry.run_summary import make_run_summary
+from xlayer_telemetry.grafana_release import DEFAULT_GRAFANA_VERSION
 
 
 TARGET_FILES = ("applications.json", "gpus.json", "nodes.json")
@@ -118,6 +119,7 @@ def validate_stack(args: argparse.Namespace) -> int:
     prometheus_ready = False
     grafana_ready = False
     grafana_database_ok = False
+    grafana_version_ok = False
     prometheus_query_ok = False
     loki_url = getattr(args, "loki_url", None)
     loki_ready = not loki_url
@@ -137,9 +139,11 @@ def validate_stack(args: argparse.Namespace) -> int:
         grafana_health_url = f"{args.grafana_url.rstrip('/')}/api/health"
         _wait_until_ready(grafana_health_url, args.timeout)
         grafana_ready = True
-        grafana_database_ok = grafana_database_is_healthy(
-            _read_json(grafana_health_url)
-        )
+        grafana_health = _read_json(grafana_health_url)
+        grafana_database_ok = grafana_database_is_healthy(grafana_health)
+        grafana_version_ok = grafana_health.get("version") == DEFAULT_GRAFANA_VERSION
+        if not grafana_version_ok:
+            errors.append("Grafana 13.1.7 required; /api/health version is unsupported or unknown")
         if not grafana_database_ok:
             errors.append("Grafana database health is not ok")
     except (RuntimeError, ValueError, OSError) as error:
@@ -186,6 +190,7 @@ def validate_stack(args: argparse.Namespace) -> int:
             prometheus_ready,
             grafana_ready,
             grafana_database_ok,
+            grafana_version_ok,
             prometheus_query_ok,
             loki_ready,
             loki_query_ok,
@@ -220,6 +225,8 @@ def validate_stack(args: argparse.Namespace) -> int:
             "prometheus_query_ok": prometheus_query_ok,
             "grafana_ready": grafana_ready,
             "grafana_database_ok": grafana_database_ok,
+            "grafana_version_ok": grafana_version_ok,
+            "expected_grafana_version": DEFAULT_GRAFANA_VERSION,
             "loki_enabled": bool(loki_url),
             "loki_ready": loki_ready,
             "loki_query_ok": loki_query_ok,

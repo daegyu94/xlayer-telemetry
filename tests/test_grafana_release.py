@@ -17,12 +17,12 @@ def test_default_managed_config_targets_grafana_13_and_preserves_toggle_opt_out(
     config,_=load_config(path)
     assert config['GRAFANA_VERSION']=='13.1.7'
     assert config['GF_FEATURE_TOGGLES_ENABLE']=='vizLegendFacetedFilter'
-    path.write_text('[telemetry]\nGRAFANA_VERSION="12.1.0"\nGF_FEATURE_TOGGLES_ENABLE=""\n')
+    path.write_text('[telemetry]\nGRAFANA_VERSION="13.1.7"\nGF_FEATURE_TOGGLES_ENABLE=""\n')
     config,_=load_config(path)
-    assert config['GRAFANA_VERSION']=='12.1.0' and config['GF_FEATURE_TOGGLES_ENABLE']==''
+    assert config['GRAFANA_VERSION']=='13.1.7' and config['GF_FEATURE_TOGGLES_ENABLE']==''
 
 
-@pytest.mark.parametrize('version',['13.2.0','../grafana','13.1.8',''])
+@pytest.mark.parametrize('version',['12.1.0','13.0.0','13.1.6','13.2.0','../grafana','13.1.8',''])
 def test_unpinned_managed_release_is_rejected(tmp_path,monkeypatch,version):
     from xlayer_telemetry.operations.config import ConfigError,load_config
     monkeypatch.delenv('GRAFANA_VERSION',raising=False)
@@ -35,7 +35,7 @@ def test_shell_release_lookup_and_offline_app_detection_share_managed_path(tmp_p
     from xlayer_telemetry.operations.app import detected_version
     monkeypatch.setattr('xlayer_telemetry.operations.app.api',lambda *_:None)
     tools=tmp_path/'tools with spaces'
-    for version in ('12.1.0','13.1.7'):
+    for version in ('13.1.7',):
         home=grafana_home(tools,version)
         binary=home/'bin/grafana';binary.parent.mkdir(parents=True)
         binary.write_text(f'#!/bin/sh\necho "Version {version}"\n');binary.chmod(0o755)
@@ -81,4 +81,5 @@ def test_dense_resource_panels_keep_visible_lines_and_compact_legends():
 def test_compatibility_mode_keeps_existing_scenes_bundle_on_grafana_13():
     from xlayer_telemetry.grafana_release import compatibility_config
     assert 'react19 = false' in compatibility_config('13.1.7')
-    assert 'react19' not in compatibility_config('12.1.0')
+    with pytest.raises(ValueError, match='13.1.7'):
+        compatibility_config('12.1.0')

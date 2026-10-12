@@ -7,6 +7,8 @@ Grafana 화면은 상위 directory의 공통 JSON template에서 `scripts/provis
 별도 resource dashboard 복사본을 유지하지 않으며 metrics-only 화면 5개와 Cross-Layer Signals workspace 1개를 생성합니다.
 이 Compose는 Loki를 실행하지 않으므로 완료 step 목록·Bottleneck Summary·Timeline·Run Logs가 필요하면 [Loki를 포함한 기본 server](../../docs/monitoring.md#add-run-logs-with-loki)를 사용합니다.
 
+Grafana image는 `grafana/grafana:13.1.7`로 고정합니다. `GRAFANA_IMAGE`로 다른 버전을 선택할 수 없으며 App 호환을 위한 `react19=false`와 기본 `vizLegendFacetedFilter`를 설정합니다. 운영 DB를 이전 버전에서 옮길 때는 [Upgrade / Rollback](../../docs/app-deployment-reference.md#managed-grafana-upgrade)을 먼저 확인합니다.
+
 ## Configure Targets
 
 `nodes.json`의 `.example` 주소는 실행 가능한 주소가 아니므로 실제 collector 주소로 바꿉니다.

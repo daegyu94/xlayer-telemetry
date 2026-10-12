@@ -146,7 +146,7 @@ def test_role_specific_health_and_missing_remote_target(tmp_path, monkeypatch):
                 "scrapeUrl": f"http://{address}:19100/metrics"}
                for name, address in (("gpu-a", "10.0.0.1"), ("sandbox-a", "10.0.0.2"))]
     monkeypatch.setattr(health, "probe", lambda *a, **kw: {"health": "healthy", "data":
-                          {"database": "ok", "status": "success", "data": {"activeTargets": targets}}})
+                          {"database": "ok", "version": "13.1.7", "status": "success", "data": {"activeTargets": targets}}})
     result = health.status(config, role="server")
     assert result["status"] == "healthy"
     assert result["metrics"]["gpu"]["health"] == "not_applicable"
@@ -228,6 +228,7 @@ while true; do sleep .1; done
     monkeypatch.setenv("MARKER_DIR", str(tmp_path))
     monkeypatch.setenv("PATH", f"{fake_bin}:{os.environ['PATH']}")
     monkeypatch.setattr(cli, "assets_root", lambda: tmp_path)
+    monkeypatch.setattr(health, "probe", lambda *_args, **_kwargs: {"health": "healthy", "data": {"database": "ok", "version": "13.1.7"}})
     args = ["--config", str(path)]
     state = tmp_path / "state/verl-local"
     try:

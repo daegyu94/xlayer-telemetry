@@ -50,7 +50,7 @@ def test_compose_uses_current_metrics_dashboards_and_selected_mounts(tmp_path):
     subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
                     '--output', str(dashboards)], check=True)
     env = os.environ | {'DASHBOARDS_DIR': str(dashboards), 'TARGET_DIR': str(tmp_path),
-                        'PROMETHEUS_PORT': '29090', 'GRAFANA_PORT': '23000'}
+                        'PROMETHEUS_PORT': '29090', 'GRAFANA_PORT': '23000', 'GRAFANA_IMAGE': 'grafana/grafana:12.1.0'}
     result = subprocess.run([docker, 'compose', '-f', str(ROOT / 'examples/dashboards/compose.yaml'),
                              'config', '--format', 'json'], env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
@@ -60,6 +60,8 @@ def test_compose_uses_current_metrics_dashboards_and_selected_mounts(tmp_path):
     assert any(m['source'] == str(tmp_path) and m['target'] == '/etc/prometheus/targets'
                for m in config['prometheus']['volumes'])
     assert config['grafana']['ports'][0]['published'] == '23000'
+    assert config['grafana']['image'] == 'grafana/grafana:13.1.7'
+    assert config['grafana']['environment']['GF_FEATURE_TOGGLES_REACT19'] == 'false'
     assert config['prometheus']['ports'][0]['published'] == '29090'
     files = list(dashboards.glob('*.json'))
     assert len(files) == 6
