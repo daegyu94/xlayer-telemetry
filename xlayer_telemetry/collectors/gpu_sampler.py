@@ -26,6 +26,14 @@ def optional_number(value: str) -> float | None:
         return None
 
 
+def field_quality(value: str | None) -> str:
+    if value is None or not value.strip():
+        return 'missing'
+    if value.strip().casefold() in {'[n/a]', 'n/a', 'not supported', '[not supported]'}:
+        return 'unsupported'
+    return 'observed' if optional_number(value) is not None else 'error'
+
+
 def query(kind: str, fields: list[str]) -> list[list[str]]:
     result = subprocess.run(
         ["nvidia-smi", f"--query-{kind}={','.join(fields)}", "--format=csv,noheader,nounits"],
@@ -79,6 +87,8 @@ def snapshot(*, include_processes: bool = False, max_processes: int = 256) -> di
             # Do not invent an identity or crash all device collection on a bad row.
             continue
         gpu["unavailable_fields"] = [key for key in fields if gpu[key] is None]
+        gpu["field_quality"] = {key: field_quality(row[i] if i < len(row) else None)
+                                for i, key in enumerate(fields) if key != "index"}
         gpu["uuid"] = row[len(fields)] if len(row) > len(fields) else None
         gpus.append(gpu)
     processes = []

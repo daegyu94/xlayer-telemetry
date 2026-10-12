@@ -16,6 +16,20 @@ def test_zero_is_still_a_measurement():
     assert gpu_sampler.optional_number("0") == 0
 
 
+def test_device_field_quality_preserves_unsupported_missing_error_and_zero(monkeypatch):
+    monkeypatch.setattr(gpu_sampler, 'query', lambda *args: [
+        ['0', '0', '', 'broken', 'nan', '[N/A]', 'Not Supported', 'GPU-example'],
+    ])
+    device = gpu_sampler.snapshot()['gpus'][0]
+    assert device['utilization.gpu'] == 0
+    assert device['memory.used'] is None
+    assert device['field_quality'] == {
+        'utilization.gpu': 'observed', 'power.draw': 'missing',
+        'temperature.gpu': 'error', 'clocks.sm': 'error',
+        'memory.used': 'unsupported', 'memory.total': 'unsupported',
+    }
+
+
 @pytest.mark.parametrize("failure", [subprocess.TimeoutExpired("nvidia-smi", 10), OSError("unavailable")])
 def test_optional_process_query_failure_preserves_device_samples(monkeypatch, failure):
     def query(kind, fields):
