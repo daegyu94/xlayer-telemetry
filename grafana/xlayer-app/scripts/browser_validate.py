@@ -12,7 +12,7 @@ import urllib.request
 import time
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
-from ci_demo import assert_policy_lifecycle_text, datasource_error_result, native_dashboard_back
+from ci_demo import assert_policy_lifecycle_text, datasource_error_result, native_dashboard_back, verify_loki_all_filters
 
 
 
@@ -497,6 +497,8 @@ def main():
         entry_diagnostics = EntryDiagnostics(page,args.output,args.label,errors)
         page.on('request',lambda r:queries.append(r.post_data_json) if '/api/ds/query' in r.url and r.method=='POST' else None)
         def capture(name):page.screenshot(path=str(args.output/f'{args.label}-{name}.png'),full_page=True)
+        verify_loki_all_filters(page,args.url)
+        checks.append('All Cluster/Node Loki workload lookup returns HTTP 200')
         url=args.url+'/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         enter_app(page,url,entry_diagnostics);page.wait_for_timeout(1500)
         assert 'Synthetic demo' in page.locator('.xlt').inner_text()

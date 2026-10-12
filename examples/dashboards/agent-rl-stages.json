@@ -2591,6 +2591,143 @@
               "refId": "F",
               "expr": "rate(master_put_start_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
               "legendFormat": "{{node}} {{component}} {{instance}} master PutStart failures/s"
+            },
+            {
+              "refId": "G",
+              "expr": "rate(master_batch_put_start_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} master batch PutStart error RPC/s"
+            },
+            {
+              "refId": "H",
+              "expr": "rate(master_batch_put_end_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} master batch PutEnd error RPC/s"
+            },
+            {
+              "refId": "I",
+              "expr": "rate(master_batch_get_replica_list_failures_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} master batch GetReplicaList error RPC/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            }
+          }
+        },
+        {
+          "id": 68,
+          "type": "timeseries",
+          "title": "Mooncake master batch RPC requests",
+          "description": "Master control RPC를 endpoint별로 표시합니다. Requests는 batch RPC envelope, items는 요청 key 수이며 successful KV save/load나 DFS I/O bytes를 뜻하지 않습니다. 미지원 exporter는 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 81,
+            "w": 24,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(master_batch_put_start_requests_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch PutStart RPC/s"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(master_batch_put_end_requests_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch PutEnd RPC/s"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(master_batch_get_replica_list_requests_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch GetReplicaList RPC/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "noValue": "N/A",
+              "custom": {
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "spanNulls": false,
+                "showPoints": "auto"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc",
+              "hideZeros": false
+            }
+          }
+        },
+        {
+          "id": 69,
+          "type": "timeseries",
+          "title": "Mooncake master batch requested keys",
+          "description": "Master control RPC를 endpoint별로 표시합니다. Requests는 batch RPC envelope, items는 요청 key 수이며 successful KV save/load나 DFS I/O bytes를 뜻하지 않습니다. 미지원 exporter는 N/A입니다.",
+          "gridPos": {
+            "x": 0,
+            "y": 89,
+            "w": 24,
+            "h": 8
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "telemetry-prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "rate(master_batch_put_start_items_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch PutStart requested keys/s"
+            },
+            {
+              "refId": "B",
+              "expr": "rate(master_batch_put_end_items_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch PutEnd requested keys/s"
+            },
+            {
+              "refId": "C",
+              "expr": "rate(master_batch_get_replica_list_items_total{job=\"native\",telemetry_source=\"mooncake\",cluster=~\"$cluster\",node=~\"$node\"}[$__rate_interval])",
+              "legendFormat": "{{node}} {{component}} {{instance}} batch GetReplicaList requested keys/s"
             }
           ],
           "fieldConfig": {

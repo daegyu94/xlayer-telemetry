@@ -62,7 +62,7 @@
       },
       "targets": [
         {
-          "expr": "{cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"$run_id\"",
+          "expr": "{cluster=~\".+\",cluster=~\"$cluster\", node=~\"$node\", workload=~\"$workload\",signal!=\"verl_step\",signal!=\"xlayer_diagnosis\",signal!=\"xlayer_event\"} | unpack | run_id=~\"$run_id\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -149,12 +149,12 @@
           "type": "loki",
           "uid": "telemetry-loki"
         },
-        "definition": "label_values({cluster=~\"$cluster\"}, node)",
+        "definition": "label_values({cluster=~\".+\",cluster=~\"$cluster\"}, node)",
         "includeAll": true,
         "label": "Resource",
         "multi": true,
         "name": "node",
-        "query": "label_values({cluster=~\"$cluster\"}, node)",
+        "query": "label_values({cluster=~\".+\",cluster=~\"$cluster\"}, node)",
         "refresh": 2,
         "type": "query",
         "description": "관측할 node입니다. GPU·host·shared-service 값은 Run별로 자동 분리되지 않습니다."
@@ -169,12 +169,12 @@
           "type": "loki",
           "uid": "telemetry-loki"
         },
-        "definition": "label_values({cluster=~\"$cluster\", node=~\"$node\"}, workload)",
+        "definition": "label_values({cluster=~\".+\",cluster=~\"$cluster\", node=~\"$node\"}, workload)",
         "includeAll": true,
         "label": "Workload",
         "multi": true,
         "name": "workload",
-        "query": "label_values({cluster=~\"$cluster\", node=~\"$node\"}, workload)",
+        "query": "label_values({cluster=~\".+\",cluster=~\"$cluster\", node=~\"$node\"}, workload)",
         "refresh": 2,
         "type": "query",
         "description": "Alloy가 log root에 지정한 Workload label입니다."

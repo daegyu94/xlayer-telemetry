@@ -113,3 +113,20 @@ TransferQueue singleton과 cleanup의 시간적 일치는 강한 원인 후보�
 Workload 완료·application 동시 관측·cross-job 격리·clock/correlation·UI를 각각 `PASS / FAIL / Blocked / Not instrumented / Not run`으로 기록합니다. 두 Job이 모두 완료하지 못했다면 telemetry 확인 범위와 별도로 workload concurrency를 Pending으로 유지합니다.
 
 작은 증거 묶음에 commit SHA·실제 version/API health·model weight identity·placement·manifest/logger/history/health·query JSON·clock inventory/reference·UI query/window와 screenshot을 보존합니다. 실제 GPU 검증과 CPU/synthetic 검증을 구분하고, 이번 작업의 process·temporary config만 정리합니다. 기존 사용자 process·cluster·monitoring과 Run evidence는 보존하며 [검증 기록](validation/README.md)의 범위와 비교합니다.
+
+## 독립 클러스터 피드백의 반영 범위
+
+2026-10-12 사용자 피드백의 외부 Run·버전·원본 로그는 확보하지 못했으므로 외부 PASS 개수나 L4 성능 수치를 이 저장소의 재현 결과로 표시하지 않습니다. 현재 코드에서 확인한 결함은 Loki 전체 필터의 stream selector, missing/failed/interrupted 종료 시 stale sidecar alive 값, Mooncake batch master counter의 query/어휘 누락입니다.
+
+| 항목 | 반영 및 재검증 방법 |
+|---|---|
+| Loki workload/node label 조회·log panel | Cluster label에 nonempty matcher를 보장하고 전체/미선택 필터에서 actual Loki HTTP status를 확인합니다. 기존 Cluster·Node 선택 조건은 유지합니다. |
+| Mooncake batch 관측 | PutStart·PutEnd·GetReplicaList의 RPC requests와 requested keys를 별도 panel로 표시하고 batch RPC 실패도 관측합니다. RPC/key count를 KV payload 저장 성공·DFS bytes로 간주하지 않습니다. |
+| 종료 health | 최종 export 실패에도 PID가 종료됐으면 `stopped`로 갱신하고 실제 살아 있는 PID는 `stop_pending`으로 남깁니다. Workload exit code와 export 실패 이유는 보존합니다. |
+| Async 같은 step 여러 건 | 현재 history는 동일 내용·identity의 exact duplicate만 제거합니다. 같은 step의 다른 data는 별도 관측으로 보존하므로 step 번호만으로 삭제하지 않습니다. 외부 원문 없이 producer 중복인지 서로 다른 update인지 확정하지 않습니다. |
+| Native discovery 덮어쓰기 | 보고된 `discover_vllm.sh`는 이 저장소에 없습니다. 외부 helper는 기존 DCGM/3FS/Mooncake 항목을 보존하도록 수정해야 하며 공식 `xltel sources refresh`는 등록된 파일을 읽습니다. |
+| 모니터링 재시작 충돌 | 현재 managed up/down의 lifecycle lock을 사용합니다. 여러 controller의 배포 전체를 하나의 sequence로 조정하고 실제 workload 검증을 먼저 종료합니다. |
+
+Proxy 환경에서는 기존 `NO_PROXY`/`no_proxy`에 loopback과 해당 배포의 monitoring endpoint host를 추가한 뒤 readiness를 확인합니다. 다른 클러스터의 특정 IP를 공통 기본값에 넣거나 모든 proxy를 비활성화하지 않습니다. 시계 보정은 운영자가 monitoring/producer inventory 전체에 대해 수행하고 `doctor --correlation`으로 재검증하며 clock guard를 우회하지 않습니다.
+
+Ray/vLLM 동적 endpoint 등록, DS/MDS node_exporter, 모든 GPU node의 Alloy, sandbox/Docker 권한, retention·장시간 overhead와 실제 두 모델 비교는 환경 준비 또는 별도 integration 검증입니다. 기존 정상 DCGM configuration과 과거 Run 원본을 보존하고, 종료된 Run의 historical window를 live now window의 N/A와 구분합니다.

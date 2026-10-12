@@ -124,7 +124,24 @@ def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str
                 issues.append("diagnostics:incomplete_evidence")
         except (OSError, ValueError, AttributeError):
             issues.append("diagnostics:unreadable_final_report")
+    if not isinstance(result.get("sidecars"), dict):
+        result["sidecars"] = {}
     for name, outcome in result["final_export"].items():
+        if outcome != "ok" and name in result.get("sidecars", {}):
+            state = result["sidecars"][name]
+            if not isinstance(state, dict):
+                state = result["sidecars"][name] = {}
+            pid = state.get("pid")
+            alive = False
+            if type(pid) is int and pid > 1:
+                try:
+                    os.kill(pid, 0)
+                    alive = True
+                except ProcessLookupError:
+                    pass
+                except PermissionError:
+                    alive = True  # Cannot prove that cleanup completed.
+            state.update(alive=alive, status="stop_pending" if alive else "stopped")
         if outcome == "ok":
             paths = list((root / "telemetry-metrics").glob("verl-trainer-driver*.json")) if name == "bridge" else [root / "diagnostics/latest.json"]
             timestamps = []

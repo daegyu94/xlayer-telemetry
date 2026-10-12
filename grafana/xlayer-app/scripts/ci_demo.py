@@ -14,6 +14,15 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = Path(__file__).resolve().parent
 
 
+def verify_loki_all_filters(page, origin):
+    """Exercise actual Loki label lookup before selecting any concrete node."""
+    from urllib.parse import urlparse
+    with page.expect_response(lambda response: urlparse(response.url).path.endswith('/label/workload/values'), timeout=30000) as observed:
+        page.goto(origin+'/a/xlayer-telemetry-app/logs?var-cluster=$__all&var-node=$__all')
+        page.locator('.xlt').wait_for(state='visible', timeout=30000)
+    assert observed.value.status == 200, f'All-filter Loki workload lookup returned HTTP {observed.value.status}'
+
+
 def assert_policy_lifecycle_text(text):
     """Check disclosures without treating capitalization/wrapping as semantics."""
     normalized = ' '.join(text.casefold().split())

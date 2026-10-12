@@ -28,7 +28,7 @@ def render(expression):
 
 def test_mooncake_panels_preserve_source_scope_and_units():
     row = mooncake_row()
-    assert row["collapsed"] and len(row["panels"]) == 8
+    assert row["collapsed"] and len(row["panels"]) == 10
     panels = {panel["id"]: panel for panel in row["panels"]}
     for panel in panels.values():
         assert panel["fieldConfig"]["defaults"]["noValue"] == "N/A"

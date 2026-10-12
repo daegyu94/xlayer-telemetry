@@ -317,3 +317,20 @@ def test_scenario_ci_keeps_browser_artifacts_in_the_callers_output(tmp_path, mon
     assert output==caller/'results/browser'
     assert cwd==child_cwd
     assert json.loads((caller/'results/validation.json').read_text())['status']=='passed'
+
+
+@pytest.mark.parametrize('status', [200, 400, 403, 500])
+def test_all_filter_loki_journey_requires_actual_success(status):
+    from unittest.mock import MagicMock
+    page = MagicMock()
+    page.expect_response.return_value.__enter__.return_value.value.status = status
+    if status == 200:
+        CI.verify_loki_all_filters(page, 'http://127.0.0.1:3000')
+    else:
+        with pytest.raises(AssertionError, match=f'HTTP {status}'):
+            CI.verify_loki_all_filters(page, 'http://127.0.0.1:3000')
+    url = page.goto.call_args.args[0]
+    assert 'var-cluster=$__all' in url and 'var-node=$__all' in url
+    predicate = page.expect_response.call_args.args[0]
+    response = MagicMock(url='http://127.0.0.1:3000/api/datasources/proxy/uid/logs/loki/api/v1/label/workload/values?query=x')
+    assert predicate(response)

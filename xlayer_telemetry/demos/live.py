@@ -587,7 +587,13 @@ class Demo:
             "master_allocated_bytes": 6 * _GIB, "master_total_capacity_bytes": 16 * _GIB}.items()]
         for name, rate in {"mem_cache_hit_nums_": 12, "file_cache_hit_nums_": 4,
                            "valid_get_nums_": 16, "total_get_nums_": 20,
-                           "master_put_start_failures_total": 0}.items():
+                           "master_put_start_failures_total": 0,
+                           "master_batch_put_start_requests_total": 2, "master_batch_put_end_requests_total": 2,
+                           "master_batch_get_replica_list_requests_total": 3,
+                           "master_batch_put_start_items_total": 32, "master_batch_put_end_items_total": 32,
+                           "master_batch_get_replica_list_items_total": 48,
+                           "master_batch_put_start_failures_total": 0, "master_batch_put_end_failures_total": 0,
+                           "master_batch_get_replica_list_failures_total": 0}.items():
             samples.append(GaugeSample(name, "Synthetic Mooncake master counter.",
                 self._counter("mooncake-master", name, rate, now), kind="counter"))
         return samples

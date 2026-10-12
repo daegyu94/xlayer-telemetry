@@ -301,3 +301,5 @@ Shared Prometheus range-query client는 응답을 JSON decoding 전에 8 MiB로 
 한 query 결과의 series 1,000개·points 200,000개를 초과하면 전체 query를 missing evidence로 처리합니다.
 부분 표본으로 정상 결과를 만들지 않습니다. 초과 시 selector와 시간 창을 좁히거나 query step을 늘립니다.
 이 예산은 Prometheus backend 자체의 query CPU/RAM 한도가 아니므로 backend 운영 한도도 별도로 둡니다.
+
+Mooncake master의 `master_batch_put_start_*`, `master_batch_put_end_*`, `master_batch_get_replica_list_*`는 [batch panel](dashboard-reference.md)의 별도 control-plane 관측입니다. `requests_total`은 RPC envelope 수, `items_total`은 요청 key 수, `failures_total`은 실패 RPC 수이며 endpoint별로 보존합니다. `GetReplicaList` 성공은 replica metadata 조회이며 payload read 성공과 다릅니다. 미지원 version은 N/A를 유지하고 일반 PUT counter가 0이라는 이유로 batch 저장 경로가 비활성이라고 판단하지 않습니다.

@@ -1299,6 +1299,78 @@
       "scope": "collector process",
       "source": "nvidia-smi GPU sampler",
       "policy": "diagnostic; rows omitted by per-sample process cap, emitted only after successful opt-in process query"
+    },
+    {
+      "name": "mooncake_master_batch_put_start_requests_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_put_start_requests_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_put_start_items_total",
+      "category": "orchestration",
+      "unit": "keys",
+      "scope": "shared-master request keys",
+      "source": "Mooncake native master_batch_put_start_items_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_put_start_failures_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_put_start_failures_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_put_end_requests_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_put_end_requests_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_put_end_items_total",
+      "category": "orchestration",
+      "unit": "keys",
+      "scope": "shared-master request keys",
+      "source": "Mooncake native master_batch_put_end_items_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_put_end_failures_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_put_end_failures_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_get_replica_list_requests_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_get_replica_list_requests_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_get_replica_list_items_total",
+      "category": "orchestration",
+      "unit": "keys",
+      "scope": "shared-master request keys",
+      "source": "Mooncake native master_batch_get_replica_list_items_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "mooncake_master_batch_get_replica_list_failures_total",
+      "category": "orchestration",
+      "unit": "RPC",
+      "scope": "shared-master RPC",
+      "source": "Mooncake native master_batch_get_replica_list_failures_total",
+      "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
     }
   ],
   "$schema": "./metrics.schema.json",

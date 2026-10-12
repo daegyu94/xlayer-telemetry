@@ -57,6 +57,15 @@ RAW_NAMES = {
     'mooncake_store_operation_bytes_total':['vllm:mooncake_store_operation_bytes_total'],
     'mooncake_store_operation_failed_keys_total':['vllm:mooncake_store_operation_failed_keys_total'],
     'mooncake_master_put_start_failures_total':['master_put_start_failures_total'],
+    'mooncake_master_batch_put_start_requests_total':['master_batch_put_start_requests_total'],
+    'mooncake_master_batch_put_start_items_total':['master_batch_put_start_items_total'],
+    'mooncake_master_batch_put_start_failures_total':['master_batch_put_start_failures_total'],
+    'mooncake_master_batch_put_end_requests_total':['master_batch_put_end_requests_total'],
+    'mooncake_master_batch_put_end_items_total':['master_batch_put_end_items_total'],
+    'mooncake_master_batch_put_end_failures_total':['master_batch_put_end_failures_total'],
+    'mooncake_master_batch_get_replica_list_requests_total':['master_batch_get_replica_list_requests_total'],
+    'mooncake_master_batch_get_replica_list_items_total':['master_batch_get_replica_list_items_total'],
+    'mooncake_master_batch_get_replica_list_failures_total':['master_batch_get_replica_list_failures_total'],
 }
 POOL = {'sandbox_active','sandbox_queued','sandbox_create_duration_seconds','sandbox_reset_duration_seconds','sandbox_failures_total'}
 PRODUCERS = ('collectors/gpu_sampler.py','collectors/sandbox_sampler.py','metrics/textfile.py')
