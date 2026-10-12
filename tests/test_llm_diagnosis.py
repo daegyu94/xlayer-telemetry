@@ -87,8 +87,8 @@ def test_packet_rejects_duplicate_ids_and_oversize():
     value["observations"] *= 2
     with pytest.raises(ValueError, match="unique"):
         llm.validate_packet(value)
-    value = packet() | {"context": {"log": "x" * 33000}}
-    with pytest.raises(ValueError, match="32KiB"):
+    value = packet() | {"context": {"log": "x" * 132000}}
+    with pytest.raises(ValueError, match="128KiB"):
         llm.validate_packet(value)
 
 
@@ -152,13 +152,100 @@ def test_oversize_model_view_fails_without_dropping_series(monkeypatch):
     source["observations"] = [
         {"id": f"m{index}", "signal": f"signal_{index}",
          "observation_scope": "service", "labels": {"engine": str(index)},
-         "query": f"metric_{index}_" + "x" * 140, "current": index}
+         "query": f"metric_{index}_" + "x" * 1100, "current": index}
         for index in range(64)
     ]
     llm.validate_packet(source)
     monkeypatch.setattr(llm, "_get", lambda *args: pytest.fail("Ollama must not be contacted"))
-    with pytest.raises(ValueError, match="model input exceeds 8KiB"):
+    with pytest.raises(ValueError, match="model input exceeds 64KiB"):
         llm.diagnose(source)
+
+
+def test_realistic_multinode_clock_packet_reaches_model_without_losing_checks(monkeypatch):
+    from copy import deepcopy
+    source = packet()
+    checks = ('offset_seconds', 'sample_age_seconds', 'sync_status',
+              'ntp_offset_seconds', 'maxerror_seconds')
+    nodes = {}
+    for index in range(8):
+        identity = {'cluster': 'test-cluster', 'job': 'telemetry',
+                    'instance': f'node-{index}', 'nodename': f'node-{index}'}
+        statistics = {'min': 0.0, 'max': 1.0, 'mean': .5, 'last': 1.0,
+                      'sample_count': 16, 'series_count': 1,
+                      'min_series_sample_count': 16, 'max_series_delta': 1.0,
+                      'series_identities': [identity],
+                      'query_result': {'discarded_sample_count': 0,
+                                       'discarded_series_count': 0, 'warning_count': 0,
+                                       'info_count': 0, 'scope': 'query'}}
+        nodes[f'node-{index}'] = {'status': 'aligned', 'issues': [],
+                                **{key: deepcopy(statistics) for key in checks}}
+    source['clock_quality'] = {'status': 'aligned', 'nodes': nodes,
+                               'baseline': {'status': 'aligned', 'nodes': deepcopy(nodes)}}
+    source['observations'] *= 24
+    source['observations'] = [{**row, 'id': f'm{index}'} for index, row in enumerate(source['observations'])]
+    original = json.dumps(source, sort_keys=True)
+    assert len(original.encode()) > 32768
+    llm.validate_packet(source)
+    view = llm.model_view(source)
+    for window in (source['clock_quality'], source['clock_quality']['baseline']):
+        compressed = view['clock_quality'] if window is source['clock_quality'] else view['clock_quality']['baseline']
+        for node, entry in window['nodes'].items():
+            value = compressed['nodes'][node]
+            restored = {row[0]: dict(zip(value['clock_statistics_columns'][1:], row[1:])) |
+                        value['common_clock_statistics_fields'] for row in value['clock_statistics_rows']}
+            assert restored == {key: entry[key] for key in checks}
+            assert value['status'] == entry['status']
+    assert len(json.dumps(view).encode()) < len(original.encode())
+    monkeypatch.setattr(llm, '_get', lambda *args: {})
+    monkeypatch.setattr(llm, '_post', lambda url, payload, timeout: response(payload=payload))
+    result = llm.diagnose(source)
+    assert result['observation_packet'] == source
+    assert json.dumps(source, sort_keys=True) == original
+
+
+def test_non_thinking_applies_to_both_calls_and_cli_records_actual_mode(tmp_path, monkeypatch):
+    requests = []
+    monkeypatch.setattr(llm, '_get', lambda *args: {})
+    def post(url, payload, timeout):
+        requests.append(payload)
+        assert payload['think'] is False
+        return response(payload=payload)
+    monkeypatch.setattr(llm, '_post', post)
+    result = llm.diagnose(packet(), think=False)
+    assert len(requests) == 2
+    assert result['inference_options']['think'] is False
+    assert result['semantic_review']['decision'] == 'accept'
+    source, output = tmp_path / 'packet.json', tmp_path / 'result.json'
+    source.write_text(json.dumps(packet()))
+    monkeypatch.setattr(sys, 'argv', ['llm_diagnosis', '--input', str(source),
+                                    '--output', str(output), '--no-thinking'])
+    llm.main()
+    assert json.loads(output.read_text())['inference_options']['think'] is False
+    assert len(requests) == 4
+
+
+@pytest.mark.parametrize('value', [None, 0, 1, 'false'])
+def test_thinking_mode_rejects_non_boolean_before_model_contact(value, monkeypatch):
+    monkeypatch.setattr(llm, '_get', lambda *args: pytest.fail('must not contact Ollama'))
+    with pytest.raises(ValueError, match='think must be boolean'):
+        llm.diagnose(packet(), think=value)
+
+
+def test_draft_and_review_schemas_enforce_assessment_candidate_consistency():
+    import jsonschema
+    hypothesis = {'title': 'Possible storage I/O contention', 'explanation': '관측 가설',
+                  'evidence_ids': ['m1'], 'counter_evidence_ids': [], 'missing_evidence': [],
+                  'observation_scope': 'device', 'next_checks': []}
+    for assessment in ('insufficient_evidence', 'no_issue_observed', 'bottleneck_suspected'):
+        valid = answer() | {'assessment': assessment,
+                            'candidates': [hypothesis] if assessment == 'bottleneck_suspected' else []}
+        jsonschema.validate(valid, llm.response_schema())
+        jsonschema.validate({'decision': 'revise', 'issues': ['형식 수정'], 'diagnosis': valid}, llm.review_schema())
+        invalid = valid | {'candidates': [] if assessment == 'bottleneck_suspected' else [hypothesis]}
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(invalid, llm.response_schema())
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({'decision': 'revise', 'issues': ['형식 수정'], 'diagnosis': invalid}, llm.review_schema())
 
 
 def test_model_receives_measurements_and_preserves_input(monkeypatch):

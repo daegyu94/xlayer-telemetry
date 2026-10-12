@@ -141,9 +141,11 @@ Optional `window_statistic`은 scalar 요약값에 적용한 `max`·`mean` 등�
 ```
 
 표와 함께 interval·run·topology·missing source·관측 한계를 전달하며 rule 판정은 제외합니다.
-원본은 최대 32KiB·64 series, 전송 observation은 8KiB, 초안을 포함한 review 입력은 16KiB입니다.
+원본은 최대 128KiB·64 series, 전송 observation은 64KiB, 초안을 포함한 review 입력은 96KiB입니다.
+멀티노드의 반복 clock check metadata는 node별 table과 공통 field로 전송하며 원본 packet·통계·identity·clock status는 보존합니다.
 초과하면 잘라내거나 review를 생략하지 않고 selector를 좁히도록 오류를 반환합니다.
 `prompt_tokens`·`generated_tokens`는 별도로 확인합니다.
+Thinking이 deadline을 넘는 환경에서는 `--no-thinking`으로 draft와 evidence review 양쪽의 thinking을 끌 수 있습니다. 모델의 지원 여부를 확인해야 하며, evidence 검증·review·deadline은 그대로 적용하고 실제 모드는 결과의 `inference_options.think`에 기록합니다.
 과도한 추론 사례는 약 997 prompt token에서도 발생해 입력 길이만으로 설명되지 않습니다.
 
 ## Reuse an Existing Run
