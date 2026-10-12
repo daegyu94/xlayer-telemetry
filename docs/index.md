@@ -81,6 +81,7 @@ Sandbox <sandbox>
 Logs & Events <logs-events>
 Application SDK <application-metrics>
 Multi-node <multi-node>
+실환경 Multi-worker / Job / Model 재검증 <multinode-revalidation>
 ```
 
 ```{toctree}

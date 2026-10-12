@@ -11,7 +11,7 @@
 | Environment | Verified Scope | Limitations / Evidence |
 | --- | --- | --- |
 | CPU / Synthetic | Wrapper/parser·Run/baseline 격리·clock/sampling 품질·failure/recovery·Saved Runs 조사 흐름 | Model은 metadata이며 weights 실행 아님. [연결 검증](../system-review.md#agent-rl-연결-검증의-범위)·[실제 producer 회귀](../../tests/test_run_artifact_pipeline.py)·[동시 wrapper 회귀](../../tests/test_multi_job_concurrency.py) |
-| Grafana 12.1 / Prometheus / Loki | Synthetic multi-job의 query/diagnosis → catalog → UI, 필터·비교 선택의 Back/reload/share와 keyboard focus | [Browser validation](../../grafana/xlayer-app/scripts/multi_job_validate.py). Physical GPU·NTP·storage 성능 검증 아님 |
+| Grafana / Prometheus / Loki (Historical 12.1) | Synthetic multi-job의 query/diagnosis → catalog → UI, 필터·비교 선택의 Back/reload/share와 keyboard focus | [Browser validation](../../grafana/xlayer-app/scripts/multi_job_validate.py). Physical GPU·NTP·storage 성능 검증 아님 |
 | Single-Node GPU / Agent RL | 한 host·GPU 2개·Qwen2.5-1.5B의 짧은 SWE-Bench/GSM8K 실행과 mode별 관측 | 과거 실행·replay이며 최신 코드의 전 실환경 재검증 아님. [실측 범위](../real-verl-demo.md#recorded-agent-rl-run)·[Integration coverage](../integration-reference.md#real-validation-coverage) |
 | Physical Multi-Node GPU / Historical R13 | 외부 보고서의 4-GPU-node VERL·vLLM·Mooncake KV 저장·FUSE 3FS·dashboard query 경로 | [2026-10-07 조건부 결과](multinode/r13-20261007.json). Clock skew·optional source·exact span 한계가 있으며 최신 revision 재검증 아님 |
 | VM / Backend-Specific | 독립 guest의 수집·clock 장애 및 일부 Mooncake/3FS I/O·ClickHouse 경로 | 아래 원본 기록 참고. 물리 multi-node Agent RL·shared-storage 포화·Run별 I/O attribution을 입증하지 않음 |
@@ -20,7 +20,7 @@
 
 ## Planned Validation
 
-다음은 모두 **Pending**이며 장비·workload·revision을 고정한 뒤 수행합니다. 상세 알고리즘·계측 연구 과제는 기존 [Future Work](../correlation-limitations.md#future-work-tbd)에 두고, 여기서는 실환경 validation의 완료 기준만 관리합니다.
+다음은 모두 **Pending**이며 장비·workload·revision을 고정한 뒤 [실환경 재검증 절차](../multinode-revalidation.md)를 수행합니다. 상세 알고리즘·계측 연구 과제는 기존 [Future Work](../correlation-limitations.md#future-work-tbd)에 두고, 여기서는 실환경 validation의 완료 기준만 관리합니다.
 
 | Milestone | Environment / Completion Criteria |
 | --- | --- |

@@ -26,3 +26,7 @@ Tools에는 Node Exporter 1.9.1, Prometheus 3.5.0, Loki와 Alloy의 기존 execu
 Native fixture는 [vLLM metric 정의](https://github.com/vllm-project/vllm/blob/2d69083c4a09dfeb17d761ae96d2e571a628309c/vllm/v1/metrics/loggers.py)의 waiting gauge·KV usage ratio와 Prometheus counter exposition 형식을 재현합니다. 수치와 model label은 synthetic이며 실제 vLLM을 실행하거나 특정 버전의 모든 metric을 검증하는 테스트가 아닙니다. Fixture에는 XLayer job/node/cluster/telemetry_source label을 넣지 않으며 실제 등록·scrape 단계가 붙여야 합니다.
 
 같은 host kernel의 container는 물리 multi-node clock·GPU·RDMA·3FS 성능 검증이 아닙니다. Ray·Mooncake의 운영 버전 전체 exposition, 실제 source upgrade, 장시간 workload overhead와 operation attribution은 별도 실환경 검증으로 남깁니다. [KVM 검증](validate_vms.py)은 독립 guest kernel을 추가로 검사하는 기존 경로입니다.
+
+## 실제 Run 동시 관측 확인
+
+`verify_live_runs.py`는 기존 Prometheus의 두 Run application series를 제한된 시간창에서 조회하는 읽기 전용 도구입니다. Workload를 기동·종료하거나 cluster를 수정하지 않습니다. 실행 방법과 workload·clock·UI의 별도 성공 기준은 [실환경 재검증](../../docs/multinode-revalidation.md)을 따릅니다.

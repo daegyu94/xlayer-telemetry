@@ -150,3 +150,5 @@ CLI wizard·SSH discovery·Grafana 설정 편집·drift 자동 판정과 node ta
 ## 다음
 
 [Time Alignment](time-alignment.md) · [Node mapping 상세](integration-reference.md#map-multiple-nodes-to-a-run) · [VM/물리 검증 한계](monitoring-reference.md#validate-separate-vm-kernels)
+
+[실환경 Multi-worker / Job / Model 재검증](multinode-revalidation.md)에서 두 Run 동시 관측, workload 결과, clock, 실제 UI 선택을 분리해 확인합니다.
