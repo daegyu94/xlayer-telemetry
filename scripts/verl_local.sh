@@ -247,6 +247,7 @@ case "$action" in
     PROMETHEUS_SAMPLE_LIMIT="${PROMETHEUS_SAMPLE_LIMIT:-100000}" \
     PROMETHEUS_TARGET_LIMIT="${PROMETHEUS_TARGET_LIMIT:-1024}" \
     PROMETHEUS_BODY_SIZE_LIMIT_MB="${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}" \
+    PROMETHEUS_LABEL_LIMIT="${PROMETHEUS_LABEL_LIMIT:-64}" \
     NATIVE_SCRAPE_INTERVAL_SECONDS="${NATIVE_SCRAPE_INTERVAL_SECONDS:-5}" \
     NATIVE_SCRAPE_TIMEOUT_SECONDS="${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}" \
     GRAFANA_PORT="${GRAFANA_PORT:-13000}" \
@@ -296,6 +297,8 @@ case "$action" in
       extra_args+=(--diagnostics-config "$DIAGNOSTICS_CONFIG")
     fi
     exec env TELEMETRY_PYTHON="$telemetry_python" \
+      TELEMETRY_LOGGER_SETTLE_SECONDS="${TELEMETRY_LOGGER_SETTLE_SECONDS:-20}" \
+      TELEMETRY_LOGGER_MAX_WAIT_SECONDS="${TELEMETRY_LOGGER_MAX_WAIT_SECONDS:-120}" \
       bash "$repo_root/scripts/run_verl_with_telemetry.sh" \
         --output "$run_root" --run-id "$RUN_ID" --node "$node_name" \
         --execution-mode "${EXECUTION_MODE:-auto}" \

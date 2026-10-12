@@ -13,3 +13,10 @@ def isolated_home(tmp_path_factory, monkeypatch):
     # Use a sibling fixture directory: many tests assert their tmp_path stays empty.
     home = tmp_path_factory.mktemp("xlayer-home")
     monkeypatch.setenv("HOME", str(home))
+
+
+@pytest.fixture(autouse=True)
+def short_logger_settle(monkeypatch):
+    """Lifecycle fixtures do not model production Ray/FUSE tail gaps."""
+    monkeypatch.setenv("TELEMETRY_LOGGER_SETTLE_SECONDS", ".05")
+    monkeypatch.setenv("TELEMETRY_LOGGER_MAX_WAIT_SECONDS", ".3")

@@ -30,6 +30,9 @@ def test_local_config_generates_server_target_and_collects_verl_step(tmp_path: P
         f"RUN_ROOT='{run}'\n"
         f"TELEMETRY_HOME='{state}'\n"
         f"NODE_NAME='gpu-local'\n"
+        "PROMETHEUS_LABEL_LIMIT=96\n"
+        "TELEMETRY_LOGGER_SETTLE_SECONDS=.06\n"
+        "TELEMETRY_LOGGER_MAX_WAIT_SECONDS=.4\n"
         f"VERL_COMMAND=('{fake_verl}' -m verl.trainer.main_ppo)\n",
         encoding="utf-8",
     )
@@ -49,6 +52,7 @@ def test_local_config_generates_server_target_and_collects_verl_step(tmp_path: P
     generated = (state / "state" / "server" / "prometheus.yml").read_text()
     assert "gpu-local" in generated
     assert "127.0.0.1:19100" in generated
+    assert "label_limit: 96" in generated
 
     result = subprocess.run(
         ["bash", str(SCRIPT), "--config", str(config), "run"],
@@ -66,6 +70,9 @@ def test_local_config_generates_server_target_and_collects_verl_step(tmp_path: P
     assert snapshot["run_id"] == "grpo-001"
     assert snapshot["node"] == "gpu-local"
     assert (run / "telemetry-events" / "verl-steps.jsonl").is_file()
+    health = json.loads((run / "telemetry-health.json").read_text())
+    assert health["logger_settle"]["quiet_seconds"] == .06
+    assert health["logger_settle"]["max_wait_seconds"] == .4
 
 
 def test_local_config_rejects_placeholder_command(tmp_path: Path) -> None:

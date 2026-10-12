@@ -11,6 +11,9 @@ diagnostics_config=""
 diagnostics_interval="10"
 health_max_age_seconds="${TELEMETRY_HEALTH_MAX_AGE_SECONDS:-300}"
 execution_mode="auto"
+logger_quiet_seconds="${TELEMETRY_LOGGER_SETTLE_SECONDS:-20}"
+logger_max_wait_seconds="${TELEMETRY_LOGGER_MAX_WAIT_SECONDS:-120}"
+logger_settle_outcome=disabled
 declare -a sources=()
 declare -a settings=()
 
@@ -28,6 +31,8 @@ The wrapper adds VERL's file logger (and rl_insight when configured), starts the
 step-metric bridge, writes telemetry-manifest.json, and preserves the workload
 exit code. It does not modify VERL source code.
 GPU/host collection and native vLLM/Ray scraping must be started separately.
+Logger quiet/max-wait seconds: TELEMETRY_LOGGER_SETTLE_SECONDS (20) and
+TELEMETRY_LOGGER_MAX_WAIT_SECONDS (120); incomplete waits keep the workload exit.
 --source records manifest metadata; it does not configure Prometheus scraping.
 EOF
 }
@@ -100,6 +105,13 @@ done
 (($#)) || { echo "a VERL command is required after --" >&2; exit 2; }
 [[ "$execution_mode" == auto || "$execution_mode" == sync || "$execution_mode" == async ]] || { echo "--execution-mode must be auto, sync, or async" >&2; exit 2; }
 [[ "$diagnostics_interval" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v value="$diagnostics_interval" 'BEGIN { exit !(value > 0) }' || { echo "--diagnostics-interval must be positive" >&2; exit 2; }
+PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+  "$telemetry_python" -m xlayer_telemetry.logger_settle --check-config \
+    --quiet-seconds "$logger_quiet_seconds" --max-wait-seconds "$logger_max_wait_seconds"
+command -v timeout >/dev/null || { echo "timeout is required (GNU coreutils)" >&2; exit 2; }
+# The external watchdog also bounds a helper blocked before its next clock
+# check. Two seconds allow startup/reporting; KILL has a separate 2s grace.
+logger_deadline_seconds=$(awk -v value="$logger_max_wait_seconds" 'BEGIN { print value + 2 }')
 if [[ -n "$diagnostics_config" ]]; then
   [[ -f "$diagnostics_config" ]] || { echo "diagnostics config is not a file: $diagnostics_config" >&2; exit 2; }
   diagnostics_config="$(cd "$(dirname "$diagnostics_config")" && pwd -P)/$(basename "$diagnostics_config")"
@@ -212,6 +224,7 @@ PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
 bridge_pid=""
 diagnostics_pid=""
 health_pid=""
+logger_pid=""
 sidecar_owner="xlayer-wrapper-$$"
 workload_owner="xlayer-workload-$$-$RANDOM-$RANDOM"
 sidecar_is_owned() {
@@ -302,7 +315,7 @@ stop_health() {
 finish_health() {
   stop_health
   PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" "$telemetry_python" -m xlayer_telemetry.telemetry_health \
-    --run-root "$output_dir" --finish "$1" --bridge-export "$2" --diagnostics-export "$3" \
+    --run-root "$output_dir" --finish "$1" --bridge-export "$2" --diagnostics-export "$3" --logger-settle "$logger_settle_outcome" \
     || echo "[telemetry] health record failed" >&2
 }
 stop_bridge() {
@@ -314,6 +327,8 @@ stop_diagnostics() {
   diagnostics_pid=""
 }
 stop_sidecars() {
+  stop_sidecar "$logger_pid"
+  logger_pid=""
   stop_health
   stop_bridge
   stop_diagnostics
@@ -409,6 +424,29 @@ workload_status=$?
 stop_workload
 set -e
 
+# A Ray trainer can flush after its driver has exited. Keep the follow bridge
+# active through a bounded quiet window, without signalling existing workers.
+if ((is_main_ppo)) || [[ -f "$VERL_FILE_LOGGER_PATH" ]]; then
+  logger_settle_outcome=interrupted
+  XLAYER_SIDECAR_OWNER="$sidecar_owner" PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    setsid -- timeout --kill-after=2s "${logger_deadline_seconds}s" \
+      "$telemetry_python" -m xlayer_telemetry.logger_settle \
+      --input "$VERL_FILE_LOGGER_PATH" --output "$output_dir/logger-settle.json" \
+      --quiet-seconds "$logger_quiet_seconds" --max-wait-seconds "$logger_max_wait_seconds" \
+      > "$output_dir/logs/telemetry-logger-settle.log" 2>&1 &
+  logger_pid=$!
+  if wait "$logger_pid"; then
+    logger_settle_outcome=settled
+  else
+    logger_status=$?
+    case "$logger_status" in
+      3|124|137) logger_settle_outcome=timeout ;;
+      4) logger_settle_outcome=incomplete ;;
+      *) logger_settle_outcome=failed ;;
+    esac
+    echo "[telemetry] logger settle $logger_settle_outcome; final export may be incomplete" >&2
+  fi
+fi
 stop_sidecars
 bridge_pid=""
 diagnostics_pid=""

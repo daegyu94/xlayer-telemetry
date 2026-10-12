@@ -291,3 +291,43 @@ def test_wrapper_keeps_sync_trainer_when_rollout_server_is_async(tmp_path: Path)
     )
     assert history["execution_mode"] == "sync"
     assert history["boundary_scope"] == "rl_step"
+
+
+def test_wrapper_reads_independent_peer_tail_before_final_export(tmp_path):
+    output = tmp_path / "run"
+    ready = tmp_path / "ready"
+    peer_code = """import pathlib,sys,time
+ready=pathlib.Path(sys.argv[1]); logger=pathlib.Path(sys.argv[2])
+deadline=time.monotonic()+10
+while not ready.exists():
+ if time.monotonic()>deadline: sys.exit(2)
+ time.sleep(.01)
+for step in (2,3):
+ time.sleep(.35)
+ with logger.open('a') as stream:
+  stream.write('{"step":'+str(step)+',"data":{"timing_s/gen":1}}\\n')
+"""
+    peer = subprocess.Popen([sys.executable, "-c", peer_code, str(ready),
+                             str(output / "logs/verl-metrics.jsonl")])
+    workload = tmp_path / "driver.py"
+    workload.write_text('import os,pathlib\np=pathlib.Path(os.environ["VERL_FILE_LOGGER_PATH"])\n'
+                        'p.write_text(\'{"step":1,"data":{"timing_s/gen":1}}\\n\')\n'
+                        f'pathlib.Path({str(ready)!r}).touch()\n')
+    try:
+        result = subprocess.run(["bash", str(ROOT / "scripts/run_verl_with_telemetry.sh"),
+            "--output", str(output), "--", sys.executable, str(workload)],
+            env=os.environ | {"TELEMETRY_PYTHON": sys.executable,
+                "TELEMETRY_LOGGER_SETTLE_SECONDS": ".6",
+                "TELEMETRY_LOGGER_MAX_WAIT_SECONDS": "3"},
+            capture_output=True, text=True, timeout=12)
+        peer.wait(timeout=10)
+        assert result.returncode == 0 and peer.returncode == 0, result.stderr
+        history = [json.loads(row) for row in (output / "telemetry-events/verl-steps.jsonl").read_text().splitlines()]
+        assert [row["step"] for row in history] == [1, 2, 3]
+        health = json.loads((output / "telemetry-health.json").read_text())
+        assert health["logger_settle"]["status"] == "settled"
+        assert health["final_export"]["bridge"] == "ok"
+        assert health["status"] == "complete"
+    finally:
+        if peer.poll() is None:
+            peer.kill(); peer.wait()

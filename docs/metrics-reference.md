@@ -284,15 +284,9 @@ Host pressure·disk await/queue·network error 신호는 이미 실행하는 Nod
 NVMe에서는 busy fraction만으로 포화라고 판단하지 않고 queue·operation latency·IOPS를 함께 봅니다.
 네트워크 오류/retransmit은 node/port evidence이며 해당 run의 NCCL 전송 오류로 귀속하지 않습니다.
 
-실제 collector용 generated server config는 host 2초/timeout 2초, native 5초/timeout 4초로 조회합니다. 모든 job은 기본적으로 scrape당 100,000 samples,
-1,024 targets/job, uncompressed body 16 MB, 40 labels/sample, label name 128 bytes,
-label value 1,024 bytes 제한을 상속합니다. 한도 초과 시 일부 값만 성공으로 표시하지 않고
-scrape 전체가 실패하므로 `up`, scrape duration·sample count와 Prometheus Targets 오류를 확인합니다.
-필요한 경우 `PROMETHEUS_SAMPLE_LIMIT`, `PROMETHEUS_TARGET_LIMIT`,
-`PROMETHEUS_BODY_SIZE_LIMIT_MB`, `NATIVE_SCRAPE_INTERVAL_SECONDS`,
-`NATIVE_SCRAPE_TIMEOUT_SECONDS`를 bounded positive 값으로 조정합니다.
-`0`으로 한도를 제거하는 설정은 허용하지 않습니다. Retention·label churn·전체 cluster TSDB
-메모리 사용량은 별도 운영 예산이며 per-scrape 한도만으로 제한되지 않습니다.
+실제 collector용 generated server config는 host 2초/timeout 2초, native 5초/timeout 4초로 조회합니다. 모든 job은 기본적으로 scrape당 100,000 samples, 1,024 targets/job, uncompressed body 16 MB, 64 labels/sample, label name 128 bytes, label value 1,024 bytes 제한을 상속합니다. 한도 초과 시 일부 값만 성공으로 표시하지 않고 scrape 전체가 실패하므로 `up`, scrape duration·sample count와 Prometheus Targets 오류를 확인합니다.
+
+필요한 경우 `PROMETHEUS_SAMPLE_LIMIT`, `PROMETHEUS_TARGET_LIMIT`, `PROMETHEUS_BODY_SIZE_LIMIT_MB`, `PROMETHEUS_LABEL_LIMIT`, `NATIVE_SCRAPE_INTERVAL_SECONDS`, `NATIVE_SCRAPE_TIMEOUT_SECONDS`를 bounded positive 값으로 조정합니다. `PROMETHEUS_LABEL_LIMIT`은 1–1,024 범위의 정수이며 native exporter의 wide info metric과 target label을 함께 고려합니다. `0`으로 한도를 제거하는 설정은 허용하지 않습니다. Retention·label churn·전체 cluster TSDB 메모리 사용량은 별도 운영 예산이며 per-scrape 한도만으로 제한되지 않습니다.
 
 Native source 등록은 1 MiB 파일, 1,024 endpoint, endpoint당 16개 사용자 label,
 값당 256 UTF-8 bytes를 허용합니다. 내부 `__*` label과 같은 endpoint의 중복 등록을

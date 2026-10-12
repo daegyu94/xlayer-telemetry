@@ -84,11 +84,11 @@ trap 'exit 143' TERM
 if [[ "$role" == server ]]; then
 "${PYTHON:-python3}" - "${PROMETHEUS_SAMPLE_LIMIT:-100000}" "${PROMETHEUS_TARGET_LIMIT:-1024}" \
   "${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}" "${NATIVE_SCRAPE_INTERVAL_SECONDS:-5}" \
-  "${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}" "${GPU_PROCESS_METRICS:-0}" "${GPU_MAX_PROCESSES:-256}" <<'PYBUDGET'
+  "${NATIVE_SCRAPE_TIMEOUT_SECONDS:-4}" "${GPU_PROCESS_METRICS:-0}" "${GPU_MAX_PROCESSES:-256}" "${PROMETHEUS_LABEL_LIMIT:-64}" <<'PYBUDGET'
 import sys
 from xlayer_telemetry.operations.config import ConfigError, validate_collection_budgets
 keys = ("PROMETHEUS_SAMPLE_LIMIT", "PROMETHEUS_TARGET_LIMIT", "PROMETHEUS_BODY_SIZE_LIMIT_MB",
-        "NATIVE_SCRAPE_INTERVAL_SECONDS", "NATIVE_SCRAPE_TIMEOUT_SECONDS", "GPU_PROCESS_METRICS", "GPU_MAX_PROCESSES")
+        "NATIVE_SCRAPE_INTERVAL_SECONDS", "NATIVE_SCRAPE_TIMEOUT_SECONDS", "GPU_PROCESS_METRICS", "GPU_MAX_PROCESSES", "PROMETHEUS_LABEL_LIMIT")
 try:
     validate_collection_budgets(dict(zip(keys, sys.argv[1:])))
 except ConfigError as error:
@@ -423,7 +423,7 @@ global:
   sample_limit: ${PROMETHEUS_SAMPLE_LIMIT:-100000}
   target_limit: ${PROMETHEUS_TARGET_LIMIT:-1024}
   body_size_limit: ${PROMETHEUS_BODY_SIZE_LIMIT_MB:-16}MB
-  label_limit: 40
+  label_limit: ${PROMETHEUS_LABEL_LIMIT:-64}
   label_name_length_limit: 128
   label_value_length_limit: 1024
 scrape_configs:

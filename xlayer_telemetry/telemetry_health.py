@@ -84,13 +84,25 @@ def observe(root: Path, pids: dict[str, int], *, now: float | None = None,
     return result
 
 
-def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str) -> dict:
+def finish(root: Path, exit_code: int, bridge_export: str, diagnosis_export: str,
+           logger_settle: str = "disabled") -> dict:
     result = _read(root)
     result.update(schema_version=1, record_type="telemetry_health", observed_at=time.time(),
                   workload={"status": FINISHED_STATUS, "exit_code": exit_code},
                   final_export={"bridge": bridge_export, "diagnostics": diagnosis_export})
     result.update(_workload_observation(result["observed_at"]))
     issues = result.setdefault("issues", [])
+    if logger_settle != "disabled":
+        result["logger_settle"] = {"status": logger_settle}
+        try:
+            settle = json.loads((root / "logger-settle.json").read_text())
+            if not isinstance(settle, dict) or settle.get("status") != logger_settle:
+                raise ValueError("logger settle status mismatch")
+            result["logger_settle"].update(settle)
+        except (OSError, ValueError):
+            issues.append("bridge:logger_settle:unreadable_report")
+        if logger_settle != "settled":
+            issues.append(f"bridge:logger_settle:{logger_settle}")
     if diagnosis_export == "ok":
         try:
             diagnosis = json.loads((root / "diagnostics/latest.json").read_text())
@@ -151,9 +163,10 @@ def main() -> None:
     parser.add_argument("--finish", type=int, metavar="WORKLOAD_EXIT_CODE")
     parser.add_argument("--bridge-export", choices=("ok", "missing", "failed", "interrupted"), default="interrupted")
     parser.add_argument("--diagnostics-export", choices=("ok", "disabled", "missing", "failed", "interrupted"), default="disabled")
+    parser.add_argument("--logger-settle", choices=("disabled", "settled", "timeout", "incomplete", "failed", "interrupted"), default="disabled")
     args = parser.parse_args()
     if args.finish is not None:
-        finish(args.run_root, args.finish, args.bridge_export, args.diagnostics_export)
+        finish(args.run_root, args.finish, args.bridge_export, args.diagnostics_export, args.logger_settle)
         return
     if any(finite_number(value) is None or value <= 0 for value in (args.interval, args.max_age_seconds)):
         parser.error("interval and max-age-seconds must be finite and positive")

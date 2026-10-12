@@ -212,3 +212,20 @@ Grafana 13.1.7 / Playwright 1.56.0 기본 headless shell의 전체 단일worker 
 코드·호출자·실패 경로 재검토에서 설명용 PromQL 문자열·주석을 vLLM metric으로 오인하는 경우를 보강했고, 수정된 범위의 검증을 완료했습니다. 이는 모든 파일·모든 환경에서 버그가 없다는 주장이 아닙니다. 재현 로그·query 응답·화면·CPU 전환 기록은 `artifacts/llm-clock-matrix/`에 보존합니다. 작업 전용 Grafana 두 환경, CPU container 세 개와 network, 임시 state를 정리했으며 기존 사용자 환경과 공용 도구는 유지했습니다.
 
 구현 커밋: LLM clock [0525a81](https://github.com/daegyu94/xlayer-telemetry/commit/0525a81653d6905839adbc8e897c7c9f16a88772), Matrix entity [8eee527](https://github.com/daegyu94/xlayer-telemetry/commit/8eee527d487dc98f5d54b3c3b5c2d232dd26be36), vLLM endpoint/model [e2bb004](https://github.com/daegyu94/xlayer-telemetry/commit/e2bb0047e4bbcc6d260a979d4cca72d3518ebc44), CPU scrape 전환 [9497e72](https://github.com/daegyu94/xlayer-telemetry/commit/9497e7270fd291976dd1055ab8ea581a78d7518f), Mooncake 회귀 [4f04232](https://github.com/daegyu94/xlayer-telemetry/commit/4f04232d47ff84263ca95691299bbb430edefb9d).
+
+## 2026-10-12 — R13 multi-node logger·scrape 후속 반영
+
+기준은 remote `main` `6cddc5e2db9ed6fec643f66a24713318bac2f193`입니다. [외부 R13 기록](../validation/multinode/r13-20261007.json)의 수정 3건이 현재 코드에 없음을 확인했고, fresh-open follow·독립 peer의 늦은 tail·label 설정의 새 회귀에서 수정 전 **7 failed / 8 passed**를 재현했습니다. 기존 관련 baseline은 **49 passed**이며 원격 기준은 push 전 다시 확인합니다.
+
+| 문제 | 반영·회귀 |
+| --- | --- |
+| FUSE peer-append가 held descriptor에 보이지 않음 | EOF에서 close/reopen하고 complete-record offset·partial row를 보존. Copytruncate regrow·rotation·기존 backlog의 unknown provenance 회귀 유지 |
+| Driver 종료 뒤 Ray peer가 logger를 기록함 | Fresh-open size·mtime·bounded tail의 quiet window를 기다린 뒤 export. 독립 peer의 두 번 append를 실제 wrapper에서 history 3건으로 확인. Timeout·empty/partial logger는 health `partial`이며 workload exit code 보존 |
+| Helper 자체의 I/O 정지로 내부 deadline이 멈춤 | 같은 owned session의 GNU `timeout` watchdog과 bounded cleanup. TERM을 무시하는 helper를 정리하면서 기존 peer 생존·workload exit 0·health timeout을 검사 |
+| vLLM wide info metric의 전체 scrape 실패 | 기본 label 한도 64, `PROMETHEUS_LABEL_LIMIT` 1–1,024. TOML·trusted Bash·CLI validator·shell 전달을 연결. 실제 generated config와 Prometheus 3.5.0에서 42-label metric은 64/96에 성공하고 40에서는 control metric까지 함께 실패 |
+
+전체 Python 3.12.3 CPU suite는 실제 Prometheus 3.5.0·격리 ClickHouse 25.1.5.31에서 **2,059 passed / 0 failed / 0 skipped**입니다. 이 suite 이후 watchdog을 보완했고 최종 public CLI·wrapper·ownership·signal·artifact·package·문서 영향 검사 **154 passed**를 다시 실행했습니다. Compileall·전체 tracked shell syntax·문서 build와 별도 installed wheel의 checkout 밖 `xltel run`도 통과했습니다. Frontend·canonical dashboard query·D2는 변경하지 않았습니다.
+
+Python 3.10.20의 관련 검사 원 명령은 **140 passed / 1 failed**이며 실패는 standalone interpreter를 복사하는 nested `venv.EnvBuilder(with_pip=True)`의 `ensurepip` 단계입니다. 제품 실행 전 `encodings`를 찾지 못했고 변경 전 main의 동일 테스트에서도 같은 실패를 확인했습니다. 제품·test 파일·지원 버전을 바꾸지 않고 임시 runner에서 `EnvBuilder`의 symlink 생성만 지정해 **동일 fixture/assertion 1 passed**를 확인했습니다. Ubuntu 22.04의 CI interpreter 환경을 재실행한 것으로 보고하지 않습니다.
+
+R13은 이전 revision의 외부 조건부 실환경 기록으로 추가했으며 원본 run artifact는 가져오지 않았습니다. 이번 follow visibility는 cached-descriptor fixture, tail은 독립 local process, scrape는 loopback endpoint이며 실제 GPU·물리 multi-node·3FS FUSE cache·clock 정렬의 최신 재검증은 Pending입니다. Quiet window는 remote writer 완료를 증명하지 않고 kernel의 uninterruptible I/O process는 watchdog 이후에도 남을 수 있습니다. 실행 로그·JUnit은 `artifacts/multinode-logger-review/`에 보존하며 작업 전용 process·SQL container·임시 Python 환경만 정리하고 기존 3FS stack은 유지합니다.

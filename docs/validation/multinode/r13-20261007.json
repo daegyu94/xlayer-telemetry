@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "record_type": "historical_external_validation",
+  "source": "https://gist.github.com/daegyu94/01ef157564cb95e2770f7af508183bbf#file-multinode_verification-md",
+  "run_date": "2026-10-07",
+  "report_date": "2026-10-12",
+  "run_id": "grpo-tel-R13-20261007T131107Z",
+  "revision": {
+    "base_commit": "not_reported",
+    "reported_local_commits": [
+      "da2d7cd",
+      "18a7967",
+      "5731635"
+    ],
+    "relationship_to_reviewed_main": "These short commit IDs were absent from the local object database at 6cddc5e2db9ed6fec643f66a24713318bac2f193; implementation paths were checked separately."
+  },
+  "evidence_status": "User-provided external report; original run artifacts were not retrieved or rerun.",
+  "environment": {
+    "gpu_nodes": 4,
+    "gpu_model": "NVIDIA L4",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "framework": "VERL async vLLM rollout / GRPO",
+    "kv_connector": "MooncakeStoreConnector",
+    "storage_path": "3FS FUSE; USRBIO library absent"
+  },
+  "reported_results": {
+    "workload_exit_code": 0,
+    "training_steps": 30,
+    "raw_logger_records": 31,
+    "history_records": 31,
+    "telemetry_health": "complete",
+    "final_bridge_export": "ok",
+    "panel_sweep": {
+      "pass": 110,
+      "empty": 88,
+      "nodata": 0,
+      "error": 0,
+      "loki_unverified": 11
+    },
+    "kv_save_bytes_approx_mb": 597,
+    "storage_client_server_write_difference_percent": 0.07
+  },
+  "limitations": [
+    "Monitoring clock was approximately 94.5 seconds ahead of GPU nodes; freshness gates hid metrics.",
+    "Storage volume agreement is a window-level observation, not Run attribution or proof of aligned clocks.",
+    "KV writes did not demonstrate DFS spill or equivalence to 3FS writes.",
+    "Application step records came from rank0/driver; resource observations were per-node.",
+    "Loki/exact spans, Ray, DCGM, SSD SMART, sandbox cgroup and Mooncake client DFS were not verified.",
+    "Observed negative fuse.iov.total_bytes values were excluded from byte-volume comparison; their cause was not independently established."
+  ],
+  "current_follow_up": [
+    "Regression-test and implement fresh-open following, bounded logger settle and configurable label budget.",
+    "Repeat on current revision with monitoring/resource/producer clock inventory and observed offset/uncertainty/freshness.",
+    "Compare valid distinct logger records and history by identity/payload; classify optional source/connector/SDK missing evidence.",
+    "Preserve original workload exit, process ownership and cleanup boundaries."
+  ],
+  "cleanup_reported": "Run artifacts retained; leaked follow bridges cleaned; existing Ray/vLLM/Mooncake processes retained."
+}

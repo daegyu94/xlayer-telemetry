@@ -125,6 +125,21 @@ Bridge·diagnostics의 생존, 마지막 output 갱신 시각, 최종 export 결
 기본 age 기준 300초는 `TELEMETRY_HEALTH_MAX_AGE_SECONDS`로 바꿉니다.
 `partial`은 sidecar 종료·최종 export 실패/누락·evidence 부족이며 workload exit code는 유지합니다.
 
+Ray trainer가 driver 종료 뒤 logger를 flush할 수 있어 wrapper는 final export 전에 freshly opened logger의 크기·수정 시각·마지막 256 bytes가 변하지 않는 구간을 기다립니다. Follow bridge도 EOF에서 파일을 다시 열어 peer-node FUSE append를 읽고, partial JSONL의 offset과 기존 기록의 timestamp provenance를 보존합니다.
+
+| 설정 | 기본값 | 허용 범위 / 의미 |
+| --- | --- | --- |
+| `TELEMETRY_LOGGER_SETTLE_SECONDS` | `20` | 0보다 크고 600 이하인 초; 마지막 관측 변화 이후 quiet window |
+| `TELEMETRY_LOGGER_MAX_WAIT_SECONDS` | `120` | Quiet window 이상, 3,600 이하인 초; monotonic clock 기준 전체 대기 예산 |
+
+두 값은 `xltel` config의 `[telemetry]` 또는 environment에서 지정합니다. Advanced Bash config도 같은 값을 wrapper에 전달합니다. 최대 대기 시간에 도달하거나 마지막 줄이 끊겨 있으면 visible record의 final export는 시도하되 health는 `partial`이며 `logger_settle`과 `bridge:logger_settle:*` issue에 이유를 남깁니다. Workload 종료 코드는 바꾸지 않습니다. GNU `timeout` watchdog은 helper가 I/O에 걸려 내부 clock 검사를 못 하는 경우도 제한하며 startup/reporting 2초와 KILL grace 2초를 별도로 둡니다. Kernel의 uninterruptible I/O process는 남을 수 있어 기존 ownership 확인과 bounded sidecar cleanup을 유지합니다.
+
+```{admonition} Quiet window의 한계
+:class: important
+
+`logger-settle.json`의 `settled`는 sampled file visibility이며 모든 remote writer의 종료나 FUSE cache 완전성을 증명하지 않습니다. Quiet window보다 긴 tail gap 뒤의 append는 여전히 놓칠 수 있으므로 실제 환경의 flush gap을 기준으로 설정하고 유효 record의 identity·payload와 history를 대조합니다. File logger가 제공하지 않는 per-rank step·exact span을 만들지는 않습니다.
+```
+
 Wrapper는 workload의 임의 인자를 로그에 출력하지 않습니다.
 Workload 자체의 로그나 외부 launcher가 출력하는 credential은 별도로 관리합니다.
 정상 종료와 signal 종료 모두 새 workload session의 소유권을 확인해 남은 자식에 TERM을 보내고, 제한시간 이후 KILL로 정리합니다.

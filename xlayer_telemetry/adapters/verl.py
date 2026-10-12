@@ -230,57 +230,67 @@ def iter_file_records(
     poll_interval: float,
 ) -> Iterator[dict[str, Any]]:
     existed_at_start = path.is_file()
-    while not path.is_file():
-        if not follow:
-            raise FileNotFoundError(path)
-        time.sleep(poll_interval)
-    backlog = existed_at_start or not follow
+    position = 0
+    identity = None
+    backlog_end = None
+    consumed_tail = b""
+    partial_size = 0
+    reset_pending = False
     while True:
         try:
             stream = path.open("rb")
         except FileNotFoundError:
             if not follow:
                 raise
+            reset_pending = identity is not None
             time.sleep(poll_interval)
             continue
         with stream:
             opened = os.fstat(stream.fileno())
-            backlog_end = opened.st_size if backlog else 0
-            consumed_tail = b""
+            current_identity = (opened.st_dev, opened.st_ino)
+            if backlog_end is None:
+                backlog_end = opened.st_size if existed_at_start or not follow else 0
+            if (reset_pending or (identity is not None and identity != current_identity)
+                    or opened.st_size < position + partial_size
+                    or (consumed_tail and os.pread(stream.fileno(), len(consumed_tail),
+                                                  position - len(consumed_tail)) != consumed_tail)):
+                # Replacement contents have unknown event time, including a
+                # copytruncate that regrows beyond the previous read offset.
+                position = 0
+                backlog_end = opened.st_size
+                consumed_tail = b""
+            identity = current_identity
+            reset_pending = False
+            partial_size = 0
+            stream.seek(position)
             while True:
-                position = stream.tell()
-                # copytruncate can regrow past our offset between polls. Check
-                # a bounded consumed suffix against the descriptor, bypassing
-                # BufferedReader's old read-ahead before emitting another row.
+                # Detect in-place replacement even while BufferedReader has
+                # complete old rows cached across a suspended yield.
                 if follow and consumed_tail and os.pread(
                         stream.fileno(), len(consumed_tail), position - len(consumed_tail)) != consumed_tail:
-                    backlog = True
-                    break
+                    reset_pending = True
+                    break  # Reopen to discard BufferedReader's old read-ahead.
                 line = stream.readline()
                 if line and (line.endswith(b"\n") or not follow):
+                    start = position
+                    position = stream.tell()
                     consumed_tail = line[-256:]
                     try:
                         record = json.loads(line.decode("utf-8"))
                     except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
                     if isinstance(record, dict):
-                        yield FileRecord(record, live=follow and position >= backlog_end)
+                        yield FileRecord(record, live=follow and start >= backlog_end)
                     continue
                 if not follow:
                     return
-                # Keep incomplete UTF-8/JSON for the next poll, but do not keep
-                # following an orphaned inode forever after logger rotation.
-                stream.seek(position)
-                try:
-                    current = path.stat()
-                except FileNotFoundError:
-                    current = None
-                if current is not None and (
-                        (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
-                        or current.st_size < position + len(line)):
-                    backlog = True  # Replacement contents have unknown event time.
-                    break
-                time.sleep(poll_interval)
+                partial_size = len(line)
+                break
+        if reset_pending:
+            continue
+        # Close before sleeping: peer-node FUSE writes can remain invisible
+        # on a held descriptor. Reopen at the saved complete-record offset.
+        time.sleep(poll_interval)
 
 
 def bridge_records(

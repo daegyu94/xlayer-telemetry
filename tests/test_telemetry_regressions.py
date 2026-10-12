@@ -108,3 +108,56 @@ def test_wrapper_forwards_termination_to_workload(tmp_path):
         if process.poll() is None:
             process.kill()
             process.communicate(timeout=5)
+
+
+def test_follow_reopens_peer_cached_view_and_preserves_partial_offset(tmp_path, monkeypatch):
+    import io
+
+    path = tmp_path / "peer.jsonl"
+    path.write_bytes(b'{"step":1}\n{"step":')
+    real_open = Path.open
+    opened = []
+
+    class CachedView(io.BytesIO):
+        def __init__(self, source):
+            self.source = source
+            super().__init__(source.read())
+
+        def fileno(self):
+            return self.source.fileno()
+
+        def close(self):
+            self.source.close()
+            super().close()
+
+    def peer_open(selected, mode="r", *args, **kwargs):
+        source = real_open(selected, mode, *args, **kwargs)
+        if selected == path and mode == "rb":
+            opened.append(source)
+            return CachedView(source)
+        return source
+
+    polls = []
+    def append_peer(_):
+        polls.append(True)
+        assert len(polls) == 1, "held descriptor never observed the peer append"
+        with real_open(path, "ab") as stream:
+            stream.write(b'2}\n')
+
+    monkeypatch.setattr(Path, "open", peer_open)
+    monkeypatch.setattr(verl.time, "sleep", append_peer)
+    records = verl.iter_file_records(path, follow=True, poll_interval=.01)
+    try:
+        first = next(records)
+        second = next(records)
+        assert first["step"] == 1 and first.live is False
+        assert second["step"] == 2 and second.live is False
+        # The partial row was present at startup: reopening cannot make it live.
+        assert len(opened) == 2 and opened[0].closed
+        with real_open(path, "ab") as stream:
+            stream.write(b'{"step":3}\n')
+        monkeypatch.setattr(verl.time, "sleep", lambda _: None)
+        third = next(records)
+        assert third["step"] == 3 and third.live is True
+    finally:
+        records.close()
