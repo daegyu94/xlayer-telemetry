@@ -153,7 +153,9 @@ Browser 검사는 충분한 live scrape와 2번째 fixture 생성 후 실행합�
 - `src/catalog.ts`: 실제 provisioned dashboard metadata와 native Scenes query/variable/viz 연결.
 - `src/context.ts`, `semantics.ts`, `selection.ts`, `distributed.ts`, `data.ts`: URL state, observation boundary, projection decoding.
 - `src/matrix-contract.ts`: Canonical panel/ref 선택. PromQL/LogQL은 중복 정의하지 않습니다.
-- `src/module.tsx`: XLayer Scene 페이지와 custom component.
+- `src/module.tsx`, `app-context.ts`: Plugin bootstrap·catalog loading/retry·theme·native router 연결.
+- `src/app-scene.ts`, `scene-specs.ts`: Catalog를 인자로 받는 page/scene factory·provider 수명·canonical panel/ref 선택. Cached scene은 같은 App 안에서 재사용하고 성공한 catalog retry는 기존 revision key로 새 App을 만듭니다.
+- `src/InvestigationView.tsx`, `Kpi.tsx`, `PhaseMatrix.tsx`, `ResourceDetails.tsx`, `view-components.tsx`: 조사 화면과 기존 source·identity·scope를 보존하는 presentation component. Scene type import는 rendering에서 runtime cycle을 만들지 않습니다.
 - `scripts/`: 선택적 live demo와 browser validation.
 
 설치·조사 흐름은 [App guide](../../docs/grafana-scenes-poc.md), query·scope·운영 한계는 [App Reference](../../docs/grafana-scenes-reference.md), 당시 화면·결과는 [검증 기록](../../docs/validation/grafana-scenes-20261008.md)에서 관리합니다. SDK/native collector·diagnosis rule/schema는 이 App이 대체하지 않습니다. [Behavior signature 연구 PoC](../../docs/behavior-signature-research.md)는 별도 선택적 research API이며 기본 App query/diagnosis 경로에 자동 연결되지 않습니다.

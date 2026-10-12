@@ -245,3 +245,25 @@ R13은 이전 revision의 외부 조건부 실환경 기록으로 추가했으�
 수정 전 새 회귀 **5 failed**, 수정 후 추가 타입·missing-source 경계 포함 **8 passed**입니다. 전체 Python 3.12.3 CPU baseline **2,060 passed**, final **2,068 passed / 0 failed / 0 skipped**이며 실제 Prometheus 3.5.0·작업 전용 ClickHouse 25.1.5.31을 사용했습니다. Duplicate archive member의 기존 fault-fixture warning 1개는 baseline/final에 동일합니다. Python 3.10.20의 같은 관련 검사 **206 passed**, frontend **204 passed**·typecheck·production build, Grafana helper **48 passed**, 문서 계약 **10 passed**·build·compileall·전체 tracked shell syntax도 통과했습니다.
 
 Frontend 코드는 변경하지 않았으며 실제 Grafana 화면·실제 모델 추론·GPU/VERL·물리 multi-node·3FS FUSE cache는 이번에 재실행하지 않았습니다. LLM sampling 검증은 query-response fixture이고 기존에 저장한 observation packet의 품질 값은 자동 수정되지 않으므로 수정된 품질로 분석하려면 관측을 다시 수집합니다. 실행 로그와 JUnit은 `artifacts/ponytail-review/`에 보존하며 작업 전용 SQL container·임시 Python 환경만 정리하고 기존 사용자 stack·run artifact는 유지합니다. CI workflow는 비활성화 상태를 유지하며 이번 리뷰에는 remote push가 포함되지 않습니다.
+
+## 2026-10-12 — Artifact·analysis·Scenes responsibility refactor
+
+기준은 local `main` `e32c74b7917678a232aa28154aa272e03e3e6ddc`, remote `main` `9e7bf96d6d9ef7517fc0341b8da45ae50d5d92d2`입니다. 기존 public entrypoint·schema·query·process ownership을 유지하며 아래 책임 경계를 분리했습니다. 새로운 backend·dependency·범용 pipeline framework나 CLI/shell lifecycle 재작성은 추가하지 않았습니다.
+
+| 경계 | 반영·유지한 계약 |
+| --- | --- |
+| Snapshot decoding | `fileio.read_json_object()`를 기존 Run catalog·artifact·App receipt·health·summary reader가 사용. Caller의 byte limit·binary/UTF-8 codec·empty/missing 반환 정책과 별도의 cache/schema 검사를 유지 |
+| Observation collection | `analysis/metric_observations.py`가 Rule·LLM의 Prometheus query/source/quality 수집을 공유. Rule 판단·threshold는 공유하지 않으며 query budget·독립 source 오류·실제 0·no data·annotation·entity 품질 보존 |
+| Signals / findings | `analysis/diagnostic_signals.py`에 순수 변환·legacy findings를 분리. `DiagnosticEngine._signals/_findings`의 호출 형태와 distribution identity·단위·scope 유지 |
+| Persistence / recovery | `analysis/diagnostic_artifacts.py`가 journal·immutable projection·복구 저장을 담당. 기존 `diagnostics.write_report/_investigation_rows` 경로는 재노출. Isolated worker는 복구 계획만 만들고 실제 저장은 controller가 수행 |
+| Frontend factory / view | `module.tsx`는 1,938→86줄의 bootstrap, `app-scene.ts`는 factory·cached provider 수명, 별도 view/KPI/matrix/resource 파일은 presentation 담당. Catalog 전역 변수를 factory 인자로 바꾸고 기존 retry revision key·scene cache·native URL/history 동작 유지. Type-only scene import로 runtime cycle 방지 |
+
+변경 전 관련 CPU **243 passed / 1 skipped**(PROMTOOL 미지정), frontend **204 passed**와 실제 Grafana 단일 전체 journey를 기록했습니다. Snapshot 경계 10개·collection 경계 1개의 새 회귀를 추가했으며 codec/byte limit·정상값 0·baseline no data·peer query 실패·backend annotation을 검사합니다. 이동한 frontend의 Root/Ready/catalog factory를 제외한 33개 component/factory 본문은 원본과 동일함도 확인했습니다.
+
+첫 전체 CPU 검사에서 recovery fault injection 7개와 static metric coverage 1개가 실패했습니다. Fault injection이 이전 module의 IO binding을 가리키는 문제를 확인하고 실제 저장 책임으로 옮겼으며 기존 ENOSPC·journal 보존·재조회 없음·immutable projection·worker/controller assertion은 유지했습니다. Controller에 남은 복구 저장도 artifact helper로 공통화했고, coverage 도구는 이동한 canonical finding 본문을 읽도록 수정해 생성된 metric 표를 그대로 유지했습니다. 영향 회귀 **173 passed** 후 동일 전체 suite를 다시 실행했습니다.
+
+최종 Python 3.12.3 / Node 20.20.0 기준 CPU **2,079 passed / 0 failed / 0 skipped**, frontend **204 passed**·typecheck·production build, Grafana helper **48 passed**, 문서 계약 **10 passed**·build·compileall·전체 tracked shell syntax가 통과했습니다. Prometheus 3.5.0·작업 전용 ClickHouse 25.1.5.31을 사용했고 checkout 밖 installed wheel의 public engine→collection→signals→writer→JSON reader도 확인했습니다. Python 3.10.20의 관련 **289 passed**, 마지막 recovery/coverage 변경 후 **173 passed**이며 앞선 리뷰에서 확인한 standalone interpreter 복사 제약은 임시 symlink venv runner로 처리했습니다. Ubuntu CI 환경 재실행과 구분합니다.
+
+실제 Grafana 13.1.7 / Playwright 1.56.0에서 변경 전후 단일 전체 journey, 최종 4-worker 및 세 Job·두 Replica 전체 journey가 모두 통과했습니다. Before/After 각각 52개 route/theme/viewport capture와 browser error는 실패 0이며 Desktop Dark·390px Light 대표 화면을 직접 비교했습니다. 단일 흐름의 Matrix context 13개, cached Deep Dive·native panel·Back/reload/share·optional error/retry·clock 보류·3FS 응답 지연 검사는 기존 CI journey를 사용했습니다. SDK/backend input과 fault는 synthetic이며 실제 모델 추론·GPU/VERL·물리 multi-node·RDMA·3FS FUSE cache 검증은 Pending입니다.
+
+실행 로그·JUnit·query 응답·화면은 `artifacts/responsibility-refactor/`에 보존합니다. 이번 browser stack은 각 CI launcher가 종료했고 작업 전용 SQL container·임시 Python 환경·추출 도구만 정리하며 기존 사용자 stack·artifact는 유지합니다. CI workflow는 비활성화 상태를 유지합니다.
