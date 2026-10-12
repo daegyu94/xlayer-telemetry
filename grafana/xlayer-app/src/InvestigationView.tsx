@@ -664,8 +664,9 @@ export function ShellView({ model }: { model: Shell }) {
 }
 
 function NativeHighlights({destination,sources,panels}:{destination:Destination;sources:import('./catalog').Panel[];panels:VizPanel[]}){
+ const [expanded,setExpanded]=useState(false);
  const ids:Partial<Record<Destination,number[]>>={compute:[2,6,30,9],storage:[1,2,30,31],stage:[4,9,28,60],signals:[1,2,5,6]};
- return ids[destination]?<div className="xlt-kpis xlt-native-highlights">{ids[destination]!.map(id=>{const index=sources.findIndex(p=>p.id===id);return index>=0?<NativeHighlight key={id} source={sources[index]} panel={panels[index]}/>:null;})}</div>:null;
+ return ids[destination]?<details className="xlt-secondary-signals" onToggle={event=>setExpanded(event.currentTarget.open)}><summary>Latest query summaries · entity별 값은 아래 Matrix / Time series에서 확인하세요</summary>{expanded&&<div className="xlt-kpis xlt-native-highlights">{ids[destination]!.map(id=>{const index=sources.findIndex(p=>p.id===id);return index>=0?<NativeHighlight key={id} source={sources[index]} panel={panels[index]}/>:null;})}</div>}</details>:null;
 }
 
 function NativeHighlight({source,panel}:{source:import('./catalog').Panel;panel:VizPanel}){
@@ -962,8 +963,8 @@ function RunContext({model,selected,steps,context,policySamples,activeWorkloads,
   return <section className="xlt-run-context xlt-context-top" aria-label="Run Context">
     <div className="xlt-context-fields">
       <div className="xlt-context-variable">{control('cluster')}</div><div className="xlt-context-variable">{control('run_id')}</div>
-      <CompletedStepSelect rows={steps} selected={selected} timezone={range.getTimeZone()} label={boundaryPresentation(selected).label}
-        optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>
+      {model.state.steps&&<CompletedStepSelect rows={steps} selected={selected} timezone={range.getTimeZone()} label={boundaryPresentation(selected).label}
+        optionLabel={row=>`${boundaryPresentation(row).label} ${scalar(row.step)} · ${format(row.step_duration_seconds,'s')}`} onStep={onStep}/>}
       <div className="xlt-context-time"><span>Time range</span><div>{model.state.contextControls.map((c,i)=>{const Control=c.Component as React.ComponentType<{model:any}>;return <Control key={i} model={c}/>;})}</div><div className="xlt-visible-range">{formatContextRange(rangeState.value.from.valueOf(),rangeState.value.to.valueOf(),range.getTimeZone())}</div></div>
     </div>
     <div className="xlt-context-meta"><span>Policy <b>{scalar(selected?.policy_version,policySamples.length===1?format(policySamples[0].value):'Not reported')}</b> · trainer version (reported)</span><span>Wrapped command <b>{activeWorkloads.length===1?scalar(activeWorkloads[0].labels.state):'Not reported'}</b> · latest report</span><details><summary>Observer / Resource</summary><div>{control('source_node')}{control('node')}{control('worker')}{control('role')}</div></details></div>
