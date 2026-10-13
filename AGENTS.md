@@ -14,6 +14,9 @@ Run·step·phase 문맥에 application·vLLM·Ray·Mooncake·GPU·host·network�
 - 새 telemetry backend, sandbox runtime·scheduler, 범용 tracing/profiler 플랫폼을 구현하지 않습니다.
 - VERL 연결이 주된 사용 경로지만 공통 context·SDK·진단 모델을 VERL 전용 terminology에 묶지 않습니다.
 - Optional source가 없어도 core monitoring과 저장된 artifact 조회가 동작해야 합니다.
+- Grafana App·dashboard·문서 사이트의 UI는 데스크톱·노트북 브라우저를 지원 대상으로 합니다.
+  별도 요청이 없으면 모바일·태블릿 전용 layout, touch interaction, 작은 viewport 최적화와 검증은 작업 범위에 포함하지 않습니다.
+  기존 반응형 동작을 제거하지 않으며 데스크톱·노트북에서의 가독성, keyboard 접근성과 Light/Dark 검증은 유지합니다.
 
 ## 코드와 수정 원본
 
@@ -159,7 +162,7 @@ PromQL 검증은 `PROMTOOL`에 설치된 `promtool` 경로를 지정하며, opti
 
 URL에 저장하는 UI state는 Native Router/Scenes의 동기화된 값을 기준으로 사용하며 별도 React state를 추가하면 Reload·Back·Forward에서 두 상태가 일치하는지 확인합니다. Scene variable의 실제 type과 `skipUrlSync`, SceneApp factory/page cache의 수명을 읽고 URL 변경이나 component remount만으로 scene metadata가 갱신된다고 가정하지 않습니다. Timezone 표시 수정은 timestamp와 query bounds를 변경하지 않습니다.
 
-Frontend pure function/SSR 검사와 실제 Grafana 검사는 보완 관계입니다. 변경한 state 전이는 실제 Grafana에서 확인하고, native query의 Step window·identity와 Light/Dark·390px 등 영향받는 화면 조건도 검사합니다. 새 browser regression은 기존 `ci_demo.py` journey에 연결해 다음 CI에서도 실행되게 합니다. Browser 검사는 고정 sleep보다 실제 URL·DOM·query 응답의 완료 조건을 기다리며, 재시도 후 UI assertion은 준비된 최종 상태를 확인합니다.
+Frontend pure function/SSR 검사와 실제 Grafana 검사는 보완 관계입니다. 변경한 state 전이는 실제 Grafana에서 확인하고, native query의 Step window·identity와 Light/Dark·데스크톱·노트북 viewport 등 영향받는 화면 조건도 검사합니다. 새 browser regression은 기존 `ci_demo.py` journey에 연결해 다음 CI에서도 실행되게 합니다. Browser 검사는 고정 sleep보다 실제 URL·DOM·query 응답의 완료 조건을 기다리며, 재시도 후 UI assertion은 준비된 최종 상태를 확인합니다.
 
 Coverage를 보고할 때 source 범위·line/branch 수치·미계측 파일·subprocess 포함 여부를 밝힙니다. 로드된 파일만의 높은 coverage를 전체 App coverage로 표시하지 않으며, 목록 제한·오류 후 복구·selection 변경 같은 시나리오가 실제 assertion에 포함되는지 별도로 확인합니다. CPU 검사의 기본 `pytest` 수집과 Grafana helper 수집은 다르므로 helper/CI script를 수정한 경우 `python -m pytest -q grafana/xlayer-app/scripts`도 실행합니다.
 
@@ -183,7 +186,7 @@ Coverage를 보고할 때 source 범위·line/branch 수치·미계측 파일·s
   과거 검증 기록은 현재 사용 가이드와 구분하고, 작은 변경마다 별도 사용자용 보고서를 추가하지 않습니다.
 - 도식은 D2를 원본으로 하고 SVG로 게시합니다.
   `docs/diagrams/*.d2` 또는 `_style.d2`를 바꾸면 pinned version을 사용하는 `python scripts/render_diagrams.py --install`로 도구를 준비하고 `python scripts/render_diagrams.py`로 재생성합니다.
-  원본·SVG를 함께 commit하며 alt text·title·description과 모바일 가독성을 유지합니다.
+  원본·SVG를 함께 commit하며 alt text·title·description과 데스크톱·노트북에서의 가독성을 유지합니다.
   ASCII·Mermaid·Excalidraw 그림이나 figure 스타일 전환 UI를 추가하지 않습니다.
 
 ### Documentation experience
@@ -205,7 +208,7 @@ Coverage를 보고할 때 source 범위·line/branch 수치·미계측 파일·s
 - Diagram은 Small/Medium/Large 역할에 맞는 compact preview를 사용하고 원본보다 과도하게 확대하지 않습니다.
   README와 docs가 같은 SVG를 사용하며 원본 확대·keyboard 접근·alt/title/description·label geometry를 유지합니다.
 - Navigation·typography·diagram을 크게 바꾸면 변경 전후 사이트를 실제 build/browser에서 비교합니다.
-  Desktop·laptop·narrow viewport와 Demo·VERL 연결·Slow Step investigation 경로를 확인하고, command smoke·synthetic·실제 GPU/VERL 검증을 구분해 보고합니다.
+  Desktop·laptop viewport와 Demo·VERL 연결·Slow Step investigation 경로를 확인하고, command smoke·synthetic·실제 GPU/VERL 검증을 구분해 보고합니다.
 
 ```bash
 python -m pytest -q tests/test_documentation_links.py tests/test_documentation_diagrams.py
