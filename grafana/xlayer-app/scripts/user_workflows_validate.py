@@ -43,6 +43,7 @@ def network_fixture(output, loki):
             rows.append({**source,'signal':'rdma_transmit_wait_ticks_per_second',
                          'observation_scope':'network-interface','window_statistic':'max',
                          'entity':'node=gpu-node-0,port=1','unit':'ticks/s',
+                         'resource_identity':{'node':'gpu-node-0','port':'1'},
                          'current':8,'baseline':4,'evidence_type':'supporting',
                          'quality_warnings':''})
         end=report['analysis_window']['end']
