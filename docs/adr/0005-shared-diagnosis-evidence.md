@@ -27,6 +27,8 @@ Clock이 unsafe 또는 unknown이면 두 경로 모두 temporal diagnosis를 허
 
 기존 report·observation packet의 schema version과 measurement allowlist를 유지한다.
 Saved report에 없는 raw series·unit·statistic·clock 측정은 재구성하지 않는다.
+명시된 current `observation_status`는 packet에 보존하며 baseline 상태는 baseline 값과 sampling quality에서 독립적으로 해석한다.
+Stale baseline은 현재값만 사용하는 hypothesis를 막지 않지만 해당 baseline 제한 code는 missing evidence로 남겨야 한다.
 Investigation row의 `observation_status`는 additive field이고 current/baseline의 scalar 또는 stats object를 그대로 보존한다.
 Standalone LLM의 custom query, 모델 evidence reference 검증, input/output budget과 saved-report Rule 결과 차단은 유지한다.
 

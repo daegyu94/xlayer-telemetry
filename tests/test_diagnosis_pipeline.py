@@ -215,3 +215,51 @@ def test_all_stale_measurements_cannot_be_reported_as_no_issue():
               'candidates': [], 'limitations': []}
     with pytest.raises(ValueError, match='current measurements are unavailable'):
         llm.validate_diagnosis(result, packet(['source_sample_before_interval']))
+
+
+@pytest.mark.parametrize('status', ['error', 'stale', 'unknown', 'observed'])
+def test_saved_current_status_survives_packet_and_does_not_contaminate_baseline(status):
+    report = {'analysis_window': {'start': 10, 'end': 20, 'accuracy': 'exact'},
+              'comparison': {'signals': [{'signal': 'gpu_utilization_percent', 'scope': 'device',
+                                         'current': 0, 'baseline': None, 'observation_status': status}]}}
+    data = llm.packet_from_report(report)
+    llm.validate_packet(data)
+    assert data['observations'][0]['observation_status'] == status
+    bundle = EvidenceBundle.decode(data)
+    assert bundle.current[0].status == status and bundle.baseline[0].status == 'no_data'
+    assert bundle.current[0].value == 0 and bundle.baseline[0].value is None
+    model = llm.model_view(data)
+    restored = model.get('common_observation_fields', {}) | dict(zip(model['observation_columns'], model['observation_rows'][0]))
+    assert restored['observation_status'] == status
+    if status == 'observed':
+        llm.validate_diagnosis(answer(), data)
+    else:
+        with pytest.raises(ValueError, match='current measurements are unavailable'):
+            llm.validate_diagnosis(answer(), data)
+    report['comparison']['signals'][0]['baseline'] = 90
+    bundle = EvidenceBundle.decode(llm.packet_from_report(report))
+    assert bundle.baseline[0].status == 'observed' and bundle.baseline[0].value == 90
+
+
+def test_legacy_saved_packet_does_not_invent_explicit_status():
+    data = llm.packet_from_report({'comparison': {'signals': [
+        {'signal': 'gpu_utilization_percent', 'current': 0, 'baseline': None}]}})
+    assert 'observation_status' not in data['observations'][0]
+    assert EvidenceBundle.decode(data).current[0].status == 'observed'
+
+
+@pytest.mark.parametrize('warning', ['source_sample_before_interval', 'source_timestamp_in_future'])
+def test_stale_baseline_requires_limit_without_banning_current_only_hypothesis(warning):
+    data = packet()
+    data['observations'][0].update(observation_status='observed', sampling_quality={'baseline': {'warnings': [warning]}})
+    bundle = EvidenceBundle.decode(data)
+    assert bundle.current[0].status == 'observed' and bundle.current[0].value == 0
+    assert bundle.baseline[0].status == 'stale' and bundle.baseline[0].value == 90
+    assert bundle.available_signals('baseline') == {}
+    with pytest.raises(ValueError, match='preserve sampling limitations'):
+        llm.validate_diagnosis(answer(), data)
+    current_only = answer()
+    limits = llm.model_view(data)['evidence_limits']['m1']
+    assert limits == [f'baseline:gpu_utilization_percent:{warning}']
+    current_only['candidates'][0]['missing_evidence'] = limits
+    llm.validate_diagnosis(current_only, data)

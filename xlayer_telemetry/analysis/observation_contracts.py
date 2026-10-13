@@ -139,7 +139,7 @@ class Observation:
         warnings = (row.get('sampling_quality') or {}).get(window, {}).get('warnings', [])
         status: ObservationStatus = 'observed' if has_measurement(value) else (
             'no_data' if window in row else 'unknown')
-        declared = row.get('observation_status')
+        declared = row.get('observation_status') if window == 'current' else None
         if declared is not None:
             if declared not in {'observed', 'no_data', 'error', 'stale', 'unknown'}:
                 raise ValueError('invalid observation status')
