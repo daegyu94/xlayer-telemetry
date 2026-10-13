@@ -18,6 +18,12 @@ test('theme-derived semantic text meets AA on every product surface in both mode
    }
   }
   assert.equal(new Set([tokens.text,tokens.secondary,tokens.muted]).size,3,`${mode} retains three legible text levels`);
+  if(mode==='light')for(const background of ['bg','soft','canvas','selected'] as const){
+   const foreground=colorManipulator.getLuminance(tokens.border,tokens[background]);
+   const surface=colorManipulator.getLuminance(tokens[background],theme.colors.background.canvas);
+   const ratio=(Math.max(foreground,surface)+.05)/(Math.min(foreground,surface)+.05);
+   assert.ok(ratio>=3,`Light panel border/${background}: ${ratio} < 3`);
+  }
   assert.ok(tokens.small>=12);
  }
 });
