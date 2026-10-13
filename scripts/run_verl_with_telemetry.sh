@@ -335,7 +335,7 @@ stop_sidecars() {
 }
 workload_pid=""
 stop_workload() {
-  local signal="${1:-TERM}" attempt
+  local signal="${1:-TERM}"
   [[ -n "$workload_pid" ]] || return 0
   if sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
     kill -s "$signal" -- "-$workload_pid" 2>/dev/null || true
@@ -343,20 +343,8 @@ stop_workload() {
     # A signal can arrive before setsid establishes the new session.
     kill -s "$signal" "$workload_pid" 2>/dev/null || true
   fi
-  for ((attempt = 0; attempt < 50; attempt++)); do
-    sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner" || break
-    sleep 0.1
-  done
-  if sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
-    echo '[telemetry] workload descendants did not stop; sending KILL to the owned session' >&2
-    kill -KILL -- "-$workload_pid" 2>/dev/null || true
-  fi
-  for ((attempt = 0; attempt < 20; attempt++)); do
-    if ! sidecar_is_owned "$workload_pid" && ! sidecar_group_is_owned "$workload_pid" XLAYER_WORKLOAD_OWNER "$workload_owner"; then
-      break
-    fi
-    sleep 0.1
-  done
+  PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}" \
+    "$telemetry_python" -m xlayer_telemetry.owned_shutdown "$workload_pid" "$workload_owner" || true
   if sidecar_is_owned "$workload_pid"; then
     echo '[telemetry] workload remains pending; cleanup could not complete within its deadline' >&2
   else
