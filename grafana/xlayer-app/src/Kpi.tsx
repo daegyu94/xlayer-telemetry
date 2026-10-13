@@ -71,7 +71,7 @@ export function Kpi({
   return (
     <KpiCard>
       <span className="xlt-eyebrow xlt-kpi-label">{spec.key==='step_duration_seconds'?boundary.timeLabel:spec.name}<Tooltip content={spec.description}><button className="xlt-help" aria-label={`${spec.name} 설명`}><Icon name="info-circle" size="sm"/></button></Tooltip></span>
-      <strong className={!projected&&reported===undefined&&selection.state!=='observed'?"xlt-kpi-state":undefined}>
+      <strong className={!projected&&reported===undefined&&(data?.state===LoadingState.Error||queryPending||selection.state!=='observed')?"xlt-kpi-state":undefined}>
         {!projected && reported===undefined && data?.state === LoadingState.Error ? (
           "Query error"
         ) : !projected && reported===undefined && queryPending ? (

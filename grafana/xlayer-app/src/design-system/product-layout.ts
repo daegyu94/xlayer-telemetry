@@ -8,6 +8,7 @@ export const productLayout = `
 .xlt-investigation-nav a[aria-current=page] {background:var(--xl-selected);color:var(--xl-primary);font-weight:650}
 .xlt-primary-kpis {grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr))}
 .xlt-progress strong {font-size:26px}
+.xlt-primary-kpis .xlt-eyebrow,.xlt-primary-kpis .xlt-kpi small,.xlt-primary-kpis .xlt-kpi-unit,.xlt-mfu-strip {font-size:15px;line-height:1.6}
 .xlt-content .xlt-run-brief {display:flex;align-items:center;justify-content:space-between;gap:24px;border-left:4px solid var(--xl-muted);background:var(--xl-bg)}
 .xlt-content .xlt-run-brief.xlt-brief-attention {border-left-color:var(--xl-warning)}
 .xlt-run-brief h3 {font-size:21px;margin:4px 0 7px}
@@ -54,7 +55,7 @@ export const productLayout = `
 
 .xlt-storage-context {margin-top:20px;border-top:1px solid var(--xl-border);padding-top:14px}
 .xlt-storage-context>summary {cursor:pointer;font-weight:600;color:var(--xl-secondary)}
-.xlt-primary-kpis .xlt-kpi strong.xlt-kpi-state {font-size:17px}
+.xlt-primary-kpis .xlt-kpi strong.xlt-kpi-state {font-size:15px}
 .xlt-slow-steps button:focus-visible,.xlt-primary-action:focus-visible,.xlt-investigation-nav a:focus-visible {outline:2px solid var(--xl-primary);outline-offset:3px}
 @container(max-width:600px) {
  .xlt-run-heading {display:block;margin-bottom:8px}
@@ -90,6 +91,8 @@ export const productLayout = `
 .xlt-demo-link[aria-current=page] {color:var(--xl-text);border-left:3px solid var(--xl-primary);padding-left:9px}
 
 .xlt-scenario-controls {display:flex;flex-wrap:wrap;align-items:center;gap:var(--xlt-space,12px);margin:20px 0}
+.xlt-scenario-progress {display:flex;align-items:center;gap:12px;background:var(--xl-soft);border-radius:4px;padding:12px}
+.xlt-scenario-progress>span:first-child {flex-shrink:0}
 .xlt-validation-stages {display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:8px;margin:16px 0}
 .xlt-validation-stages details {background:var(--xl-soft);border-radius:4px;padding:8px;font-size:12px}
 .xlt-validation-stages b,.xlt-validation-stages small {display:block}

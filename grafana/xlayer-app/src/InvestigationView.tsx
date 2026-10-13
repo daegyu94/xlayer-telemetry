@@ -691,7 +691,7 @@ function ErrorKpi({
   return (
     <KpiCard>
       <span className="xlt-eyebrow xlt-kpi-label">Recorded errors<Tooltip content="조회된 span 중 error 상태의 기록 수입니다. 전체 workload 오류율은 아니며, status가 없으면 Not observed입니다."><button className="xlt-help" aria-label="Recorded errors 설명"><Icon name="info-circle" size="sm"/></button></Tooltip></span>
-      <strong className={status.count&&status.count>0?'xlt-recorded-errors':undefined}>
+      <strong className={!data||data.state===LoadingState.Error||data.state===LoadingState.Loading||status.count===undefined?'xlt-kpi-state':status.count>0?'xlt-recorded-errors':undefined}>
         {data?.state === LoadingState.Error
           ? "Query error"
           : !data ? "Not configured" : data.state === LoadingState.Loading
