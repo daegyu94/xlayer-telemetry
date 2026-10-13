@@ -5,12 +5,12 @@
 
 - Source 기준: `13eb1a04d75c753d95fa399191a3f0c6d0f2585d` (WP-00 시작 시 로컬 `main`)
 - 원문 진단 기준: `6ddce33a763d3de30e306980860d33aa88ab32f1`
-- 현재 작업: WP-00 in-progress (`redesign/wp-00-plan-baseline`)
+- 현재 작업: WP-00 완료, 다음 WP-04
 - 현재 검증: `.venv/bin/python -m pytest -q tests/test_documentation_links.py tests/test_documentation_diagrams.py` — 10 passed; `bash scripts/docs.sh build` — 성공
 
 | WP | 작업 | 상태 | 기준 SHA | 결과 SHA | 검증 | 병합 근거 | 장애물·후속 |
 |---|---|---|---|---|---|---|---|
-| WP-00 | 실행 계획 반입과 기준점 | verified | `13eb1a0` | — | 문서 test 10 passed, docs build 성공 | — | — |
+| WP-00 | 실행 계획 반입과 기준점 | done | `13eb1a0` | `b0351124495c3e8541ce6537987c0de9b57b9872` | 문서 test 10 passed, docs build 성공 | 로컬 main에 `b035112` fast-forward 병합 | — |
 | WP-04 | 재현 가능한 개발 의존성 | todo | — | — | — | — | — |
 | WP-02 | Test 환경 격리 | todo | — | — | — | — | — |
 | WP-01 | Sandbox first-seen device 계약 확정 | todo | — | — | — | — | — |
