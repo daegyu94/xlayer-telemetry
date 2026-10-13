@@ -148,6 +148,9 @@ def verify_run_sources(page, origin, context):
     gpu=page.locator('.xlt-infra-metrics .xlt-resource-panel').filter(has=page.get_by_role('heading',name='GPU utilization',exact=True))
     expect(gpu.locator('.xlt-resource-cell[data-state=observed]')).to_have_count(8,timeout=30000)
     assert len(set(gpu.locator('.xlt-resource-cell[data-state=observed] b').all_text_contents()))>=3,'Rounded GPU values look identical'
+    vram=page.locator('.xlt-infra-metrics .xlt-resource-panel').filter(has=page.get_by_role('heading',name='GPU memory (device and processes)',exact=True))
+    expect(vram.locator('.xlt-resource-cell[data-state=observed]')).to_have_count(8,timeout=30000)
+    assert len(set(vram.locator('.xlt-resource-cell[data-state=observed] b').all_text_contents()))>=6,'GPU process VRAM values look identical'
     more=page.locator('button.xlt-cluster-map-more')
     if more.count():
         before=page.locator('.xlt-cluster-map-node').count()

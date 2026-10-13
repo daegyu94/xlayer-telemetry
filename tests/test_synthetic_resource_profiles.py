@@ -125,6 +125,24 @@ def test_gpu_differences_remain_visible_after_panel_rounding():
             assert all(len({pattern[gpu] for pattern in patterns})>1 for gpu in range(8))
 
 
+def test_gpu_vram_has_distinct_working_sets_and_bounded_temporary_allocations():
+    from xlayer_telemetry.demos.profiles import gpu_profile
+    gib=1024**3
+    for load in (0,8,94):
+        for node in range(4):
+            snapshots=[[gpu_profile(elapsed,node,4,gpu,load) for gpu in range(8)] for elapsed in (0,4,12,24)]
+            for snapshot in snapshots:
+                used=[profile['memory_used'] for profile in snapshot]
+                process=[profile['process_memory'] for profile in snapshot]
+                assert max(used)-min(used)>64*gib
+                assert max(process)-min(process)>48*gib
+                assert all(0<=profile['process_memory']<=profile['memory_used']<=profile['memory_total']==288*gib for profile in snapshot)
+            for gpu in range(8):
+                for field in ('memory_used','process_memory'):
+                    values=[snapshot[gpu][field] for snapshot in snapshots]
+                    assert max(values)-min(values)>gib
+
+
 def test_role_specific_host_network_and_rdma_rates_keep_native_invariants(monkeypatch):
     demo=Demo(ROOT/'examples/live-demo');demo.started=0.
     first,last=capture(demo,monkeypatch,1),capture(demo,monkeypatch,3)

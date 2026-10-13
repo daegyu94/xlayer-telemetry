@@ -20,13 +20,16 @@ def gpu_profile(elapsed, node_index, node_count, device_index, load):
     scale=1-.16*node_index/max(1,node_count-1)
     device_scale=(1.,.95,.86,.80,.97,.72,.91,.66)[device_index%8]
     utilization=max(0,min(100,load*(scale*device_scale+.09*wobble)))
-    used=(88+.70*utilization+.7*device_index+1.5*node_index+.6*wobble)*GIB
+    resident=(96,120,144,72,168,104,136,88)[device_index%8]
+    allocation=8+6*math.sin(elapsed/(7+.5*device_index)+.7*device_index+.4*node_index)
+    used=(resident+.45*utilization+2*node_index+allocation)*GIB
     capacity=288*GIB
     used=max(0,min(capacity,used))
     return {'utilization':utilization, 'power':180+9*utilization+2*device_index,
         'temperature':38+.28*utilization+.2*device_index+.3*node_index,
         'clock':1200+11*utilization+2*device_index,
-        'memory_used':used, 'memory_total':capacity, 'process_memory':used*.9,
+        'memory_used':used, 'memory_total':capacity,
+        'process_memory':used*(.78+.015*(device_index%8)+.025*wobble),
         'tensor_activity':max(0,min(1,.72*utilization/100)),
         'dram_activity':max(0,min(1,.12+.55*utilization/100+.01*wobble)),
         'pcie_rx':(0.05+utilization/100)*1e9,
