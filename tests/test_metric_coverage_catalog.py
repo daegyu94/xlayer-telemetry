@@ -10,7 +10,7 @@ spec.loader.exec_module(coverage)
 
 def test_catalogue_distinguishes_definitions_bridge_aliases_and_manual_hooks():
     rows = {row['name']: row for row in coverage.catalogue(ROOT)}
-    assert len(rows) == 165
+    assert len(rows) == 167
     assert rows['training_tokens_per_second_per_gpu']['collection'] == 'verl_reported'
     assert rows['training_tokens_per_second']['collection'] == 'explicit_integration'
     assert rows['checkpoint_size_bytes']['collection'] == 'explicit_integration'
@@ -25,3 +25,26 @@ def test_catalogue_distinguishes_definitions_bridge_aliases_and_manual_hooks():
 def test_generated_catalogue_is_current_and_never_calls_smart_a_supported_source():
     assert coverage.render(ROOT) == (ROOT/'docs/_includes/metric-coverage.md').read_text()
     assert all('smart' not in row['collection'].lower() for row in coverage.catalogue(ROOT))
+
+
+def test_generated_textfile_diagnostics_are_real_collectors_not_manual_hooks():
+    rows = {row['name']: row for row in coverage.catalogue(ROOT)}
+    for key in ('snapshot_reads', 'snapshot_cache_hits', 'snapshot_rejections', 'sample_rejections'):
+        row = rows[f'telemetry_application_{key}_total']
+        assert row['collection'] == 'collector_optional'
+        assert 'xlayer_telemetry/metrics/textfile.py' in row['producer_refs']
+    assert rows['training_tokens_per_second']['collection'] == 'explicit_integration'
+    assert not rows['telemetry_application_snapshot_reads_total']['automatic_from_span']
+
+
+def test_gpu_quality_metadata_has_collector_contract_and_panel_mapping():
+    rows = {row['name']: row for row in coverage.catalogue(ROOT)}
+    for name in ('telemetry_gpu_field_status', 'telemetry_gpu_field_sample_timestamp_seconds'):
+        assert name in rows, 'Deployed GPU quality metadata must be part of the metric contract'
+        row = rows[name]
+        assert row['collection'] == 'collector_optional'
+        assert 'xlayer_telemetry/collectors/gpu_sampler.py' in row['producer_refs']
+        assert any(panel['panel'] == 133 and panel['path'].endswith('compute-communication.json') for panel in row['panels'])
+        assert not row['automatic_from_span']
+    assert rows['telemetry_gpu_field_status']['unit'] == 'boolean'
+    assert rows['telemetry_gpu_field_sample_timestamp_seconds']['unit'] == 'seconds'

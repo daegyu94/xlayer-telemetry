@@ -16,6 +16,20 @@ def test_zero_is_still_a_measurement():
     assert gpu_sampler.optional_number("0") == 0
 
 
+def test_device_field_quality_preserves_unsupported_missing_error_and_zero(monkeypatch):
+    monkeypatch.setattr(gpu_sampler, 'query', lambda *args: [
+        ['0', '0', '', 'broken', 'nan', '[N/A]', 'Not Supported', 'GPU-example'],
+    ])
+    device = gpu_sampler.snapshot()['gpus'][0]
+    assert device['utilization.gpu'] == 0
+    assert device['memory.used'] is None
+    assert device['field_quality'] == {
+        'utilization.gpu': 'observed', 'power.draw': 'missing',
+        'temperature.gpu': 'error', 'clocks.sm': 'error',
+        'memory.used': 'unsupported', 'memory.total': 'unsupported',
+    }
+
+
 @pytest.mark.parametrize("failure", [subprocess.TimeoutExpired("nvidia-smi", 10), OSError("unavailable")])
 def test_optional_process_query_failure_preserves_device_samples(monkeypatch, failure):
     def query(kind, fields):
@@ -82,6 +96,23 @@ def gpu_textfile(tmp_path, monkeypatch):
         gpu_sampler.main()
         return (tmp_path / "gpu.prom").read_text()
     return collect
+
+
+def test_field_quality_exports_metadata_without_inventing_values(gpu_textfile):
+    text = gpu_textfile([['0', '0', '', 'broken', 'nan', '[N/A]', '[N/A]', 'GPU-1']])
+    for field, state in [('utilization.gpu', 'observed'), ('power.draw', 'missing'),
+                         ('temperature.gpu', 'error'), ('memory.used', 'unsupported')]:
+        assert f'field="{field}",gpu="0",gpu_uuid="GPU-1",state="{state}"' in text
+    assert 'telemetry_gpu_field_sample_timestamp_seconds 123' in text
+    assert 'telemetry_gpu_utilization_percent{gpu="0",gpu_uuid="GPU-1"} 0' in text
+    assert 'telemetry_gpu_memory_used_bytes{' not in text
+
+
+def test_quality_timestamp_is_independent_of_all_unavailable_measurements(gpu_textfile):
+    text = gpu_textfile([['0'] + ['[N/A]'] * 6 + ['GPU-1']])
+    assert 'telemetry_gpu_field_sample_timestamp_seconds 123' in text
+    assert 'telemetry_gpu_collection_success 0' in text
+    assert 'telemetry_gpu_sample_timestamp_seconds ' not in text
 
 
 @pytest.mark.parametrize("used_mib", [0, 2048])

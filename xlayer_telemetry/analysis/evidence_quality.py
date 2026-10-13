@@ -6,7 +6,7 @@ import re
 from typing import Any, Mapping
 
 from ..measurements import finite_number
-from ..prometheus import MAX_ANNOTATION_COUNT, MAX_RESULT_POINTS, MAX_RESULT_SERIES
+from ..prometheus import MAX_ANNOTATION_COUNT, MAX_RESULT_POINTS, MAX_RESULT_SERIES, GPU_PRODUCER_TIMESTAMPS, PRODUCER_TIMESTAMP_JOIN
 
 _DURATION = re.compile(r"\[([^]:]+)(?::[^\]]*)?\]")
 _DURATION_PART = re.compile(r"(\d+(?:\.\d+)?)(ms|s|m|h|d|w|y)")
@@ -64,7 +64,7 @@ def correlation_quality_issues(value: Mapping[str,Any]) -> list[str]:
 
 
 def timestamp_query(query: str) -> str | None:
-    """Only inspect a single explicit source; never timestamp a computed rate."""
+    """Inspect one explicit source; GPU textfiles use producer observation time."""
     selectors = set(_SELECTOR.findall(query))
     if len(selectors) == 1:
         remainder = _SELECTOR.sub("", query)
@@ -77,10 +77,16 @@ def timestamp_query(query: str) -> str | None:
         remainder = _SOURCE_WRAPPERS.sub("", remainder)
         if re.search(r'[A-Za-z_:"\'`{}]', remainder):
             return None
-        return f"timestamp({next(iter(selectors))})"
-    if not selectors and re.fullmatch(r"[A-Za-z_:][A-Za-z0-9_:]*", query):
-        return f"timestamp({query})"
-    return None
+        selector = next(iter(selectors))
+    elif not selectors and re.fullmatch(r"[A-Za-z_:][A-Za-z0-9_:]*", query):
+        selector = query
+    else:
+        return None
+    producer = GPU_PRODUCER_TIMESTAMPS.get(selector.split('{', 1)[0])
+    # Textfile scrape time can advance while a stopped producer's values remain.
+    if producer:
+        return producer+PRODUCER_TIMESTAMP_JOIN+selector+')'
+    return f"timestamp({selector})"
 
 
 def quality(query: str, start: float, end: float, query_step: float,

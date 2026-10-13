@@ -51,10 +51,20 @@ Dashboard는 주요 신호를 요약하고, 나머지 exporter metric은 `xltel 
 | Sandbox resource | `sandbox_io_write_bytes_total`, `sandbox_memory_pressure_ratio`, `sandbox_cpu_throttled_seconds_total` | Stable worker cgroup v2 경로를 sandbox sampler에 전달; CPU·memory·I/O와 압력·event counter | Worker cgroup; CPU quota 통계는 선택 cgroup 자체의 제한 |
 
 GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 않는 field는 0 대신 생략합니다.
+GPU JSONL의 `field_quality`는 device field별 원인을 보존합니다.
+Finite 숫자는 `observed`, 명시적인 `N/A`·`Not Supported`는 `unsupported`, 빈 값·없는 column은 `missing`, 그 밖의 malformed·non-finite 값은 `error`입니다.
+`observed`는 숫자가 반환됐다는 뜻이며 physical range 검증이나 특정 Run의 사용량을 증명하지 않습니다.
+기존 숫자·`None`·`unavailable_fields`는 유지합니다.
+Textfile export의 `telemetry_gpu_field_status{gpu,gpu_uuid,field,state}=1`은 field 상태를 나타내며 GPU 사용률이나 memory bytes가 아닙니다.
+`telemetry_gpu_field_sample_timestamp_seconds`는 identified device field-quality 관측 시각으로 numeric collection 성공 여부와 독립적입니다.
+Numeric field가 전부 unsupported여도 quality는 관측할 수 있고, command 실패 때는 이전 quality 값과 시각을 제거합니다.
+Compute dashboard의 GPU device field quality table과 source-quality query는 이 독립 시각과 identity를 사용합니다.
+미래·30초 이상 된 quality는 표시하지 않으며 Missing/Stale/Error의 다른 근거는 collection health·sample age와 함께 확인합니다.
 `telemetry_gpu_process_memory_bytes`는 `GPU_PROCESS_METRICS=1`일 때만 수집하는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
 기본값은 `0`이며 PID churn을 상시 Prometheus 시계열에 넣지 않습니다. 짧은 진단에서만 켜고 `GPU_MAX_PROCESSES`(기본 256, 최대 4096)로 snapshot별 행을 제한합니다.
 `telemetry_gpu_process_collection_enabled`와 `telemetry_gpu_process_samples_truncated`로 설정·잘린 행 수를 구분합니다. 이 한도는 보존 기간 전체의 PID churn이나 nvidia-smi 응답 크기 자체의 한도가 아닙니다.
 `telemetry_gpu_process_sample_timestamp_seconds`는 opt-in process memory 관측값이 하나 이상 있을 때만 노출하며, 실제 측정값 `0`과 일부 행 오류가 있어도 남은 유효한 관측은 보존합니다.
+Collection quality도 device 값에는 `telemetry_gpu_sample_timestamp_seconds`, process 값에는 독립 process timestamp를 사용합니다. Sampler가 멈춰 textfile 값이 남아 있어도 exporter의 새로운 scrape가 producer 관측 시각을 갱신하지 않으며, cluster·instance·job과 GPU/PID identity를 보존합니다. Timestamp가 없으면 freshness는 unknown으로 남깁니다.
 Process 수집 비활성화·전체 실패·관측값 없음에서는 이 시각을 생략하며 device 수집 성공 시각과 독립적으로 freshness를 판단합니다.
 Compute & Communication의 process-memory panel은 이 시각을 우선하고, 이 metric이 없는 이전 collector·저장된 data에서만 device 시각으로 대체합니다.
 Process 시각이 존재하지만 stale이면 fresh device 시각으로 우회하지 않으며, 두 경로 모두 기존 node·instance·GPU selector와 `0 ≤ age < 30s` freshness 조건을 유지합니다. 미래 timestamp와 만료된 관측은 숨기며 실제 측정값 `0`은 보존합니다.

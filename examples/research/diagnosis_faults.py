@@ -71,7 +71,7 @@ class MetricSource:
 
     def query_range_detail(self, query, start, end, query_step):
         self.calls += 1
-        if query.startswith('timestamp('):
+        if query.startswith('timestamp(') or query.startswith('telemetry_gpu_sample_timestamp_seconds +'):
             stamp = end-100 if self.case.stale and end == 1000 else end-1
             stats = {'max': stamp}
             return {'aggregate': stats, 'series': [{'stats': stats, 'source_timestamps': [start+1, stamp]}]}

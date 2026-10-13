@@ -1371,6 +1371,22 @@
       "scope": "shared-master RPC",
       "source": "Mooncake native master_batch_get_replica_list_failures_total",
       "policy": "native; control-plane counters, not successful KV payload I/O or run attribution; unsupported exporters remain N/A"
+    },
+    {
+      "name": "telemetry_gpu_field_status",
+      "category": "gpu",
+      "unit": "boolean",
+      "scope": "node/GPU/field quality state",
+      "source": "nvidia-smi GPU sampler field_quality",
+      "policy": "collector metadata; value 1 identifies observed/unsupported/missing/error state, not numeric hardware measurement or Job attribution; absent on command failure; six bounded fields per GPU"
+    },
+    {
+      "name": "telemetry_gpu_field_sample_timestamp_seconds",
+      "category": "gpu",
+      "unit": "seconds",
+      "scope": "node GPU quality batch",
+      "source": "nvidia-smi GPU sampler identified-device quality sample time",
+      "policy": "collector metadata; Unix source timestamp independent of numeric field availability; absent on command failure; no Run attribution; one batch timestamp per node"
     }
   ],
   "$schema": "./metrics.schema.json",

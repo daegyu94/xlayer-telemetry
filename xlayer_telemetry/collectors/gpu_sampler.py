@@ -26,6 +26,14 @@ def optional_number(value: str) -> float | None:
         return None
 
 
+def field_quality(value: str | None) -> str:
+    if value is None or not value.strip():
+        return 'missing'
+    if value.strip().casefold() in {'[n/a]', 'n/a', 'not supported', '[not supported]'}:
+        return 'unsupported'
+    return 'observed' if optional_number(value) is not None else 'error'
+
+
 def query(kind: str, fields: list[str]) -> list[list[str]]:
     result = subprocess.run(
         ["nvidia-smi", f"--query-{kind}={','.join(fields)}", "--format=csv,noheader,nounits"],
@@ -79,6 +87,8 @@ def snapshot(*, include_processes: bool = False, max_processes: int = 256) -> di
             # Do not invent an identity or crash all device collection on a bad row.
             continue
         gpu["unavailable_fields"] = [key for key in fields if gpu[key] is None]
+        gpu["field_quality"] = {key: field_quality(row[i] if i < len(row) else None)
+                                for i, key in enumerate(fields) if key != "index"}
         gpu["uuid"] = row[len(fields)] if len(row) > len(fields) else None
         gpus.append(gpu)
     processes = []
@@ -159,6 +169,9 @@ def main():
                 observed_at = sample_time(value, key="timestamp")
                 timestamp = observed_at if success else None
                 samples = [GaugeSample("telemetry_gpu_sample_timestamp_seconds", "Last successful GPU sample.", timestamp)] if timestamp is not None else []
+                if observed_at is not None and any(gpu.get("field_quality") for gpu in value["gpus"]):
+                    samples.append(GaugeSample("telemetry_gpu_field_sample_timestamp_seconds",
+                                               "Last identified GPU field-quality sample, independent of numeric availability.", observed_at))
                 if (args.process_metrics and observed_at is not None
                         and any(process["used_gpu_memory_mib"] is not None for process in value["compute_processes"])):
                     samples.append(GaugeSample("telemetry_gpu_process_sample_timestamp_seconds",
@@ -183,6 +196,10 @@ def main():
                     if gpu.get("uuid"):
                         labels["gpu_uuid"] = gpu["uuid"]
                         gpu_indices[gpu["uuid"]] = labels["gpu"]
+                    for field, state in gpu.get("field_quality", {}).items():
+                        samples.append(GaugeSample("telemetry_gpu_field_status",
+                                                   "GPU field-quality metadata; value 1 identifies a state, not a measurement.",
+                                                   1, {**labels, "field": field, "state": state}))
                     for field, name in [("utilization.gpu", "utilization_percent"), ("power.draw", "power_watts"), ("temperature.gpu", "temperature_celsius"), ("clocks.sm", "sm_clock_mhz")]:
                         if gpu[field] is not None:
                             samples.append(GaugeSample(f"telemetry_gpu_{name}", f"nvidia-smi {field}.", gpu[field], labels))

@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 from xlayer_telemetry.adapters.verl import DIRECT_METRICS, ASYNC_DECISIONS, MFU_STAGES, POLICY_VERSION_KEYS, STAGE_PHASES, VerlMetricsAdapter
 from xlayer_telemetry.analysis.diagnostics import DEFAULT_QUERIES
 from xlayer_telemetry.analysis.metric_queries import METRIC_PROFILES, profile_queries
+from xlayer_telemetry.metrics.textfile import _COLLECTOR_METRICS
 
 
 # These are source-name bindings, NOT exporter renames or automatic unit
@@ -115,6 +116,7 @@ def catalogue(root=ROOT):
     logger.update({'timing_per_token_ms/'+stage:1 for stage in STAGE_PHASES})
     bridge={metric.name for metric in VerlMetricsAdapter.translate(logger)}
     source_sets={path:literals(root/'xlayer_telemetry'/path) for path in PRODUCERS}
+    source_sets['metrics/textfile.py'] |= _COLLECTOR_METRICS
     gpu=source_sets['collectors/gpu_sampler.py']
     query_sets={'default':{name:tokens(expr) for name,expr in DEFAULT_QUERIES.items()}}
     for profile in METRIC_PROFILES:

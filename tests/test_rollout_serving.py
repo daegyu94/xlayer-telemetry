@@ -184,7 +184,7 @@ def test_inactive_replica_on_gpu_node_caps_mixed_starvation_without_hiding_other
                 from tests.test_rollout_replicas import stats
                 s=stats(20 if start==100 else 90)
                 row={'labels':{'cluster':'lab','node':'rollout-a','instance':'rollout-a','gpu':'0'},'stats':s}
-                if query.startswith('timestamp('):
+                if query.startswith('timestamp(') or query.startswith('telemetry_gpu_sample_timestamp_seconds +'):
                     row.update(stats=stats(end-1),source_timestamps=[start+1,end-1])
                 return {'aggregate':s,'series':[row]}
             return super().query_range_detail(query,start,end,step)
