@@ -26,7 +26,7 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 
 | Script | 목적 | 필요한 경우 / 실행 방식 |
 | --- | --- | --- |
-| `setup.sh` | Checkout의 `.venv`에 SDK를 editable 설치하고 CPU test 환경 준비 | 최초 준비; `PYTHON`으로 Python 3.10 이상 선택 |
+| `setup.sh` | Checkout의 `.venv`에 SDK와 개발 의존성을 editable 설치하고 CPU test 환경 준비 | 최초 준비; `PYTHON`으로 Python 3.10 이상 선택 |
 | `check_tools.sh` | Telemetry 환경에서 PATH의 선택 도구 설치 여부 조회 | 설치 점검; 누락된 선택 도구를 자동 설치하지 않음 |
 | `verl_local.sh` | 단일 host의 config 기반 install/up/status/run/inspect/down | CLI가 재사용하는 local lifecycle; server·node를 background로 관리 |
 | `install_telemetry_tools.sh` | Linux ARM64/x86_64 monitoring binary 다운로드 | 개별 host 준비; `TOOLS_DIR` 지정 |

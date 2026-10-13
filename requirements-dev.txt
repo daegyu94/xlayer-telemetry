@@ -1,0 +1,8 @@
+-r requirements.txt
+setuptools>=68
+wheel
+pytest-timeout
+pytest-xdist
+ruff
+mypy
+coverage

@@ -34,8 +34,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: requirements.txt
-      - run: python -m pip install 'setuptools>=68' wheel -r requirements.txt -e .
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt -e .
       - name: Cache pinned Prometheus archive
         if: matrix.backends
         uses: actions/cache@v4

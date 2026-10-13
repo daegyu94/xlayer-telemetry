@@ -146,7 +146,7 @@ Canonical Metric 정의는 전체 자동 수집 목록이 아닙니다. N/A의 s
 | 작업 | 명령 / 다음 문서 |
 | --- | --- |
 | 다른 application Python에 SDK 설치 | `python -m pip install /path/to/xlayer-telemetry` → [SDK 연결](docs/application-metrics.md) |
-| 개발 dependency 설치 | `python -m pip install -r requirements.txt -e .` |
+| 개발 dependency 설치 | `python -m pip install -r requirements-dev.txt -e .` |
 | CPU regression | `python -m pytest -q` |
 | Syntax / 선택 도구 / docs build | [Maintainers](docs/maintainers.md) |
 | Package / module 책임·경로 | [Architecture Reference](docs/architecture-reference.md#package-responsibilities) |

@@ -109,7 +109,7 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 ## 검증 방법
 
 저장소 루트에서 프로젝트가 설치된 Python 환경을 사용합니다.
-개발 환경은 `bash scripts/setup.sh` 또는 `python -m pip install -r requirements.txt -e .`로 준비하고, 기존 환경을 불필요하게 재생성하지 않습니다.
+개발 환경은 `bash scripts/setup.sh` 또는 `python -m pip install -r requirements-dev.txt -e .`로 준비하고, 기존 환경을 불필요하게 재생성하지 않습니다.
 Runtime은 Python 3.10 이상이며 CPU CI는 Ubuntu 22.04/Python 3.10과 Ubuntu 24.04/Python 3.12를 검사합니다.
 문서 build 환경은 `requirements-docs.txt`를 사용하는 Python 3.11 이상이며 runtime dependency와 분리합니다.
 

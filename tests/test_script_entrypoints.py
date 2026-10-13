@@ -56,7 +56,7 @@ def test_setup_and_tool_check_use_checkout_from_another_directory(tmp_path: Path
     assert not (caller / ".venv").exists()
     records = [json.loads(line) for line in calls.read_text().splitlines()]
     assert all(record["cwd"] == str(repo) for record in records)
-    assert records[-1]["args"] == ["-m", "pip", "install", "-r", "requirements.txt", "-e", "."]
+    assert records[-1]["args"] == ["-m", "pip", "install", "-r", "requirements-dev.txt", "-e", "."]
     subprocess.run(["bash", str(scripts / "check_tools.sh")], cwd=caller, env=env,
                    capture_output=True, text=True, check=True, timeout=5)
     record = json.loads(calls.read_text().splitlines()[-1])

@@ -7,7 +7,7 @@
 ## 개발 환경
 
 ```bash
-python -m pip install -r requirements.txt -e .
+python -m pip install -r requirements-dev.txt -e .
 python -m pytest -q
 python -m compileall -q xlayer_telemetry examples
 git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
