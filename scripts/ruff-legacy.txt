@@ -1,0 +1,33 @@
+examples/application/checkpoint_io.py:24:57: F841 Local variable `span` is assigned to but never used
+examples/investigation/validate_app_ux.py:6:8: F401 `sys` imported but unused
+examples/multinode/cpu_contract_node.py:3:8: F401 `os` imported but unused
+tests/test_app_runs_cli.py:2:21: F401 `pathlib.Path` imported but unused
+tests/test_async_sdk_io.py:4:21: F401 `pathlib.Path` imported but unused
+tests/test_cli.py:17:48: F401 `xlayer_telemetry.operations.config.ConfigError` imported but unused
+tests/test_cli_extensions.py:42:38: F541 f-string without any placeholders
+tests/test_collector_outcomes.py:12:37: F401 `xlayer_telemetry.events.EventRecorder` imported but unused
+tests/test_demo_control.py:84:22: F401 `sys` imported but unused
+tests/test_demo_journeys.py:3:21: F401 `pathlib.Path` imported but unused
+tests/test_example_failure_cleanup.py:69:5: F841 Local variable `provision` is assigned to but never used
+tests/test_example_safety.py:3:8: F401 `json` imported but unused
+tests/test_failure_boundaries.py:4:21: F401 `pathlib.Path` imported but unused
+tests/test_fork_first_use.py:3:21: F401 `pathlib.Path` imported but unused
+tests/test_incremental_cache.py:4:21: F401 `pathlib.Path` imported but unused
+tests/test_investigation_improvements.py:20:66: F401 `xlayer_telemetry.metrics.textfile.build_metrics` imported but unused
+tests/test_investigation_improvements.py:6:8: F401 `signal` imported but unused
+tests/test_metric_query_profiles.py:11:88: F401 `xlayer_telemetry.analysis.metric_queries.profile_queries` imported but unused
+tests/test_mooncake_profile_queries.py:12:54: F401 `xlayer_telemetry.analysis.metric_queries.METRIC_PROFILES` imported but unused
+tests/test_multiworker_demo.py:3:21: F401 `pathlib.Path` imported but unused
+tests/test_ponytail_review.py:11:41: F401 `xlayer_telemetry.operations.runs` imported but unused
+tests/test_time_alignment_integration.py:3:21: F401 `pathlib.Path` imported but unused
+tests/test_user_workflow_regressions.py:3:8: F401 `os` imported but unused
+tests/test_vm_validation.py:2:21: F401 `pathlib.Path` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:36:22: F401 `..fileio.atomic_write_text` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:38:44: F401 `..prometheus.escape_label` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:39:71: F401 `.diagnostic_signals._distribution_identity` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:41:55: F401 `.diagnostic_artifacts._investigation_path` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:41:76: F401 `.diagnostic_artifacts._write_investigation` imported but unused
+xlayer_telemetry/analysis/diagnostics.py:42:72: F401 `.diagnostic_artifacts._investigation_rows` imported but unused
+xlayer_telemetry/demos/control.py:9:21: F401 `pathlib.Path` imported but unused
+xlayer_telemetry/operations/run_artifacts.py:5:8: F401 `json` imported but unused
+xlayer_telemetry/show_run.py:12:8: F401 `json` imported but unused

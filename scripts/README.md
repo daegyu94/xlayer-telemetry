@@ -28,6 +28,8 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 | --- | --- | --- |
 | `setup.sh` | Checkout의 `.venv`에 SDK와 개발 의존성을 editable 설치하고 CPU test 환경 준비 | 최초 준비; `PYTHON`으로 Python 3.10 이상 선택 |
 | `check_tools.sh` | Telemetry 환경에서 PATH의 선택 도구 설치 여부 조회 | 설치 점검; 누락된 선택 도구를 자동 설치하지 않음 |
+| `check.sh` | 선택한 test와 Ruff·생성물·문법 검사를 실행하는 단일 gate | `fast`/`default`는 WP별로, `full`은 backend·browser가 준비된 최종 검증에 사용 |
+| `install_check_hooks.sh` | Git이 사용하는 hooks 경로에 fast/default 연결 | 기존 hook은 보존하며 공용 worktree hook에 영향을 줄 수 있으므로 명시적으로 실행 |
 | `verl_local.sh` | 단일 host의 config 기반 install/up/status/run/inspect/down | CLI가 재사용하는 local lifecycle; server·node를 background로 관리 |
 | `install_telemetry_tools.sh` | Linux ARM64/x86_64 monitoring binary 다운로드 | 개별 host 준비; `TOOLS_DIR` 지정 |
 | `run_telemetry.sh` | node/server/storage role 실행 | Multi-node 배포 또는 개별 process 조사; foreground |
@@ -43,6 +45,10 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 | `capture_dashboard_demo.py` | 지정한 Grafana run/step 화면을 GIF로 기록 | 선택적 Playwright·ffmpeg; workload나 측정값을 생성하지 않음 |
 
 `setup.sh`·`check_tools.sh`는 script 위치를 기준으로 checkout을 찾으므로 다른 directory에서도 절대 경로로 호출할 수 있습니다.
+`bash scripts/check.sh default tests/test_cli.py`처럼 관련 test를 지정합니다.
+생략하면 변경한 `tests/test_*.py`를 선택하며, 제품 변경에 대응 test가 없으면 명시적인 test 경로 또는 `CHECK_TESTS`가 필요합니다.
+`full`은 전체 CPU·docs·실제 PromQL/ClickHouse·격리 Grafana browser를 실행하며 `PROMTOOL`, `XLAYER_TEST_CLICKHOUSE_CONTAINER`, `XLAYER_CHECK_TOOLS`, 새 `XLAYER_CHECK_OUTPUT` 경로가 필요합니다.
+기존 Ruff 위반은 `scripts/ruff-legacy.txt`에 위치별로 고정돼 있으며 해당 코드를 수정하면 해결한 항목을 목록에서 제거합니다.
 SDK 설치는 해당 checkout의 telemetry `.venv`에만 적용되며 VERL Python 환경은 변경하지 않습니다.
 그 외 script의 상대 경로 옵션은 사용 예제의 working directory를 따르므로 기본적으로 저장소 루트에서 실행합니다.
 

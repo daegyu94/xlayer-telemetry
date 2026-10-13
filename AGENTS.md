@@ -113,13 +113,16 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 Runtime은 Python 3.10 이상이며 CPU CI는 Ubuntu 22.04/Python 3.10과 Ubuntu 24.04/Python 3.12를 검사합니다.
 문서 build 환경은 `requirements-docs.txt`를 사용하는 Python 3.11 이상이며 runtime dependency와 분리합니다.
 
-관련 test를 먼저 실행하고, 여러 component에 영향을 주는 코드·config 변경에는 전체 CPU suite를 실행합니다.
-재설계 WP-05 이후에는 계획서에 따라 별도 lint/type 검사를 gate에 추가합니다. 그 전에는 새 도구나 전수 formatting을 기본 gate로 추가하지 않습니다.
+관련 test를 먼저 실행하고, 공유 계약 변경·Phase 경계·최종 완료에는 통합 tree에서 전체 CPU suite를 실행합니다.
+재설계 WP 검증은 `bash scripts/check.sh default tests/test_cli.py`처럼 관련 test를 지정해 실행합니다.
+`fast`는 변경 중 확인, `full`은 backend·browser를 준비한 최종 검증에 사용합니다.
+Mypy는 WP-23 이후 core에 연결합니다.
 
 ```bash
+bash scripts/check.sh fast tests/test_cli.py
+bash scripts/check.sh default tests/test_cli.py
+# 공유 계약 변경·Phase 경계·최종 완료의 전체 CPU suite:
 python -m pytest -q
-python -m compileall -q xlayer_telemetry examples
-git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
 ```
 
 | 변경 영역 | 우선 확인할 regression |
