@@ -1,3 +1,4 @@
+import { observationLabel } from './record-contract';
 import { ResourcePanel } from './ResourcePanel';
 import React from 'react';
 import { LoadingState, getValueFormat } from '@grafana/data';
@@ -35,7 +36,13 @@ export function format(value: unknown, unit = "") {
     : `${new Intl.NumberFormat("en", { maximumFractionDigits: 2, notation: Math.abs(n) >= 10000 ? "compact" : "standard" }).format(n)}${unit ? " " + unit : ""}`;
 }
 
+export function formatObservation(row: RecordRow, unit = "") {
+  return observationLabel(row) ?? format(row.current, unit);
+}
+
 export function Delta({ row }: { row?: RecordRow }) {
+  const unavailable = row && observationLabel(row);
+  if (unavailable) return <span className="xlt-muted xlt-change">{unavailable} · Δ unavailable</span>;
   const delta = numeric(row?.delta_percent);
   return (
     <span

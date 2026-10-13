@@ -268,3 +268,13 @@ test('clock-quality gate preserves raw evidence while withholding precise matrix
  assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n'],uncertainty:.01,sampleAge:9},window).value,undefined);
  assert.equal(clockQualifiedCell(cell,'aligned',{nodes:['n'],uncertainty:.01,sampleAge:0},window).value,0);
 });
+
+test('clock decisions survive prose changes and keep observation value distinct',()=>{
+ const original=metricCell({value:0,unit:'%',labels:{node:'n'},time:4000},phaseWindow([span],selected,'rollout'),'node',0);
+ const gated=clockQualifiedCell({...original,explanation:'Translated or rewritten display text'},'unsafe');
+ assert.equal(gated.reason,'clock_unverified');assert.equal(gated.clockStatus,'unsafe');
+ assert.equal({...gated,explanation:'Any unrelated wording'}.reason,'clock_unverified');
+ assert.equal(gated.value,undefined);assert.equal(gated.sample?.value,0);
+ assert.equal(clockQualifiedCell(original,'aligned').value,0);
+ assert.equal(clockQualifiedCell(original,'aligned').reason,undefined);
+});

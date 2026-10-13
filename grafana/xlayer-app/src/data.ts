@@ -1,5 +1,6 @@
 import type { PanelData } from "@grafana/data";
 import { RecordRow, decodeRecord } from "./context";
+import type { ObservationRow } from './record-contract';
 import type { Sample } from "./semantics";
 
 function object(value: unknown): RecordRow | undefined {
@@ -12,7 +13,7 @@ function object(value: unknown): RecordRow | undefined {
 
 // Loki stream node identifies the observer, not an execution worker. Preserve
 // explicit record identity and flag conflicting sources instead of replacing it.
-function provenance(line: unknown, row: RecordRow, labels: unknown): RecordRow {
+function provenance(line: unknown, row: ObservationRow, labels: unknown): ObservationRow {
   const wrapper = object(line), body = object(wrapper?.record) || wrapper;
   const stream = object(labels);
   const result = {...row};
@@ -31,9 +32,9 @@ function provenance(line: unknown, row: RecordRow, labels: unknown): RecordRow {
   }
   return result;
 }
-export function records(data: PanelData | undefined): RecordRow[] {
+export function records(data: PanelData | undefined): ObservationRow[] {
   if (data?.state && !["Done", "Streaming"].includes(data.state)) return [];
-  const rows: RecordRow[] = [];
+  const rows: ObservationRow[] = [];
   for (const frame of data?.series || []) {
     const line = frame.fields.find(
       (f) => f.name === "Line" || f.name === "line",

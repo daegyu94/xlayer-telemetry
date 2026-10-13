@@ -1,3 +1,4 @@
+import { observationStatus, resourceIdentity } from './record-contract';
 import { numeric, type RecordRow, type Context } from './context';
 import { latestEntitySamples, eventTime } from './mockup';
 import { PHASES, phaseWindow, gaugeSummary, metricCell, clockQualifiedCell, type ClockProof, type Sample } from './semantics';
@@ -116,11 +117,8 @@ function evidenceIdentity(row: RecordRow, sample: Sample): boolean {
   if (row.identity_conflict || !row.cluster || row.cluster !== sample.labels.cluster) return false;
   const start = numeric(row.window_start_ms), end = numeric(row.window_end_ms);
   if (start === undefined || end === undefined || end < start || sample.time < start || sample.time > end) return false;
-  const pairs = String(row.entity || '').split(',');
-  if (!row.entity || pairs.some(pair => !pair.includes('='))) return false;
-  const expected = Object.fromEntries(pairs.map(pair => {
-    const separator = pair.indexOf('='); return [pair.slice(0, separator), pair.slice(separator + 1)];
-  }));
+  const expected = resourceIdentity(row);
+  if (!expected) return false;
   const node = expected.node || expected.nodename;
   if (!node || node !== (sample.labels.node || sample.labels.nodename)) return false;
   const qualifiers = ['gpu', 'gpu_uuid', 'device', 'port', 'worker_id', 'instance', 'engine', 'engine_id', 'interface', 'cgroup_id']
@@ -163,6 +161,7 @@ export function pressureOrder(values: Sample[], options: PressureOptions) {
       const evidence = (options.evidence || []).filter(row => {
         if (!options.signal || row.signal !== options.signal || row.evidence_type !== 'supporting' ||
             (row.row_kind && row.row_kind !== 'evidence') || !evidenceIdentity(row, sample) ||
+            (row.observation_status !== undefined && observationStatus(row) !== 'observed') ||
             /stale|source_sample_before_interval|source_timestamp_in_future/.test(String(row.quality_warnings || ''))) return false;
         if (contract && (row.observation_scope && row.observation_scope !== contract.scope ||
             row.window_statistic && row.window_statistic !== contract.statistic)) return false;
