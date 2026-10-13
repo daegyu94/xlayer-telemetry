@@ -87,3 +87,13 @@ def test_source_query_and_entity_survive_without_quality_warnings():
 def test_source_identity_must_be_nonempty_text_when_present(source):
     with pytest.raises(ValueError, match='source must be nonempty text'):
         Observation.decode({'signal': 'gpu', 'current': 0, 'source': source})
+
+
+def test_shared_entity_assessment_preserves_legacy_quality_without_executed_query():
+    from xlayer_telemetry.analysis.observation_contracts import assess_entity
+    prior = {'warnings': ['source_freshness_unknown'], 'query_step_seconds': 2}
+    assessed = assess_entity(None, {}, 2, {'sample_count': 1}, {'node': 'n'},
+                             source={}, result=None, prior_quality=prior)
+    assert assessed['query_step_seconds'] == 2 and assessed['evaluation_count'] == 1
+    assert assessed['warnings'] == ['source_freshness_unknown', 'fewer_than_two_query_evaluations']
+    assert prior == {'warnings': ['source_freshness_unknown'], 'query_step_seconds': 2}

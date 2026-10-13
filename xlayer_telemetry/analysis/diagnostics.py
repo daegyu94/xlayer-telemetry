@@ -29,7 +29,7 @@ from .diagnosis_analysis import (
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from . import scheduling
-from .evidence_quality import quality, source_for_entity, validate_sampling, selected_quality, INVALID_SOURCE_TIME
+from .evidence_quality import validate_sampling, INVALID_SOURCE_TIME
 from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
 from .rollout_state import validate_observations, load_serving_context, comparison_issues, apply_serving_limits
 from ..sandbox import device_window
@@ -42,7 +42,7 @@ from .diagnostic_artifacts import (_existing_reports, _investigation_path, _writ
                                    write_report, _projection_recovery, _investigation_rows, repair_projections)
 from .metric_observations import collect_metrics
 from .query_budget import QueryBudget
-from .observation_contracts import EvidenceBundle, EntityRef, usable_window
+from .observation_contracts import EvidenceBundle, EntityRef, assess_entity, usable_window
 from .diagnosis_pipeline import evaluate_stage, describe_signals, assess_comparisons, assess_candidate_context, cap_candidate_quality
 from .metric_queries import (DEFAULT_QUERIES, CONTEXT_SIGNALS, ENTITY_COMPARISON_SIGNALS,
                              profile_queries, validate_metric_profiles)
@@ -1006,12 +1006,12 @@ class DiagnosticEngine:
                     source = source_samples.get(name, {}).get(role, {})
                     # A singleton legacy client with no source labels has no
                     # alternate entity to borrow. Multi-entity clients must match.
-                    if (any(row.get('labels') for row in source.get('series', []))
-                            or len(series.get(name, [])) > 1 or len(source.get('series', [])) > 1):
-                        interval = window if role == 'current' else baseline_window
-                        qualities[role] = quality(executed_queries[name], interval['start'], interval['end'], step,
-                            stats, source=source_for_entity(source, labels), result=qualities[role].get('query_result'))
-                    qualities[role] = selected_quality(qualities[role], stats)
+                    recompute = (any(row.get('labels') for row in source.get('series', []))
+                                 or len(series.get(name, [])) > 1 or len(source.get('series', [])) > 1)
+                    interval = window if role == 'current' else baseline_window
+                    qualities[role] = assess_entity(executed_queries.get(name) if recompute else None,
+                        interval, step, stats, labels, source=source,
+                        result=qualities[role].get('query_result'), prior_quality=qualities[role])
 
         signal_rows = describe_signals(
             compare_signals(current_signals, baseline_signals, scopes=signal_scopes, labels=signal_labels),
@@ -1166,7 +1166,8 @@ class DiagnosticEngine:
                     candidate["missing_evidence"].append("threefs_producer_clock_alignment")
                     if candidate["state"] == "strong_signal":
                         candidate["state"] = "supporting_signal"
-        candidates = cap_candidate_quality(candidates, bundle, sampling_quality, signal_queries)
+        for candidate in candidates:
+            candidate['signal_strength'] = candidate['state']
         profiles = validate_metric_profiles(self.config["prometheus"])
         if profiles:
             limitations.append("Extended exporter evidence is node/device/shared-service scoped, not owned by the run. Window extrema can refer to different entities; comparisons match exact labels. Rate windows can extend before the step, p95 values are per-entity histogram estimates, and missing metrics do not mean zero.")
