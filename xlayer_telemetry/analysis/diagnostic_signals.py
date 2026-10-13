@@ -5,7 +5,7 @@ import re
 from typing import Any, Mapping
 
 from .diagnosis_analysis import finite
-from .metric_queries import PROFILE_SIGNALS
+from .metric_queries import SIGNAL_CATALOG, SIGNAL_REDUCERS
 from .storage_series import distribution_comparison_quality
 
 _LATENCY_NAME = re.compile(r"latency|duration|elapsed|cost|time", re.IGNORECASE)
@@ -70,33 +70,13 @@ def signal_values(
                 values.append(finite(stages.get("update_weights")))
             if any(value is not None for value in values):
                 signals[signal] = sum(value or 0 for value in values)
-    fields = {
-        "gpu_utilization_percent": "mean",
-        "host_memory_available_ratio": "min",
-        "host_swap_activity": "max",
-        "disk_busy_ratio": "max",
-        "tool_duration_seconds": "max",
-        "sandbox_io_pressure_ratio": "max",
-        "sandbox_device_busy_ratio": "max",
-        "storage_device_busy_ratio": "max",
-        "disk_read_bytes_per_second": "mean",
-        "rdma_bytes_per_second": "mean",
-        "vllm_requests_waiting": "max",
-        "vllm_kv_cache_usage": "max",
-        "vllm_preemptions_total": "max_series_delta",
-        "gpu_memory_usage_ratio": "max",
-        "gpu_evictions_delta": "max",
-        "network_utilization_ratio": "max",
-        "threefs_throughput_bytes_per_second": "mean",
-        "storage_request_bytes": "mean",
-    }
-    fields.update({name: spec.statistic for name, spec in PROFILE_SIGNALS.items()})
+    fields = SIGNAL_REDUCERS
     for name, field in fields.items():
         stats = metrics.get(name)
         if isinstance(stats, Mapping):
             value = finite(stats.get(field))
             if value is not None:
-                target = "vllm_preemptions_delta" if name == "vllm_preemptions_total" else name
+                target = SIGNAL_CATALOG[name].signal or name
                 signals[target] = value / 100 if name in {"vllm_kv_cache_usage", "gpu_memory_usage_ratio"} and value > 1 else value
     latencies = [finite(row.get("max_observed_p99")) for row in _distribution_index(threefs_rows).values()
                  if _LATENCY_NAME.search(row["metricName"])]

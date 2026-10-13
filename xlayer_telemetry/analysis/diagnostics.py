@@ -42,28 +42,13 @@ from .diagnostic_artifacts import (_existing_reports, _investigation_path, _writ
                                    write_report, _projection_recovery, _investigation_rows, repair_projections)
 from .metric_observations import collect_metrics
 from .query_budget import QueryBudget
-from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
+from .metric_queries import (DEFAULT_QUERIES, CONTEXT_SIGNALS, ENTITY_COMPARISON_SIGNALS,
+                             SIGNAL_CATALOG, SIGNAL_SOURCES, signal_metadata, profile_queries, validate_metric_profiles)
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, validate_series_settings
 from .storage_overview import storage_overview
 from .robust_differential import duration_quality, assess as robust_assess, settings as robust_settings, apply_limits as apply_robust_limits
 
-DEFAULT_QUERIES = {
-    "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
-    "gpu_memory_usage_ratio": 'telemetry_gpu_memory_used_bytes{nodename="{compute_node}"} / (telemetry_gpu_memory_total_bytes{nodename="{compute_node}"} > 0)',
-    "host_memory_available_ratio": 'node_memory_MemAvailable_bytes{instance="{node}"} / node_memory_MemTotal_bytes{instance="{node}"}',
-    "disk_busy_ratio": 'rate(node_disk_io_time_seconds_total{instance="{node}"}[1m])',
-    "vllm_requests_waiting": 'vllm:num_requests_waiting{node="{rollout_node}"}',
-    "vllm_kv_cache_usage": 'vllm:kv_cache_usage_perc{node="{rollout_node}"}',
-    "vllm_preemptions_total": 'vllm:num_preemptions_total{node="{rollout_node}"}',
-    # Pending tasks are recorded by their owner, before a rollout node may be
-    # assigned. Ray splits the gauge across task names/workers in a session.
-    "ray_pending_tasks": 'sum by (cluster, SessionName) (ray_tasks{telemetry_source="ray",State=~"PENDING.*"})',
-    "policy_version_lag": 'policy_version_lag{nodename="{node}",run_id="{run_id}"}',
-    "host_swap_activity": 'rate(node_vmstat_pswpin{instance="{node}"}[1m]) + rate(node_vmstat_pswpout{instance="{node}"}[1m])',
-    "disk_read_bytes_per_second": 'rate(node_disk_read_bytes_total{instance="{node}"}[1m])',
-    "rdma_bytes_per_second": 'rate(node_infiniband_port_data_received_bytes_total{instance="{node}"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{instance="{node}"}[1m])',
-}
 DEFAULT_THRESHOLDS = {
     "step_slowdown_ratio": 1.5,
     "stage_min_seconds": 1.0,
@@ -541,20 +526,13 @@ class DiagnosticEngine:
         queries = scope_queries(queries, self.config)
         queries.update(custom)
         if self.config.get("storage_node") and self.config.get("storage_device"):
-            queries.setdefault("storage_device_busy_ratio", (
-                'rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",'
-                'instance="{storage_node}",device="{storage_device}"}[1m])'
-            ))
+            queries.setdefault("storage_device_busy_ratio", CONTEXT_SIGNALS["storage_device_busy_ratio"].expression)
         if with_sandbox:
             sandbox = self.config.get("sandbox", {})
-            defaults = {
-                "tool_duration_seconds": 'agent_tool_call_duration_seconds{run_id="{run_id}"}',
-                "sandbox_io_pressure_ratio": 'sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}',
-            }
+            names = ["tool_duration_seconds", "sandbox_io_pressure_ratio"]
             if sandbox.get("device"):
-                defaults["sandbox_device_busy_ratio"] = (
-                    'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
-                )
+                names.append("sandbox_device_busy_ratio")
+            defaults = {name: CONTEXT_SIGNALS[name].expression for name in names}
             for name, template in defaults.items():
                 if cluster:
                     template = template.replace('{', '{cluster="{cluster}",job="telemetry",', 1)
@@ -890,12 +868,7 @@ class DiagnosticEngine:
         # subtract different disks/interfaces/engines just because both supplied
         # a window maximum. Aggregate-only clients retain unknown-scope values
         # but cannot supply an entity-matched baseline for these signals.
-        comparable_profiles = PROFILE_SIGNALS | {
-            "disk_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
-            "rdma_bytes_per_second": MetricQuery("", "network-interface", "bytes/s", "mean"),
-            "storage_device_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
-            "network_utilization_ratio": MetricQuery("", "network-interface", "percentunit", "max"),
-        }
+        comparable_profiles = ENTITY_COMPARISON_SIGNALS
         for name, spec in comparable_profiles.items():
             items = [item for item in current_series.get(name, [])
                      if finite(item.get("stats", {}).get(spec.statistic)) is not None]
@@ -1167,17 +1140,17 @@ class DiagnosticEngine:
             if candidate["id"] == "sandbox_local_storage_pressure" and tool_event is not None:
                 candidate["missing_evidence"].append("tool_sandbox_resource_attribution")
             for item in candidate.get("evidence", []) + candidate.get("counter_evidence", []):
-                name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
+                name = SIGNAL_SOURCES.get(item["signal"], item["signal"])
                 item["sampling_quality"] = sampling_quality.get(name)
                 for window_name, window_quality in (item["sampling_quality"] or {}).items():
                     issues = correlation_quality_issues(window_quality)
                     candidate["missing_evidence"].extend(f"{window_name}:{item['signal']}:{issue}" for issue in issues)
                     if issues and candidate["state"] == "strong_signal":
                         candidate["state"] = "supporting_signal"
-                if item["signal"] in PROFILE_SIGNALS:
-                    spec = PROFILE_SIGNALS[item["signal"]]
-                    item.update(unit=spec.unit, window_statistic=spec.statistic,
-                                query=signal_queries.get(item["signal"]))
+                if item["signal"] in SIGNAL_CATALOG:
+                    item.update(signal_metadata(item["signal"]))
+                    if name in signal_queries:
+                        item["query"] = signal_queries[name]
             candidate['signal_strength'] = candidate['state']
         apply_robust_limits(candidates, robust_quality)
         if serving:
@@ -1185,7 +1158,7 @@ class DiagnosticEngine:
         for row in comparison["signals"]:
             if robust_quality is not None and row['signal'] in robust_quality['signals']:
                 row['robust_baseline'] = robust_quality['signals'][row['signal']]
-            name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
+            name = SIGNAL_SOURCES.get(row["signal"], row["signal"])
             row["sampling_quality"] = sampling_quality.get(name)
             if row['signal'] in changed_replica_signals:
                 row.update(delta=None, delta_percent=None, comparison_status='replica_context_changed')
@@ -1198,10 +1171,10 @@ class DiagnosticEngine:
                 row.update(delta=None,delta_percent=None,comparison_status='insufficient_sampling_coverage')
             if row['signal'] in {'threefs_p99_latency','storage_request_bytes'} and threefs is not None and not storage_comparable:
                 row.update(delta=None,delta_percent=None,comparison_status='producer_clock_unverified')
-            if row["signal"] in PROFILE_SIGNALS:
-                row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
-                row["query"] = signal_queries.get(row["signal"])
-                row["window_statistic"] = PROFILE_SIGNALS[row["signal"]].statistic
+            if row["signal"] in SIGNAL_CATALOG:
+                row.update(signal_metadata(row["signal"]))
+                if name in signal_queries:
+                    row["query"] = signal_queries[name]
         # Raw empty distributions and an observed baseline cannot establish
         # that the current resource interval was measured.
         invalid_current={name for name,qualities in sampling_quality.items() if INVALID_SOURCE_TIME.intersection(qualities.get('current',{}).get('warnings',[]))}
