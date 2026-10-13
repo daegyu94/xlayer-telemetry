@@ -5,9 +5,13 @@ docs/development/redesign-plan.md를 읽고 G.1~G.4의 전체 재설계 목표�
 새 구조에 맞지 않는 내부 구현은 교체·삭제해도 돼.
 계약 변경은 문서의 Behavior/ADR·전환 규칙대로 처리해줘.
 
-8장의 실행 기준을 적용하고, 6.1 순서대로 WP 하나씩 구현·검증·검토해줘.
-Signed-off-by commit과 로컬 main fast-forward 병합을 마친 뒤
-다음 WP로 계속 진행해줘. 원격 push·PR·배포·설정 변경은 하지 마.
+8장의 실행 기준을 적용하고, 6.1의 실제 선행 관계와 변경 파일을 확인해줘.
+독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
+main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
+공유 계약 변경·Phase 경계·최종 완료에는 전체 CPU suite를 실행해줘.
+WP-02의 clean/오염 환경 비교 증거를 유지해줘.
+Signed-off-by commit과 로컬 main fast-forward 병합 후 계속 진행해줘.
+원격 push·PR·배포·설정 변경은 하지 마.
 기존 변경과 사용자 자원을 보존하고, 실행하지 않은 검증은 Pending으로 남겨줘.
 
 Phase 0이나 문서 반입만 끝내고 goal을 완료하지 마.

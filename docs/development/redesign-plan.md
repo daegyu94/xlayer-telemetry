@@ -15,7 +15,8 @@
 ### G.2 권한과 경계
 
 - 실제 구현은 사용자가 이 문서를 goal로 등록하고 실행하라고 요청한 뒤 시작한다. 토큰 예산은 사용자가 지정한 경우에만 설정한다.
-- 기본 실행은 주 작업자 한 명의 순차 작업이다. 별도의 모델 분업·병렬 worker는 사용자가 켰을 때만 사용한다.
+- 이 goal에서는 사용자가 병렬 실행을 허용했다. 실제 선행 관계와 변경 파일·생성물·test 자원이 독립적인 WP만 별도 worktree의 worker 최대 3개에서 동시에 수행한다. 모델별 역할 분업은 별도 요청이 없는 한 적용하지 않는다.
+- Worker는 자기 branch와 worktree에서 구현·관련 검증·Signed-off-by commit을 맡는다. 로컬 `main` 병합, 통합 검증, `redesign-status.md` 수정·commit·브랜치 정리는 주 작업자가 직렬로 맡는다.
 - WP마다 로컬 main 기준 목적별 branch를 만들고 검증·Signed-off-by commit·로컬 fast-forward 병합까지 수행한다. 원격 push, PR 생성, 원격 설정 변경, 배포는 이 goal에 포함하지 않는다.
 - 원문의 PR 단위는 이 실행본에서 '독립적으로 검증·검토·병합하는 WP'로 적용한다. WP마다 사용자의 다음 지시를 기다리지 않고 선행 조건을 충족한 다음 WP로 진행한다.
 - 실제 GPU/VERL·물리 multi-node/RDMA·운영 3FS cluster·실제 LLM 추론의 측정 결과는 이번 로컬 구현 goal의 완료 조건과 분리한다. 실행 recipe와 Pending 검증표를 남기며, CPU·synthetic·격리 backend/browser 검사를 실환경 통과로 표현하지 않는다.
@@ -814,14 +815,14 @@ Cap(strength 상한) 규칙은 한 곳에 모은다(`pipeline/cap.py`).
 | 프로파일 | 필수 범위 | 용도 |
 |---|---|---|
 | fast | 도입된 unit·contract·golden·property, 최소 ruff, 도입된 mypy 대상, 생성물 drift | 변경 중·commit 전 |
-| default | fast, 전체 CPU suite, compileall, shell 문법, diff check, App이 있으면 npm test/typecheck/build | 각 WP 통합 |
-| full | default, 실제 PromQL·격리 ClickHouse, 실제 Grafana/browser journey, docs build·link/diagram 검사 | Phase 경계와 최종 완료 |
+| default | fast, 해당 WP의 관련 regression·계약 검사, compileall, shell 문법, diff check, 영향받은 App의 npm test/typecheck/build | 각 WP 검증·통합 |
+| full | default, 전체 CPU suite, 실제 PromQL·격리 ClickHouse, 실제 Grafana/browser journey, docs build·link/diagram 검사 | 최종 완료 및 해당 경계의 필수 검증 |
 
-변경하지 않은 frontend의 같은 SHA 검사 결과는 WP 중간에 재사용할 수 있으나 최종 full은 최종 tree에서 실행한다. `pytest -n auto`는 test의 port·filesystem·shared backend 독립성이 입증된 뒤에만 켜며 직렬 실행과 결과를 대조한다. 시간을 맞추려고 검사를 삭제하지 않는다. 실제 GPU·VERL·물리 multi-node 검사는 full에 포함하지 않고 G.4의 실환경 표로 관리한다.
+각 WP는 관련 test를 실행한다. Status/Issue·identity·time·registry·schema·backend interface·config 기본값·CLI·artifact처럼 공유 계약을 바꾸거나 Phase의 마지막 WP를 통합할 때는 최종 통합 tree에서 전체 CPU suite를 실행한다. WP-02의 깨끗한 환경/오염된 환경 전체 suite와 test별 실패·skip 집합 비교 결과는 유지한다. 변경하지 않은 frontend의 같은 SHA 검사 결과는 WP 중간에 재사용할 수 있으나 최종 full은 최종 tree에서 실행한다. `pytest -n auto`는 test의 port·filesystem·shared backend 독립성이 입증된 뒤에만 켜며 직렬 실행과 결과를 대조한다. 시간을 맞추려고 검사를 삭제하지 않는다. 실제 GPU·VERL·물리 multi-node 검사는 full에 포함하지 않고 G.4의 실환경 표로 관리한다.
 
 Runtime 최소 Python 3.10과 CPU CI의 3.12를 유지한다. 문서용 Python 3.11+ 환경은 runtime과 분리한다. 새 library의 지원 버전을 확인하고, `StrEnum` 대신 Python 3.10에서 동작하는 `str, Enum`을 사용한다. enum의 문자열 직렬화도 기존 artifact 값과 대조한다.
 
-WP-05에서 gate를 만들기 전에는 아래 기존 명령을 사용한다. 문서 WP는 문서 관련 test와 build를 먼저 실행하고, 제품 변경은 관련 test 이후 전체 CPU 회귀를 실행한다. frontend 변경은 해당 디렉터리에서 npm test/typecheck/build와 관련 browser 검사를 추가한다.
+WP-05에서 gate를 만들기 전에는 아래 기존 명령을 사용한다. 문서 WP는 문서 관련 test와 build를 먼저 실행하고, 제품 변경은 관련 test를 실행한다. 공유 계약 변경·Phase 경계·최종 완료에는 아래 전체 CPU 회귀를 추가한다. frontend 변경은 해당 디렉터리에서 npm test/typecheck/build와 관련 browser 검사를 추가한다.
 
 ```bash
 python -m pytest -q
@@ -862,21 +863,21 @@ Hook installer는 Git이 알려 주는 hook 경로와 기존 hooksPath를 확인
 
 ### 6.1 실행 순서와 의존성
 
-아래 순서를 기본 직렬 순서로 사용한다. 각 WP는 바로 앞 WP가 done인 뒤 시작하며, 앞선 Phase도 모두 선행 조건이다. WP 번호는 원문과 동일하게 유지한다. Phase 0은 환경과 알려진 실패를 gate보다 먼저 준비하도록 실행 순서만 조정했다.
+아래 표의 화살표만 필수 선행 관계다. 독립 후보는 현재 main의 실제 caller·수정 파일·생성물·fixture·공유 자원을 확인한 뒤 별도 worktree에서 최대 3개까지 시작한다. 같은 파일을 수정하거나 같은 backend/container/output·Git index를 공유하면 직렬로 진행한다. WP 번호는 원문과 동일하게 유지한다.
 
-| Phase | 실행 순서 | 통합 결과 |
+| Phase | 선행 관계와 병렬 후보 | 통합 결과 |
 |---|---|---|
-| 0 | WP-00 → WP-04 → WP-02 → WP-01 → WP-03 → WP-07 → WP-08 → WP-05 → WP-06 | 환경 재현성, 알려진 결함, 실행 gate |
-| 1 | WP-10 → WP-11 → WP-12 → WP-13 | 공용 fake·golden·layering·동작 test |
-| 2 | WP-20 → WP-21 → WP-22 → WP-23 | Core 도메인 모델과 타입 검사 |
-| 3 | WP-30 → WP-31 → WP-32 → WP-33 → WP-34 | Registry와 Python/TS/dashboard/docs/demo 연결 |
+| 0 | WP-00 → WP-04 → WP-02; 이후 WP-01·WP-03·WP-07은 파일 충돌이 없으면 병렬 후보. WP-08은 WP-03과 실제 `diagnostics.py`·App 변경 범위를 대조한 뒤 시작한다. WP-05는 WP-01·02·03·04·07·08 통합 후, WP-06은 WP-05 후 | 환경 재현성, 알려진 결함, 실행 gate |
+| 1 | Phase 0 후 WP-10; WP-11과 WP-12는 WP-10 후 충돌이 없으면 병렬 후보. WP-13은 WP-11·12 통합 후 | 공용 fake·golden·layering·동작 test |
+| 2 | Phase 1 후 WP-20·WP-21·WP-22는 수정 범위가 겹치지 않는 조합만 병렬 후보. WP-23은 세 WP 통합 후 | Core 도메인 모델과 타입 검사 |
+| 3 | Phase 2 후 WP-30; WP-31·WP-33·WP-34는 WP-30 후 생성기·생성물 소유가 겹치지 않을 때 병렬 후보. WP-32는 WP-31 후 | Registry와 Python/TS/dashboard/docs/demo 연결 |
 | 4 | WP-40 → WP-41 → WP-42 → WP-43 → WP-44 → WP-45 → WP-46 | Backend, pipeline, 공통 evidence와 artifact |
 | 5 | WP-50 → WP-51 → WP-52 | Config resolver와 Python lifecycle |
 | 6 | WP-60 → WP-61 → WP-62 | URL/Scenes, view-model, reason code와 browser |
 | 7 | WP-70 → WP-71 → WP-72 | Agent RL producer·KPI·rule 연결 |
 | 8 | WP-80 → WP-81 | 구 구현 정리, 문서·지침·최종 검증 |
 
-이전 원문의 '서로 파일이 겹치지 않는다'는 병렬 보장은 적용하지 않는다. 사용자가 병렬 실행을 허용하더라도 같은 생성기·status 파일·Git index·통합 branch의 변경은 직렬로 처리한다. 병렬 후보는 실제 변경 집합을 확인한 뒤 독립 worktree로 분리한다.
+Phase 4–8은 표의 화살표대로 진행한다. 병렬 후보라도 시작 전 실제 변경 범위가 겹치면 먼저 끝날 WP를 통합하고 나머지를 진행한다. Worker 간 상태표·main·공유 설치 환경은 변경하지 않는다. 주 작업자는 완성된 branch를 하나씩 통합하고, 통합 직후 필요한 관련 test 및 위 기준에 해당하면 전체 CPU suite를 실행한다.
 
 ### Phase 0: 안정화
 
@@ -1162,7 +1163,7 @@ Hook installer는 Git이 알려 주는 hook 경로와 기존 hooksPath를 확인
 
 ### 7.1 운영 모델과 상태
 
-전체 재설계는 하나의 goal이며, WP는 그 안의 검증·commit·로컬 병합 단위다. 한 WP가 완료되면 6.1절의 다음 WP로 이어간다. 원격 PR이나 매 WP의 사용자 승인 대기를 필수 단계로 두지 않는다. 명시적인 판단이 필요한 계약 변경만 질문한다.
+전체 재설계는 하나의 goal이며, WP는 그 안의 검증·commit·로컬 병합 단위다. 선행 WP가 완료되고 실제 변경 범위가 독립적인 WP는 별도 worktree에서 최대 3개까지 병렬로 진행한다. `main` 병합과 상태표는 주 작업자가 직렬로 처리한다. 원격 PR이나 매 WP의 사용자 승인 대기를 필수 단계로 두지 않는다. 명시적인 판단이 필요한 계약 변경만 질문한다.
 
 진행 상태는 `docs/development/redesign-status.md` 한곳에 기록한다. 각 행은 `WP | 상태 | baseline SHA | 결과 SHA | 검증 명령·결과 | 로컬 병합 근거 | 장애물/후속`으로 구성한다. 상태는 todo, in-progress, verified, done, blocked를 사용한다. verified는 필수 로컬 검증이 끝난 상태, done은 결과 commit의 main 통합까지 확인한 상태다. 실제 hardware validation과 원격 적용은 별도 표로 관리한다.
 
@@ -1180,9 +1181,13 @@ WP blocked는 원인과 재개 조건을 기록하는 작업 상태다. 실행 �
 새 구조에 맞지 않는 내부 구현은 교체·삭제해도 돼.
 계약 변경은 문서의 Behavior/ADR·전환 규칙대로 처리해줘.
 
-8장의 실행 기준을 적용하고, 6.1 순서대로 WP 하나씩 구현·검증·검토해줘.
-Signed-off-by commit과 로컬 main fast-forward 병합을 마친 뒤
-다음 WP로 계속 진행해줘. 원격 push·PR·배포·설정 변경은 하지 마.
+8장의 실행 기준을 적용하고, 6.1의 실제 선행 관계와 변경 파일을 확인해줘.
+독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
+main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
+공유 계약 변경·Phase 경계·최종 완료에는 전체 CPU suite를 실행해줘.
+WP-02의 clean/오염 환경 비교 증거를 유지해줘.
+Signed-off-by commit과 로컬 main fast-forward 병합 후 계속 진행해줘.
+원격 push·PR·배포·설정 변경은 하지 마.
 기존 변경과 사용자 자원을 보존하고, 실행하지 않은 검증은 Pending으로 남겨줘.
 
 Phase 0이나 문서 반입만 끝내고 goal을 완료하지 마.
@@ -1193,15 +1198,15 @@ G.4 전체 완료 조건을 충족한 뒤 최종 결과를 알려줘.
 ### 7.3 WP별 세션 절차
 
 1. **상태 확인:** goal objective, 기준 문서, status 표, AGENTS.md와 관련 하위 지침을 읽는다. 실제 branch·작업 트리·main SHA를 확인한다. 기존 변경을 이동·stash·폐기하지 않는다. 독립 worktree로 안전하게 진행할 수 있으면 사용하고 그렇지 않으면 충돌 범위만 질문한다. 원격 pull로 기준을 자동 변경하지 않는다.
-2. **선행 확인:** 현재 WP 앞의 WP들이 done인지 결과 commit과 main ancestry로 확인한다. status 문서가 stale이면 Git·검증 증거로 먼저 정정한다. 단순히 표가 done이라고 제품 동작까지 확인됐다고 간주하지 않는다.
-3. **branch/환경:** 로컬 main에서 `redesign/wp-<번호>-<slug>` branch를 만든다. 이미 이번 WP의 branch가 있으면 소유·기준점을 확인한 뒤 재개한다. 프로젝트 Python 환경·Node·backend/browser 도구를 확인하고 필요한 작업 전용 환경을 준비한다. runtime과 docs 환경을 분리한다.
+2. **선행 확인:** 6.1절에서 해당 WP가 실제로 의존하는 WP가 done인지 결과 commit과 main ancestry로 확인한다. status 문서가 stale이면 Git·검증 증거로 먼저 정정한다. 단순히 표가 done이라고 제품 동작까지 확인됐다고 간주하지 않는다.
+3. **branch/환경:** 로컬 main에서 `redesign/wp-<번호>-<slug>` branch와 전용 worktree를 만든다. 이미 이번 WP의 branch가 있으면 소유·기준점을 확인한 뒤 재개한다. 각 worker는 자기 worktree와 출력 경로만 수정한다. 프로젝트 Python 환경·Node·backend/browser 도구를 확인하고 필요한 작업 전용 환경을 준비한다. runtime과 docs 환경을 분리한다.
 4. **재확인:** WP 입력과 caller·test·fixture·schema·config·exports·package asset을 읽는다. 원문의 과거 결함이 이미 해결됐으면 같은 경계의 검증으로 확인한다. 현재 코드 경로와 문서가 달라도 의미가 명확하면 위치와 상태를 갱신하고 진행한다.
 5. **baseline/red:** 변경 위험에 맞는 baseline을 실행하고 SHA·환경·명령·결과·skip을 기록한다. Behavior regression은 수정 전 실제 결함으로 실패함을 확인한다. 이미 구현된 올바른 동작이나 새 기능의 문서 변경에 인위적인 red를 만들지 않는다.
 6. **구현:** 원문의 목표 구조를 구현한다. 현재 helper가 목표에 맞지 않으면 대체하고 모든 caller를 전환한다. 기계적 이동과 의미 변경은 구분해 commit한다. 서로 다른 WP를 검증 없이 한꺼번에 섞지 않는다.
-7. **검증:** WP 완료 기준과 5장의 관련 gate를 실행한다. baseline 실패·새 실패·해결·skip을 구분한다. assertion 약화, test 삭제/무조건 skip, ownership 우회로 통과시키지 않는다. UI 변경은 실제 Grafana/browser, package 변경은 설치본, transport 변경은 실제 경계 검사를 포함한다.
+7. **검증:** 각 worker가 WP 완료 기준과 5장의 관련 test를 자기 worktree에서 실행한다. 공유 계약 변경·Phase 경계·최종 완료의 전체 CPU suite는 주 작업자가 통합 tree에서 실행한다. WP-02의 두 환경 전체 suite 비교는 예외 없이 유지한다. baseline 실패·새 실패·해결·skip을 구분한다. assertion 약화, test 삭제/무조건 skip, ownership 우회로 통과시키지 않는다. UI 변경은 실제 Grafana/browser, package 변경은 설치본, transport 변경은 실제 경계 검사를 포함한다.
 8. **검토:** 전체 diff와 연결 코드를 읽고 새 test가 기대값을 제품 계산으로부터 생성하지 않는지 확인한다. Refactor의 output 불변과 Behavior의 ADR 대응을 확인한다. staged/unstaged 모두 `git diff --check`하고 검증 tree와 commit 대상이 일치하는지 확인한다. 검증 후 code를 바꾸면 영향 검사를 다시 실행한다.
-9. **commit/통합:** 논리적 파일만 stage하고 Signed-off-by commit을 만든다. `git log -1 --format=%B`로 실제 메시지를 확인한다. local main이 기준점에서 바뀌지 않았는지 확인하고 `git merge --ff-only <작업 branch>`로 통합한다. fast-forward 실패 시 reset·강제 재작성으로 우회하지 않는다.
-10. **상태 확정:** 구현 commit이 main의 조상임을 확인한 뒤 아직 보존 중인 작업 branch에서 status 행을 done으로 바꾸고 결과 SHA·검증 근거를 기록한다. 이 작은 문서 commit도 검증·Signed-off-by·fast-forward 병합한다. 상태 commit은 자신을 참조할 필요 없이 구현 commit을 결과 SHA로 기록한다. 이번에 만든 병합 완료 branch만 삭제한다.
+9. **commit/통합:** Worker는 자기 worktree에서 논리적 파일만 stage하고 Signed-off-by commit을 만든 뒤 `git log -1 --format=%B`로 확인한다. 주 작업자는 결과와 겹침을 검토하고 한 branch씩 통합한다. 병렬 branch의 기준 main이 뒤처졌다면 해당 worker branch에 최신 `main`을 merge commit으로 가져와 충돌을 해결·재검증한다. 이 병합 commit에도 Signed-off-by를 넣는다. 그다음 로컬 `main`에서 `git merge --ff-only <작업 branch>`를 실행한다. reset·force push·임의의 이력 재작성으로 우회하지 않는다.
+10. **상태 확정:** 주 작업자는 구현 commit이 main에 포함됐는지 확인한 뒤 status의 해당 WP 행을 done으로 바꾸고 결과 SHA·검증 근거를 기록한다. 상태표 수정은 다른 worker와 공유하지 않고 별도 Signed-off-by commit으로 직렬 병합한다. 이번에 만든 병합 완료 branch와 worktree만 정리한다.
 11. **계속:** 소유 테스트 자원을 정리하고 다음 WP로 진행한다. 계획 변경이나 사용자의 결정이 없으면 새 목표 등록·매번 승인 질문을 반복하지 않는다. 마지막 WP에서는 G.4 전체를 검증한 뒤 goal 완료 상태와 최종 보고를 남긴다.
 
 중간에 세션이 끊기면 status·Git·검증 artifact로 재개한다. 구현 commit은 main에 있지만 상태 문서만 뒤처진 경우 이를 보완하며 구현을 반복하지 않는다. raw 로그는 Git에서 제외한 작업별 artifact 경로에 두고 상태표에는 필요한 작고 비민감한 근거만 연결한다.
