@@ -155,3 +155,19 @@ test('explicit observation status has display semantics independent of value and
  for(const [status,label] of [['no_data','No data'],['error','Query error'],['stale','Stale'],['unknown','Unknown'],['future_success','Unknown']])
   assert.equal(observationLabel({current:0,observation_status:status}),label);
 });
+
+test('statistical sample counts describe exposure and never invent an observation',()=>{
+ for(const current of [{sample_count:0},{sample_count:2},{mean:0,sample_count:0}]){
+  assert.equal(observationStatus({current}),'unknown');
+  const row=decodeRecord({current,observation_status:'observed'});
+  assert.deepEqual(row?.current,current);assert.equal(row?.observation_status,'unknown');
+ }
+ for(const sample_count of [-1,1.5,Infinity,'2',true]){
+  const row=decodeRecord({current:{mean:0,sample_count},observation_status:'observed'});
+  assert.equal(row?.current,null);assert.equal(row?.observation_status,'unknown');
+ }
+ for(const current of [{mean:0,sample_count:2},{mean:0}]){
+  assert.equal(observationStatus({current}),'observed');
+  assert.equal(decodeRecord({current,observation_status:'observed'})?.observation_status,'observed');
+ }
+});

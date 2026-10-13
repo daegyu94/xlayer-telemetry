@@ -26,15 +26,21 @@ function measurement(value: unknown): Measurement {
   if (scalar !== undefined) return scalar;
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const entries = Object.entries(value);
+    const count = (value as Record<string, unknown>).sample_count;
     if (entries.length && entries.every(([key, item]) => STAT_FIELDS.includes(key) &&
-        (item === null || typeof item === 'number' && Number.isFinite(item))))
+        (item === null || typeof item === 'number' && Number.isFinite(item))) &&
+        (count === undefined || count === null ||
+         typeof count === 'number' && Number.isInteger(count) && count >= 0))
       return {...value as Record<string, number | null>};
   }
   return null;
 }
 function measured(value: unknown): boolean {
   const decoded = measurement(value);
-  return decoded !== null && (typeof decoded === 'number' || Object.values(decoded).some(item => item !== null));
+  if (decoded === null) return false;
+  if (typeof decoded === 'number') return true;
+  return (decoded.sample_count === undefined || decoded.sample_count === null || decoded.sample_count > 0) &&
+    Object.entries(decoded).some(([key, item]) => key !== 'sample_count' && item !== null);
 }
 
 export function observationStatus(row: RecordRow): ObservationStatus {
