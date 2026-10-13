@@ -91,14 +91,14 @@ function makeScene(page: Page, catalog: Catalog) {
     queryCache.set(cacheKey, provider);
     return provider;
   };
-  const native = (key: Destination, id: number, enableMatrix=true, compactNodeLegend=false, compactIdentity=false, title?:string) => {
+  const native = (key: Destination, id: number, enableMatrix=true, compactNodeLegend=false, compactIdentity=false, title?:string, legendFormat?:string) => {
     const panel = findPanel(catalog[key], id);
     if(!panel)return undefined;
     let component:string|undefined;
     try{const identity=JSON.parse(context.variables.infra_component?.[0]||'null');component=Array.isArray(identity)?identity[2]:undefined;}catch{}
     const keepNode=typeof component==='string'&&component.endsWith('-fabric');
-    const rendered=title||compactNodeLegend?{...panel,...(title?{title}:{}),targets:panel.targets?.map(target=>({...target,
-      legendFormat:compactNodeLegend&&typeof target.legendFormat==='string'?compactResourceLegend(target.legendFormat,keepNode):target.legendFormat}))}:panel;
+    const rendered=title||compactNodeLegend||legendFormat?{...panel,...(title?{title}:{}),targets:panel.targets?.map(target=>({...target,
+      legendFormat:legendFormat??(compactNodeLegend&&typeof target.legendFormat==='string'?compactResourceLegend(target.legendFormat,keepNode):target.legendFormat)}))}:panel;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
     return viz(rendered,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined,compactIdentity);
@@ -116,7 +116,7 @@ function makeScene(page: Page, catalog: Catalog) {
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
   const resourcePage=page==='demo'||page==='dashboards'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
-  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false,false,false,source.title)),
+  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false,false,false,source.title,source.legendFormat)),
     infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });

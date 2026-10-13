@@ -3,9 +3,9 @@ import type {VizPanel} from '@grafana/scenes';
 import type {Context,Destination} from './context';
 import {appLink} from './context';
 
-export const RUN_SOURCES:ReadonlyArray<{name:string;route:string;tab?:string;panels:ReadonlyArray<{source:Destination;panel:number;scope:string;title?:string}>}>=[
+export const RUN_SOURCES:ReadonlyArray<{name:string;route:string;tab?:string;panels:ReadonlyArray<{source:Destination;panel:number;scope:string;title?:string;legendFormat?:string}>}>=[
  {name:'VERL',route:'overview',panels:[
-  {source:'overview',panel:7,scope:'Training step time · node mean of fresh workers'},
+  {source:'overview',panel:7,scope:'Training step time · worker',legendFormat:'{{instance}} · {{run_id}} · {{role}}/{{worker_id}}'},
   {source:'stage',panel:2,scope:'Reward mean · Run / worker'},
  ]},
  {name:'vLLM',route:'stage-correlation',panels:[
