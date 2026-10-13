@@ -14,6 +14,7 @@
 | Grafana / Prometheus / Loki (Historical 12.1) | Synthetic multi-job의 query/diagnosis → catalog → UI, 필터·비교 선택의 Back/reload/share와 keyboard focus | [Browser validation](../../grafana/xlayer-app/scripts/multi_job_validate.py). Physical GPU·NTP·storage 성능 검증 아님 |
 | Single-Node GPU / Agent RL | 한 host·GPU 2개·Qwen2.5-1.5B의 짧은 SWE-Bench/GSM8K 실행과 mode별 관측 | 과거 실행·replay이며 최신 코드의 전 실환경 재검증 아님. [실측 범위](../real-verl-demo.md#recorded-agent-rl-run)·[Integration coverage](../integration-reference.md#real-validation-coverage) |
 | Physical Multi-Node GPU / Historical R13 | 외부 보고서의 4-GPU-node VERL·vLLM·Mooncake KV 저장·FUSE 3FS·dashboard query 경로 | [2026-10-07 조건부 결과](multinode/r13-20261007.json). Clock skew·optional source·exact span 한계가 있으며 최신 revision 재검증 아님 |
+| Physical 9-Node Monitoring Lifecycle | NUC11 server와 spark1–4·storage1–4 collector의 임의 포트 up/status/down·반복 up·부분 실패 rollback | [2026-10-13 결과](cluster-lifecycle-20261013.json). GPU/VERL 학습·Loki 전달·3FS 성능 검증 아님 |
 | VM / Backend-Specific | 독립 guest의 수집·clock 장애 및 일부 Mooncake/3FS I/O·ClickHouse 경로 | 아래 원본 기록 참고. 물리 multi-node Agent RL·shared-storage 포화·Run별 I/O attribution을 입증하지 않음 |
 
 2026-10-11의 `d34b3de`에서 CPU regression **1,907 passed / 6 skipped**, frontend **161 passed**, typecheck·build·문서 build와 실제 loopback Grafana Synthetic journey를 확인했습니다. Skip 6개는 disposable ClickHouse 미설정에 따른 것으로 통과 범위에 포함하지 않습니다. 이번 문서 변경은 그 실행 기록과 현재 소스의 일치를 검토한 것이며 새로운 GPU 학습 실험을 수행하지 않았습니다.
