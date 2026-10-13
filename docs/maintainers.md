@@ -17,13 +17,15 @@ git ls-files -z '*.sh' | xargs -0 -r -n 1 bash -n
 
 ## GitHub Actions CI
 
-PR과 `main` push에서 기존 suite를 실행합니다. 실제 backend가 필요한 CPU 테스트는 Python 3.12 job에서 한 번 실행하고, Python 3.10 job은 runtime 호환성을 확인합니다. Backend를 준비한 job에서 테스트가 skip되면 실패 처리해 검증 누락을 숨기지 않습니다.
+CPU regression과 Grafana App workflow는 자동 실행을 중지하고 `workflow_dispatch` 수동 실행만 제공합니다. Push·PR을 만들 때 테스트 CI를 실행하지 않으며, 로컬 검증 gate는 기존 명령을 사용합니다.
 
-| Workflow | 자동 검증 | 실행 조건 |
+수동으로 실행한 workflow는 기존 suite를 실행합니다. 실제 backend가 필요한 CPU 테스트는 Python 3.12 job에서 한 번 실행하고, Python 3.10 job은 runtime 호환성을 확인합니다. Backend를 준비한 job에서 테스트가 skip되면 실패 처리해 검증 누락을 숨기지 않습니다.
+
+| Workflow | 검증 내용 | 실행 조건 |
 | --- | --- | --- |
-| CPU regression tests | SDK·adapter·schema, baseline·clock·sampling·entity, timeout·cleanup, dashboard 계약, CI helper | 모든 PR·`main` push |
+| CPU regression tests | SDK·adapter·schema, baseline·clock·sampling·entity, timeout·cleanup, dashboard 계약, CI helper | `workflow_dispatch` 수동 실행 |
 | CPU의 Python 3.12 job | 실제 `promtool`의 PromQL 평가, 격리 ClickHouse의 distribution·reset counter·entity·query budget SQL | 위 suite 안에서 실행; 별도 중복 suite 없음 |
-| Optional Grafana App PoC | TypeScript test·typecheck·build, single/multi-worker synthetic Grafana·Prometheus·Loki browser journey | App·runtime·config·canonical dashboard·provisioning 변경 |
+| Optional Grafana App PoC | TypeScript test·typecheck·build, single/multi-worker synthetic Grafana·Prometheus·Loki browser journey | `workflow_dispatch` 수동 실행 |
 | Documentation | 문서 link·D2·strict Sphinx·browser geometry | 문서·README·문서 도구 변경 |
 
 **실패 확인:** Actions의 실패 step과 `--durations` 출력을 먼저 확인합니다. CPU artifact의 `pytest.xml`에서 실패·skip·개별 시간을 확인하고, SQL service 장애는 `clickhouse.log`를 봅니다. App artifact는 `metric-contracts/`, `storage-series/`, `clock-quality/`의 JSON·screenshot도 보존합니다. 보존 기간은 7일입니다.
@@ -40,9 +42,13 @@ PROMTOOL="$PWD/artifacts/ci-tools/prometheus-3.5.0.linux-amd64/promtool" \
 # 사용자가 이 검증을 위해 만든 disposable ClickHouse container만 지정합니다.
 XLAYER_TEST_CLICKHOUSE_CONTAINER=owned-clickhouse \
   python -m pytest -q tests/test_storage_distribution_clickhouse.py tests/test_threefs_series_clickhouse.py
+
+# Docker를 사용할 수 없으면 직접 만든 loopback HTTP instance에서 같은 SQL을 확인합니다.
+XLAYER_TEST_CLICKHOUSE_URL=http://127.0.0.1:8123 \
+  python -m pytest -q tests/test_storage_distribution_clickhouse.py tests/test_threefs_series_clickhouse.py
 ```
 
-**정상 결과:** 선택한 테스트가 skip 없이 통과합니다. `PROMTOOL` 또는 container를 지정하지 않은 로컬 실행은 해당 테스트를 skip하며, backend 검증 성공으로 간주하지 않습니다. Installer는 Linux amd64용이며 고정 release의 publisher SHA256을 확인합니다.
+**정상 결과:** 선택한 테스트가 skip 없이 통과합니다. `PROMTOOL` 또는 ClickHouse container/URL을 지정하지 않은 로컬 실행은 해당 테스트를 skip하며, backend 검증 성공으로 간주하지 않습니다. HTTP 경로는 fixture별 고유 Memory database만 생성·제거하고 실제 `ThreeFSClient`로 조회합니다. Installer는 Linux amd64용이며 고정 release의 publisher SHA256을 확인합니다.
 
 CI ClickHouse는 [.github/ci](https://github.com/daegyu94/xlayer-telemetry/tree/main/.github/ci)의 작은 thread·memory 설정과 digest로 고정한 image를 사용합니다. 외부 포트를 열지 않고 `docker exec`로 조회하며, fixture별 고유 Memory database를 생성·제거합니다. CPU 2개·RAM 1 GiB·data tmpfs 256 MiB로 제한하고 job 종료 시 container와 volume을 제거합니다. 이 설정은 production 3FS 배포용이 아닙니다.
 

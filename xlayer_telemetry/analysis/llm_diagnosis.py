@@ -6,7 +6,6 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -17,18 +16,20 @@ from typing import Any
 
 from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .metric_observations import collect_query
+from .metric_queries import custom_query_spec
 from .observation_contracts import (
-    has_measurement as _has_measurement, usable_window as _valid_interval,
+    EvidenceBundle, EntityRef, assess_entity, usable_window as _valid_interval,
     validate_measurement as _validate_measurement,
 )
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
-from .evidence_quality import quality, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
+from .evidence_quality import result_quality_issues, validate_sampling, validate_quality
+from ..measurements import finite_number
 from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
 
-PROMPT_VERSION = 16
+PROMPT_VERSION = 17
 REVIEW_PROMPT_VERSION = 6
 INFERENCE_OPTIONS = {
     "num_ctx": 32768, "num_predict": 16384,
@@ -38,15 +39,12 @@ INFERENCE_OPTIONS = {
 OBSERVATION_FIELDS = {
     "id", "signal", "unit", "observation_scope", "labels", "baseline", "current",
     "delta", "delta_percent", "source", "query", "kind", "window_statistic",
-} | {"sampling_quality", "comparison_status", "robust_baseline"}
+} | {"sampling_quality", "comparison_status", "robust_baseline", "observation_status"}
 STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase", "max_series_delta"}
 
 
 def _finite(value: Any) -> bool:
-    try:
-        return type(value) in (int, float) and math.isfinite(value)
-    except OverflowError:
-        return False
+    return finite_number(value) is not None
 
 
 OUTPUT_LANGUAGE_POLICY = """
@@ -79,6 +77,10 @@ In observation_table_v1, each row follows observation_columns and
 common_observation_fields apply to every row. Null means unavailable.
 Clock checks use clock_statistics_columns/rows; common_clock_statistics_fields
 apply to every check row in that node. These tables preserve the original checks.
+evidence_limits maps observation IDs to concrete sampling limitations. When citing an
+observation with partial sampling, copy its required codes into candidate missing_evidence. Withheld comparison codes also
+require explicit missing evidence; retained baseline values cannot establish a comparable delta.
+Do not cite stale current observations; retained raw values are inspection context only.
 Honor comparison_status: withheld deltas or unmatched report populations do not
 establish a latency regression, even when both raw extrema are available.
 When robust_baseline is supplied, insufficient_cohort/workload_unverified cannot
@@ -211,21 +213,22 @@ def review_schema() -> dict[str, Any]:
 def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
     """Allowlist measurements; never forward verdict, candidates or findings."""
     comparison = report.get("comparison", {})
+    bundle = EvidenceBundle.from_report(report)
     observations = []
-    for index, row in enumerate(comparison.get("signals", [])):
+    for index, (row, current, baseline) in enumerate(zip(comparison.get("signals", []), bundle.current, bundle.baseline)):
         observations.append({
             "id": f"m{index + 1}", "signal": row["signal"],
-            "current": row.get("current"), "baseline": row.get("baseline"),
+            "current": current.value, "baseline": baseline.value,
             "delta": row.get("delta"), "delta_percent": row.get("delta_percent"),
-            "observation_scope": row.get("scope", "unknown"),
-            "labels": row.get("labels", {}),
-            "unit": row.get("unit", "unspecified; infer only if unambiguous from signal name"),
+            "observation_scope": current.entity.scope.name,
+            "labels": dict(current.entity.labels),
+            "unit": row.get("unit", "unknown"),
             "source": "saved comparison; raw series may have been aggregated",
             "sampling_quality": row.get("sampling_quality"),
         })
         # Preserve the scalar reducer without adding full PromQL to this compact
         # saved-report path. Older reports need not specify one; never infer it.
-        for key in ('window_statistic', 'comparison_status', 'robust_baseline'):
+        for key in ('window_statistic', 'comparison_status', 'robust_baseline', 'observation_status'):
             if row.get(key) is not None:
                 observations[-1][key] = row[key]
     return {
@@ -266,11 +269,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(queries, list) or not 1 <= len(queries) <= 64:
         raise ValueError("queries must contain between 1 and 64 scoped queries")
     for query in queries:
-        if not isinstance(query, dict) or not all(
-            isinstance(query.get(key), str) and query[key].strip()
-            for key in ("signal", "query", "unit", "scope")
-        ) or query.get("kind", "gauge") not in ("gauge", "counter", "delta"):
-            raise ValueError("each query needs signal, query, unit, scope and a valid kind")
+        custom_query_spec(query)
     timeout = config.get("timeout_seconds", 5)
     step = config.get("query_step_seconds", 5)
     if not _finite(timeout) or timeout <= 0 or not _finite(step) or step < 1:
@@ -352,10 +351,8 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 if name not in qualities:
                     continue
                 entity_stats = matrix.get(identity, {}).get("stats", {})
-                entity_quality[name] = selected_quality(quality(
-                    query["query"], window["start"], window["end"], step, entity_stats,
-                    source=source_for_entity(source_samples.get(name, {}), labels),
-                    result=qualities[name].get("query_result")), entity_stats)
+                entity_quality[name] = assess_entity(query['query'], window, step, entity_stats, labels,
+                    source=source_samples.get(name, {}), result=qualities[name].get('query_result'))
             observations.append({
                 "id": f"m{len(observations) + 1}", "signal": query["signal"],
                 "unit": query["unit"], "observation_scope": query["scope"],
@@ -364,7 +361,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 "current": stats(now), "baseline": stats(before), "source": "prometheus",
                 "sampling_quality": entity_quality,
             })
-    return {
+    packet = {
         "schema_version": 1, "record_type": "llm_observation_packet", "data_origin": "observed",
         "context": config.get("context", {}), "current_interval": current,
         "baseline_interval": baseline, "observations": observations,
@@ -377,6 +374,9 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
             "The preceding window is a temporal baseline, not proof of equivalent workload or a healthy reference.",
         ],
     }
+
+    EvidenceBundle.decode(packet)
+    return packet
 
 
 def validate_packet(packet: dict[str, Any]) -> None:
@@ -431,6 +431,8 @@ def validate_packet(packet: dict[str, Any]) -> None:
     if len(json.dumps(packet, allow_nan=False).encode()) > 131072:
         raise ValueError("observation packet exceeds 128KiB; narrow the interval or series selection")
 
+    EvidenceBundle.decode(packet)
+
 
 def _clock_model_view(clock: dict) -> dict:
     """Factor repeated clock check metadata without dropping statistics or nodes."""
@@ -470,7 +472,7 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
     preferred = ("id", "signal", "unit", "window_statistic", "observation_scope", "labels", "baseline", "current")
     present = set().union(*(item.keys() for item in observations)) if observations else set()
     common = {}
-    for key in ("source", "query", "kind", "unit", "window_statistic", "comparison_status", "observation_scope", "labels", "sampling_quality"):
+    for key in ("source", "query", "kind", "unit", "window_statistic", "comparison_status", "observation_status", "observation_scope", "labels", "sampling_quality"):
         if observations and all(key in item and item[key] == observations[0][key]
                                 for item in observations):
             common[key] = observations[0][key]
@@ -486,6 +488,15 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
                  "observation_rows": [[item.get(key) for key in columns] for item in observations]})
     if common:
         view["common_observation_fields"] = common
+    bundle = EvidenceBundle.decode(packet)
+    limits = {row['id']: list(bundle.limits_at(index))
+              for index, row in enumerate(packet['observations']) if bundle.limits_at(index)}
+    if limits:
+        view['evidence_limits'] = limits
+    stale = [row['id'] for row, observation in zip(packet['observations'], bundle.current)
+             if observation.status == 'stale']
+    if stale:
+        view['unusable_current_observations'] = stale
     return view
 
 
@@ -497,9 +508,8 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
         raise ValueError("invalid diagnosis fields")
     if answer["assessment"] not in schema["properties"]["assessment"]["enum"]:
         raise ValueError("invalid assessment")
-    timing = packet.get("clock_quality", {})
-    if (timing.get("status") in {"unsafe", "unknown"}
-            or timing.get("baseline", {}).get("status") in {"unsafe", "unknown"}) and answer["assessment"] != "insufficient_evidence":
+    bundle = EvidenceBundle.decode(packet)
+    if not bundle.timing_usable and answer["assessment"] != "insufficient_evidence":
         raise ValueError("clock alignment is unavailable; insufficient evidence")
     if not isinstance(answer["summary"], str) or not answer["summary"].strip():
         raise ValueError("summary must be text")
@@ -515,7 +525,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
     if answer["assessment"] == "bottleneck_suspected" and not candidates:
         raise ValueError("bottleneck_suspected needs a candidate")
     if answer["assessment"] != "insufficient_evidence" and not any(
-        _has_measurement(item.get("current")) for item in packet["observations"]
+        observation.status == "observed" for observation in bundle.current
     ):
         raise ValueError("current measurements are unavailable; insufficient evidence")
     window = packet.get("current_interval")
@@ -523,6 +533,8 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
         raise ValueError("candidate rejected: current interval timing is unavailable")
     ids = {item["id"] for item in packet["observations"]}
     observations = {item["id"]: item for item in packet["observations"]}
+    assessed = {item["id"]: value for item, value in zip(packet["observations"], bundle.current)}
+    observation_indices = {item["id"]: index for index, item in enumerate(packet["observations"])}
     if set(re.findall(r"(?<![A-Za-z0-9_])m\d+(?![A-Za-z0-9_])", answer["summary"])) - ids:
         raise ValueError("summary names nonexistent observations")
     required = schema["properties"]["candidates"]["items"]["required"]
@@ -542,8 +554,19 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
             raise ValueError("evidence references must be unique")
         if set(item["evidence_ids"]) & set(item["counter_evidence_ids"]):
             raise ValueError("an observation cannot be both supporting and counter evidence")
-        if any(not _has_measurement(observations[key].get("current")) for key in cited):
+        if any(assessed[key].status != "observed" for key in cited):
             raise ValueError("cited evidence needs available current measurements")
+        required_limits = {
+            f'{issue.window}:{issue.source}:{issue.code}' for key in cited
+            for issue in bundle.limiting_issues_at(observation_indices[key])
+            if issue.code.split(':')[0] in {
+                'backend_warnings', 'backend_infos', 'discarded_samples', 'discarded_series',
+                'query_step_exceeds_interval', 'fewer_than_two_query_evaluations',
+                'fewer_than_two_observed_source_samples', 'comparison_withheld',
+                'source_sample_before_interval', 'source_timestamp_in_future'}}
+        if required_limits - set(item['missing_evidence']):
+            raise ValueError('candidate must preserve sampling limitations in missing_evidence: ' +
+                             ', '.join(sorted(required_limits - set(item['missing_evidence']))))
         text = item["title"] + " " + item["explanation"]
         if set(re.findall(r"(?<![A-Za-z0-9_])m\d+(?![A-Za-z0-9_])", text)) - ids:
             raise ValueError("candidate text names nonexistent observations")
@@ -566,8 +589,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                     or labels.get("telemetry_source") == "vllm"
                     or re.search(r"(?<![A-Za-z0-9_:])vllm:", query))
             if vllm and any(labels.get(key) for key in ("instance", "component", "model_name", "model")):
-                identity = (labels.get("cluster"), labels.get("node", labels.get("nodename")),
-                            *(labels.get(key) for key in ("instance", "component", "model_name", "model")))
+                identity = EntityRef.decode(row['observation_scope'], labels).namespace('vllm_endpoint')
                 endpoints.append((identity, row["signal"]))
         if len({identity for identity, _ in endpoints}) > 1 and len({signal for _, signal in endpoints}) > 1:
             raise ValueError("candidate combines different vLLM endpoint/model entities and signals")
@@ -579,16 +601,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                 row = observations[evidence_id]
                 if label in row.get("labels", {}):
                     labels = row["labels"]
-                    namespace = (labels.get("cluster"), labels.get("node", labels.get("nodename")))
-                    if label in ("engine", "engine_id"):
-                        # Engine indices are endpoint-local; colocated vLLM
-                        # services can both expose engine 0 for distinct models.
-                        namespace += tuple(labels.get(key) for key in ("instance", "component", "model_name", "model"))
-                    if label in ("worker", "worker_id", "rank"):
-                        # Application worker/rank names are local to a Run.
-                        # Shared engine/GPU identities keep their own namespace.
-                        namespace += (labels.get("run_id"), labels.get("role"), labels.get("producer"))
-                    scoped.append(((*namespace, labels[label]), row["signal"]))
+                    scoped.append((EntityRef.decode(row['observation_scope'], labels).namespace(label), row['signal']))
             if len({value for value, _ in scoped}) > 1 and len({signal for _, signal in scoped}) > 1:
                 raise ValueError(f"candidate combines different {label} entities and signals")
 

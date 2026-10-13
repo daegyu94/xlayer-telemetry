@@ -128,6 +128,16 @@ Optional `window_statistic`은 scalar 요약값에 적용한 `max`·`mean` 등�
 빈 통계·값이 없는 통계·`sample_count=0`은 누락이며 측정값 `0`과 다릅니다.
 숫자 문자열·boolean·NaN/무한대·허용하지 않은 field는 거부합니다.
 
+Rule·독립 수집·저장 보고서는 같은 observation/evidence 계약으로 entity·window·sampling 상태를 읽습니다.
+Optional `observation_status`는 current의 `observed`, `no_data`, `error`, `stale`, `unknown`을 구분하며 baseline 상태는 독립적으로 판정합니다.
+Clock quality는 별도 차원이고 unsafe/unknown clock에서 bottleneck hypothesis를 승인하지 않습니다.
+Raw stale 값은 조회할 수 있지만 현재 evidence로 인용할 수 없으며, stale 관측만으로 정상 상태를 판정하지 않습니다.
+
+모델 입력의 `evidence_limits`는 observation ID별 sampling·baseline 비교 제한을 제공합니다.
+Partial 결과·부족한 표본·stale baseline·withheld comparison을 인용하는 candidate는 해당 machine issue code를 `missing_evidence`에 그대로 보존해야 합니다.
+제한이 누락된 답은 거부되며, 확인 가능한 current 관측은 baseline 제한을 남긴 hypothesis에 사용할 수 있습니다.
+저장 보고서에 없는 metadata는 추정하지 않고, Rule candidate를 LLM 입력으로 전달하지 않습니다.
+
 ```json
 {
   "representation": "observation_table_v1",

@@ -43,6 +43,7 @@ def network_fixture(output, loki):
             rows.append({**source,'signal':'rdma_transmit_wait_ticks_per_second',
                          'observation_scope':'network-interface','window_statistic':'max',
                          'entity':'node=gpu-node-0,port=1','unit':'ticks/s',
+                         'resource_identity':{'node':'gpu-node-0','port':'1'},
                          'current':8,'baseline':4,'evidence_type':'supporting',
                          'quality_warnings':''})
         end=report['analysis_window']['end']
@@ -102,10 +103,11 @@ def run(args):
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                 check('network-'+screen+'-'+theme,network)
             def pressure(page):
+                fault_status=None
                 def rdma_fixture(route):
                     queries=(route.request.post_data_json or {}).get('queries',[])
                     relevant=[query for query in queries if 'node_infiniband_port_transmit_wait_total' in query.get('expr','')]
-                    if not relevant:route.continue_();return
+                    if not relevant and fault_status is None:route.continue_();return
                     response=route.fetch(timeout=15000);body=response.json()
                     for query in relevant:
                         body.setdefault('results',{})[query['refId']]={'status':200,'frames':[{
@@ -113,7 +115,26 @@ def run(args):
                                 {'name':'Time','type':'time'},
                                 {'name':'Value','type':'number','labels':{'cluster':'scenes-demo','nodename':'gpu-node-0','port':'1'},
                                  'config':{'unit':'suffix:ticks/s'}}]},
-                            'data':{'values':[[int(stored['analysis_window']['end']*1000)-1000],[8]]}}]}
+                            'data':{'values':[[int(stored['analysis_window']['end']*1000)-1000],[0 if fault_status else 8]]}}]}
+                    if fault_status:
+                        for result in body.get('results',{}).values():
+                            for frame in result.get('frames',[]):
+                                fields=frame.get('schema',{}).get('fields',[])
+                                columns=frame.get('data',{}).get('values',[])
+                                for field,column in zip(fields,columns):
+                                    if field.get('name')!='Line':continue
+                                    for index,text in enumerate(column):
+                                        try:record=json.loads(text)
+                                        except (ValueError,TypeError):continue
+                                        row=record.get('record',record)
+                                        if isinstance(row,dict) and row.get('signal')=='rdma_transmit_wait_ticks_per_second':
+                                            current=({'mean':0,'sample_count':0} if fault_status=='empty_statistics'
+                                                     else {'sample_count':2} if fault_status=='count_only'
+                                                     else None if fault_status=='missing_current' else 0)
+                                            status='observed' if fault_status in ('empty_statistics','count_only','missing_current') else fault_status
+                                            row.update(current=current,observation_status=status,future_contract_field={'synthetic':True})
+                                            if fault_status=='missing_current':row['value']=0
+                                            column[index]=json.dumps(record)
                     route.fulfill(response=response,json=body)
                 page.route('**/api/ds/query*',rdma_fixture)
                 page.goto(origin+'/a/xlayer-telemetry-app/analyze?'+urlencode({**params,'theme':theme}))
@@ -122,6 +143,16 @@ def run(args):
                 expect(card).to_contain_text('동일 entity의 Step evidence',timeout=30000)
                 expect(card.locator('.xlt-pressure-value strong')).to_contain_text('ticks/s')
                 card.screenshot(path=str(args.output/('pressure-card-'+theme+'.png')))
+                for status in ('error','stale','future_success','empty_statistics','count_only','missing_current'):
+                    fault_status=status
+                    page.reload()
+                    expect(card.locator('.xlt-pressure-value strong')).to_have_text('0 ticks/s',timeout=30000)
+                    expect(card).not_to_contain_text('동일 entity의 Step evidence',timeout=30000)
+                    expect(card).not_to_contain_text('vs baseline')
+                fault_status=None
+                page.reload()
+                expect(card).to_contain_text('동일 entity의 Step evidence',timeout=30000)
+                expect(card.locator('.xlt-pressure-value strong')).to_have_text('8 ticks/s')
                 page.set_viewport_size({'width':390,'height':844})
                 card.scroll_into_view_if_needed()
                 expect(card).to_be_visible()

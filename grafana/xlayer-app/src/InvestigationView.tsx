@@ -31,7 +31,7 @@ import { nativeHighlight, nativeHighlightHint } from './native-highlight';
 import { useSceneData as useData } from './scene-data';
 import { NATIVE_PAGES, NativeWorkspace } from './native-workspace';
 import { KpiCard } from './design-system/components';
-import { format, Link, Native, DataStatus, Delta } from './view-components';
+import { formatObservation, format, Link, Native, DataStatus, Delta } from './view-components';
 import type { Shell, Page } from './app-scene';
 import { CatalogRetryContext } from './app-context';
 import type { KpiSpec } from './scene-specs';
@@ -428,7 +428,7 @@ export function ShellView({ model }: { model: Shell }) {
                         .map((r, i) => (
                           <tr key={i}>
                             <td title={scalar(r.signal)}><Tooltip content={signalPresentation(String(r.signal)).hint}><span tabIndex={0}>{r.signal==='step_duration_seconds'?boundary.timeLabel:signalPresentation(String(r.signal)).label}</span></Tooltip></td>
-                            <td>{format(r.current, scalar(r.unit, ""))}</td>
+                            <td>{formatObservation(r, scalar(r.unit, ""))}</td>
                             <td>{format(r.baseline, scalar(r.unit, ""))}</td>
                             <td>
                               <Delta row={r} />
@@ -954,7 +954,7 @@ function HealthSummary({candidates}:{candidates:RecordRow[]}) {
 }
 
 function TopChanges({rows}:{rows:RecordRow[]}) {
-  return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">저장된 비교 구간이며 Phase별 resource 사용량으로 귀속하지 않습니다. Workload comparability는 source가 제공한 기준을 유지합니다.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{format(r.current,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
+  return <section><h3>Top Changes · Step evidence</h3><p className="xlt-muted">저장된 비교 구간이며 Phase별 resource 사용량으로 귀속하지 않습니다. Workload comparability는 source가 제공한 기준을 유지합니다.</p><div className="xlt-scroll"><table><thead><tr><th>Signal</th><th>Current</th><th>Baseline</th><th>Delta</th><th>Scope</th></tr></thead><tbody>{[...rows].sort((a,b)=>Math.abs(Number(b.delta_percent)||0)-Math.abs(Number(a.delta_percent)||0)).slice(0,4).map((r,i)=><tr key={i}><td>{scalar(r.signal)}</td><td>{formatObservation(r,scalar(r.unit,''))}</td><td>{format(r.baseline,scalar(r.unit,''))}</td><td><Delta row={r}/></td><td>{scalar(r.observation_scope)}</td></tr>)}</tbody></table></div></section>;
 }
 
 function RunContext({model,selected,steps,context,policySamples,activeWorkloads,onStep}:{model:Shell;selected?:RecordRow;steps:RecordRow[];context:Context;policySamples:import('./semantics').Sample[];activeWorkloads:import('./semantics').Sample[];onStep:(row:RecordRow)=>void}){

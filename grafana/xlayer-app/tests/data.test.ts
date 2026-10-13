@@ -155,3 +155,12 @@ test('Loading and Error retained frames never become current custom records or K
  for(const state of ['Loading','Error','NotStarted']){assert.deepEqual(records({...data,state} as any),[]);assert.deepEqual(samples({...data,state} as any),[]);}
  for(const state of ['Done','Streaming']){assert.equal(records({...data,state} as any)[0].run_id,'previous');assert.equal(samples({...data,state} as any)[0].value,7);}
 });
+
+test('malformed observation identity does not block valid rows at the actual frame ingress',()=>{
+ const result=records({series:[{length:3,fields:[{name:'Line',values:[
+  {record:{row_kind:'evidence',current:0,entity:'node=n,gpu=0'}},
+  {record:{row_kind:'evidence',current:9,entity:{node:'n'}}},
+  {record:{row_kind:'evidence',current:0,observation_status:'stale'}},
+ ]}]}]} as any);
+ assert.equal(result.length,2);assert.equal(result[0].current,0);assert.equal(result[1].observation_status,'stale');
+});

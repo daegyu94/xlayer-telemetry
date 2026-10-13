@@ -124,6 +124,7 @@ def test_public_install_uses_selected_python_outside_checkout(tmp_path, monkeypa
     import sys
     from setuptools import build_meta
     import shutil
+    monkeypatch.delenv('PYTHONPATH', raising=False)
     source = tmp_path / 'source'
     source.mkdir()
     for name in ('pyproject.toml', 'README.md'):
@@ -135,7 +136,8 @@ def test_public_install_uses_selected_python_outside_checkout(tmp_path, monkeypa
     wheel_dir.mkdir()
     wheel = wheel_dir / build_meta.build_wheel(str(wheel_dir))
     environment = tmp_path / 'environment'
-    venv.EnvBuilder(with_pip=True).create(environment)
+    # Match the POSIX venv CLI; copied relocatable interpreters lose their stdlib.
+    venv.EnvBuilder(with_pip=True, symlinks=True).create(environment)
     python = environment / 'bin/python'
     if sys.version_info < (3, 11):
         # Reuse the already-installed declared runtime dependency offline.

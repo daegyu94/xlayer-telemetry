@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { resourceIdentity, observationStatus, observationLabel } from "../src/record-contract";
 import {
   readContext,
   investigationKey,
@@ -110,4 +111,74 @@ test('native URL defaults/order/epoch formatting keep evidence open; real contex
   const b=readContext('?var-node=n1&var-node=n2&var-worker=$__all&from=1970-01-01T00:00:01.000Z&to=2000');
   assert.equal(investigationKey(a),investigationKey(b));
   for(const query of ['?var-node=n1&from=1000&to=2000','?var-node=n2&var-node=n1&var-phase_worker=other&from=1000&to=2000','?var-node=n2&var-node=n1&from=1001&to=2000'])assert.notEqual(investigationKey(a),investigationKey(readContext(query)));
+});
+
+test('known observation rows validate without losing additive metadata or resource identity',()=>{
+ const row=decodeRecord({row_kind:'evidence',current:'0',baseline:null,observation_status:'observed',
+  clock_status:'unsafe',observation_scope:'device',entity:'node=n,gpu=0',resource_identity:{node:'n',gpu:'0'},new_field:{v:1}});
+ assert.equal(row?.current,0);assert.equal(row?.observation_status,'observed');assert.equal(row?.clock_status,'unsafe');
+ assert.deepEqual(row?.resource_identity,{node:'n',gpu:'0'});assert.deepEqual(row?.new_field,{v:1});
+ assert.equal(decodeRecord({record:{node:'n'}})?.node,'n');
+ assert.equal(decodeRecord({record:[]}),undefined);
+ for(const change of [{signal:{}},{entity:[]},{resource_identity:{gpu:0}}])
+  assert.equal(decodeRecord({current:0,...change}),undefined);
+ for(const value of [Infinity,NaN,{},[],true,'NaN']){
+  const invalid=decodeRecord({current:value,observation_status:'observed'});
+  assert.equal(invalid?.current,null);assert.equal(invalid?.observation_status,'unknown');
+ }
+ assert.equal(decodeRecord({current:0,observation_status:'future_success'})?.observation_status,'unknown');
+ for(const status of ['no_data','error','stale','unknown'])
+  assert.equal(decodeRecord({current:0,observation_status:status})?.observation_status,status);
+});
+
+test('legacy LLM statistical observations retain finite statistics without coercing them to a scalar',()=>{
+ const current={min:0,mean:0,max:0,last:0,sample_count:2,max_series_delta:null};
+ const row=decodeRecord({current,baseline:{mean:10},observation_status:'observed'});
+ assert.deepEqual(row?.current,current);assert.deepEqual(row?.baseline,{mean:10});
+ assert.equal(row?.observation_status,'observed');
+ for(const value of [{mean:Infinity},{mean:'0'},{invented:0},{}]){
+  const invalid=decodeRecord({current:value,observation_status:'observed'});
+  assert.equal(invalid?.current,null);assert.equal(invalid?.observation_status,'unknown');
+ }
+});
+
+test('resource identity preserves scope fields and rejects duplicate legacy keys',()=>{
+ assert.deepEqual(resourceIdentity({entity:'node=n,gpu=0'}),{node:'n',gpu:'0'});
+ assert.deepEqual(resourceIdentity({resource_identity:{node:'n',gpu:'0'}}),{node:'n',gpu:'0'});
+ for(const entity of ['node=n,node=other','node=','node=n,broken'])assert.equal(resourceIdentity({entity}),undefined);
+ assert.equal(observationStatus({current:0,clock_status:'unsafe'}),'observed');
+ assert.equal(observationStatus({current:0,observation_status:'stale'}),'stale');
+});
+
+test('explicit observation status has display semantics independent of value and clock',()=>{
+ assert.equal(observationLabel({current:0,observation_status:'observed',clock_status:'unsafe'}),undefined);
+ for(const [status,label] of [['no_data','No data'],['error','Query error'],['stale','Stale'],['unknown','Unknown'],['future_success','Unknown']])
+  assert.equal(observationLabel({current:0,observation_status:status}),label);
+});
+
+test('statistical sample counts describe exposure and never invent an observation',()=>{
+ for(const current of [{sample_count:0},{sample_count:2},{mean:0,sample_count:0}]){
+  assert.equal(observationStatus({current}),'unknown');
+  const row=decodeRecord({current,observation_status:'observed'});
+  assert.deepEqual(row?.current,current);assert.equal(row?.observation_status,'unknown');
+ }
+ for(const sample_count of [-1,1.5,Infinity,'2',true]){
+  const row=decodeRecord({current:{mean:0,sample_count},observation_status:'observed'});
+  assert.equal(row?.current,null);assert.equal(row?.observation_status,'unknown');
+ }
+ for(const current of [{mean:0,sample_count:2},{mean:0}]){
+  assert.equal(observationStatus({current}),'observed');
+  assert.equal(decodeRecord({current,observation_status:'observed'})?.observation_status,'observed');
+ }
+});
+
+test('explicitly missing current stays missing even when a legacy value or baseline is zero',()=>{
+ for(const fields of [{current:null,value:0},{current:null,baseline:0},{current:null,value:0,baseline:0}]){
+  assert.equal(observationStatus(fields),'unknown');
+  assert.equal(decodeRecord({...fields,observation_status:'observed'})?.observation_status,'unknown');
+ }
+ for(const fields of [{value:0},{current:undefined,value:0},{current:0,baseline:null}]){
+  assert.equal(observationStatus(fields),'observed');
+  assert.equal(decodeRecord({...fields,observation_status:'observed'})?.observation_status,'observed');
+ }
 });

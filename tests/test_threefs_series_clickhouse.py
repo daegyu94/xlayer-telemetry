@@ -1,37 +1,28 @@
-"""Real SQL on a disposable container; no existing 3FS data is accessed."""
+"""Real SQL on an owned disposable instance; no existing 3FS data is accessed."""
 import json
-import os
-import subprocess
 import uuid
 
 import pytest
 
-from xlayer_telemetry.analysis.diagnostics import ThreeFSClient
+from tests._clickhouse import AVAILABLE, client as backend_client, execute
 
-CONTAINER = os.environ.get('XLAYER_TEST_CLICKHOUSE_CONTAINER')
-pytestmark = pytest.mark.skipif(not CONTAINER, reason='owned ClickHouse not configured')
+pytestmark = pytest.mark.skipif(not AVAILABLE, reason='owned ClickHouse not configured')
 LABELS = ('host','tag','mount_name','instance','io','uid','pod','thread','statusCode')
 
 
 @pytest.fixture
 def backend():
     database='xlayer_series_'+uuid.uuid4().hex
-    def execute(query,data=None):
-        return subprocess.run(['docker','exec','-i',CONTAINER,'clickhouse-client','--multiquery','--query',query],
-            input=data,text=True,capture_output=True,check=True,timeout=15).stdout
     execute('CREATE DATABASE '+database)
     try:
         fields=', '.join(name+' String' for name in LABELS)
         execute(f'CREATE TABLE {database}.distributions (TIMESTAMP DateTime, metricName String, {fields}, method String, `count` Float64, mean Float64, `max` Float64,p99 Float64) ENGINE Memory')
         execute(f'CREATE TABLE {database}.counters (TIMESTAMP DateTime, metricName String, {fields}, val Int64) ENGINE Memory')
-        class Client(ThreeFSClient):
-            def _query_rows(self,query):
-                return [json.loads(line) for line in execute(query).splitlines()]
         def insert(table,stamp,name,**values):
             row={key:'' for key in LABELS};row.update(TIMESTAMP=stamp,metricName=name,host='host-a',instance='batchRead',**values)
             if table=='distributions':row.setdefault('method','read')
             execute(f'INSERT INTO {database}.{table} FORMAT JSONEachRow',json.dumps(row)+'\n')
-        yield Client('http://unused',database=database),insert,execute
+        yield backend_client(database),insert,execute
     finally:
         execute('DROP DATABASE '+database)
 

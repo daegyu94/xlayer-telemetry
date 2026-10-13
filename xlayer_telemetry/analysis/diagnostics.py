@@ -22,14 +22,14 @@ from urllib.request import Request
 from .._http_proxy import urlopen
 
 from .diagnosis_analysis import (
-    VLLM_OBSERVATIONS, compare_signals, evaluate_rules, finite,
+    VLLM_OBSERVATIONS, compare_signals, finite,
     recent_baseline_history, select_baseline, select_vllm_observations,
-    validate_baseline_policy, validate_run_engine_instances, resource_run_relation, vllm_identity,
+    validate_baseline_policy, validate_run_engine_instances, vllm_identity,
 )
 from .clock_quality import assess_interval, clock_inventory, producer_hosts_verified
 from ..time_alignment import CalibrationCache, alignment_metadata, event_window, observation_time, reference_now
 from . import scheduling
-from .evidence_quality import quality, source_for_entity, validate_sampling, correlation_quality_issues, selected_quality, INVALID_SOURCE_TIME, RESOLUTION_BLOCKERS
+from .evidence_quality import validate_sampling, INVALID_SOURCE_TIME
 from .rollout_replicas import validate_rollout_replicas, scope_queries, observations as replica_observations
 from .rollout_state import validate_observations, load_serving_context, comparison_issues, apply_serving_limits
 from ..sandbox import device_window
@@ -42,29 +42,15 @@ from .diagnostic_artifacts import (_existing_reports, _investigation_path, _writ
                                    write_report, _projection_recovery, _investigation_rows, repair_projections)
 from .metric_observations import collect_metrics
 from .query_budget import QueryBudget
-from .observation_contracts import usable_window
-from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
+from .observation_contracts import EvidenceBundle, EntityRef, assess_entity, usable_window
+from .diagnosis_pipeline import evaluate_stage, describe_signals, assess_comparisons, assess_candidate_context, cap_candidate_quality
+from .metric_queries import (DEFAULT_QUERIES, CONTEXT_SIGNALS, ENTITY_COMPARISON_SIGNALS,
+                             profile_queries, validate_metric_profiles)
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, validate_series_settings
 from .storage_overview import storage_overview
 from .robust_differential import duration_quality, assess as robust_assess, settings as robust_settings, apply_limits as apply_robust_limits
 
-DEFAULT_QUERIES = {
-    "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',
-    "gpu_memory_usage_ratio": 'telemetry_gpu_memory_used_bytes{nodename="{compute_node}"} / (telemetry_gpu_memory_total_bytes{nodename="{compute_node}"} > 0)',
-    "host_memory_available_ratio": 'node_memory_MemAvailable_bytes{instance="{node}"} / node_memory_MemTotal_bytes{instance="{node}"}',
-    "disk_busy_ratio": 'rate(node_disk_io_time_seconds_total{instance="{node}"}[1m])',
-    "vllm_requests_waiting": 'vllm:num_requests_waiting{node="{rollout_node}"}',
-    "vllm_kv_cache_usage": 'vllm:kv_cache_usage_perc{node="{rollout_node}"}',
-    "vllm_preemptions_total": 'vllm:num_preemptions_total{node="{rollout_node}"}',
-    # Pending tasks are recorded by their owner, before a rollout node may be
-    # assigned. Ray splits the gauge across task names/workers in a session.
-    "ray_pending_tasks": 'sum by (cluster, SessionName) (ray_tasks{telemetry_source="ray",State=~"PENDING.*"})',
-    "policy_version_lag": 'policy_version_lag{nodename="{node}",run_id="{run_id}"}',
-    "host_swap_activity": 'rate(node_vmstat_pswpin{instance="{node}"}[1m]) + rate(node_vmstat_pswpout{instance="{node}"}[1m])',
-    "disk_read_bytes_per_second": 'rate(node_disk_read_bytes_total{instance="{node}"}[1m])',
-    "rdma_bytes_per_second": 'rate(node_infiniband_port_data_received_bytes_total{instance="{node}"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{instance="{node}"}[1m])',
-}
 DEFAULT_THRESHOLDS = {
     "step_slowdown_ratio": 1.5,
     "stage_min_seconds": 1.0,
@@ -542,20 +528,13 @@ class DiagnosticEngine:
         queries = scope_queries(queries, self.config)
         queries.update(custom)
         if self.config.get("storage_node") and self.config.get("storage_device"):
-            queries.setdefault("storage_device_busy_ratio", (
-                'rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",'
-                'instance="{storage_node}",device="{storage_device}"}[1m])'
-            ))
+            queries.setdefault("storage_device_busy_ratio", CONTEXT_SIGNALS["storage_device_busy_ratio"].expression)
         if with_sandbox:
             sandbox = self.config.get("sandbox", {})
-            defaults = {
-                "tool_duration_seconds": 'agent_tool_call_duration_seconds{run_id="{run_id}"}',
-                "sandbox_io_pressure_ratio": 'sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}',
-            }
+            names = ["tool_duration_seconds", "sandbox_io_pressure_ratio"]
             if sandbox.get("device"):
-                defaults["sandbox_device_busy_ratio"] = (
-                    'rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])'
-                )
+                names.append("sandbox_device_busy_ratio")
+            defaults = {name: CONTEXT_SIGNALS[name].expression for name in names}
             for name, template in defaults.items():
                 if cluster:
                     template = template.replace('{', '{cluster="{cluster}",job="telemetry",', 1)
@@ -890,12 +869,7 @@ class DiagnosticEngine:
         # subtract different disks/interfaces/engines just because both supplied
         # a window maximum. Aggregate-only clients retain unknown-scope values
         # but cannot supply an entity-matched baseline for these signals.
-        comparable_profiles = PROFILE_SIGNALS | {
-            "disk_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
-            "rdma_bytes_per_second": MetricQuery("", "network-interface", "bytes/s", "mean"),
-            "storage_device_busy_ratio": MetricQuery("", "device", "percentunit", "max"),
-            "network_utilization_ratio": MetricQuery("", "network-interface", "percentunit", "max"),
-        }
+        comparable_profiles = ENTITY_COMPARISON_SIGNALS
         for name, spec in comparable_profiles.items():
             items = [item for item in current_series.get(name, [])
                      if finite(item.get("stats", {}).get(spec.statistic)) is not None]
@@ -916,7 +890,8 @@ class DiagnosticEngine:
             signal_scopes[name] = spec.scope if selected_identity else "unknown"
             baseline_signals.pop(name, None)
             matching = [item for item in baseline_series.get(name, [])
-                        if selected_identity and profile_identity(item) == selected_identity]
+                        if selected_identity and EntityRef.decode(spec.scope, profile_identity(item)).matches(
+                            EntityRef.decode(spec.scope, selected_identity))]
             if name in {"disk_busy_ratio","rdma_bytes_per_second","storage_device_busy_ratio","network_utilization_ratio"} and not (
                     any(selected_identity.get(k) for k in ("device","interface","port")) and any(
                         selected_identity.get(key) for key in ("instance", "node", "nodename"))):
@@ -1031,14 +1006,20 @@ class DiagnosticEngine:
                     source = source_samples.get(name, {}).get(role, {})
                     # A singleton legacy client with no source labels has no
                     # alternate entity to borrow. Multi-entity clients must match.
-                    if (any(row.get('labels') for row in source.get('series', []))
-                            or len(series.get(name, [])) > 1 or len(source.get('series', [])) > 1):
-                        interval = window if role == 'current' else baseline_window
-                        qualities[role] = quality(executed_queries[name], interval['start'], interval['end'], step,
-                            stats, source=source_for_entity(source, labels), result=qualities[role].get('query_result'))
-                    qualities[role] = selected_quality(qualities[role], stats)
+                    recompute = (any(row.get('labels') for row in source.get('series', []))
+                                 or len(series.get(name, [])) > 1 or len(source.get('series', [])) > 1)
+                    interval = window if role == 'current' else baseline_window
+                    qualities[role] = assess_entity(executed_queries.get(name) if recompute else None,
+                        interval, step, stats, labels, source=source,
+                        result=qualities[role].get('query_result'), prior_quality=qualities[role])
 
-        rule_current,rule_baseline=dict(current_signals),dict(baseline_signals)
+        signal_rows = describe_signals(
+            compare_signals(current_signals, baseline_signals, scopes=signal_scopes, labels=signal_labels),
+            sampling_quality, signal_queries)
+        bundle = EvidenceBundle.from_rows(signal_rows, window=window,
+            baseline_window=baseline_window if baseline_record else None,
+            clock_quality=clock_quality, missing=missing)
+        rule_current, rule_baseline = bundle.available_signals(), bundle.available_signals('baseline')
         changed_replica_signals = set()
         if serving:
             for replica in self.config['rollout_replicas']:
@@ -1056,7 +1037,6 @@ class DiagnosticEngine:
             for role,values in (('current',rule_current),('baseline',rule_baseline)):
                 invalid=INVALID_SOURCE_TIME.intersection(qualities.get(role,{}).get('warnings',[]))
                 if invalid:
-                    values.pop(signal,None)
                     missing.extend(f'prometheus:{name}:{role}:{issue}' for issue in sorted(invalid))
                     if role=='current':
                         finding_evidence.pop(name,None)
@@ -1080,8 +1060,8 @@ class DiagnosticEngine:
         findings=self._findings(finding_evidence,threefs_rows if storage_comparable else [],
             threefs_baseline if storage_comparable else [],float(start),end,execution_mode,
             baseline_window={'start': baseline_start, 'end': baseline_end} if threefs_rows and threefs_baseline else None)
-        candidates = evaluate_rules(
-            rule_current, rule_baseline, thresholds=self.thresholds,
+        candidates = evaluate_stage(
+            bundle, rule_current, rule_baseline, thresholds=self.thresholds, enabled=bool(current),
             context={"sources": sources, "window": window,
                      "boundary_accuracy": window.get("accuracy", "unknown"),
                      "node": node,
@@ -1097,9 +1077,8 @@ class DiagnosticEngine:
                      "signal_windows": {"tool_duration_seconds": tool_event["window"]} if tool_event is not None else {},
                      "signal_boundary_accuracy": {"tool_duration_seconds": tool_event["boundary_accuracy"]} if tool_event is not None else {},
                      "participant_durations_seconds": (current or {}).get("participant_durations_seconds", {})},
-        ) if current else []
-        unsafe_timing = (clock_quality["status"] not in {"aligned", "unchecked"}
-                         or clock_quality.get("baseline", {}).get("status", "aligned") != "aligned")
+        )
+        unsafe_timing = not bundle.timing_usable
         storage_series = None
         series_settings = self.config.get("threefs", {}).get("time_series", {})
         if series_settings.get("enabled", False):
@@ -1130,7 +1109,7 @@ class DiagnosticEngine:
             "baseline_interval": baseline_window if baseline_record else None,
             "baseline_record_id": (baseline_record or {}).get("record_id"),
             "selection": "same_run_same_worker_nearest_prior_median" if baseline_record else "unavailable",
-            "signals": compare_signals(current_signals, baseline_signals, scopes=signal_scopes, labels=signal_labels),
+            "signals": signal_rows,
             "workload_comparability": "matched_configured_fields" if baseline_record and baseline_policy.get("match_fields") else "unverified" if baseline_record else "unavailable",
             "match_fields": baseline_policy.get("match_fields", []),
             "normalization": normalization,
@@ -1144,64 +1123,24 @@ class DiagnosticEngine:
                                           "unit": "seconds/token", "current": normalized_current, "baseline": normalized_baseline,
                                           "delta": normalized_current-normalized_baseline,
                                           "delta_percent": 100*(normalized_current-normalized_baseline)/normalized_baseline if normalized_baseline else None})
-        for candidate in candidates:
-            if any(str(item.get('source', '')).partition(':')[0] in {'prometheus', '3fs_clickhouse'} and item.get('observation_scope') != 'application'
-                   for item in candidate.get('evidence', [])):
-                # The Run selects an investigation window, not resource ownership.
-                # Strong describes the observed pressure pattern, not a Job cause.
-                candidate['resource_attribution'] = 'not_established'
-                candidate['run_relation'] = resource_run_relation(
-                    [item for item in candidate['evidence'] if item.get('observation_scope') != 'application'],
-                    self.config, run_id)
-                candidate['missing_evidence'].append('run_resource_attribution_unverified')
-            duration_comparison = any(item['signal'] in {
-                'step_duration_seconds', 'rollout_duration_seconds', 'communication_duration_seconds',
-                'actor_update_duration_seconds', 'critic_update_duration_seconds', 'checkpoint_duration_seconds',
-            } and item.get('baseline') is not None for item in candidate.get('evidence', []))
-            if duration_comparison and comparison['workload_comparability'] != 'matched_configured_fields':
-                candidate['missing_evidence'].append('workload_comparability_unverified')
-                if candidate['state'] == 'strong_signal':
-                    candidate['state'] = 'supporting_signal'
-            if candidate["id"] == "gpu_memory_pressure" and "gpu:memory_entity_match" in missing:
-                candidate["missing_evidence"].append("gpu_memory_entity_match")
-            if candidate["id"] == "sandbox_local_storage_pressure" and tool_event is not None:
-                candidate["missing_evidence"].append("tool_sandbox_resource_attribution")
-            for item in candidate.get("evidence", []) + candidate.get("counter_evidence", []):
-                name = "vllm_preemptions_total" if item["signal"] == "vllm_preemptions_delta" else item["signal"]
-                item["sampling_quality"] = sampling_quality.get(name)
-                for window_name, window_quality in (item["sampling_quality"] or {}).items():
-                    issues = correlation_quality_issues(window_quality)
-                    candidate["missing_evidence"].extend(f"{window_name}:{item['signal']}:{issue}" for issue in issues)
-                    if issues and candidate["state"] == "strong_signal":
-                        candidate["state"] = "supporting_signal"
-                if item["signal"] in PROFILE_SIGNALS:
-                    spec = PROFILE_SIGNALS[item["signal"]]
-                    item.update(unit=spec.unit, window_statistic=spec.statistic,
-                                query=signal_queries.get(item["signal"]))
-            candidate['signal_strength'] = candidate['state']
+        candidates = assess_candidate_context(candidates, config=self.config, run_id=run_id,
+            workload_comparability=comparison['workload_comparability'], missing=missing, tool_event=tool_event)
+        candidates = cap_candidate_quality(candidates, bundle, sampling_quality, signal_queries)
         apply_robust_limits(candidates, robust_quality)
         if serving:
             apply_serving_limits(candidates, self.config['rollout_replicas'], serving['current'])
+        comparison['signals'] = assess_comparisons(comparison['signals'], bundle)
         for row in comparison["signals"]:
             if robust_quality is not None and row['signal'] in robust_quality['signals']:
                 row['robust_baseline'] = robust_quality['signals'][row['signal']]
-            name = "vllm_preemptions_total" if row["signal"] == "vllm_preemptions_delta" else row["signal"]
-            row["sampling_quality"] = sampling_quality.get(name)
             if row['signal'] in changed_replica_signals:
                 row.update(delta=None, delta_percent=None, comparison_status='replica_context_changed')
             if row['signal'] == 'threefs_p99_latency' and threefs_comparison is not None:
                 row['comparison_quality'] = threefs_comparison
                 if threefs_comparison['status'] != 'shared_report_window':
                     row.update(delta=None, delta_percent=None, comparison_status=threefs_comparison['status'])
-            if any(RESOLUTION_BLOCKERS.intersection(q.get('warnings',[]))
-                   for q in (row['sampling_quality'] or {}).values()):
-                row.update(delta=None,delta_percent=None,comparison_status='insufficient_sampling_coverage')
             if row['signal'] in {'threefs_p99_latency','storage_request_bytes'} and threefs is not None and not storage_comparable:
                 row.update(delta=None,delta_percent=None,comparison_status='producer_clock_unverified')
-            if row["signal"] in PROFILE_SIGNALS:
-                row["unit"] = PROFILE_SIGNALS[row["signal"]].unit
-                row["query"] = signal_queries.get(row["signal"])
-                row["window_statistic"] = PROFILE_SIGNALS[row["signal"]].statistic
         # Raw empty distributions and an observed baseline cannot establish
         # that the current resource interval was measured.
         invalid_current={name for name,qualities in sampling_quality.items() if INVALID_SOURCE_TIME.intersection(qualities.get('current',{}).get('warnings',[]))}
@@ -1227,6 +1166,8 @@ class DiagnosticEngine:
                     candidate["missing_evidence"].append("threefs_producer_clock_alignment")
                     if candidate["state"] == "strong_signal":
                         candidate["state"] = "supporting_signal"
+        for candidate in candidates:
+            candidate['signal_strength'] = candidate['state']
         profiles = validate_metric_profiles(self.config["prometheus"])
         if profiles:
             limitations.append("Extended exporter evidence is node/device/shared-service scoped, not owned by the run. Window extrema can refer to different entities; comparisons match exact labels. Rate windows can extend before the step, p95 values are per-entity histogram estimates, and missing metrics do not mean zero.")
