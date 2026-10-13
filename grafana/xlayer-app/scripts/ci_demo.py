@@ -142,6 +142,9 @@ def verify_run_sources(page, origin, context):
     for key in ('var-run_id','var-source_node','from','to','timezone','theme'):
         if key in context:assert current.get(key)==context[key],key
     expect(page.get_by_text('Resource details',exact=True)).to_be_visible()
+    memory=page.locator('.xlt-infra-metrics .xlt-panel').filter(has=page.get_by_text('Host memory utilization by node',exact=True))
+    expect(memory.get_by_text(current['var-node'][0],exact=True)).to_be_visible(timeout=30000)
+    assert 'cluster=' not in memory.inner_text(),'Host memory legend exposed the full label set'
     more=page.locator('button.xlt-cluster-map-more')
     if more.count():
         before=page.locator('.xlt-cluster-map-node').count()

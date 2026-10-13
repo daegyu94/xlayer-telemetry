@@ -55,7 +55,8 @@ export function hasMappedLocalSsd(node:Resource,nodes:Resource[]):boolean{
 }
 export function compactResourceLegend(format:string,retainNode=false):string{
  const labels=retainNode?'cluster|instance':'cluster|nodename|node|instance';
- return format.replace(new RegExp(`\\{\\{(?:${labels})\\}\\}[\\s/·]*`,'g'),'').replace(/\s+/g,' ').trim().replace(/^[·/]\s*/, '');
+ const compact=format.replace(new RegExp(`\\{\\{(?:${labels})\\}\\}[\\s/·]*`,'g'),'').replace(/\s+/g,' ').trim().replace(/^[·/]\s*/, '');
+ return compact||format.match(/\{\{(?:nodename|node|instance)\}\}/)?.[0]||format;
 }
 /** Keep canonical LogQL, renaming only variables with dashboard-specific meaning. */
 export function logPanel(panel:Panel|undefined):Panel|undefined{

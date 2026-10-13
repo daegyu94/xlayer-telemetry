@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { infrastructure, resourceMetricIndices, resourceSelection, logPanel } from '../src/infrastructure';
+import { infrastructure, resourceMetricIndices, resourceSelection, logPanel, compactResourceLegend } from '../src/infrastructure';
 
 const context={variables:{cluster:['c'],run_id:['run'],record_id:['step'],source_node:['trainer'],node:['old'],worker:['w'],device:['old-device'],gpu:['old-gpu']},from:'1000',to:'2000',timezone:'browser'};
 const rows=[{cluster:'c',kind:'compute',component:'host',role:'gpu-node',resource_node:'compute'},
  {cluster:'c',kind:'compute',component:'gpu',role:'gpu',resource_node:'compute',gpu:'0'},
  {cluster:'c',kind:'storage',component:'disk',role:'ssd',resource_node:'storage',device:'nvme0n1',storage_system:'3fs'},
  {cluster:'c',kind:'compute',component:'fabric',role:'network'}];
+test('identity-only resource legends keep one name instead of exposing the full label set',()=>{
+ assert.equal(compactResourceLegend('{{cluster}}/{{nodename}}'),'{{nodename}}');
+ assert.equal(compactResourceLegend('{{cluster}}/{{instance}}'),'{{instance}}');
+ assert.equal(compactResourceLegend('{{cluster}} {{node}}'),'{{node}}');
+ assert.equal(compactResourceLegend('{{cluster}}'),'{{cluster}}');
+ assert.equal(compactResourceLegend('{{cluster}}/{{nodename}} busy'),'busy');
+ assert.equal(compactResourceLegend('{{cluster}}/{{nodename}} busy',true),'{{nodename}} busy');
+});
 test('configured topology never implies healthy connectivity or Run ownership',()=>{
  const model=infrastructure(rows,[{cluster:'c',kind:'compute',source:'host',destination:'fabric',relation:'RoCE'}],
   [{cluster:'c',nodename:'compute',instance:'compute',Value:1,_refId:'A'},{cluster:'c',nodename:'compute',Value:2,_refId:'B'}],2000);
