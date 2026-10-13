@@ -27,7 +27,7 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="action", metavar="COMMAND")
     from .operations.clock import add_commands
     add_commands(commands)
-    cluster = commands.add_parser("cluster", help="Validate observation configuration or render an explicit static inventory")
+    cluster = commands.add_parser("cluster", help="Validate/render inventory or manage deployed stacks over SSH")
     cluster_sub = cluster.add_subparsers(dest="cluster_action", required=True)
     cluster_check = cluster_sub.add_parser("validate", help="Offline configuration checks; optional bounded observed scrape/clock checks")
     cluster_check.add_argument("--inventory", type=Path, help="Static TOML/JSON inventory; existing runtime config is optional")
@@ -39,6 +39,11 @@ def parser() -> argparse.ArgumentParser:
     cluster_render.add_argument("--output", type=Path, required=True)
     cluster_render.add_argument('--prometheus-url', help='Explicit monitoring query URL propagated to server and node configs; does not change server bind/exposure')
     cluster_render.add_argument("--json", action="store_true")
+    for action in ('up', 'down', 'status'):
+        command = cluster_sub.add_parser(action, help=f'{action.capitalize()} managed roles on inventory hosts over SSH')
+        command.add_argument('--inventory', type=Path, required=True)
+        command.add_argument('--timeout', type=int, default=240, help='Per-host SSH command deadline in seconds (1..600; default: 240)')
+        command.add_argument('--json', action='store_true')
     app = commands.add_parser('app', help='Install, inspect or update the existing Grafana App')
     app_sub = app.add_subparsers(dest='app_action', required=True)
     for action in ('install','status','update','rollback'):
@@ -124,14 +129,19 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def _launch(config: dict[str, str], action: str, role: str = "all") -> int:
+def _launch(config: dict[str, str], action: str, role: str = "all", *, lock_fd=None, output=None) -> int:
     root = assets_root()
     from .operations.config import effective_targets
     config={**config,'TELEMETRY_TARGETS':','.join(f'{node}={address}' for node,address in effective_targets(config).items())}
     effective = snapshot(config)
     # No shell interpolation of user values; the existing lifecycle lock owns mutations.
+    environment = os.environ | config | {"XLAYER_CLI": "1", "XLAYER_MANAGED_ROLE": role}
+    environment.pop('XLAYER_LIFECYCLE_LOCK_FD', None)
+    if lock_fd is not None:
+        environment['XLAYER_LIFECYCLE_LOCK_FD'] = str(lock_fd)
     child = subprocess.Popen(["bash", str(root / "scripts/verl_local.sh"), "--config", str(effective), action],
-                             cwd=root, env=os.environ | config | {"XLAYER_CLI": "1", "XLAYER_MANAGED_ROLE": role})
+                             cwd=root, env=environment, pass_fds=() if lock_fd is None else (lock_fd,),
+                             stdout=output, stderr=subprocess.STDOUT if output is not None else None)
     previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
     try:
         for sig in previous:

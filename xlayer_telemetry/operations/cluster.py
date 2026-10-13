@@ -121,6 +121,10 @@ def _execute_cluster(args) -> int:
     """Keep inventory rendering independent from service installation/lifecycle."""
     from ..cluster_inventory import load_inventory, render_inventory
 
+    if args.cluster_action in ('up', 'down', 'status'):
+        from .cluster_lifecycle import execute
+        return execute(args)
+
     if args.cluster_action == 'render':
         manifest = render_inventory(args.inventory, args.output, prometheus_url=args.prometheus_url)
         if args.json:

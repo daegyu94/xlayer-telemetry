@@ -77,6 +77,41 @@ TOPOLOGY_DIR = "/absolute/path/to/cluster-bundle/topology"
 
 ## 2. Start
 
+### Cluster lifecycle
+
+이미 배포된 server·collector를 관리하려면 inventory의 각 대상 node에 `management`를 추가합니다. 각 host에는 이 기능을 포함한 XLayer와 필요한 monitoring 도구가 설치돼 있고, 해당 config의 `CLUSTER_NAME`·`NODE_NAME`이 inventory와 일치해야 합니다. 설정 배치와 topology 게시는 [Configure](#1-configure)에서 먼저 완료합니다.
+
+```toml
+# 해당 [[nodes]] 항목 바로 아래에 추가합니다.
+[nodes.management]
+ssh = "operator@gpu-0"
+python = "/opt/xlayer/bin/python"
+node_config = "~/.config/xlayer/node.toml"
+```
+
+| Field | 의미 |
+| --- | --- |
+| `ssh` | SSH alias 또는 `user@host`. Port·key·jump host는 기존 SSH config에서 설정 |
+| `python` | 원격 XLayer가 설치된 Python 실행 파일. 기본 `python3`; 절대 경로나 단일 command 이름 |
+| `node_config` | Collector가 활성화된 node의 기존 config. 절대 경로나 원격 home 기준 `~/` 경로 |
+| `server_config` | 기존 server config. `cluster.monitoring_node`에는 필수이며, 다른 host에도 명시하면 해당 server를 함께 관리. Collector도 있으면 `node_config` 함께 지정 |
+
+```bash
+xltel cluster up --inventory /path/to/inventory.toml
+xltel cluster status --inventory /path/to/inventory.toml --json
+xltel cluster down --inventory /path/to/inventory.toml
+```
+
+**정상 결과:** `up`은 server → collector, `down`은 역순으로 각 host의 기존 lifecycle을 실행하며 성공 시 exit `0`을 반환합니다. `status`는 관리 process와 기존 health 검사 결과를 구분해 표시하며, 모두 healthy일 때 exit `0`입니다. 일부 실패·degraded·stopped는 exit `1`, 잘못된 inventory는 SSH 실행 전 exit `2`입니다.
+
+SSH는 비대화형 공개키 인증과 기존 known-host 검증을 사용합니다. Host별 명령은 기본 240초이며 `--timeout 1..600`으로 조정할 수 있습니다. Controller의 telemetry 환경 변수는 원격에 복사하지 않지만, 원격 config는 기존 CLI의 environment 우선순위를 따릅니다.
+
+`up` 실패 시 이번 호출이 새로 시작한 role만 PID·시작 시각·boot ID를 대조해 rollback합니다. 기존에 실행 중인 role과 이후 교체된 process는 종료하지 않습니다. 연결이 끊기면 원격 시작·종료 완료를 확정할 수 없으므로 `unknown`과 `cleanup=unconfirmed`를 보고하며, 재접속 후 같은 inventory의 `status/down`으로 확인합니다.
+
+`down`은 다른 node의 실패에도 나머지 종료를 시도하고 결과를 node·role별로 남깁니다. 설정·dashboard·저장된 metric/log/run 데이터는 삭제하지 않습니다. Native vLLM·Ray·3FS 서비스와 Docker/systemd로 별도 관리하는 monitoring은 이 명령의 종료 대상이 아닙니다. 초기 설치·설정 복사·업그레이드 기능은 포함하지 않습니다.
+
+### Host별 시작
+
 Monitoring host:
 
 ```bash
@@ -133,6 +168,8 @@ Trainer wrapper의 환경 변수가 remote Ray worker에 자동 전달되지 않
 ```
 
 ## 문제가 생겼다면
+
+Cluster lifecycle의 `transport_error`는 해당 `management.ssh`에 `ssh`로 접속해 인증·known-host·원격 Python 설치를 확인합니다. `invalid_config`는 원격 config의 cluster/node identity와 경로를 확인하고, `lock_busy`는 같은 host의 기존 `up/down` 완료를 기다립니다. `identity_changed` 또는 `cleanup=unconfirmed`는 자동 rollback이 완료됐다는 뜻이 아니므로 `cluster status`로 현재 관리 process를 확인합니다.
 
 | 상태 | 행동 |
 | --- | --- |

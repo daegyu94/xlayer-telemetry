@@ -70,7 +70,20 @@ esac
 if [[ "$action" == up || "$action" == down ]]; then
   command -v flock >/dev/null || { echo 'flock (util-linux) is required for up/down' >&2; exit 2; }
   mkdir -p "$stack_dir"
-  exec 9>"$stack_dir/lifecycle.lock"
+  if [[ -n ${XLAYER_LIFECYCLE_LOCK_FD:-} ]]; then
+    inherited_lock=$XLAYER_LIFECYCLE_LOCK_FD
+    [[ "$inherited_lock" =~ ^[0-9]+$ && "$inherited_lock" -ge 3 &&
+       /proc/$$/fd/$inherited_lock -ef "$stack_dir/lifecycle.lock" ]] || {
+      echo 'Invalid inherited lifecycle lock' >&2; exit 2;
+    }
+    if [[ "$inherited_lock" != 9 ]]; then
+      exec 9>&"$inherited_lock"
+      exec {inherited_lock}>&-
+    fi
+    unset XLAYER_LIFECYCLE_LOCK_FD
+  else
+    exec 9>"$stack_dir/lifecycle.lock"
+  fi
   flock -n 9 || { echo 'Another monitoring up/down command is running' >&2; exit 1; }
 fi
 process_start_time() {
