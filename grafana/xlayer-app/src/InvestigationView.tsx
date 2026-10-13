@@ -1,4 +1,5 @@
 import { ScenarioExplorer } from './ScenarioExplorer';
+import { DashboardDirectory } from './DashboardDirectory';
 import { candidateMetric } from './run-health';
 import { ProgressCard, RunBrief, SlowSteps } from './RunBrief';
 import { ResourcePanel } from './ResourcePanel';
@@ -163,7 +164,7 @@ export function ShellView({ model }: { model: Shell }) {
               />
   );
   return (
-    <DashboardChrome synthetic={synthetic||!!context.variables.demo_generation?.[0]} page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
+    <DashboardChrome runName={ownerRun} synthetic={synthetic||!!context.variables.demo_generation?.[0]} page={state.page} context={context} nativePages={NATIVE_PAGES} onNavigate={route=>navigate(route as Page)} onTheme={()=>navigate(state.page,themeContext(context,theme.isDark?'light':'dark'))}
       contextBar={state.page==='demo'?null:<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
       {(catalogFailures.length>0||reload.error)&&<section className="xlt-notice" aria-label="Dashboard availability"><p role="alert">{reload.error?displayUiNote(reload.error):'일부 선택 Dashboard를 불러오지 못했습니다. 사용 가능한 Dashboard는 계속 사용할 수 있습니다.'}</p>{catalogFailures.map(([name,issue])=><p key={name}>{name}: {issueText(issue!)}</p>)}<button onClick={reload.retry} disabled={reload.refreshing}>Retry dashboards</button></section>}
       {state.nativeWorkspace&&<>
@@ -175,7 +176,8 @@ export function ShellView({ model }: { model: Shell }) {
         <footer>Correlation ≠ Attribution ≠ Causality. 상관관계만으로 소유 관계나 원인을 단정할 수 없습니다. No data는 측정값 0과 다릅니다.</footer>
       </>}
       {state.page==='demo'&&<ScenarioExplorer/>}
-      {!state.nativeWorkspace&&state.page!=='demo'&&<>
+      {state.page==='dashboards'&&<DashboardDirectory context={context} catalog={state.catalog} onNavigate={route=>navigate(route as Page)}/>}
+      {!state.nativeWorkspace&&state.page!=='demo'&&state.page!=='dashboards'&&<>
       <header className={`xlt-header ${state.page==='overview'?'xlt-run-heading':''}`}>
         <div>
           <h2>
@@ -214,6 +216,7 @@ export function ShellView({ model }: { model: Shell }) {
           </details>
         </div>
         <div className="xlt-header-actions">
+          {state.page==='infrastructure'&&<a href={appLink('start-here',context)} onClick={event=>{event.preventDefault();navigate('start-here');}}>Collection Status →</a>}
           {selected && (
             <button
               onClick={() => navigate("analyze", selectStep(selected, context))}

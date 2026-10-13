@@ -103,9 +103,9 @@ def enter_app(page, url, diagnostics):
     try:
         page.goto(url)
         page.get_by_role('button',name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=30000)
-        assert page.get_by_role('navigation', name='XLayer investigation').locator('a span').all_text_contents() == ['Run Explorer', 'Run Overview', 'Investigation', 'Infrastructure']
-        assert page.get_by_role('navigation', name='Canonical dashboards', include_hidden=True).locator('a span').all_text_contents() == ['Collection Status', 'Stage & Serving Signals', 'Bottleneck Summary', 'Compute & Network', 'Storage & I/O', 'Cross-Layer Signals']
-        assert page.locator('.xlt-library-nav > summary').inner_text() == 'Dashboards'
+        assert page.get_by_role('navigation', name='XLayer investigation').locator('a span').all_text_contents() == ['Runs', 'Infrastructure', 'Dashboards']
+        assert page.get_by_role('navigation', name='Run views').locator('a span').all_text_contents() == ['Overview', 'Investigation']
+        assert page.locator('.xlt-sidebar a[aria-current=page]').count() == 1
         assert page.locator('.xlt-header .xlt-eyebrow').count() == 0
     except Exception as error:
         try:
@@ -386,7 +386,9 @@ def multi_worker_journey(args):
             page.screenshot(path=str(args.output / f'{args.label}-{name}.png'), full_page=True)
         url = args.url + '/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         enter_app(page,url,entry_diagnostics)
-        from ci_demo import verify_run_sources
+        from ci_demo import verify_run_sources, verify_workspace_navigation
+        verify_workspace_navigation(page, args.url, parse_qs(urlparse(page.url).query), capture)
+        checks.append('Runs tabs, dashboard directory, single active area, Reload/Back/Forward context and Collection Status without topology')
         verify_run_sources(page, args.url, parse_qs(urlparse(page.url).query))
         checks.append('Landing subsystem panels and cluster node drill-down preserve investigation context and Back')
         page.goto(url)
@@ -455,7 +457,7 @@ def multi_worker_journey(args):
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
-        page.get_by_role('navigation', name='XLayer investigation').get_by_role('link', name='Run Overview', exact=True).click()
+        page.get_by_role('navigation', name='Run views').get_by_role('link', name='Overview', exact=True).click()
         page.wait_for_timeout(700)
         page.locator('.xlt-execution-details > summary').click()
         lifecycle = page.locator('details.xlt-completed-detail').filter(has=page.locator('summary').filter(has_text='Policy / KV Lifecycle'))
@@ -509,6 +511,9 @@ def main():
         checks.append('All Cluster/Node Loki workload lookup returns HTTP 200')
         url=args.url+'/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         enter_app(page,url,entry_diagnostics);page.wait_for_timeout(1500)
+        from ci_demo import verify_workspace_navigation
+        verify_workspace_navigation(page,args.url,parse_qs(urlparse(page.url).query),capture)
+        checks.append('Runs tabs, dashboard directory, single active area, Reload/Back/Forward context and Collection Status without topology')
         assert 'Synthetic demo' in page.locator('.xlt').inner_text()
         assert 'vs baseline' in page.locator('.xlt-primary-kpis').inner_text()
         assert page.locator('.xlt-primary-kpis .xlt-card').count()==4

@@ -1,8 +1,13 @@
 /** Product composition only; theme and primitives are defined separately. */
 export const productLayout = `
 /* Decision-first product hierarchy. Native panel styles and query units stay local. */
-.xlt-library-nav {margin:24px 0 0;color:var(--xl-secondary)}
-.xlt-library-nav>summary {padding:12px;cursor:pointer;font-size:13px}
+.xlt-run-navigation {display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:12px 24px;border-bottom:1px solid var(--xl-border);background:var(--xl-bg)}
+.xlt-run-navigation>strong {min-width:0;overflow-wrap:anywhere}
+.xlt-run-navigation .xlt-investigation-nav {margin-left:auto;padding:0;border:0}
+.xlt-dashboard-directory-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:16px}
+.xlt-dashboard-directory-grid>a {display:flex;flex-direction:column;text-decoration:none;color:var(--xl-text)}
+.xlt-dashboard-directory-grid>a:hover {background:var(--xl-soft)}
+.xlt-dashboard-directory-grid>a>span {margin-top:auto;color:var(--xl-primary)}
 .xlt-investigation-nav {display:flex;flex-wrap:wrap;gap:6px;padding:10px 24px;border-bottom:1px solid var(--xl-border);background:var(--xl-bg)}
 .xlt-investigation-nav a {display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--xl-muted);border-radius:5px}
 .xlt-investigation-nav a[aria-current=page] {background:var(--xl-selected);color:var(--xl-primary);font-weight:650}
@@ -83,7 +88,7 @@ export const productLayout = `
  .xlt-primary-kpis .xlt-kpi {padding:12px;gap:3px}
  .xlt-context-meta {gap:4px}
 }
-.xlt-demo-link {display:block;margin:18px 12px;color:var(--xl-secondary);font-size:13px}
+.xlt-demo-link {display:block;margin:24px 12px 0;padding-top:12px;border-top:1px solid var(--xl-border);color:var(--xl-secondary);font-size:var(--xl-supporting)}
 .xlt-demo-link small {display:block;color:var(--xl-muted)}
 .xlt-scenario-layout {display:grid;grid-template-columns:minmax(200px,.75fr) minmax(0,1.6fr);gap:22px;align-items:start}
 .xlt-scenario-picker {display:none}

@@ -23,6 +23,81 @@ def verify_loki_all_filters(page, origin):
     assert observed.value.status == 200, f'All-filter Loki workload lookup returned HTTP {observed.value.status}'
 
 
+def verify_workspace_navigation(page, origin, context, capture=None):
+    """Check workspace ownership and context through the actual Scenes router."""
+    from urllib.parse import urlencode, urlparse, parse_qs
+    from playwright.sync_api import expect
+    from design_validate import CONTEXT_KEYS, context_changes
+    base=origin+'/a/xlayer-telemetry-app/'
+    overview=base+'overview?'+urlencode(context,doseq=True)
+    page.goto(overview)
+    run_tabs=page.get_by_role('navigation',name='Run views')
+    expect(run_tabs).to_be_visible(timeout=30000)
+    before=parse_qs(urlparse(page.url).query)
+    preserved={key:before[key] for key in context if key in before and (key.startswith('var-') or key in {'from','to','timezone','theme'})}
+    sidebar=page.locator('.xlt-sidebar')
+
+    def check(area):
+        expect(sidebar.locator('a[aria-current=page]')).to_have_count(1)
+        expect(sidebar.get_by_role('link',name=area,exact=True)).to_have_attribute('aria-current','page')
+        current=parse_qs(urlparse(page.url).query)
+        changes=context_changes(preserved,current)
+        changes.update({key:{'before':value,'after':current.get(key)} for key,value in preserved.items() if key not in CONTEXT_KEYS and current.get(key)!=value})
+        assert not changes, changes
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+
+    assert sidebar.get_by_role('navigation').locator('a span').all_text_contents()==['Runs','Infrastructure','Dashboards']
+    check('Runs')
+    demo=sidebar.locator('.xlt-demo-link')
+    expect(demo).to_be_visible()
+    assert demo.evaluate('(element)=>element.getBoundingClientRect().bottom<innerHeight*.7'), 'Scenario Explorer is too far below the primary navigation'
+    assert run_tabs.locator('a span').all_text_contents()==['Overview','Investigation']
+    if capture:capture('workspace-overview')
+    run_tabs.get_by_role('link',name='Investigation',exact=True).click()
+    page.wait_for_url('**/investigate?**')
+    investigation=page.get_by_role('navigation',name='Investigation views')
+    expect(investigation).to_be_visible()
+    check('Runs')
+    investigation.get_by_role('link',name='Timeline',exact=True).click()
+    page.wait_for_url('**/timeline?**')
+    check('Runs')
+    page.go_back();page.wait_for_url('**/investigate?**');check('Runs')
+    page.go_forward();page.wait_for_url('**/timeline?**');check('Runs')
+    page.reload();expect(run_tabs).to_be_visible(timeout=30000);check('Runs')
+    page.locator('.xlt-run-navigation').get_by_role('link',name='← Runs',exact=True).click()
+    page.wait_for_url('**/runs?**');check('Runs')
+    sidebar.get_by_role('link',name='Dashboards',exact=True).click()
+    page.wait_for_url('**/dashboards?**')
+    directory=page.get_by_role('region',name='Dashboard library')
+    expect(directory.locator('a')).to_have_count(6)
+    check('Dashboards')
+    if capture:capture('workspace-dashboards')
+    for title in ['Collection Status','Stage & Serving Signals','Bottleneck Summary','Compute & Network','Storage & I/O','Cross-Layer Signals']:
+        directory.get_by_role('link').filter(has=page.get_by_role('heading',name=title,exact=True)).click()
+        expect(page.get_by_role('heading',name=title,exact=True).first).to_be_visible(timeout=30000)
+        check('Dashboards')
+        sidebar.get_by_role('link',name='Dashboards',exact=True).click()
+        page.wait_for_url('**/dashboards?**')
+    page.reload();expect(directory.locator('a')).to_have_count(6);check('Dashboards')
+
+    def no_topology(route):
+        queries=route.request.post_data_json.get('queries',[])
+        route.fulfill(json={'results':{query['refId']:{'status':200,'frames':[]} for query in queries}})
+    page.route('**/api/ds/query',no_topology)
+    try:
+        sidebar.get_by_role('link',name='Infrastructure',exact=True).click()
+        page.wait_for_url('**/infrastructure?**')
+        expect(page.get_by_text('이 시간 범위에 topology inventory가 없습니다.',exact=False)).to_be_visible(timeout=30000)
+        check('Infrastructure')
+        if capture:capture('workspace-infrastructure-no-topology')
+        page.get_by_role('link',name='Collection Status →',exact=True).click()
+        page.wait_for_url('**/start-here?**');check('Dashboards')
+    finally:
+        page.unroute('**/api/ds/query',no_topology)
+    page.goto(overview)
+    expect(run_tabs).to_be_visible(timeout=30000)
+
+
 def verify_run_sources(page, origin, context):
     """Landing panels and topology drill-down use native queries and URL context."""
     from urllib.parse import urlencode, urlparse, parse_qs

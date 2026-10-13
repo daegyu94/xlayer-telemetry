@@ -115,13 +115,13 @@ function makeScene(page: Page, catalog: Catalog) {
   });
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
-  const resourcePage=page==='demo'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
+  const resourcePage=page==='demo'||page==='dashboards'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
   if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false,false,false,source.title)),
     infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
     body.setState({mfu:query('overview',40),policy:query('overview',41),workload:query('overview',42)});
-  } else if(context.variables.record_id?.some(id=>id!=='.*'&&id!=='$__all'))body.setState({steps:query('overview',20),summary:query('summary',2)});
+  } else if(page!=='dashboards'&&context.variables.record_id?.some(id=>id!=='.*'&&id!=='$__all'))body.setState({steps:query('overview',20),summary:query('summary',2)});
   // SceneAppPage caches this scene across visits; provider availability must
   // not depend on the candidate selected at the first entry.
   if (!resourcePage)

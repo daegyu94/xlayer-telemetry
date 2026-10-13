@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readContext,writeContext,dashboardLink,investigationKey} from '../src/context';
-import {WORKSPACE_PAGES,themeContext,navigationLink} from '../src/navigation';
+import {WORKSPACE_PAGES,themeContext,navigationLink,runDetailRoute} from '../src/navigation';
 
 test('all workspace pivots retain execution, resource and time context in either theme',()=>{
  assert.equal(WORKSPACE_PAGES.find(page=>page.route==='demo')?.title,'Scenario Explorer');
@@ -11,6 +11,11 @@ test('all workspace pivots retain execution, resource and time context in either
   assert.equal(new URL(dashboardLink('storage',themed),'http://localhost').searchParams.get('theme'),theme);
   assert.equal(investigationKey(themed),investigationKey(context),'visual theme is not a new investigation');
  }
+});
+test('Overview and Investigation tabs group the existing Run URLs without replacing them',()=>{
+ assert.equal(runDetailRoute('overview'),'overview');
+ for(const route of ['investigate','analyze','timeline','deep-dive','logs'])assert.equal(runDetailRoute(route),'investigate');
+ for(const route of ['runs','infrastructure','dashboards','compute','demo'])assert.equal(runDetailRoute(route),undefined);
 });
 test('unknown theme is ignored without serializing arbitrary query state',()=>{
  const context=readContext('?theme=unsafe&token=secret');assert.equal(context.theme,undefined);assert.ok(!String(writeContext(context)).includes('unsafe'));assert.ok(!String(writeContext(context)).includes('secret'));

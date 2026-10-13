@@ -27,7 +27,7 @@ def validate(args):
                                 'var-run_id':'verl-agent-demo','var-node':'$__all','var-gpu':'$__all','var-device':'$__all'}
                         page.goto(origin+'/a/xlayer-telemetry-app/'+route+'?'+urlencode(params))
                         page.locator('.xlt').wait_for(timeout=30000)
-                        navigation=page.locator('.xlt').get_by_role('link',name='Run Overview',exact=True,include_hidden=True)
+                        navigation=page.get_by_role('navigation',name='XLayer investigation').get_by_role('link',name='Runs',exact=True,include_hidden=True)
                         navigation.wait_for(state='attached',timeout=30000)
                         assert navigation.count()==1
                         matrix=page.locator('.xlt-resource-panel').filter(has=page.get_by_role('heading',name=title,exact=True))

@@ -1,6 +1,6 @@
 # XLayer Grafana App · Scenes PoC
 
-기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. Runs · Run · Investigation · Systems의 네 기본 메뉴를 사용하며, 상세 native dashboard는 Metric library에 모았습니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
+기존 Grafana datasource와 canonical panel을 재사용하는 **XLayer Telemetry Dashboard** App Plugin입니다. 사이드바는 Runs · Infrastructure · Dashboards의 세 영역을 제공합니다. 선택한 Run은 화면 안의 Overview · Investigation 탭에서 조사하고, 상세 native dashboard는 Dashboards 목록에서 엽니다. 공통 상단 Run Context가 선택한 Run·Step·resource·시간을 유지하며 theme만 바꾸어도 investigation identity는 변하지 않습니다. 별도 backend나 standalone frontend는 없습니다.
 
 ## 화면 선택
 
@@ -9,7 +9,8 @@
 | 실행 찾기 | Runs inventory | Open Run / saved comparison |
 | 진행·성능 확인 | Run: progress·duration·worker throughput·recorded errors | 느린 observation → Investigation |
 | 병목 조사 | Investigation: candidate·evidence | Phases & workers / Timeline / Metrics / Logs & events |
-| 공유 자원 확인 | Systems | Resource 선택·Metric library |
+| 공유 자원 확인 | Infrastructure | Resource 선택·Collection Status |
+| 상세 지표 탐색 | Dashboards | 용도별 dashboard 선택 |
 | 재현·회귀 검사 | Scenario Explorer · Synthetic lab | 게시된 replay → Run / Investigation |
 
 상세한 [Workflow·KPI·아키텍처 선정 근거](../../docs/grafana-scenes-poc.md#사용자-workflow와-설계-근거)와 [Scenario Coverage Matrix](../../docs/demo.md#scenario-driven-live-demo)를 따릅니다. 기존 route와 native dashboard UID는 유지합니다.

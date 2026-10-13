@@ -10,6 +10,7 @@ export const WORKSPACE_PAGES = [
   {route:'infrastructure',title:'Infrastructure',description:'Configured Compute / Network / Storage 구성과 관측된 Collector coverage를 확인합니다.'},
   {route:'logs',title:'Logs & Events',description:'Node-local log와 명시적으로 기록된 event를 확인합니다. Application identity와 log directory identity는 구분합니다.'},
   {route:'runs',title:'Run Explorer',description:'연결된 Subsystem과 Cluster resource를 확인하고, 조사할 Run을 선택합니다.'},
+  {route:'dashboards',title:'Dashboards',description:'조사 목적에 맞는 상세 dashboard를 선택하세요.'},
 ] as const;
 
 export function themeContext(context:Context, theme:'light'|'dark'):Context {
@@ -19,8 +20,11 @@ export function navigationLink(route:string,context:Context):string {return appL
 
 /** Product destinations are separate from compatible detail routes. */
 export const PRIMARY_PAGES = [
- {route:'runs',title:'Run Explorer'}, {route:'overview',title:'Run Overview'},
- {route:'investigate',title:'Investigation'}, {route:'infrastructure',title:'Infrastructure'},
+ {route:'runs',title:'Runs'}, {route:'infrastructure',title:'Infrastructure'},
+ {route:'dashboards',title:'Dashboards'},
+] as const;
+export const RUN_DETAIL_PAGES = [
+ {route:'overview',title:'Overview'}, {route:'investigate',title:'Investigation'},
 ] as const;
 export const INVESTIGATION_PAGES = [
  {route:'investigate',title:'Candidates & evidence'}, {route:'analyze',title:'Phases & workers'},
@@ -28,6 +32,9 @@ export const INVESTIGATION_PAGES = [
 ] as const;
 export function primaryRoute(page:string):string {
  if(page==='demo')return 'demo';
- return INVESTIGATION_PAGES.some(p=>p.route===page)?'investigate':
-  PRIMARY_PAGES.some(p=>p.route===page)?page:'infrastructure';
+ if(page==='infrastructure')return 'infrastructure';
+ return page==='runs'||page==='overview'||INVESTIGATION_PAGES.some(p=>p.route===page)?'runs':'dashboards';
+}
+export function runDetailRoute(page:string):string|undefined {
+ return page==='overview'?'overview':INVESTIGATION_PAGES.some(p=>p.route===page)?'investigate':undefined;
 }

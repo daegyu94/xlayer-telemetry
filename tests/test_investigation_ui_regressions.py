@@ -21,8 +21,9 @@ def panels(items):
 def generated(tmp_path):
     subprocess.run([sys.executable, str(ROOT / 'scripts/provision_dashboards.py'),
                     '--enable-logs', '--output', str(tmp_path)], check=True)
+    # The synthetic scenario catalog is presentation metadata without queries or filters.
     return {d['uid']: d for p in tmp_path.glob('*.json')
-            if (d := json.loads(p.read_text()))}
+            if (d := json.loads(p.read_text())) and 'xlayerDemoScenarios' not in d}
 
 
 def test_timeline_aggregates_preserve_resource_identity(generated):

@@ -24,10 +24,12 @@ test('diagnosis status distinguishes error, missing, withheld and recorded candi
  assert.equal(investigationStatus([],'Done','aligned').label,'No diagnosis recorded');
  assert.equal(investigationStatus([{state:'supporting_signal'}],'Done','aligned').label,'Review recorded signals');
 });
-test('four primary decisions retain compatible detail routes under Investigation or Infrastructure',()=>{
- assert.equal(PRIMARY_PAGES.length,4);
- for(const route of ['analyze','timeline','deep-dive','logs'])assert.equal(primaryRoute(route),'investigate');
- for(const route of ['storage','compute','stage-correlation'])assert.equal(primaryRoute(route),'infrastructure');
+test('three workspace areas assign every compatible detail route to a single sidebar entry',()=>{
+ assert.deepEqual(PRIMARY_PAGES.map(page=>page.title),['Runs','Infrastructure','Dashboards']);
+ for(const route of ['runs','overview','investigate','analyze','timeline','deep-dive','logs'])assert.equal(primaryRoute(route),'runs');
+ for(const route of ['dashboards','start-here','storage','compute','stage-correlation','bottleneck-summary','signals'])assert.equal(primaryRoute(route),'dashboards');
+ assert.equal(primaryRoute('infrastructure'),'infrastructure');
+ assert.equal(primaryRoute('demo'),'demo');
 });
 
 test('a completed diagnosis without candidates differs from missing diagnosis or an optional source',()=>{
