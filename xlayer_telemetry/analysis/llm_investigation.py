@@ -10,6 +10,7 @@ import uuid
 from ..fileio import atomic_write_text, json_objects
 from ..measurements import finite_number
 from .clock_quality import project_clock_quality
+from .observation_contracts import EvidenceBundle
 
 
 def selected_report(root: Path, record_id: str) -> dict:
@@ -32,6 +33,7 @@ def project_result(root: Path, result: dict) -> Path:
     if result.get("record_type") != "llm_diagnosis" or result.get("semantic_review", {}).get("decision") not in {"accept", "revise"}:
         raise ValueError("only reviewed LLM diagnoses can be projected")
     packet = result["observation_packet"]
+    bundle = EvidenceBundle.decode(packet)
     context = result.get("context", {})
     window = result.get("current_interval") or {}
     start, end = finite_number(window.get("start")), finite_number(window.get("end"))
@@ -53,6 +55,8 @@ def project_result(root: Path, result: dict) -> Path:
              "primary_candidate": None, "strong_candidate_count": 0,
              "missing_sources": ", ".join(packet.get("missing_sources", []))}]
     observations = {item["id"]: item for item in packet["observations"]}
+    assessed = {item["id"]: (current, baseline) for item, current, baseline in
+                zip(packet["observations"], bundle.current, bundle.baseline)}
     for index, candidate in enumerate(answer["candidates"]):
         identifier = f"llm_hypothesis_{index+1}"
         rows.append({**common, "row_kind": "candidate", "candidate_id": identifier,
@@ -64,9 +68,11 @@ def project_result(root: Path, result: dict) -> Path:
         for kind, ids in (("supporting", candidate["evidence_ids"]), ("counter", candidate["counter_evidence_ids"])):
             for key in ids:
                 item = observations[key]
+                current, baseline = assessed[key]
                 rows.append({**common, "row_kind": "evidence", "candidate_id": identifier,
                              "observation_id": key, "evidence_type": kind, "signal": item["signal"],
-                             "current": item.get("current"), "baseline": item.get("baseline"),
+                             "current": current.value, "baseline": baseline.value,
+                             "observation_status": current.status,
                              "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
                              "comparison_status": item.get('comparison_status'),
                              "query": item.get("query"),
@@ -75,7 +81,7 @@ def project_result(root: Path, result: dict) -> Path:
                              "sampling_quality": json.dumps(item.get("sampling_quality"))})
         for name in candidate["missing_evidence"]:
             rows.append({**common, "row_kind": "evidence", "candidate_id": identifier,
-                         "evidence_type": "missing", "signal": name,
+                         "evidence_type": "missing", "signal": name, "observation_status": "unknown",
                          "observation_scope": candidate["observation_scope"]})
     path = root / "diagnostics/investigation" / f"llm-{invocation}.jsonl"
     atomic_write_text(path, "".join(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n" for row in rows))
