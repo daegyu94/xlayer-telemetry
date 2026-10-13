@@ -32,6 +32,8 @@ def verify_run_sources(page, origin, context):
     expect(cards).to_have_count(6)
     assert cards.locator('header h4').all_text_contents()==['VERL','GPU','vLLM','Ray','Mooncake','3FS']
     expect(page.get_by_role('heading',name='Cluster Infrastructure',exact=True)).to_be_visible()
+    expect(page.get_by_role('button',name='Expanded',exact=True)).to_have_count(0)
+    expect(page.get_by_role('button',name='Compact',exact=True)).to_have_count(0)
     expect(page.get_by_role('heading',name='Run inventory',exact=True)).to_be_visible()
     node=page.locator('[aria-label="Cluster infrastructure"] .xlt-cluster-map-node').first
     expect(node).to_be_visible(timeout=30000)
@@ -43,6 +45,14 @@ def verify_run_sources(page, origin, context):
     for key in ('var-run_id','var-source_node','from','to','timezone','theme'):
         if key in context:assert current.get(key)==context[key],key
     expect(page.locator('.xlt-resource-inspector-header h3')).to_contain_text('Selected Resource')
+    more=page.locator('button.xlt-cluster-map-more')
+    if more.count():
+        before=page.locator('.xlt-cluster-map-node').count()
+        more.first.click()
+        search=page.get_by_role('textbox',name='Search infrastructure inventory')
+        expect(search).to_be_focused()
+        expect(search).to_have_value('')
+        expect(page.locator('.xlt-cluster-map-node')).to_have_count(before)
     page.go_back()
     page.wait_for_url('**/runs?**')
     expect(page.locator('.xlt-run-source')).to_have_count(6)

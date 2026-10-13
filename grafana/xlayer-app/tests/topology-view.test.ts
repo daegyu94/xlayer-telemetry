@@ -42,3 +42,21 @@ test('landing preview keeps selectable resource identities without the detail in
  assert.match(markup,/data-state="unknown"/);
  assert.doesNotMatch(markup,/aria-label="Resource inspector"|Component Inventory|Cluster Resource Metrics/);
 });
+
+test('compact topology keeps hidden resources reachable through inventory or the full Systems page',()=>{
+ const nodes=Array.from({length:6},(_,i)=>({...node,key:`node-${i}`,id:`node-${i}`}));
+ for(const preview of [false,true]){
+  const markup=renderToStaticMarkup(React.createElement(InfrastructureView,{preview,data:model(nodes),context,onSelect:()=>{},metrics:()=>null,links:()=>null}));
+  assert.equal((markup.match(/class="xlt-cluster-map-node"/g)||[]).length,4);
+  assert.doesNotMatch(markup,/Topology density|>Expanded<\/button>|>Compact<\/button>/);
+  if(preview){
+   assert.match(markup,/Systems에서 찾기/);
+   const href=markup.match(/class="xlt-cluster-map-more" href="([^"]+)"/)![1].replace(/&amp;/g,'&');
+   const url=new URL(href,'http://local');assert.equal(url.pathname,'/a/xlayer-telemetry-app/infrastructure');
+   assert.equal(url.searchParams.get('var-run_id'),'run');assert.equal(url.searchParams.get('var-record_id'),'step');
+  }else{
+   assert.match(markup,/Inventory에서 찾기/);
+   assert.equal((markup.match(/Resource 선택 →/g)||[]).length,6);
+  }
+ }
+});

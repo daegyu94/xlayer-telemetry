@@ -903,7 +903,6 @@ Grafana's global navigation stays available. */
 & .xlt-cluster-map,& .xlt-resource-inspector{border:1px solid var(--xl-border);border-radius:10px;background:var(--xl-bg);margin:0;min-width:0}
 .xlt-cluster-map-header{padding:17px 19px 11px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .xlt-cluster-map-header h3{font-size:16px;margin:0 0 5px}.xlt-cluster-map-header p{font-size:12px;color:var(--xl-muted);margin:0}
-.xlt-cluster-map-mode{display:flex;gap:6px}.xlt-cluster-map-mode [aria-pressed=true]{color:var(--xl-primary);border-color:var(--xl-primary);background:var(--xl-selected)}
 .xlt-cluster-map-body{margin:0 18px 16px;padding:12px;border:1px solid var(--xl-border);border-radius:10px;background:var(--xl-soft);max-width:870px}
 .xlt-cluster-map-layer{border:1px solid var(--xl-border);border-radius:9px;padding:13px 14px}
 .xlt-cluster-map-layer[data-layer=compute]{background:var(--xl-soft);border-color:var(--xl-border)}
@@ -934,7 +933,7 @@ Grafana's global navigation stays available. */
 .xlt-cluster-map-storage-groups{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.65fr);gap:12px}
 .xlt-cluster-map-storage-groups h5,.xlt-cluster-map-unclassified h5,.xlt-cluster-map-selected-device h5{font-size:12px;color:var(--xl-secondary);margin:0 0 8px;font-weight:650}
 .xlt-cluster-map-unclassified,.xlt-cluster-map-selected-device{margin-top:14px}.xlt-cluster-map-empty{font-size:12px;color:var(--xl-muted)}
-& .xlt-cluster-map-more{margin-top:9px;background:transparent;border:1px dashed var(--xl-border);color:var(--xl-text);width:100%;white-space:normal}
+& .xlt-cluster-map-more{display:block;margin-top:9px;padding:8px;text-align:center;background:transparent;border:1px dashed var(--xl-border);color:var(--xl-text);width:100%;white-space:normal}
 .xlt-cluster-map-scope{font-size:12px;line-height:1.5;color:var(--xl-muted);margin:10px 0 0}
 .xlt-cluster-map-boundary{border-top:1px solid var(--xl-border);padding:12px 19px 15px;font-size:12px;color:var(--xl-muted);margin:0;line-height:1.55}
 .xlt-cluster-map-boundary strong{color:var(--xl-text)}
@@ -951,7 +950,7 @@ Grafana's global navigation stays available. */
 .xlt-infra-inventory-search input{display:block;width:min(100%,480px);padding:8px 10px;border:1px solid var(--xl-border);background:var(--xl-bg);color:var(--xl-text);border-radius:6px;margin-top:6px;font:inherit}
 @container(max-width:1060px){.xlt-infra-workspace{grid-template-columns:minmax(0,1fr) 290px}.xlt-cluster-map-storage-groups{grid-template-columns:1fr}.xlt-cluster-map-node{flex-wrap:wrap}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:43px}}
 @container(max-width:870px){.xlt-infra-workspace{grid-template-columns:1fr}.xlt-resource-inspector{position:static}.xlt-cluster-map-storage-groups{grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)}}
-@media(max-width:720px){.xlt-cluster-map-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.xlt-cluster-map-overview>div{padding:11px 12px}.xlt-cluster-map-overview strong{font-size:20px}.xlt-cluster-map-header{padding:13px}.xlt-cluster-map-body{margin:0 9px 12px;padding:9px}.xlt-cluster-map-layer{padding:10px}.xlt-cluster-map-storage-groups{grid-template-columns:1fr}.xlt-cluster-map-network-grid{grid-template-columns:1fr}.xlt-cluster-map-grouping span{margin-left:0}& .xlt-cluster-map-node{padding:8px;gap:7px;flex-wrap:wrap}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:0}.xlt-cluster-map-icon{width:28px;height:28px}.xlt-cluster-map-node-text strong{font-size:13px}.xlt-cluster-map-mode{width:100%}}
+@media(max-width:720px){.xlt-cluster-map-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.xlt-cluster-map-overview>div{padding:11px 12px}.xlt-cluster-map-overview strong{font-size:20px}.xlt-cluster-map-header{padding:13px}.xlt-cluster-map-body{margin:0 9px 12px;padding:9px}.xlt-cluster-map-layer{padding:10px}.xlt-cluster-map-storage-groups{grid-template-columns:1fr}.xlt-cluster-map-network-grid{grid-template-columns:1fr}.xlt-cluster-map-grouping span{margin-left:0}& .xlt-cluster-map-node{padding:8px;gap:7px;flex-wrap:wrap}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:0}.xlt-cluster-map-icon{width:28px;height:28px}.xlt-cluster-map-node-text strong{font-size:13px}}
 @media(max-width:390px){.xlt-cluster-map-compute-grid,.xlt-cluster-map-storage-grid{grid-template-columns:1fr}}
 /* Preserve a readable identity column instead of squeezing words between badges. */
 & button.xlt-cluster-map-node{flex-wrap:wrap}

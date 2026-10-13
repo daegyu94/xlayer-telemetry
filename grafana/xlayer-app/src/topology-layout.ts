@@ -25,14 +25,14 @@ function groupFor(node:Resource):TopologyGroupId {
 const compare=(a:Resource,b:Resource)=>a.cluster.localeCompare(b.cluster,'en',{numeric:true})||a.id.localeCompare(b.id,'en',{numeric:true})||a.key.localeCompare(b.key,'en');
 
 /** Read-only layout grouping. It creates neither physical hops nor resource ownership. */
-export function topologyLayout(nodes:Resource[],edges:TopologyRelationship[],options:{expanded?:boolean;selectedKey?:string}={}) {
+export function topologyLayout(nodes:Resource[],edges:TopologyRelationship[],options:{selectedKey?:string}={}) {
  const selectedResource=nodes.find(node=>node.key===options.selectedKey);
  const eligible=nodes.filter(node=>!isDevice(node));
  const bounded=eligible.slice(0,256);
  if(selectedResource&&!isDevice(selectedResource)&&!bounded.includes(selectedResource))bounded.splice(Math.max(0,bounded.length-1),1,selectedResource);
  const groups:TopologyGroup[]=GROUPS.map(spec=>{
   const all=bounded.filter(node=>groupFor(node)===spec.id).sort(compare);
-  let visible=options.expanded?[...all]:all.slice(0,spec.compact);
+  let visible=all.slice(0,spec.compact);
   if(selectedResource&&all.includes(selectedResource)&&!visible.includes(selectedResource))visible=[...visible.slice(0,-1),selectedResource].sort(compare);
   const total=eligible.filter(node=>groupFor(node)===spec.id).length;
   return {id:spec.id,title:spec.title,total,all,visible,hiddenCount:total-visible.length};
@@ -43,5 +43,5 @@ export function topologyLayout(nodes:Resource[],edges:TopologyRelationship[],opt
   return {edge,index,source,destination,state:source&&destination?edge.state:'unknown',reason:source&&destination?'Operator declaration · physical connectivity not observed':'Endpoint not present in returned inventory'};
  });
  return {groups,visibleNodes:groups.flatMap(group=>group.visible),selectedResource,selectedDevice:!!selectedResource&&isDevice(selectedResource),relations,
-  totalResources:eligible.length,inventoryLimited:eligible.length>256,expanded:!!options.expanded};
+  totalResources:eligible.length,inventoryLimited:eligible.length>256};
 }

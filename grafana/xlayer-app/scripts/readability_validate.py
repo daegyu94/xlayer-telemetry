@@ -275,18 +275,10 @@ def reference_theme(page):
 def topology_checks(page, context_reader=None, changes=None, redact=str):
     """Use explicit UI controls; do not infer topology health from scrape success."""
     result = {'scope': 'Configured relationships and declared component identity, not physical connectivity'}
-    compact = page.get_by_role('button', name='Compact', exact=True)
-    expanded = page.get_by_role('button', name='Expanded', exact=True)
     cards = page.locator('.xlt-cluster-map-node,.xlt-node-card,.xlt-topology-node')
-    if compact.count() and expanded.count():
-        compact.click()
-        result['compact_node_cards'] = cards.count()
-        expanded.click()
-        result['expanded_node_cards'] = cards.count()
-        compact.click()
-        result['mode_switch_available'] = True
-    else:
-        result['mode_switch_available'] = False
+    assert not page.get_by_role('button', name='Expanded', exact=True).count()
+    result['compact_node_cards'] = cards.count()
+    result['mode_switch_available'] = False
     ledger = page.locator('details').filter(has=page.locator('summary').filter(has_text=re.compile('Source Ledger|Relationship Ledger')))
     if ledger.count():
         ledger.first.locator('summary').click()

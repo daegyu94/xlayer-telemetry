@@ -24,13 +24,13 @@ function ResourceCard({node,selectedKey,onSelect}:{node:Resource;selectedKey?:st
 }
 export type InfrastructureModel=ReturnType<typeof infrastructure>;
 export function InfrastructureView({data,context,onSelect,metrics,links,unavailable,preview=false}:{data:InfrastructureModel;context:Context;onSelect:(node:Resource)=>void;metrics:(node:Resource)=>React.ReactNode;links:(node:Resource,c:Context)=>React.ReactNode;unavailable?:string;preview?:boolean}) {
- const id=useId().replace(/:/g,''),[expanded,setExpanded]=useState(false),[search,setSearch]=useState('');
- const model=topologyLayout(data.nodes,data.edges,{expanded,selectedKey:context.variables.infra_component?.[0]});
+ const id=useId().replace(/:/g,''),[search,setSearch]=useState('');
+ const model=topologyLayout(data.nodes,data.edges,{selectedKey:context.variables.infra_component?.[0]});
  const selected=model.selectedResource,group=(name:TopologyGroup['id'])=>model.groups.find(item=>item.id===name)!;
  const devices=selected?.resource?data.nodes.filter(node=>node.cluster===selected.cluster&&node.resource===selected.resource&&node.kind===selected.kind):[];
  const storageTotal=group('mds').total+group('ds').total+group('storageUnknown').total;
  const card=(node:Resource)=><ResourceCard key={node.key} node={node} selectedKey={selected?.key} onSelect={onSelect}/>;
- const showGroup=(value:TopologyGroup,gridClass='')=><><div className={`xlt-cluster-map-nodes ${gridClass}`}>{value.visible.map(card)}</div>{!value.total&&<p className="xlt-cluster-map-empty">반환된 inventory에 Configured 항목이 없습니다.</p>}{value.hiddenCount>0&&!expanded&&<button className="xlt-cluster-map-more" onClick={()=>setExpanded(true)}>+ {value.hiddenCount} 건 더 있음 · 전체 보기: {value.title}</button>}</>;
+ const showGroup=(value:TopologyGroup,gridClass='')=><><div className={`xlt-cluster-map-nodes ${gridClass}`}>{value.visible.map(card)}</div>{!value.total&&<p className="xlt-cluster-map-empty">반환된 inventory에 Configured 항목이 없습니다.</p>}{value.hiddenCount>0&&(preview?<a className="xlt-cluster-map-more" href={appLink('infrastructure',context)}>+ {value.hiddenCount} 건 더 있음 · Systems에서 찾기: {value.title}</a>:<button className="xlt-cluster-map-more" onClick={()=>{setSearch('');const inventory=document.getElementById(`${id}-inventory`);inventory?.setAttribute('open','');inventory?.querySelector('input')?.focus();}}>+ {value.hiddenCount} 건 더 있음 · Inventory에서 찾기: {value.title}</button>)}</>;
  const availability=data.nodes.filter(node=>!['gpu','nic','ssd'].includes(node.type));
  const available=availability.filter(node=>node.collector==='available').length,stale=availability.filter(node=>node.collector==='stale').length;
  const unknown=availability.filter(node=>node.collector==='unknown').length,down=availability.filter(node=>node.collector==='down').length,ambiguous=availability.filter(node=>node.collector==='ambiguous').length;
@@ -45,7 +45,7 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
   </div>}
   <div className="xlt-infra-workspace">
    <section className="xlt-cluster-map" aria-labelledby={`${id}-map-title`}>
-    <header className="xlt-cluster-map-header"><div><h3 id={`${id}-map-title`}>Configured Resource Topology</h3><p>Compact Layered Cluster Map · Configured inventory를 표시합니다. Physical connectivity는 확인되지 않았습니다.</p></div><div className="xlt-cluster-map-mode" role="group" aria-label="Topology density"><button aria-pressed={!expanded} onClick={()=>setExpanded(false)}>Compact</button><button aria-pressed={expanded} onClick={()=>setExpanded(true)}>Expanded</button></div></header>
+    <header className="xlt-cluster-map-header"><div><h3 id={`${id}-map-title`}>Configured Resource Topology</h3><p>Compact Layered Cluster Map · Configured inventory를 표시합니다. Physical connectivity는 확인되지 않았습니다.</p></div></header>
     {unavailable&&<p className="xlt-empty">{unavailable} · inventory를 확인할 수 없습니다. 정상 상태를 추정하지 않습니다.</p>}
     {!data.nodes.length?<p className="xlt-empty">이 시간 범위에 topology inventory가 없습니다. Configured topology를 연결한 뒤 resource를 선택하세요.</p>:<div className="xlt-cluster-map-body">
      <div className="xlt-cluster-map-layer" data-layer="compute"><div className="xlt-cluster-map-layer-header"><h4>Compute / GPU &amp; Rollout</h4><span>{group('compute').visible.length} / {group('compute').total} declarations</span></div>{showGroup(group('compute'),'xlt-cluster-map-compute-grid')}</div>
