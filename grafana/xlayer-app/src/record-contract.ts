@@ -45,11 +45,12 @@ function measured(value: unknown): boolean {
 
 export function observationStatus(row: RecordRow): ObservationStatus {
   const status = row.observation_status;
+  const value = row.current !== undefined ? row.current : row.value;
   if (status !== undefined) {
-    if (status === 'observed') return !measured(row.current ?? row.value) ? 'unknown' : 'observed';
+    if (status === 'observed') return !measured(value) ? 'unknown' : 'observed';
     return ['no_data', 'error', 'stale', 'unknown'].includes(String(status)) ? status as ObservationStatus : 'unknown';
   }
-  return measured(row.current ?? row.value) ? 'observed' : 'unknown';
+  return measured(value) ? 'observed' : 'unknown';
 }
 
 export function decodeObservationRow(row: RecordRow): ObservationRow | undefined {

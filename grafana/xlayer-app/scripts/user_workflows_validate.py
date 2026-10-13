@@ -128,9 +128,11 @@ def run(args):
                                         row=record.get('record',record)
                                         if isinstance(row,dict) and row.get('signal')=='rdma_transmit_wait_ticks_per_second':
                                             current=({'mean':0,'sample_count':0} if fault_status=='empty_statistics'
-                                                     else {'sample_count':2} if fault_status=='count_only' else 0)
-                                            status='observed' if fault_status in ('empty_statistics','count_only') else fault_status
+                                                     else {'sample_count':2} if fault_status=='count_only'
+                                                     else None if fault_status=='missing_current' else 0)
+                                            status='observed' if fault_status in ('empty_statistics','count_only','missing_current') else fault_status
                                             row.update(current=current,observation_status=status,future_contract_field={'synthetic':True})
+                                            if fault_status=='missing_current':row['value']=0
                                             column[index]=json.dumps(record)
                     route.fulfill(response=response,json=body)
                 page.route('**/api/ds/query*',rdma_fixture)
@@ -140,7 +142,7 @@ def run(args):
                 expect(card).to_contain_text('동일 entity의 Step evidence',timeout=30000)
                 expect(card.locator('.xlt-pressure-value strong')).to_contain_text('ticks/s')
                 card.screenshot(path=str(args.output/('pressure-card-'+theme+'.png')))
-                for status in ('error','stale','future_success','empty_statistics','count_only'):
+                for status in ('error','stale','future_success','empty_statistics','count_only','missing_current'):
                     fault_status=status
                     page.reload()
                     expect(card.locator('.xlt-pressure-value strong')).to_have_text('0 ticks/s',timeout=30000)

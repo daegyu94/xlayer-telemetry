@@ -171,3 +171,14 @@ test('statistical sample counts describe exposure and never invent an observatio
   assert.equal(decodeRecord({current,observation_status:'observed'})?.observation_status,'observed');
  }
 });
+
+test('explicitly missing current stays missing even when a legacy value or baseline is zero',()=>{
+ for(const fields of [{current:null,value:0},{current:null,baseline:0},{current:null,value:0,baseline:0}]){
+  assert.equal(observationStatus(fields),'unknown');
+  assert.equal(decodeRecord({...fields,observation_status:'observed'})?.observation_status,'unknown');
+ }
+ for(const fields of [{value:0},{current:undefined,value:0},{current:0,baseline:null}]){
+  assert.equal(observationStatus(fields),'observed');
+  assert.equal(decodeRecord({...fields,observation_status:'observed'})?.observation_status,'observed');
+ }
+});
