@@ -6,7 +6,6 @@ tests/test_async_sdk_io.py:4:21: F401 `pathlib.Path` imported but unused
 tests/test_cli.py:17:48: F401 `xlayer_telemetry.operations.config.ConfigError` imported but unused
 tests/test_cli_extensions.py:42:38: F541 f-string without any placeholders
 tests/test_collector_outcomes.py:12:37: F401 `xlayer_telemetry.events.EventRecorder` imported but unused
-tests/test_demo_control.py:84:22: F401 `sys` imported but unused
 tests/test_demo_journeys.py:3:21: F401 `pathlib.Path` imported but unused
 tests/test_example_failure_cleanup.py:69:5: F841 Local variable `provision` is assigned to but never used
 tests/test_example_safety.py:3:8: F401 `json` imported but unused

@@ -2,6 +2,35 @@ import pytest
 from xlayer_telemetry.demos.control import ScenarioControl
 
 
+def test_live_demo_scenario_lab_reuses_controller_without_starting_legacy_backend(tmp_path,monkeypatch):
+    import importlib,sys
+    from pathlib import Path
+    scripts=Path(__file__).parents[1]/'grafana/xlayer-app/scripts'
+    monkeypatch.syspath_prepend(str(scripts))
+    live=importlib.import_module('live_demo');lab=importlib.import_module('scenario_lab')
+    output=tmp_path/'new lab';tools=tmp_path/'existing tools';calls=[]
+    monkeypatch.setattr(lab,'main',lambda argv:calls.append(argv))
+    monkeypatch.setattr(sys,'argv',['live_demo','--scenario-lab','--tools',str(tools),'--output',str(output),'--grafana-port','23491'])
+    live.main()
+    assert calls==[['--tools',str(tools),'--output',str(output),'--grafana-port','23491']]
+    assert not output.exists()
+
+
+@pytest.mark.parametrize('extra',[['--scenario','slow-rollout'],['--app-package','app.zip'],['--backend-only']])
+def test_scenario_lab_rejects_incompatible_startup_before_creating_state(tmp_path,monkeypatch,extra):
+    import importlib,sys
+    from pathlib import Path
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1]/'grafana/xlayer-app/scripts'))
+    live=importlib.import_module('live_demo');lab=importlib.import_module('scenario_lab')
+    def unexpected(*args,**kwargs):raise AssertionError('Incompatible options started services')
+    monkeypatch.setattr(lab,'main',unexpected)
+    output=tmp_path/'state'
+    monkeypatch.setattr(sys,'argv',['live_demo','--scenario-lab','--tools',str(tmp_path),'--output',str(output),*extra])
+    with pytest.raises(SystemExit) as error:live.main()
+    assert error.value.code==2
+    assert not output.exists()
+
+
 def test_reset_revokes_backend_and_observations_before_next_process_starts():
     control=ScenarioControl()
     first=control.command('replay','normal',0)
@@ -81,7 +110,7 @@ def test_failed_stage_is_preserved_and_failed_backend_is_revoked():
 
 @pytest.mark.parametrize("exhaust_retries", [False, True])
 def test_coordinator_survives_partial_connection_and_replay_isolation(tmp_path,monkeypatch,exhaust_retries):
-    import importlib,sys,json,threading,time
+    import importlib,json,threading,time
     from pathlib import Path
     from argparse import Namespace
     from xlayer_telemetry.fileio import atomic_write_text

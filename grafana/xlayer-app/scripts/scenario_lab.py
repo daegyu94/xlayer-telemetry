@@ -18,6 +18,7 @@ ROOT=Path(__file__).resolve().parents[3]
 SCRIPTS=Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT))
 from xlayer_telemetry.demos.control import ScenarioControl,control_server
+from xlayer_telemetry.demos.journeys import scenario_definition
 from xlayer_telemetry.fileio import atomic_write_text
 from xlayer_telemetry.grafana_release import DEFAULT_GRAFANA_VERSION,grafana_home,default_toggles,compatibility_config
 from live_demo import validate_demo_app,wait_for_service
@@ -76,11 +77,11 @@ def coordinate(control,args,stopping):
         if log is not None:log.close()
 
 
-def main():
+def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tools',required=True,type=Path);parser.add_argument('--output',required=True,type=Path)
     parser.add_argument('--grafana-port',type=int,default=23400)
-    args=parser.parse_args();args.output=args.output.resolve();args.tools=args.tools.resolve()
+    args=parser.parse_args(argv);args.output=args.output.resolve();args.tools=args.tools.resolve()
     if not 1<=args.grafana_port<=65535:parser.error('Invalid Grafana port')
     validate_demo_app(None,ROOT/'grafana/xlayer-app/dist')
     args.output.mkdir(parents=True,exist_ok=False)

@@ -172,13 +172,15 @@ Live exporter는 VERL-shaped application·vLLM·Ray·GPU·host CPU/memory·netwo
 [App build와 binary 준비](grafana-scenes-poc.md#gpu-없이-확인) 후 Scenario Lab을 한 번 실행합니다. 사용자는 아래 Grafana URL 하나만 사용하며 시나리오별 port를 관리하지 않습니다.
 
 ```bash
-python grafana/xlayer-app/scripts/scenario_lab.py \
+python grafana/xlayer-app/scripts/live_demo.py --scenario-lab \
   --tools /path/to/existing-demo-tools \
   --output /tmp/xlayer-scenario-lab \
   --grafana-port 23400
 ```
 
 **정상 결과:** `SCENARIO LAB http://127.0.0.1:23400/a/xlayer-telemetry-app/demo`가 출력됩니다. Explorer에서 시나리오 목적·기대 결과·Workflow를 읽고 **Run scenario**를 누릅니다. 실제 scrape와 SDK pair가 완료되면 **Open Run / Investigate**로 같은 Run·observer·record·window를 이어서 조사합니다.
+
+`--scenario-lab`은 Grafana와 시나리오 제어를 같은 launcher에서 함께 실행하며 systemd 서비스로 등록하지 않습니다. 터미널을 유지하고 `Ctrl+C`로 종료하면 이 Lab이 만든 Grafana와 replay backend도 함께 정리됩니다. `--output`은 매번 새 directory를 사용하며, 기존 `scenario_lab.py` 직접 실행도 사용할 수 있습니다. 이 옵션에서는 시나리오를 Explorer에서 선택하므로 `--scenario`, `--multi-job`, `--multi-worker`, `--storage-series`, `--cycles`, `--app-package`를 함께 지정하지 않습니다.
 
 | 동작 | 상태 전환·보존 범위 |
 | --- | --- |

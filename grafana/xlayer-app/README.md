@@ -77,7 +77,7 @@ Reported stage의 `verl_stage` 등 metric dimension은 snapshot age의 ownership
 
 ## Live demo
 
-전체 제품 검증의 기본은 **단일 Grafana Scenario Lab**입니다. `python grafana/xlayer-app/scripts/scenario_lab.py --tools /path/to/tools --output /tmp/xlayer-lab --grafana-port 23400`으로 시작하고 Scenario Explorer에서 Run / Stop / Reset / Replay를 사용합니다. [시나리오별 기대 결과·검증 단계·격리 계약](../../docs/demo.md#scenario-driven-live-demo)을 확인하세요. 아래 `live_demo.py`는 기존 개별 producer 개발 경로입니다.
+전체 제품 검증의 기본은 **단일 Grafana Scenario Lab**입니다. `python grafana/xlayer-app/scripts/live_demo.py --scenario-lab --tools /path/to/tools --output /tmp/xlayer-lab --grafana-port 23400`으로 Grafana와 제어를 함께 시작하고 Scenario Explorer에서 Run / Stop / Reset / Replay를 사용합니다. 서비스 등록 없이 터미널에서 실행하며 `Ctrl+C`로 종료합니다. [시나리오별 기대 결과·검증 단계·격리 계약](../../docs/demo.md#scenario-driven-live-demo)을 확인하세요. 아래 `live_demo.py`는 기존 개별 producer 개발 경로입니다.
 
 기존 stack과 별개인 loopback-only Grafana·Prometheus·Loki를 실행합니다. 이미 설치한 binary를 재사용하며 container나 사용자의 monitoring config를 수정하지 않습니다.
 

@@ -98,6 +98,8 @@ def main():
     parser.add_argument('--grafana-version',choices=(DEFAULT_GRAFANA_VERSION,),default=DEFAULT_GRAFANA_VERSION)
     parser.add_argument('--output', type=Path, help='New, disposable state directory')
     parser.add_argument('--grafana-port', type=int, default=23400)
+    parser.add_argument('--scenario-lab', action='store_true',
+                        help='Start Grafana with the Scenario Explorer controller; choose and run scenarios in the UI')
     parser.add_argument('--scenario', choices=(*SCENARIO_IDS, 'alternating'), default='alternating',
                         help='Explicit synthetic comparison: real scrapes precede completed SDK spans/report')
     modes = parser.add_mutually_exclusive_group()
@@ -116,6 +118,11 @@ def main():
     if args.run_prefix and not re.fullmatch(r'g[0-9]+-',args.run_prefix): parser.error('invalid isolated demo generation')
     single_run=args.run_prefix+'verl-agent-demo'
     if args.tools is None or args.output is None: parser.error('--tools and --output are required to start a demo')
+    if args.scenario_lab:
+        if args.scenario != 'alternating' or args.multi_job or args.multi_worker or args.storage_series or args.app_package or args.cycles or args.backend_only or args.run_prefix:
+            parser.error('--scenario-lab uses a checkout App build and scenario selection in Grafana; omit per-scenario options')
+        from scenario_lab import main as launch_lab
+        return launch_lab(['--tools',str(args.tools),'--output',str(args.output),'--grafana-port',str(args.grafana_port)])
     if not 0<=args.cycles<=20: parser.error('--cycles must be 0..20')
     if args.scenario in SCENARIO_IDS and scenario_definition(args.scenario)['mode']=='multi':
         if args.multi_worker: parser.error('multi-job scenarios cannot use --multi-worker')
