@@ -5,18 +5,18 @@
 
 - Source 기준: `13eb1a04d75c753d95fa399191a3f0c6d0f2585d` (WP-00 시작 시 로컬 `main`)
 - 원문 진단 기준: `6ddce33a763d3de30e306980860d33aa88ab32f1`
-- 현재 작업: WP-03 통합 완료; WP-07·WP-01 보완 검토, WP-08 병렬 배정 준비
-- 준비된 WP 우선순위: WP-07 shutdown → WP-01 counter reset → WP-08 사용자 evidence 연결; 상태표와 main 통합은 직렬
-- 최근 검증: WP-02 clean/오염 환경 각각 CPU 2117 passed·38 skipped; JUnit의 2155개 test 상태 동일, 혼합 CI helper 53 passed
+- 현재 작업: WP-01·03·07 로컬 main 통합 완료; WP-08 사용자 evidence 연결 진행 중
+- 준비된 WP 우선순위: WP-08 사용자 evidence 연결 → Phase 0 관련 gate·전체 CPU 1회 → WP-05
+- 최근 검증: WP-07 최신 main 통합 후 19 passed, WP-01 최신 main 통합 후 35 passed; Phase 0 전체 CPU는 WP-08 통합 뒤 한 번 실행
 
 | WP | 작업 | 상태 | 기준 SHA | 결과 SHA | 검증 | 병합 근거 | 장애물·후속 |
 |---|---|---|---|---|---|---|---|
 | WP-00 | 실행 계획 반입과 기준점 | done | `13eb1a0` | `b0351124495c3e8541ce6537987c0de9b57b9872` | 문서 test 10 passed, docs build 성공 | 로컬 main에 `b035112` fast-forward 병합 | — |
 | WP-04 | 재현 가능한 개발 의존성 | done | `46b8290` | `302aa2fb0d3f2ae912eda45e2a4e8651c3728d07` | 새 venv 설치, 설치·script 14 passed, CPU 2116 passed/38 skipped, CI helper 52 passed, 문서 10 passed/build 성공 | 로컬 main에 `302aa2f` fast-forward 병합 | 38 skip의 실제 backend 검증은 후속 gate에서 확인 |
 | WP-02 | Test 환경 격리 | done | `9995ccb` | `aec2ad667e3cf3f3839fd2b12bb16e2d7931de84` | clean/오염 CPU 각각 2117 passed·38 skipped, test별 상태 2155개 동일, CI helper 53 passed, compileall·shell 통과 | 로컬 main에 구현 `aec2ad6`·병렬 계획 `19f2add` fast-forward 병합 | backend-enabled 실검증은 후속 gate |
-| WP-01 | Sandbox first-seen device 계약 확정 | in-progress | — | — | — | — | `redesign/wp-01-sandbox-first-seen`; 현재 구현 계약 확인 |
+| WP-01 | Sandbox first-seen device 계약 확정 | done | `efde642` | `db2a3893be6f849b01346c1239f553b6a5dc39ca` | first-seen·unreadable·all/partial reset 통합 후 35 passed, compileall·diff 통과 | 최신 main merge commit 후 `4bf771f` fast-forward | 실제 cgroup device 검증은 별도 Pending |
 | WP-03 | HTTP proxy 정책 정합 | done | `efde642` | `d933cc16c59b55e21528cd6a1716c7c1f7d9bd57` | 관련 HTTP·redirect·deadline 127 passed, compileall·diff 통과 | 로컬 main에 `d933cc1` fast-forward 병합 | — |
-| WP-07 | Bounded shutdown과 ownership | in-progress | — | — | — | — | `redesign/wp-07-bounded-shutdown`; 종료 안전성 우선 |
+| WP-07 | Bounded shutdown과 ownership | done | `efde642` | `41115699a26206cb5f35110992234d0af14fcfaf` | ownership·signal·late child 통합 후 19 passed, shell·diff 통과 | 최신 main merge commit 후 `80e98e8` fast-forward | 실제 1,800-process host 미검증 |
 | WP-08 | Pressure card의 evidence·단위 연결 | in-progress | — | — | — | — | `redesign/wp-08-pressure-evidence`; 사용자 evidence 연결 |
 | WP-05 | 단일 gate와 hooks | todo | — | — | — | — | — |
 | WP-06 | CI gate 연결 | todo | — | — | — | — | — |
