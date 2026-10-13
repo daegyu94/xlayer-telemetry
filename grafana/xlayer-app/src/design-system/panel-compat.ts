@@ -888,7 +888,7 @@ Grafana's global navigation stays available. */
 & .xlt-cluster-map,& .xlt-resource-inspector{border:1px solid var(--xl-border);border-radius:10px;background:var(--xl-bg);margin:0;min-width:0}
 .xlt-cluster-map-header{padding:17px 19px 11px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .xlt-cluster-map-header h3{font-size:16px;margin:0 0 5px}.xlt-cluster-map-header p{font-size:12px;color:var(--xl-muted);margin:0}
-.xlt-cluster-map-body{margin:0 18px 16px;padding:12px;border:1px solid var(--xl-border);border-radius:10px;background:var(--xl-soft);max-width:870px}
+.xlt-cluster-map-body{margin:0 18px 16px;padding:12px;border:1px solid var(--xl-border);border-radius:10px;background:var(--xl-soft)}
 .xlt-cluster-map-layer{border:1px solid var(--xl-border);border-radius:9px;padding:13px 14px}
 .xlt-cluster-map-layer[data-layer=compute]{background:var(--xl-soft);border-color:var(--xl-border)}
 .xlt-cluster-map-layer[data-layer=network]{background:var(--xl-soft);border-color:var(--xl-border)}
@@ -946,6 +946,7 @@ Grafana's global navigation stays available. */
 .xlt-cluster-map-node-text{flex:1 1 110px;min-width:110px}
 .xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:43px}
 @container(max-width:1150px){.xlt-infra-workspace{grid-template-columns:1fr}.xlt-resource-inspector{position:static}.xlt-cluster-map-storage-groups{grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)}}
+.xlt-infra-workspace.xlt-infra-preview{grid-template-columns:minmax(0,1fr)}
 @media(max-width:520px){.xlt-cluster-map-compute-grid,.xlt-cluster-map-storage-grid{grid-template-columns:1fr}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:35px}}
 & .xlt-cluster-map-header h3{font-weight:700}& .xlt-resource-inspector-header h3{font-weight:650}
 .xlt-run-search{align-items:end;gap:12px;flex-wrap:wrap}.xlt-run-search label{display:flex;flex-direction:column;gap:6px}.xlt-run-search input:not([type=checkbox]){min-height:34px;min-width:200px;background:var(--xl-bg);color:var(--xl-text);border:1px solid var(--xl-border);border-radius:6px;padding:6px 9px}.xlt-run-explorer section+section{margin-top:18px}.xlt-run-explorer input[type=checkbox]{width:16px;height:16px}.xlt-run-explorer small{display:block}.xlt-run-explorer details a{overflow-wrap:anywhere}

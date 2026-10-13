@@ -116,6 +116,19 @@ def verify_run_sources(page, origin, context):
     expect(page.get_by_role('heading',name='Run inventory',exact=True)).to_be_visible()
     node=page.locator('[aria-label="Cluster infrastructure"] .xlt-cluster-map-node').first
     expect(node).to_be_visible(timeout=30000)
+    viewport=page.viewport_size
+    try:
+        for width in (1440,1920):
+            page.set_viewport_size({'width':width,'height':1000})
+            geometry=page.locator('.xlt-infra-preview').evaluate('''el => ({
+                workspace: el.clientWidth,
+                map: el.querySelector('.xlt-cluster-map').getBoundingClientRect().width,
+                body: el.querySelector('.xlt-cluster-map-body').getBoundingClientRect().width
+            })''')
+            assert abs(geometry['workspace']-geometry['map'])<=2,geometry
+            assert 30<=geometry['map']-geometry['body']<=45,geometry
+    finally:
+        if viewport:page.set_viewport_size(viewport)
     identity=node.get_attribute('data-resource-key')
     node.click()
     page.wait_for_url('**/infrastructure?**')

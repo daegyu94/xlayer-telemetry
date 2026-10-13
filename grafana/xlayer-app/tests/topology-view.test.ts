@@ -41,6 +41,7 @@ test('landing preview keeps selectable resource identities without the detail in
  assert.equal(calls,0);
  assert.match(markup,/aria-label="Inspect gpu-node"/);
  assert.match(markup,/data-state="unknown"/);
+ assert.match(markup,/class="xlt-infra-workspace xlt-infra-preview"/);
  assert.doesNotMatch(markup,/aria-label="Resource inspector"|Component Inventory|Cluster Resource Metrics/);
 });
 

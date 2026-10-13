@@ -53,7 +53,7 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
    <div><small>Storage</small><strong>{group('mds').total} MDS · {group('ds').total} DS</strong><span>{group('storageUnknown').total} 건은 Storage role이 확인되지 않았습니다.</span></div>
    <div><small>Collector evidence</small><strong>{available} available · {stale} stale</strong><span>{unknown} unknown · {down} down · {ambiguous} ambiguous · 장비 정상 상태를 뜻하지 않습니다.</span></div>
   </div>}
-  <div className="xlt-infra-workspace">
+  <div className={`xlt-infra-workspace${preview?' xlt-infra-preview':''}`}>
    <section className="xlt-cluster-map" aria-labelledby={`${id}-map-title`}>
     <header className="xlt-cluster-map-header"><div><h3 id={`${id}-map-title`}>Configured Resource Topology</h3><p>Compact Layered Cluster Map · Configured inventory를 표시합니다. Physical connectivity는 확인되지 않았습니다.</p></div></header>
     {unavailable&&<p className="xlt-empty">{unavailable} · inventory를 확인할 수 없습니다. 정상 상태를 추정하지 않습니다.</p>}

@@ -2,6 +2,7 @@ import {registerResourcePanel} from "./ResourcePanel";
 import { PHASE_COLORS } from "./matrix-presentation";
 import { map } from "rxjs";
 import { timelineLanes } from "./mockup";
+import { compactRunLegends } from './run-legends';
 import { getBackendSrv } from "@grafana/runtime";
 import {
   SceneQueryRunner,
@@ -91,7 +92,7 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
     minInterval: "2s",
   });
 }
-export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile, compactIdentity=false): VizPanel {
+export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile, compactIdentity=false, compactLegends=false): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
   const data = panel.type==='text'&&!panel.targets?.length?new SceneDataNode({}):shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
@@ -105,10 +106,10 @@ export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:Resou
     description: panel.description,
     options: panel.type === "timeseries" ? {...panel.options,legend:{...panel.options?.legend,displayMode:"list",placement:"bottom",calcs:[]}} : panel.options || {},
     fieldConfig: panel.type==="state-timeline"?{...panel.fieldConfig,defaults:{...panel.fieldConfig?.defaults,mappings:Object.entries(PHASE_COLORS).map(([phase,color])=>({type:"regex",options:{pattern:`^${phase}\\b.*`,result:{color}}}))},overrides:panel.fieldConfig?.overrides||[]}:fields || { defaults: {}, overrides: [] },
-    $data: panel.transformations?.length
+    $data: panel.transformations?.length||compactLegends
       ? new SceneDataTransformer({
           $data: data,
-          transformations: [...panel.transformations,...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
+          transformations: [...(panel.transformations||[]),...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : []),...(compactLegends?[((_context:any)=>map((frames:any)=>compactRunLegends(frames,panel.targets||[])))]:[])],
         })
       : data,
   }),panel,matrixProfile,compactIdentity);
