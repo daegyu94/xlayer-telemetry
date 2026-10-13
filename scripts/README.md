@@ -47,6 +47,7 @@ Lifecycle은 같은 `flock`·PID 시작 시각·boot ID 검사와 process cleanu
 `setup.sh`·`check_tools.sh`는 script 위치를 기준으로 checkout을 찾으므로 다른 directory에서도 절대 경로로 호출할 수 있습니다.
 `bash scripts/check.sh default tests/test_cli.py`처럼 관련 test를 지정합니다.
 생략하면 변경한 `tests/test_*.py`를 선택하며, 제품 변경에 대응 test가 없으면 명시적인 test 경로 또는 `CHECK_TESTS`가 필요합니다.
+변경 파일이 없는 checkout에서는 metric schema와 artifact reader 계약의 작은 smoke set을 실행합니다.
 `full`은 전체 CPU·docs·실제 PromQL/ClickHouse·격리 Grafana browser를 실행하며 `PROMTOOL`, `XLAYER_TEST_CLICKHOUSE_CONTAINER`, `XLAYER_CHECK_TOOLS`, 새 `XLAYER_CHECK_OUTPUT` 경로가 필요합니다.
 기존 Ruff 위반은 `scripts/ruff-legacy.txt`에 위치별로 고정돼 있으며 해당 코드를 수정하면 해결한 항목을 목록에서 제거합니다.
 SDK 설치는 해당 checkout의 telemetry `.venv`에만 적용되며 VERL Python 환경은 변경하지 않습니다.

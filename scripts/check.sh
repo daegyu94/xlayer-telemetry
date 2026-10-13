@@ -29,7 +29,7 @@ if (( ${#tests[@]} == 0 )); then
           exit 2 ;;
       esac
     done
-    tests=(tests/test_check_gate.py)
+    tests=(tests/test_schema.py tests/test_artifact_reader_contracts.py)
   fi
 fi
 for path in "${tests[@]}"; do
