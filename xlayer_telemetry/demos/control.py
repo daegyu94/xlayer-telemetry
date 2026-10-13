@@ -13,6 +13,7 @@ import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .journeys import SCENARIOS, SCENARIO_IDS, BOUNDARY_TESTS
+from .._http_proxy import urlopen
 
 
 class ScenarioControl:
@@ -122,7 +123,7 @@ def control_server(control:ScenarioControl,port=0):
                 request=urllib.request.Request(target+self.path[len(prefix):],data=body,method=self.command,
                     headers={'Content-Type':self.headers.get('Content-Type','application/json')})
                 try:
-                    with urllib.request.urlopen(request,timeout=20) as response:
+                    with urlopen(request,timeout=20) as response:
                         result=response.read(16777217);status=response.status;content_type=response.headers.get('Content-Type','application/json')
                 except urllib.error.HTTPError as response:
                     result=response.read(1048576);status=response.code;content_type='application/json'

@@ -17,9 +17,9 @@ import statistics
 import time
 from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import urlencode
-from urllib.request import Request, build_opener
+from urllib.request import Request
 
-from .._http_redirects import _CredentialSafeRedirectHandler
+from .._http_proxy import urlopen
 
 from .diagnosis_analysis import (
     VLLM_OBSERVATIONS, compare_signals, evaluate_rules, finite,
@@ -47,9 +47,6 @@ from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, validate_series_settings
 from .storage_overview import storage_overview
 from .robust_differential import duration_quality, assess as robust_assess, settings as robust_settings, apply_limits as apply_robust_limits
-
-# Keep the existing local opener hook while bounding credential redirects.
-urlopen = build_opener(_CredentialSafeRedirectHandler()).open
 
 DEFAULT_QUERIES = {
     "gpu_utilization_percent": 'telemetry_gpu_utilization_percent{nodename="{compute_node}"}',

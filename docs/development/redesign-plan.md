@@ -814,11 +814,11 @@ Cap(strength 상한) 규칙은 한 곳에 모은다(`pipeline/cap.py`).
 
 | 프로파일 | 필수 범위 | 용도 |
 |---|---|---|
-| fast | 도입된 unit·contract·golden·property, 최소 ruff, 도입된 mypy 대상, 생성물 drift | 변경 중·commit 전 |
-| default | fast, 해당 WP의 관련 regression·계약 검사, compileall, shell 문법, diff check, 영향받은 App의 npm test/typecheck/build | 각 WP 검증·통합 |
+| fast | 변경 영향이 있는 unit·contract·golden·property, 해당 ruff/mypy 대상과 생성물 drift | 변경 중·commit 전 |
+| default | fast, 해당 WP의 관련 regression·계약 검사, 영향받은 Python/shell 문법과 diff check, 영향받은 App의 npm test/typecheck/build | 각 WP 검증·통합 |
 | full | default, 전체 CPU suite, 실제 PromQL·격리 ClickHouse, 실제 Grafana/browser journey, docs build·link/diagram 검사 | 최종 완료 및 해당 경계의 필수 검증 |
 
-각 WP는 관련 test를 실행한다. Status/Issue·identity·time·registry·schema·backend interface·config 기본값·CLI·artifact처럼 공유 계약을 바꾸거나 Phase의 마지막 WP를 통합할 때는 최종 통합 tree에서 전체 CPU suite를 실행한다. WP-02의 깨끗한 환경/오염된 환경 전체 suite와 test별 실패·skip 집합 비교 결과는 유지한다. 변경하지 않은 frontend의 같은 SHA 검사 결과는 WP 중간에 재사용할 수 있으나 최종 full은 최종 tree에서 실행한다. `pytest -n auto`는 test의 port·filesystem·shared backend 독립성이 입증된 뒤에만 켜며 직렬 실행과 결과를 대조한다. 시간을 맞추려고 검사를 삭제하지 않는다. 실제 GPU·VERL·물리 multi-node 검사는 full에 포함하지 않고 G.4의 실환경 표로 관리한다.
+각 WP는 실제 변경 경로와 실패 경계를 확인하는 관련 test만 실행한다. Status/Issue·identity·time·registry·schema·backend interface·config 기본값·CLI·artifact처럼 공유 계약을 바꾸거나 Phase 경계·최종 완료에 도달하면 통합 tree에서 전체 CPU suite를 실행한다. 가까운 시점에 통합되는 독립 WP의 공유 계약 변경은 관련 test를 각각 확인한 뒤 하나의 전체 CPU 실행으로 묶는다. 이후 제품·test·설정 tree가 같고 문서·상태표만 바뀌었다면 통과한 전체 결과를 재사용한다. 실패가 나면 마지막 통합 변경을 분리해 원인을 확인한다. WP-02의 깨끗한 환경/오염된 환경 전체 suite와 test별 실패·skip 집합 비교 결과는 유지한다. 변경하지 않은 frontend의 같은 SHA 검사 결과는 WP 중간에 재사용할 수 있으나 최종 full은 최종 tree에서 실행한다. `pytest -n auto`는 test의 port·filesystem·shared backend 독립성이 입증된 뒤에만 켜며 직렬 실행과 결과를 대조한다. 시간을 맞추려고 필요한 검사를 삭제하지 않는다. 실제 GPU·VERL·물리 multi-node 검사는 full에 포함하지 않고 G.4의 실환경 표로 관리한다.
 
 Runtime 최소 Python 3.10과 CPU CI의 3.12를 유지한다. 문서용 Python 3.11+ 환경은 runtime과 분리한다. 새 library의 지원 버전을 확인하고, `StrEnum` 대신 Python 3.10에서 동작하는 `str, Enum`을 사용한다. enum의 문자열 직렬화도 기존 artifact 값과 대조한다.
 
@@ -1189,7 +1189,7 @@ WP blocked는 원인과 재개 조건을 기록하는 작업 상태다. 실행 �
 준비된 WP 중 데이터 정확성·운영 안전성·사용자 결함을 우선해줘.
 독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
 main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
-공유 계약 변경·Phase 경계·최종 완료에는 전체 CPU suite를 실행해줘.
+공유 계약 변경들을 통합한 Phase 경계와 최종 완료에 전체 CPU suite를 한 번 실행해줘.
 WP-02의 clean/오염 환경 비교 증거를 유지해줘.
 Signed-off-by commit과 로컬 main fast-forward 병합 후 계속 진행해줘.
 원격 push·PR·배포·설정 변경은 하지 마.
@@ -1208,7 +1208,7 @@ G.4 전체 완료 조건을 충족한 뒤 최종 결과를 알려줘.
 4. **재확인:** WP 입력과 caller·test·fixture·schema·config·exports·package asset을 읽는다. 원문의 과거 결함이 이미 해결됐으면 같은 경계의 검증으로 확인한다. 현재 코드 경로와 문서가 달라도 의미가 명확하면 위치와 상태를 갱신하고 진행한다.
 5. **baseline/red:** 변경 위험에 맞는 baseline을 실행하고 SHA·환경·명령·결과·skip을 기록한다. Behavior regression은 수정 전 실제 결함으로 실패함을 확인한다. 이미 구현된 올바른 동작이나 새 기능의 문서 변경에 인위적인 red를 만들지 않는다.
 6. **구현:** 원문의 목표 구조를 구현한다. 현재 helper가 목표에 맞지 않으면 대체하고 모든 caller를 전환한다. 기계적 이동과 의미 변경은 구분해 commit한다. 서로 다른 WP를 검증 없이 한꺼번에 섞지 않는다.
-7. **검증:** 각 worker가 WP 완료 기준과 5장의 관련 test를 자기 worktree에서 실행한다. 공유 계약 변경·Phase 경계·최종 완료의 전체 CPU suite는 주 작업자가 통합 tree에서 실행한다. WP-02의 두 환경 전체 suite 비교는 예외 없이 유지한다. baseline 실패·새 실패·해결·skip을 구분한다. assertion 약화, test 삭제/무조건 skip, ownership 우회로 통과시키지 않는다. UI 변경은 실제 Grafana/browser, package 변경은 설치본, transport 변경은 실제 경계 검사를 포함한다.
+7. **검증:** 각 worker가 WP 완료 기준과 5장의 관련 test를 자기 worktree에서 실행한다. 주 작업자는 통합된 독립 WP의 공유 계약·Phase 경계·최종 완료 검사를 하나의 전체 CPU 실행으로 묶고, 동일한 제품·test tree에서는 반복하지 않는다. WP-02의 두 환경 전체 suite 비교는 예외 없이 유지한다. baseline 실패·새 실패·해결·skip을 구분한다. assertion 약화, test 삭제/무조건 skip, ownership 우회로 통과시키지 않는다. UI 변경은 실제 Grafana/browser, package 변경은 설치본, transport 변경은 실제 경계 검사를 포함한다.
 8. **검토:** 전체 diff와 연결 코드를 읽고 새 test가 기대값을 제품 계산으로부터 생성하지 않는지 확인한다. Refactor의 output 불변과 Behavior의 ADR 대응을 확인한다. staged/unstaged 모두 `git diff --check`하고 검증 tree와 commit 대상이 일치하는지 확인한다. 검증 후 code를 바꾸면 영향 검사를 다시 실행한다.
 9. **commit/통합:** Worker는 자기 worktree에서 논리적 파일만 stage하고 Signed-off-by commit을 만든 뒤 `git log -1 --format=%B`로 확인한다. 주 작업자는 결과와 겹침을 검토하고 한 branch씩 통합한다. 병렬 branch의 기준 main이 뒤처졌다면 해당 worker branch에 최신 `main`을 merge commit으로 가져와 충돌을 해결·재검증한다. 이 병합 commit에도 Signed-off-by를 넣는다. 그다음 로컬 `main`에서 `git merge --ff-only <작업 branch>`를 실행한다. reset·force push·임의의 이력 재작성으로 우회하지 않는다.
 10. **상태 확정:** 주 작업자는 구현 commit이 main에 포함됐는지 확인한 뒤 status의 해당 WP 행을 done으로 바꾸고 결과 SHA·검증 근거를 기록한다. 상태표 수정은 다른 worker와 공유하지 않고 별도 Signed-off-by commit으로 직렬 병합한다. 이번에 만든 병합 완료 branch와 worktree만 정리한다.
