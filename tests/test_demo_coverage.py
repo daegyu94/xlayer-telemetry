@@ -49,3 +49,7 @@ def test_topology_exposition_keeps_one_definition_and_explicit_resource_mappings
     assert 'telemetry_topology_component_info' in text
     assert any(row.labels.get('gpu')=='0' and row.labels.get('resource_node')=='gpu-node-0' for row in rows)
     assert any(row.labels.get('interface')=='roce0' for row in rows)
+    assert any(row.labels.get('component')=='compute-roce-fabric' and row.labels.get('role')=='compute-fabric' for row in rows)
+    assert any(row.labels.get('component')=='storage-roce-fabric' and row.labels.get('role')=='storage-fabric' for row in rows)
+    assert any(row.labels.get('destination')=='compute-roce-fabric' and row.labels.get('relation')=='compute-fabric' for row in rows)
+    assert any(row.labels.get('destination')=='storage-roce-fabric' and row.labels.get('relation')=='storage-fabric' for row in rows)

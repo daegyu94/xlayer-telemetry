@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Context, appLink } from './context';
 import { Resource, infrastructure, resourceSelection } from './infrastructure';
 import { topologyLayout, TopologyGroup } from './topology-layout';
@@ -24,9 +24,12 @@ function ResourceCard({node,selectedKey,onSelect}:{node:Resource;selectedKey?:st
 }
 export type InfrastructureModel=ReturnType<typeof infrastructure>;
 export function InfrastructureView({data,context,onSelect,metrics,links,unavailable,preview=false}:{data:InfrastructureModel;context:Context;onSelect:(node:Resource)=>void;metrics:(node:Resource)=>React.ReactNode;links:(node:Resource,c:Context)=>React.ReactNode;unavailable?:string;preview?:boolean}) {
- const id=useId().replace(/:/g,''),[search,setSearch]=useState('');
+ const id=useId().replace(/:/g,''),[search,setSearch]=useState(''),[showTopology,setShowTopology]=useState(!context.variables.infra_component?.length);
  const model=topologyLayout(data.nodes,data.edges,{selectedKey:context.variables.infra_component?.[0]});
  const selected=model.selectedResource,group=(name:TopologyGroup['id'])=>model.groups.find(item=>item.id===name)!;
+ const detailMode=!preview&&!!selected&&!showTopology;
+ const selectionContext=selected&&(selected.mapping==='configured'||selected.type==='fabric')?resourceSelection(context,selected,data):undefined;
+ useEffect(()=>{if(selected)setShowTopology(false);},[selected?.key]);
  const devices=selected?.resource?data.nodes.filter(node=>node.cluster===selected.cluster&&node.resource===selected.resource&&node.kind===selected.kind):[];
  const storageTotal=group('mds').total+group('ds').total+group('storageUnknown').total;
  const card=(node:Resource)=><ResourceCard key={node.key} node={node} selectedKey={selected?.key} onSelect={onSelect}/>;
@@ -37,6 +40,11 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
  const inventory=data.nodes.filter(node=>`${node.id} ${node.cluster} ${node.kind} ${node.role} ${node.resource||''}`.toLowerCase().includes(search.toLowerCase()));
  const endpoint=(key:string)=>{const node=data.nodes.find(value=>value.key===key);if(node)return `${node.cluster} / ${node.kind} / ${node.id}`;try{const identity=JSON.parse(key);return Array.isArray(identity)?identity.join(' / '):key;}catch{return key;}};
  return <div className="xlt-infrastructure">
+  {detailMode&&selected&&<section className="xlt-resource-focus" aria-label="Selected resource details"><div className="xlt-section"><div><small>Resource details</small><h3>{selected.id}</h3><p>{selected.cluster} · {selected.kind} / {selected.role}</p></div><div className="xlt-actions"><CollectorState node={selected}/><button onClick={()=>setShowTopology(true)}>Cluster topology 보기</button></div></div>
+   <dl className="xlt-resource-focus-identity">{[['Type',selected.type],['Resource node',selected.resource||`${selectionContext?.variables.node?.length||0} declared nodes`],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'All mapped devices'],['Relation',selected.type==='fabric'?`${selected.kind==='storage'?'Storage':'Compute'} fabric · declared membership`:'Configured resource mapping']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+   {selectionContext?<div className="xlt-actions">{links(selected,selectionContext)}</div>:<p className="xlt-empty">Resource mapping이 없어 metric query를 만들 수 없습니다.</p>}
+  </section>}
+  {(!detailMode||preview)&&<>
   {!preview&&!!data.nodes.length&&<div className="xlt-cluster-map-overview">
    <div><small>Compute</small><strong>{group('compute').total} declarations</strong><span>설정된 Compute component</span></div>
    <div><small>Network</small><strong>{group('network').total} identities</strong><span>cluster / namespace / component key별 identity를 구분합니다.</span></div>
@@ -65,18 +73,19 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
    {!preview&&<aside className="xlt-resource-inspector" aria-label="Resource inspector">
     <div className="xlt-resource-inspector-header"><small>Resource inspector</small>{selected?<><h3>Selected Resource · {selected.id}</h3><CollectorState node={selected}/></>:<h3>Select a resource</h3>}</div>
     {!selected?<p className="xlt-empty">Map이나 Inventory에서 구성된 component를 선택하세요. Resource를 자동 선택하거나 metric 값을 추정하지 않습니다.</p>:<div className="xlt-resource-inspector-body">
-     <dl className="xlt-resource-inspector-identity">{[['Identity',selected.id],['Cluster',selected.cluster],['Namespace',selected.kind],['Type',selected.type],['Role',selected.role],['Mapping',selected.mapping],['Resource node',selected.resource||'Unknown'],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'Not configured'],['Collector',selected.collector],['Relation','Configured · physical path는 확인되지 않았습니다.']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+     <dl className="xlt-resource-inspector-identity">{[['Identity',selected.id],['Cluster',selected.cluster],['Namespace',selected.kind],['Type',selected.type],['Role',selected.role],['Mapping',selected.mapping],['Resource node',selected.resource||'Unknown'],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'Not configured'],['Collector',selected.collector],['Relation',selected.type==='fabric'?`${selected.kind==='storage'?'Storage':'Compute'} fabric · declared membership`:selected.mapping==='configured'?'Configured resource mapping':'Not mapped']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
      {selected.mapping!=='configured'?<p className="xlt-empty">Resource mapping이 없거나 서로 충돌합니다. Publisher identity로 resource query나 device attribution을 생성하지 않습니다.</p>:<>
       <label className="xlt-resource-inspector-select">Node / device<select aria-label="Infrastructure resource" value={selected.key} onChange={event=>{const node=data.nodes.find(value=>value.key===event.target.value);if(node)onSelect(node);}}>{devices.map(node=><option key={node.key} value={node.key}>{node.id} · {node.type}</option>)}</select></label>
       <div className="xlt-device-map"><b>{selected.resource} · 선언된 resource mapping</b><div>{devices.filter(node=>node.type!=='node').map(node=><button key={node.key} aria-pressed={node.key===selected.key} onClick={()=>onSelect(node)}>{node.gpu!==undefined?`GPU ${node.gpu}`:node.interface||node.device||node.id}<small>{node.type} · configured</small></button>)}</div></div>
-      <div className="xlt-resource-inspector-links">{links(selected,resourceSelection(context,selected))}<a href={appLink('investigate',resourceSelection(context,selected))}>선택한 Step 조사 →</a><a href={`#${id}-metrics`}>Resource metric 보기 ↓</a></div>
+      {selectionContext&&<div className="xlt-resource-inspector-links">{links(selected,selectionContext)}<a href={appLink('investigate',selectionContext)}>선택한 Step 조사 →</a><a href={`#${id}-metrics`}>Resource metric 보기 ↓</a></div>}
      </>}
      <a className="xlt-resource-inspector-inventory-link" href={`#${id}-inventory`} onClick={()=>{const details=document.getElementById(`${id}-inventory`);if(details instanceof HTMLDetailsElement)details.open=true;}}>Component Inventory에서 확인 ↓</a>
      <p className="xlt-cluster-map-scope">Node / device / shared-service scope를 구분합니다. Availability만으로 metric coverage, exact phase attribution 또는 causality를 판단하지 않습니다.</p>
     </div>}
    </aside>}
   </div>
-  {!preview&&selected&&selected.mapping==='configured'&&<section className="xlt-infra-resource-metrics" id={`${id}-metrics`}><h3>Cluster Resource Metrics · {selected.id}</h3><p className="xlt-muted">기존 panel의 node / device / interface / service scope를 유지합니다. 서로 다른 I/O 계층을 하나의 request path로 해석하지 않으며 Missing / Stale / Query Failure / 측정값 0을 구분합니다.</p><div className="xlt-infra-metrics">{metrics(selected)}</div></section>}
+  </>}
+  {!preview&&selected&&selectionContext&&<section className="xlt-infra-resource-metrics" id={`${id}-metrics`}><h3>{selected.id} metrics</h3><p className="xlt-muted">선택한 시간 범위의 node·device 관측입니다. Matrix에서 Latest·Mean·Max와 Time series를 전환할 수 있습니다.</p><div className="xlt-infra-metrics">{metrics(selected)}</div></section>}
   {!preview&&!!model.relations.length&&<details className="xlt-completed-detail"><summary>Relationship Ledger · {model.relations.length} declarations</summary><div className="xlt-scroll"><table><thead><tr><th>Source</th><th>Destination</th><th>Relation</th><th>Scope / Evidence</th></tr></thead><tbody>{model.relations.map(item=><tr key={item.index}><td>{endpoint(item.edge.source)}</td><td>{endpoint(item.edge.destination)}</td><td>{item.edge.relation}</td><td>{item.state}<small>{item.source&&item.destination?'운영자가 선언한 관계입니다. Physical connectivity는 관측하지 않았습니다.':'반환된 inventory에 endpoint가 없습니다.'}</small></td></tr>)}</tbody></table></div></details>}
   {!preview&&<details className="xlt-completed-detail" id={`${id}-inventory`}><summary>Component Inventory · {data.nodes.length} declarations</summary><label className="xlt-infra-inventory-search">Component / role 검색<input aria-label="Search infrastructure inventory" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Component, cluster, role 또는 resource node"/></label><div className="xlt-scroll"><table><thead><tr><th>Component</th><th>Resource identity</th><th>Scope / Quality</th><th>Next</th></tr></thead><tbody>{inventory.map(node=><tr key={node.key}><td>{node.id}<small>{node.cluster} · {node.kind}/{node.role}</small></td><td>{node.resource||'Unknown'}<small>{node.gpu!==undefined?`GPU ${node.gpu}`:node.interface||node.device||''}</small></td><td>Configured · {node.mapping}<small>Collector {node.collector}</small></td><td><button onClick={()=>onSelect(node)}>Resource 선택 →</button></td></tr>)}</tbody></table></div></details>}
  </div>;

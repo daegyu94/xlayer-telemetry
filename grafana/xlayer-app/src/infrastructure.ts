@@ -22,7 +22,7 @@ export function infrastructure(components:RecordRow[], edges:RecordRow[], availa
   return {key,cluster:String(row.cluster),kind:String(row.kind),id:String(row.component),role,resource,gpu,device,interface:nic,
    storageSystem:coherent?text(row.storage_system):undefined,
    mapping:!coherent?'ambiguous':resource?'configured':'unknown',collector,
-   type:gpu?'gpu':nic?'nic':role==='ssd'||device?'ssd':role==='network'?'fabric':/gpu-node|data|ds|metadata|mds|storage-node|compute-node/.test(role)?'node':'unknown'} as Resource;
+   type:gpu?'gpu':nic?'nic':role==='ssd'||device?'ssd':role==='network'||role.endsWith('-fabric')?'fabric':/gpu-node|data|ds|metadata|mds|storage-node|compute-node/.test(role)?'node':'unknown'} as Resource;
  });
  const known=new Map(nodes.map(n=>[n.key,n]));
  const links=edges.slice(0,512).filter(row=>text(row.cluster)&&text(row.kind)&&text(row.source)&&text(row.destination)).map(row=>{
@@ -31,11 +31,23 @@ export function infrastructure(components:RecordRow[], edges:RecordRow[], availa
  });
  return {nodes,edges:links,limited:groups.size>256||edges.length>512};
 }
-export function resourceSelection(context:Context,node:Resource):Context{
- if(node.mapping!=='configured'||!node.resource)throw new Error('Resource mapping is not unambiguous');
- return {...context,variables:{...context.variables,cluster:[node.cluster],infra_component:[node.key],node:[node.resource],
+export function resourceSelection(context:Context,node:Resource,model?:ReturnType<typeof infrastructure>):Context{
+ const connected=node.type==='fabric'&&model?[...new Set(model.edges.flatMap(edge=>{
+  if(edge.source!==node.key&&edge.destination!==node.key)return [];
+  const peer=model.nodes.find(value=>value.key===(edge.source===node.key?edge.destination:edge.source));
+  return peer?.resource?[peer.resource]:[];
+ }))]:[];
+ if((node.mapping!=='configured'||!node.resource)&&!connected.length)throw new Error('Resource mapping is not unambiguous');
+ const resources=connected.length?connected:[node.resource!];
+ return {...context,variables:{...context.variables,cluster:[node.cluster],infra_component:[node.key],node:resources,
   gpu:[node.gpu||'.*'],device:[node.device||node.interface||'.*'],
-  storage_node:[node.kind==='storage'?node.resource:'.*'],storage_system:[node.storageSystem||'.*']}};
+  storage_node:[node.kind==='storage'?resources[0]:'.*'],storage_system:[node.storageSystem||'.*']}};
+}
+export function resourceMetricIndices(node:Resource):number[]{
+ if(node.type==='gpu')return [2,3];
+ if(node.type==='ssd')return [6,7,8,9];
+ if(node.type==='fabric'||node.type==='nic')return [4,5];
+ return node.kind==='storage'?[0,1,6,7,8,9]:[0,1,2,3,6,7,8,9];
 }
 /** Keep canonical LogQL, renaming only variables with dashboard-specific meaning. */
 export function logPanel(panel:Panel|undefined):Panel|undefined{

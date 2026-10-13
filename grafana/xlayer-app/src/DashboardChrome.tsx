@@ -36,7 +36,6 @@ export function DashboardChrome({page,context,nativePages,contextBar,children,on
    <div className="xlt-nav-group">Workspace</div><nav className="xlt-nav" aria-label="XLayer investigation">{nav(PRIMARY_PAGES)}</nav>
    <details className="xlt-library-nav" open={nativePages.some(p=>p.route===page)?true:undefined}><summary>Dashboards</summary><nav className="xlt-nav" aria-label="Canonical dashboards">{nav(nativePages)}</nav></details>
    <a aria-current={page==='demo'?'page':undefined} className="xlt-demo-link" href={appLink('demo',context)} onClick={e=>{e.preventDefault();setOpen(false);onNavigate('demo');}}>Demo Scenarios <small>Synthetic data</small></a>
-   <div className="xlt-sidebar-foot">실행을 확인하고, 느린 구간을 조사하세요.</div>
   </aside>
   <div className="xlt-main">
    <div className="xlt-topbar"><div className="xlt-breadcrumb"><button ref={menuRef} className="xlt-menu-toggle" aria-label="Open navigation" aria-expanded={open} onClick={()=>setOpen(!open)}><Icon name="bars"/></button><span>XLayer <i>/</i> <b>{title}</b></span>{synthetic&&<a className="xlt-badge" href={appLink('demo',context)}>Synthetic demo</a>}</div><button className="xlt-theme-toggle" aria-label={`Switch to ${theme.isDark?'Light':'Dark'} theme`} onClick={onTheme}><Icon name="adjust-circle"/></button></div>

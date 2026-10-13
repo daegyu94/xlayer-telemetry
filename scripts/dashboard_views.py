@@ -219,12 +219,13 @@ def build_run_investigation(dashboards):
     compute = by_name['compute-communication']
     timeline = by_name['cross-layer-timeline']
     originals = list(run['panels'])
-    # Make space after the workload KPIs. No shared value becomes a run metric.
+    # Make space after the workload KPIs. The span panel needs enough height for
+    # multi-worker lanes; no shared value becomes a run metric.
     for panel in originals:
         if panel['gridPos']['y'] >= 7:
-            panel['gridPos']['y'] += 10
+            panel['gridPos']['y'] += 14
             for child in panel.get('panels', []):
-                child['gridPos']['y'] += 10
+                child['gridPos']['y'] += 14
     section = {
         'id': 94, 'type': 'row', 'title': 'Related serving & devices · shared snapshots',
         'description': '선택한 시간 끝의 shared endpoint/device 값입니다. Run의 소유량·원인이나 workload health가 아닙니다.',
@@ -277,16 +278,16 @@ def build_run_investigation(dashboards):
         cards.append(card)
     spans = deepcopy(next(p for p in timeline['panels'] if p['id'] == 2))
     spans.update(id=35, title='Agent RL timeline · recorded exact / calibrated spans',
-                 gridPos={'x': 0, 'y': 12, 'w': 24, 'h': 5})
+                 gridPos={'x': 0, 'y': 12, 'w': 24, 'h': 10})
     spans['description'] += ' 완료 stage duration을 실행 순서로 변환하지 않습니다. Span 미계측이면 No data이며 Step·Stage 링크에서 approximate boundary를 확인합니다.'
     link = deepcopy(next(link for link in run['links'] if link['title'] == 'Cross-Layer Timeline'))
     link['title'] = 'Open timeline, event records and related metrics'
     spans['links'] = [link]
     steps = next(p for p in originals if p['id'] == 20)
-    steps['gridPos'] = {'x': 0, 'y': 17, 'w': 24, 'h': 8}
+    steps['gridPos'] = {'x': 0, 'y': 22, 'w': 24, 'h': 8}
     trends = [p for p in originals if p['id'] in {6, 7}]
     for panel in trends:
-        panel['gridPos']['y'] = 25
+        panel['gridPos']['y'] = 30
     rest = [p for p in originals[5:] if p['id'] not in {6, 7, 20}]
     run['panels'] = originals[:5] + [section] + cards + [spans, steps] + trends + rest
     # Query-derived controls stay visible, including filters received in URLs.

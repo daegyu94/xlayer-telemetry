@@ -48,12 +48,15 @@ export const productLayout = `
 .xlt-primary-kpis .xlt-kpi strong {font-size:27px}
 .xlt-inventory-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
 .xlt-inventory-summary>div {background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:8px;padding:16px}
-.xlt-run-source-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.xlt-run-source-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .xlt-run-source {min-width:0;border:1px solid var(--xl-border);border-radius:8px;background:var(--xl-bg);overflow:hidden}
 .xlt-run-source>header {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--xl-border)}
 .xlt-run-source h4 {margin:0 0 4px;font-size:16px}
 .xlt-run-source small {color:var(--xl-muted)}
-.xlt-run-source .xlt-panel {height:240px;min-height:0;margin:0}
+.xlt-run-source-panels {display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.xlt-run-source-metric {min-width:0;padding:10px;border-right:1px solid var(--xl-border)}
+.xlt-run-source-metric:last-child {border-right:0}
+.xlt-run-source .xlt-panel {height:230px;min-height:0;margin:5px 0 0}
 .xlt-run-source .xlt-empty {padding:20px}
 .xlt-inventory-summary strong {display:block;font-size:28px}
 .xlt-inventory-summary span {color:var(--xl-muted)}

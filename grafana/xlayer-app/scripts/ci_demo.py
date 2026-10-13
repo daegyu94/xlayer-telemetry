@@ -29,8 +29,12 @@ def verify_run_sources(page, origin, context):
     from playwright.sync_api import expect
     page.goto(origin+'/a/xlayer-telemetry-app/runs?'+urlencode(context,doseq=True))
     cards=page.locator('.xlt-run-source')
-    expect(cards).to_have_count(6)
-    assert cards.locator('header h4').all_text_contents()==['VERL','GPU','vLLM','Ray','Mooncake','3FS']
+    expect(cards).to_have_count(5)
+    assert cards.locator('header h4').all_text_contents()==['VERL','vLLM','Ray','Mooncake','3FS']
+    assert page.get_by_label('GPU signals').count()==0
+    assert page.get_by_label('VERL signals').locator('.xlt-panel').count()==2
+    assert page.get_by_label('vLLM signals').locator('.xlt-panel').count()==2
+    assert page.get_by_label('Mooncake signals').locator('.xlt-panel').count()==2
     expect(page.get_by_role('heading',name='Cluster Infrastructure',exact=True)).to_be_visible()
     expect(page.get_by_role('button',name='Expanded',exact=True)).to_have_count(0)
     expect(page.get_by_role('button',name='Compact',exact=True)).to_have_count(0)
@@ -44,7 +48,7 @@ def verify_run_sources(page, origin, context):
     assert current['var-infra_component']==[identity]
     for key in ('var-run_id','var-source_node','from','to','timezone','theme'):
         if key in context:assert current.get(key)==context[key],key
-    expect(page.locator('.xlt-resource-inspector-header h3')).to_contain_text('Selected Resource')
+    expect(page.get_by_text('Resource details',exact=True)).to_be_visible()
     more=page.locator('button.xlt-cluster-map-more')
     if more.count():
         before=page.locator('.xlt-cluster-map-node').count()
@@ -55,7 +59,7 @@ def verify_run_sources(page, origin, context):
         expect(page.locator('.xlt-cluster-map-node')).to_have_count(before)
     page.go_back()
     page.wait_for_url('**/runs?**')
-    expect(page.locator('.xlt-run-source')).to_have_count(6)
+    expect(page.locator('.xlt-run-source')).to_have_count(5)
 
 
 def assert_policy_lifecycle_text(text):

@@ -3,21 +3,6 @@
 export const panelCompatibility = `
 /* Dashboard design tokens shared by App and canonical Scenes panels. */
 
-.xlt-sidebar-foot {
-  border-top:1px solid var(--xl-border);
-  margin:30px 10px 0;
-  padding:15px 0;
-  color:var(--xl-secondary);
-  font-size:12px
-}
-
-.xlt-sidebar-foot small {
-  display:block;
-  font-size:12px;
-  margin-top:5px;
-  color:var(--xl-muted)
-}
-
 .xlt-main {
   min-width:0
 }
@@ -946,6 +931,10 @@ Grafana's global navigation stays available. */
 .xlt-resource-inspector-links{display:flex;flex-direction:column;gap:8px}.xlt-resource-inspector-links>a,.xlt-resource-inspector-inventory-link{display:block;border:1px solid var(--xl-border);padding:8px 10px;border-radius:6px;font-size:13px;color:var(--xl-primary);text-align:center;overflow-wrap:anywhere}
 .xlt-resource-inspector-inventory-link{margin-top:12px}
 & .xlt-infra-resource-metrics{background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:10px;padding:17px 19px;margin:16px 0}
+.xlt-resource-focus{background:var(--xl-bg);border:1px solid var(--xl-border);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.xlt-resource-focus h3{font-size:24px;margin:4px 0}.xlt-resource-focus p{margin:0;color:var(--xl-muted)}
+.xlt-resource-focus-identity{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.xlt-resource-focus-identity>div{background:var(--xl-soft);border-radius:6px;padding:10px}.xlt-resource-focus-identity dt{font-size:12px;color:var(--xl-muted)}.xlt-resource-focus-identity dd{margin:4px 0 0;font-weight:600;overflow-wrap:anywhere}
 .xlt-infra-resource-metrics h3{font-size:16px}.xlt-infra-inventory-search{display:block;margin:14px 0;font-size:13px;color:var(--xl-secondary)}
 .xlt-infra-inventory-search input{display:block;width:min(100%,480px);padding:8px 10px;border:1px solid var(--xl-border);background:var(--xl-bg);color:var(--xl-text);border-radius:6px;margin-top:6px;font:inherit}
 @container(max-width:1060px){.xlt-infra-workspace{grid-template-columns:minmax(0,1fr) 290px}.xlt-cluster-map-storage-groups{grid-template-columns:1fr}.xlt-cluster-map-node{flex-wrap:wrap}.xlt-cluster-map-node>.xlt-cluster-map-state{margin-left:43px}}

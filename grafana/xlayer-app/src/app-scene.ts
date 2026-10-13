@@ -9,7 +9,7 @@ import { DEEP_DIVE_SPECS } from './presentation';
 import { canonicalRefs } from './data';
 import { INFRA_PANELS, logPanel } from './infrastructure';
 import { MATRIX_SPECS } from './matrix-contract';
-import { RUN_SOURCES } from './RunSources';
+import { RUN_SOURCE_PANELS } from './RunSources';
 import { WORKSPACE_PAGES } from './navigation';
 import { NATIVE_PAGES, buildNativeWorkspace, NativeWorkspaceModel } from './native-workspace';
 import { ShellView } from './InvestigationView';
@@ -111,7 +111,7 @@ function makeScene(page: Page, catalog: Catalog) {
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
   const resourcePage=page==='demo'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
-  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCES.map(source=>native(source.source,source.panel,false)),
+  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false)),
     infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });

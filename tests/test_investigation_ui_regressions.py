@@ -98,7 +98,9 @@ def test_run_kpis_and_timeline_keep_distinct_observation_scopes(generated):
     # The central timeline reuses real span boundaries, never stage durations.
     assert by_id[35]['targets'] == next(
         p for p in panels(generated['xlayer-cross-layer-timeline']['panels']) if p['id'] == 2)['targets']
+    assert by_id[35]['gridPos']['h'] >= 10
     assert by_id[35]['gridPos']['y'] < by_id[20]['gridPos']['y'] < by_id[7]['gridPos']['y']
+    assert by_id[35]['gridPos']['y'] + by_id[35]['gridPos']['h'] <= by_id[20]['gridPos']['y']
 
 
 def test_unknown_comparison_units_and_candidate_review_remain_inspectable(generated):

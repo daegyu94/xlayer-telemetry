@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { infrastructure, resourceSelection, logPanel } from '../src/infrastructure';
+import { infrastructure, resourceMetricIndices, resourceSelection, logPanel } from '../src/infrastructure';
 
 const context={variables:{cluster:['c'],run_id:['run'],record_id:['step'],source_node:['trainer'],node:['old'],worker:['w'],device:['old-device'],gpu:['old-gpu']},from:'1000',to:'2000',timezone:'browser'};
 const rows=[{cluster:'c',kind:'compute',component:'host',role:'gpu-node',resource_node:'compute'},
@@ -29,19 +29,26 @@ test('availability retains zero, stale, unknown and multiple-target states',()=>
  }
 });
 test('resource navigation keeps investigation identity while setting only applicable resource filters',()=>{
- const model=infrastructure(rows,[],[],2000);
+ const model=infrastructure(rows,[{cluster:'c',kind:'compute',source:'host',destination:'fabric',relation:'compute-fabric'}],[],2000);
  const disk=resourceSelection(context,model.nodes.find(n=>n.id==='disk')!);
  assert.deepEqual(disk.variables.node,['storage']);assert.deepEqual(disk.variables.device,['nvme0n1']);
  assert.deepEqual(disk.variables.storage_node,['storage']);assert.deepEqual(disk.variables.gpu,['.*']);
  assert.deepEqual(disk.variables.source_node,['trainer']);assert.deepEqual(disk.variables.record_id,['step']);
  assert.deepEqual(disk.variables.run_id,['run']);assert.equal(disk.from,'1000');
  const gpu=resourceSelection(disk,model.nodes.find(n=>n.id==='gpu')!);assert.deepEqual(gpu.variables.device,['.*']);assert.deepEqual(gpu.variables.gpu,['0']);
- assert.throws(()=>resourceSelection(context,model.nodes.find(n=>n.id==='fabric')!));
+ const fabric=resourceSelection(context,model.nodes.find(n=>n.id==='fabric')!,model);
+ assert.deepEqual(fabric.variables.node,['compute']);assert.deepEqual(fabric.variables.infra_component,[model.nodes.find(n=>n.id==='fabric')!.key]);
 });
 test('All-cluster resource selection pins the explicit resource cluster, not just its colliding hostname',()=>{
  const model=infrastructure(rows,[],[],2000);
  const selected=resourceSelection({...context,variables:{...context.variables,cluster:['.*']}},model.nodes.find(n=>n.id==='gpu')!);
  assert.deepEqual(selected.variables.cluster,['c']);
+});
+test('resource details choose node-wide CPU and device panels by resource kind',()=>{
+ const model=infrastructure(rows,[],[],2000);
+ assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='host')!),[0,1,2,3,6,7,8,9]);
+ assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='disk')!),[6,7,8,9]);
+ assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='fabric')!),[4,5]);
 });
 test('canonical log expressions use distinct application and log payload Run filters without rewriting queries',()=>{
  const panel={id:1,type:'logs',title:'Logs',targets:[{expr:'{run_id=~"$telemetry_run_id"} | unpack | run_id=~"$run_id"'}]};
