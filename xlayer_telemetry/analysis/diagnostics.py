@@ -42,6 +42,7 @@ from .diagnostic_artifacts import (_existing_reports, _investigation_path, _writ
                                    write_report, _projection_recovery, _investigation_rows, repair_projections)
 from .metric_observations import collect_metrics
 from .query_budget import QueryBudget
+from .observation_contracts import usable_window
 from .metric_queries import MetricQuery, PROFILE_SIGNALS, profile_queries, validate_metric_profiles
 from .jsonl_cache import JSONLCache, from_config as cache_from_config
 from .storage_series import apply_collection_limits, collect_storage_series, distribution_comparison_quality, validate_series_settings
@@ -571,8 +572,7 @@ class DiagnosticEngine:
         lookback = float(self.config.get("lookback_seconds", 60))
         raw_window = (current or {}).get("analysis_window", {})
         window = dict(raw_window) if isinstance(raw_window, Mapping) else {}
-        if current and (finite(window.get("start")) is None or finite(window.get("end")) is None
-                        or float(window["start"]) >= float(window["end"])):
+        if current and not usable_window(window):
             return {
                 "schema_version": 1, "record_type": "bottleneck_diagnosis",
                 "generated_at": datetime.fromtimestamp(now, timezone.utc).isoformat(),
@@ -593,7 +593,7 @@ class DiagnosticEngine:
                                "baseline_record_id": None, "selection": "unavailable", "signals": []},
                 "candidates": [],
             }
-        end = float(window.get("end") or now)
+        end = float(window["end"]) if window.get("end") is not None else now
         start = window.get("start")
         if type(start) not in (int, float) or start >= end:
             start = max(0.0, end - lookback)

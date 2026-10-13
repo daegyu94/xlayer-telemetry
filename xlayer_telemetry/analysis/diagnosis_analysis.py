@@ -13,6 +13,7 @@ import statistics
 from typing import Any, Iterable, Mapping
 
 from ..measurements import finite_number as finite
+from .observation_contracts import usable_window
 from .metric_queries import PROFILE_SIGNALS
 
 
@@ -211,8 +212,7 @@ def recent_baseline_history(current: Mapping[str, Any], history: Iterable[Mappin
             window = item.get("analysis_window")
             if duration is None or duration < 0 or not isinstance(window, Mapping):
                 continue
-            start, end = finite(window.get("start")), finite(window.get("end"))
-            if start is None or end is None or start >= end or window.get("accuracy") in {"unknown", "clock_discontinuity"}:
+            if not usable_window(window):
                 continue
             stamp = observation_time(item)
             if stamp is not None and stamp < observed:

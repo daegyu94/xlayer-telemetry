@@ -17,6 +17,10 @@ from typing import Any
 
 from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .metric_observations import collect_query
+from .observation_contracts import (
+    has_measurement as _has_measurement, usable_window as _valid_interval,
+    validate_measurement as _validate_measurement,
+)
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
 from .evidence_quality import quality, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
@@ -43,32 +47,6 @@ def _finite(value: Any) -> bool:
         return type(value) in (int, float) and math.isfinite(value)
     except OverflowError:
         return False
-
-
-def _has_measurement(value: Any) -> bool:
-    if _finite(value):
-        return True
-    return (isinstance(value, dict)
-            and (value.get("sample_count") is None or value["sample_count"] > 0)
-            and any(_finite(value.get(key)) for key in STAT_FIELDS - {"sample_count"}))
-
-
-def _valid_interval(window: Any) -> bool:
-    return (isinstance(window, dict) and window.get("accuracy") != "unknown"
-            and _finite(window.get("start")) and _finite(window.get("end"))
-            and window["start"] < window["end"])
-
-
-def _validate_measurement(value: Any) -> None:
-    if value is None or _finite(value):
-        return
-    if not isinstance(value, dict) or set(value) - STAT_FIELDS:
-        raise ValueError("measurement must be a finite number, null or supported numeric statistics")
-    if any(item is not None and not _finite(item) for item in value.values()):
-        raise ValueError("measurement statistics must be finite numbers or null")
-    count = value.get("sample_count")
-    if count is not None and (count < 0 or count % 1):
-        raise ValueError("sample_count must be a nonnegative integer")
 
 
 OUTPUT_LANGUAGE_POLICY = """
