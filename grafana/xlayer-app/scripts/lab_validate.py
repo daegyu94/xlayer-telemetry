@@ -6,6 +6,33 @@ from urllib.parse import urlparse,parse_qs,urlencode
 from design_validate import owned_origin
 
 
+def verify_threefs_metrics(page):
+    """Follow the published replay link and verify actual Loki collection points."""
+    from playwright.sync_api import expect
+    from storage_series_validate import storage_rows
+    original=page.url
+    def collection_response(response):
+        if '/api/ds/query' not in response.url:return False
+        queries=response.request.post_data_json.get('queries',[])
+        return any('row_kind="storage_sample"' in query.get('expr','') and 'window_role="current"' in query.get('expr','') for query in queries)
+    with page.expect_response(collection_response,timeout=30000) as response:
+        page.locator('.xlt-replays li').first.get_by_role('link',name='3FS metrics →',exact=True).click()
+    card=page.get_by_label('3FS signals',exact=True)
+    expect(card.locator('.xlt-panel')).to_have_count(2)
+    for title in ('Request latency · reported p99','Queued requests'):
+        expect(card.get_by_text(title,exact=True).last).to_be_visible(timeout=30000)
+    expect(card.locator('canvas').first).to_be_visible(timeout=30000)
+    expect(card).not_to_contain_text('No data',timeout=30000)
+    for canvas in card.locator('canvas').all():
+        assert canvas.evaluate('el => el.getBoundingClientRect().bottom <= el.closest(".xlt-panel").getBoundingClientRect().bottom + 1'),'3FS time axis is clipped'
+    rows=storage_rows(response.value.json())
+    for metric in ('storage_client.overall_latency','demo.storage.pending_requests'):
+        values=[row['sample_value'] for row in rows if row.get('metric_name')==metric and row.get('window_role')=='current']
+        assert len(set(values))>1,(metric,values)
+    page.goto(original)
+    page.locator('.xlt-replays li').first.wait_for(timeout=30000)
+
+
 def verify_progress_feedback(page,origin,capture=None):
     """Controller-response fixture in actual Grafana; no live replay is changed."""
     from copy import deepcopy
@@ -145,6 +172,9 @@ def run(args):
                     page.locator('.xlt-replays li').first.wait_for()
                 result['workflow']='run → evidence → metric'
                 page.screenshot(path=str(args.output/f'{scenario}-explorer.png'),full_page=True)
+                if scenario in ('normal','slow-rollout','storage-regression','recorded-error'):
+                    verify_threefs_metrics(page)
+                    result['threefs_metrics']='Replay link, two native charts and varying original Loki collection points'
                 page.locator('.xlt-replays li').first.get_by_role('link',name='Open Run →',exact=True).click()
                 page.locator('.xlt-primary-kpis').wait_for(timeout=30000)
                 assert page.evaluate("['.xlt-progress .xlt-eyebrow','.xlt-progress small'].every(selector=>parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)>=15)"),'Run labels and descriptions are too small'

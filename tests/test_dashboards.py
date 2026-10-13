@@ -110,7 +110,7 @@ def test_telemetry_dashboards_have_unique_uids_and_shared_cluster_filter() -> No
         assert {item["name"] for item in payload["templating"]["list"]} >= {"cluster", "node"}
         assert all(
             panel.get("datasource", {}).get("uid") in (
-                {"telemetry-prometheus", "telemetry-loki"} if payload["uid"] == "telemetry-overview" or (payload["uid"] == "xlayer-data-storage" and panel["id"] in {101,102,103,104})
+                {"telemetry-prometheus", "telemetry-loki"} if payload["uid"] == "telemetry-overview" or (payload["uid"] == "xlayer-data-storage" and panel["id"] in {101,102,103,104,105,106})
                 else {"telemetry-prometheus"})
             for panel in _panels(payload)
             if panel["type"] not in {"text", "row"}
@@ -917,3 +917,25 @@ def test_workspace_header_reserves_space_for_wrapped_context():
         header = view["panels"][0]
         assert header["gridPos"]["h"] == 3
         assert min(panel["gridPos"]["y"] for panel in view["panels"][1:]) == 3
+
+
+def test_storage_overview_charts_keep_report_units_and_owner_identity():
+    data = json.loads((ROOT / 'examples/dashboards/data-storage.json').read_text())
+    panels = {panel['id']: panel for panel in _panels(data)}
+    for panel_id, metric, source_unit, display_unit in [
+        (105, 'storage_client.overall_latency', 'ns', 'ns'),
+        (106, 'demo.storage.pending_requests', 'operations', 'short'),
+    ]:
+        panel = panels[panel_id]
+        assert panel['type'] == 'timeseries'
+        assert panel['datasource']['uid'] == 'telemetry-loki'
+        assert panel['fieldConfig']['defaults']['unit'] == display_unit
+        assert panel['fieldConfig']['defaults']['custom']['drawStyle'] == 'points'
+        assert 'window_role="current"' in panel['targets'][0]['expr']
+        assert 'plot_eligible="true"' in panel['targets'][0]['expr']
+        transforms = {item['id']: item['options'] for item in panel['transformations']}
+        filters = transforms['filterByValue']['filters']
+        assert [(f['fieldName'], f['config']['options']['value']) for f in filters] == [
+            ('metric_name', metric), ('unit', source_unit)]
+        assert transforms['partitionByValues']['fields'] == ['run_id', 'record_id', 'source_host', 'series_key']
+        assert transforms['convertFieldType']['conversions'][0]['targetField'] == 'sample_timestamp_ms'

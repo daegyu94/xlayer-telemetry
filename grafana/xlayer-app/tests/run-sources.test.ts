@@ -11,11 +11,13 @@ test('landing cards retain context and keep system resources in Infrastructure',
  const html=renderToStaticMarkup(React.createElement(RunSources,{panels:[],View:()=>null,context:readContext('?var-cluster=c&var-run_id=r&var-node=n&var-record_id=s&var-demo_generation=1&from=1000&to=2000&theme=dark')}));
  for(const name of ['VERL','vLLM','Ray','Mooncake','3FS'])assert.ok(html.includes(`aria-label="${name} signals"`));
  assert.doesNotMatch(html,/aria-label="GPU signals"/);
- assert.equal((html.match(/Source panel을 사용할 수 없습니다/g)||[]).length,9);
- assert.match(html,/Synthetic collection fixture, not a ClickHouse connection/);
+ assert.equal((html.match(/Source panel을 사용할 수 없습니다/g)||[]).length,10);
+ assert.match(html,/Synthetic demo/);
  assert.match(html,/Training step time/);assert.match(html,/Reward mean/);
  assert.match(html,/Time to first token p95/);assert.match(html,/Prefix cache token hit ratio/);
  assert.match(html,/KV Store · operation/);assert.match(html,/Memory\/file hits and lookups/);
+ assert.match(html,/Request latency · reported p99/);assert.match(html,/Queued requests · service/);
+ assert.match(html,/id="xlt-3fs"/);
  assert.equal(RUN_SOURCES.find(source=>source.name==='Mooncake')?.panels[0].title,'Store request latency p95');
  assert.equal(RUN_SOURCES.find(source=>source.name==='Mooncake')?.panels[1].title,'Cache lookup rates');
  for(const [,href] of html.matchAll(/href="([^"]+)"/g)){

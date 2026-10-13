@@ -52,7 +52,29 @@ def test_optional_storage_reports_use_original_source_time_and_unknown_collectio
     assert points and {row['window_role'] for row in points}=={'current','baseline'}
     assert all(row['observed_at']==report['analysis_window']['end'] for row in points)
     assert all(row['phase_attribution']=='not_established' for row in points)
-    assert all(row['counter_kind']!='gauge' for row in points if row['source_table']=='counters')
+    queues=[row for row in points if row['metric_name']=='demo.storage.pending_requests']
+    assert queues and all(row['counter_kind']=='gauge' and row['unit']=='operations' for row in queues)
+    assert all(row['statistic']=='raw gauge/unknown report' for row in queues)
+    assert all(row['counter_kind']=='reset_on_collect' for row in points if row['metric_name']=='storage_client.data_payload_bytes')
+
+
+def test_storage_demo_charts_vary_and_degrade_without_inventing_queue_totals():
+    from xlayer_telemetry.demos.storage_series import synthetic_storage_series
+    from xlayer_telemetry.analysis.storage_series import project_storage_series
+    current={'start':100,'end':140,'accuracy':'exact'}
+    baseline={'start':50,'end':90,'accuracy':'exact'}
+    normal=synthetic_storage_series(current,baseline,slow=False)
+    slow=synthetic_storage_series(current,baseline,slow=True)
+    for field,metric in [('distributions','storage_client.overall_latency'),('counters','demo.storage.pending_requests')]:
+        value='max_observed_p99' if field=='distributions' else 'value'
+        a=[row[value] for row in normal['current'][field] if row['metricName']==metric]
+        b=[row[value] for row in slow['current'][field] if row['metricName']==metric]
+        assert len(set(a))>1 and len(set(b))>1
+        assert max(b)>2*max(a)
+    assert not any(row['metricName']=='demo.storage.pending_requests' for row in slow['comparison']['rows'])
+    points=project_storage_series(slow,{'run_id':'r','record_id':'selected'})
+    assert all(point['plot_eligible'] and point['phase_attribution']=='not_established' for point in points)
+    assert all(100000<=point['sample_timestamp_ms']<140000 for point in points if point['window_role']=='current')
 
 
 def test_cli_existing_output_is_actionable_and_preserves_artifacts(tmp_path):

@@ -1521,6 +1521,300 @@
               }
             }
           ]
+        },
+        {
+          "id": 105,
+          "type": "timeseries",
+          "title": "Request latency · reported p99",
+          "description": "원본 수집 시각의 shared-service 관측입니다. Report별 p99를 합산하거나 pooled percentile로 해석하지 않습니다. Demo queue는 예시 synthetic metric이며 실제 ClickHouse 연결을 뜻하지 않습니다.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 105,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | window_role=\"current\" | plot_eligible=\"true\" | sample_value != \"\" | sample_value != \"null\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "points",
+                "showPoints": "always",
+                "pointSize": 5,
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "spanNulls": false,
+                "axisLabel": ""
+              },
+              "displayName": "${__field.labels.run_id} · ${__field.labels.source_host}"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": [],
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none",
+              "hideZeros": false
+            }
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "filterByValue",
+              "options": {
+                "type": "include",
+                "match": "all",
+                "filters": [
+                  {
+                    "fieldName": "metric_name",
+                    "config": {
+                      "id": "equal",
+                      "options": {
+                        "value": "storage_client.overall_latency"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "unit",
+                    "config": {
+                      "id": "equal",
+                      "options": {
+                        "value": "ns"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "targetField": "sample_timestamp_ms",
+                    "destinationType": "time"
+                  },
+                  {
+                    "targetField": "sample_value",
+                    "destinationType": "number"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "sample_timestamp_ms",
+                    "sample_value",
+                    "series_key",
+                    "run_id",
+                    "record_id",
+                    "source_host"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "partitionByValues",
+              "options": {
+                "fields": [
+                  "run_id",
+                  "record_id",
+                  "source_host",
+                  "series_key"
+                ],
+                "keepFields": false,
+                "naming": {
+                  "asLabels": true,
+                  "withNames": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": 106,
+          "type": "timeseries",
+          "title": "Queued requests",
+          "description": "원본 수집 시각의 shared-service 관측입니다. Report별 p99를 합산하거나 pooled percentile로 해석하지 않습니다. Demo queue는 예시 synthetic metric이며 실제 ClickHouse 연결을 뜻하지 않습니다.",
+          "datasource": {
+            "type": "loki",
+            "uid": "telemetry-loki"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 105,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{signal=\"xlayer_diagnosis\",cluster=~\"$cluster\",node=~\"$source_node\"} | json | label_format diagnosis_method=\"{{if .diagnosis_method}}{{.diagnosis_method}}{{else}}rule{{end}}\" | diagnosis_method=~\"${diagnosis_method:regex}\" | run_id=~\"$run_id\" | record_id=~\"$record_id\" | row_kind=\"storage_sample\" | window_role=\"current\" | plot_eligible=\"true\" | sample_value != \"\" | sample_value != \"null\" | __error__=\"\" | line_format `{{ printf \"{\\\"cluster\\\":%q,\\\"observer_node\\\":%q,\\\"record\\\":%s}\" .cluster .node (__line__) }}`",
+              "queryType": "range",
+              "maxLines": 2500
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "N/A",
+              "custom": {
+                "drawStyle": "points",
+                "showPoints": "always",
+                "pointSize": 5,
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "spanNulls": false,
+                "axisLabel": ""
+              },
+              "displayName": "${__field.labels.run_id} · ${__field.labels.source_host}"
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": [],
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none",
+              "hideZeros": false
+            }
+          },
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": true,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "record",
+                "format": "json",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "filterByValue",
+              "options": {
+                "type": "include",
+                "match": "all",
+                "filters": [
+                  {
+                    "fieldName": "metric_name",
+                    "config": {
+                      "id": "equal",
+                      "options": {
+                        "value": "demo.storage.pending_requests"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "unit",
+                    "config": {
+                      "id": "equal",
+                      "options": {
+                        "value": "operations"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "convertFieldType",
+              "options": {
+                "conversions": [
+                  {
+                    "targetField": "sample_timestamp_ms",
+                    "destinationType": "time"
+                  },
+                  {
+                    "targetField": "sample_value",
+                    "destinationType": "number"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "sample_timestamp_ms",
+                    "sample_value",
+                    "series_key",
+                    "run_id",
+                    "record_id",
+                    "source_host"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "partitionByValues",
+              "options": {
+                "fields": [
+                  "run_id",
+                  "record_id",
+                  "source_host",
+                  "series_key"
+                ],
+                "keepFields": false,
+                "naming": {
+                  "asLabels": true,
+                  "withNames": false
+                }
+              }
+            }
+          ]
         }
       ],
       "description": "Optional 3FS source를 기존 diagnosis와 Loki artifact에서 읽습니다. Raw collection context이며 phase attribution이나 global quantile을 뜻하지 않습니다."

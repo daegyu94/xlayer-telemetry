@@ -107,6 +107,8 @@ python grafana/xlayer-app/scripts/live_demo.py \
 
 Demo의 MFU·policy·wrapper report도 명시적으로 생성한 synthetic source입니다. 실제 veRL workload의 수집 성공으로 해석하지 않습니다. Native metric·SDK span·저장 diagnosis는 같은 synthetic scenario clock을 사용합니다. Diagnosis scalar는 명시 scenario 통계이며 실제 backend query 결과가 아닙니다. Native RPC p95와 scenario 3FS p99는 다른 source/stat입니다.
 
+Scenario Explorer의 단일 Job 결과에서 **3FS metrics →**를 열면 Request latency와 Queued requests 그래프를 확인합니다. Latency는 `storage_client.overall_latency`의 원본 report별 p99(ns), Queue는 예시 metric `demo.storage.pending_requests`의 gauge이며 실제 배포의 metric 이름이 아닙니다. Normal은 작은 변동, Storage correlation은 latency·queue 상승을 생성합니다. 실제 ClickHouse 주소나 인증은 필요하지 않으며 원본 timestamp·entity와 누락된 collection point를 유지합니다.
+
 `Ctrl-C`는 이 launcher가 만든 process만 종료합니다. 작은 fixture/log와 state는 지정한 directory에 남깁니다. Cleanup은 process 종료를 확인한 뒤 이 directory만 삭제합니다.
 
 세 동시 Job·shared resource·missing/stale source의 실제 query/diagnosis 경로는 같은 명령에 `--multi-job`을 추가합니다. 기존 `--multi-worker`와는 별도 경로이며 [Multi-job Tutorial](../../docs/demo.md#multi-job-live-demo)의 확인 순서를 따릅니다. 이 모드는 모델 이름을 metadata로 기록할 뿐 weights를 실행하지 않고, 기존 단일 Job의 precomputed scenario diagnosis를 사용하지 않습니다.

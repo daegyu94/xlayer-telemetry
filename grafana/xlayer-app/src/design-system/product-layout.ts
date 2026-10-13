@@ -63,6 +63,7 @@ export const productLayout = `
 .xlt-run-source-metric {min-width:0;padding:10px;border-right:1px solid var(--xl-border)}
 .xlt-run-source-metric:last-child {border-right:0}
 .xlt-run-source .xlt-panel {height:230px;min-height:0;margin:5px 0 0}
+.xlt-run-source .xlt-panel section {margin:0}
 .xlt-run-source-wide .xlt-native-panel[data-panel-type=table] {height:280px;overflow:auto}
 .xlt-run-source .xlt-empty {padding:20px}
 .xlt-resource-gpu-list {display:flex;flex-direction:column;gap:14px;min-width:0}
