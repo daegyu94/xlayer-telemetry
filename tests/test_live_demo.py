@@ -145,6 +145,41 @@ def test_synthetic_counters_increase_and_histogram_buckets_remain_cumulative(mon
     assert after[0] > before[0]
 
 
+def test_ray_mooncake_and_vllm_demo_series_change_over_time(monkeypatch):
+    import xlayer_telemetry.demos.live as live
+    demo = Demo(ROOT / "examples/live-demo")
+    origin = demo.started
+
+    def at(seconds):
+        monkeypatch.setattr(live.time, "monotonic", lambda: origin + seconds)
+
+    at(2)
+    ray_2 = demo.metrics("ray")
+    mooncake_2 = demo.metrics("mooncake-master")
+    vllm_2 = demo.metrics("vllm")
+    at(8)
+    ray_8 = demo.metrics("ray")
+    mooncake_8 = demo.metrics("mooncake-master")
+    vllm_8 = demo.metrics("vllm")
+    at(14)
+    mooncake_14 = demo.metrics("mooncake-master")
+    vllm_14 = demo.metrics("vllm")
+
+    def value(samples, name, **labels):
+        return next(sample.value for sample in samples
+                    if sample.name == name and all(sample.labels.get(key) == val for key, val in labels.items()))
+
+    assert value(ray_2, "ray_tasks", State="PENDING_ARGS_AVAIL") != value(ray_8, "ray_tasks", State="PENDING_ARGS_AVAIL")
+    assert value(ray_2, "ray_resources", Name="CPU", State="USED") != value(ray_8, "ray_resources", Name="CPU", State="USED")
+    assert value(vllm_2, "vllm:kv_cache_usage_perc") != value(vllm_8, "vllm:kv_cache_usage_perc")
+    assert value(vllm_2, "vllm:time_to_first_token_seconds_bucket", le="0.5") < value(
+        vllm_8, "vllm:time_to_first_token_seconds_bucket", le="0.5") < value(
+        vllm_14, "vllm:time_to_first_token_seconds_bucket", le="0.5")
+    first_rate = (value(mooncake_8, "total_get_nums_") - value(mooncake_2, "total_get_nums_")) / 6
+    second_rate = (value(mooncake_14, "total_get_nums_") - value(mooncake_8, "total_get_nums_")) / 6
+    assert first_rate > 0 and second_rate > 0 and first_rate != second_rate
+
+
 def test_custom_demo_cluster_and_reserved_endpoint_validation(tmp_path):
     import json
     import pytest

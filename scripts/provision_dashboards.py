@@ -5,6 +5,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sys
 import tempfile
 
 from dashboard_views import (
@@ -14,6 +15,7 @@ from dashboard_views import (
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "examples" / "dashboards"
+ROOT = SOURCE.parent.parent
 METRICS = {"start-here", "run-overview", "compute-communication", "data-storage", "agent-rl-stages", "workspace-overview"}
 RETIRED = {"step-explorer.json", "step-detail.json", "workspace-focus.json"}
 
@@ -41,6 +43,12 @@ def provision(output, enable_logs=False):
             yield from panels(panel.get("panels", []))
 
     output.mkdir(parents=True, exist_ok=True)
+    scenario_catalog = output / "xlayer-demo-scenarios.json"
+    if not scenario_catalog.exists():
+        sys.path.insert(0, str(ROOT))
+        from xlayer_telemetry.demos.journeys import publish_explorer
+        publish_explorer(output, selected="normal", cycle=0, status="ready")
+        scenario_catalog.chmod(0o644)
     for name in RETIRED:
         (output / name).unlink(missing_ok=True)
     for path, dashboard in dashboards.items():

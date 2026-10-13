@@ -242,7 +242,7 @@ datasources:
                  'GF_SERVER_HTTP_ADDR':'127.0.0.1','GF_SERVER_HTTP_PORT':str(args.grafana_port),
                  'GF_AUTH_ANONYMOUS_ENABLED':'true','GF_AUTH_ANONYMOUS_ORG_ROLE':'Viewer',
                  'GF_FEATURE_TOGGLES_ENABLE':os.environ.get('GF_FEATURE_TOGGLES_ENABLE',default_toggles(args.grafana_version)),
-                 'GF_USERS_DEFAULT_THEME':'light','GF_USERS_HOME_PAGE':'/a/xlayer-telemetry-app/overview','GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS':'xlayer-telemetry-app',
+                 'GF_USERS_DEFAULT_THEME':'dark','GF_USERS_HOME_PAGE':'/a/xlayer-telemetry-app/overview','GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS':'xlayer-telemetry-app',
                  'GF_ANALYTICS_REPORTING_ENABLED':'false','GF_ANALYTICS_CHECK_FOR_UPDATES':'false',
                  'GF_PLUGINS_PREINSTALL_DISABLED':'true'}
             compatibility=args.output/'grafana-compat.ini'

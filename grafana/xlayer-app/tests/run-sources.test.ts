@@ -8,17 +8,19 @@ import {readContext} from '../src/context';
 import type {Panel} from '../src/catalog';
 
 test('landing cards retain context and keep system resources in Infrastructure',()=>{
- const html=renderToStaticMarkup(React.createElement(RunSources,{panels:[],View:()=>null,context:readContext('?var-cluster=c&var-run_id=r&var-node=n&var-record_id=s&from=1000&to=2000&theme=dark')}));
+ const html=renderToStaticMarkup(React.createElement(RunSources,{panels:[],View:()=>null,context:readContext('?var-cluster=c&var-run_id=r&var-node=n&var-record_id=s&var-demo_generation=1&from=1000&to=2000&theme=dark')}));
  for(const name of ['VERL','vLLM','Ray','Mooncake','3FS'])assert.ok(html.includes(`aria-label="${name} signals"`));
  assert.doesNotMatch(html,/aria-label="GPU signals"/);
- assert.equal((html.match(/Source panel을 사용할 수 없습니다/g)||[]).length,7);
- assert.match(html,/ClickHouse 연결과 latency·queue metric 이름/);
+ assert.equal((html.match(/Source panel을 사용할 수 없습니다/g)||[]).length,9);
+ assert.match(html,/Synthetic collection fixture, not a ClickHouse connection/);
  assert.match(html,/Training step time/);assert.match(html,/Reward mean/);
  assert.match(html,/Time to first token p95/);assert.match(html,/Prefix cache token hit ratio/);
- assert.match(html,/KV Store request latency p95/);assert.match(html,/KV read\/write throughput/);
+ assert.match(html,/KV Store · operation/);assert.match(html,/Memory\/file hits and lookups/);
+ assert.equal(RUN_SOURCES.find(source=>source.name==='Mooncake')?.panels[0].title,'Store request latency p95');
+ assert.equal(RUN_SOURCES.find(source=>source.name==='Mooncake')?.panels[1].title,'Cache lookup rates');
  for(const [,href] of html.matchAll(/href="([^"]+)"/g)){
   const url=new URL(href.split('&amp;').join('&'),'http://localhost');
-  for(const [key,value] of Object.entries({'var-cluster':'c','var-run_id':'r','var-node':'n','var-record_id':'s',from:'1000',to:'2000',theme:'dark'}))assert.equal(url.searchParams.get(key),value);
+  for(const [key,value] of Object.entries({'var-cluster':'c','var-run_id':'r','var-node':'n','var-record_id':'s','var-demo_generation':'1',from:'1000',to:'2000',theme:'dark'}))assert.equal(url.searchParams.get(key),value);
  }
  assert.match(html,/detail_tab=3FS/);
 });

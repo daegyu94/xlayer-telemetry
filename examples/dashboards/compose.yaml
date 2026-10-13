@@ -22,7 +22,7 @@ services:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/run-overview.json
       GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE-vizLegendFacetedFilter}
       GF_FEATURE_TOGGLES_REACT19: "false"
-      GF_USERS_DEFAULT_THEME: ${GF_USERS_DEFAULT_THEME:-light}
+      GF_USERS_DEFAULT_THEME: ${GF_USERS_DEFAULT_THEME:-dark}
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     volumes:

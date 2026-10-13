@@ -216,7 +216,9 @@ def generate(output: Path, *, run_id: str, node: str = "synthetic-node", clock=t
     if storage_series:
         from .storage_series import synthetic_storage_series
         from ..analysis.storage_series import apply_collection_limits
-        report['storage_series']=synthetic_storage_series(window,prior['analysis_window'],slow=bool(candidates))
+        report['storage_series']=synthetic_storage_series(
+            window,prior['analysis_window'],
+            slow=any(item.get('id')=='storage_queue_saturation' for item in candidates))
         apply_collection_limits(candidates)
     # The live demo enriches the report from its already-scraped native sources
     # before publishing one immutable completed projection.

@@ -91,7 +91,7 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
     minInterval: "2s",
   });
 }
-export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile): VizPanel {
+export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile, compactIdentity=false): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
   const data = panel.type==='text'&&!panel.targets?.length?new SceneDataNode({}):shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
@@ -111,7 +111,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:Resou
           transformations: [...panel.transformations,...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : [])],
         })
       : data,
-  }),panel,matrixProfile);
+  }),panel,matrixProfile,compactIdentity);
 }
 export function variables(
   catalog: Catalog,

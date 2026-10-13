@@ -7,7 +7,7 @@ import { APP_BASE, VARIABLE_NAMES, readContext, Destination, sceneTime } from '.
 import { SUBSYSTEMS, Cell, PhaseWindow } from './semantics';
 import { DEEP_DIVE_SPECS } from './presentation';
 import { canonicalRefs } from './data';
-import { INFRA_PANELS, logPanel } from './infrastructure';
+import { INFRA_PANELS, compactResourceLegend, logPanel } from './infrastructure';
 import { MATRIX_SPECS } from './matrix-contract';
 import { RUN_SOURCE_PANELS } from './RunSources';
 import { WORKSPACE_PAGES } from './navigation';
@@ -91,12 +91,17 @@ function makeScene(page: Page, catalog: Catalog) {
     queryCache.set(cacheKey, provider);
     return provider;
   };
-  const native = (key: Destination, id: number, enableMatrix=true) => {
+  const native = (key: Destination, id: number, enableMatrix=true, compactNodeLegend=false, compactIdentity=false, title?:string) => {
     const panel = findPanel(catalog[key], id);
     if(!panel)return undefined;
+    let component:string|undefined;
+    try{const identity=JSON.parse(context.variables.infra_component?.[0]||'null');component=Array.isArray(identity)?identity[2]:undefined;}catch{}
+    const keepNode=typeof component==='string'&&component.endsWith('-fabric');
+    const rendered=title||compactNodeLegend?{...panel,...(title?{title}:{}),targets:panel.targets?.map(target=>({...target,
+      legendFormat:compactNodeLegend&&typeof target.legendFormat==='string'?compactResourceLegend(target.legendFormat,keepNode):target.legendFormat}))}:panel;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
-    return viz(panel,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined);
+    return viz(rendered,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined,compactIdentity);
   };
   const body = new Shell({
     page,
@@ -111,7 +116,7 @@ function makeScene(page: Page, catalog: Catalog) {
   const nativePage=NATIVE_PAGES.find(p=>p.route===page);
   if(nativePage){const workspace=buildNativeWorkspace(catalog,nativePage.destination);body.setState({nativeWorkspace:workspace,nativePanels:workspace.panels.map(panel=>viz(panel,undefined,resourceMatrixProfile(nativePage.destination,panel.id)))});}
   const resourcePage=page==='demo'||!!nativePage||page==='infrastructure'||page==='logs'||page==='runs';
-  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false)),
+  if(page==='runs')body.setState({steps:query('overview',20),runSources:RUN_SOURCE_PANELS.map(source=>native(source.source,source.panel,false,false,false,source.title)),
     infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability)});
   if(!resourcePage){
     body.setState({ steps: query("overview", 20), spans: query("timeline", 9) });
@@ -129,7 +134,7 @@ function makeScene(page: Page, catalog: Catalog) {
       spans: query("timeline", 9),
     });
   if(page==='infrastructure')body.setState({infraComponents:query('compute',INFRA_PANELS.components),infraEdges:query('compute',INFRA_PANELS.edges),infraAvailability:query('compute',INFRA_PANELS.availability),
-    infraMetrics:[native('compute',30),native('overview',2),native('compute',2),native('compute',6),native('compute',8),native('compute',9),native('storage',1),native('storage',2),native('storage',30),native('storage',31)]});
+    infraMetrics:[native('compute',30,true,true,true),native('overview',2,true,true,true),native('compute',2,true,true,true),native('compute',6,true,true,true),native('compute',8,true,true,true),native('compute',9,true,true),native('storage',1,true,true,true),native('storage',2,true,true),native('storage',30,true,true),native('storage',31,true,true)]});
   if(page==='logs'){
     const panel=logPanel(findPanel(catalog.logs,1));
     body.setState({logsPanel:panel?viz(panel):undefined,logEvents:native('timeline',10)});

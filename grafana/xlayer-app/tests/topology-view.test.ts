@@ -15,7 +15,7 @@ test('empty selection renders a keyboard-native resource card and does not query
  let calls=0;
  const markup=renderToStaticMarkup(React.createElement(InfrastructureView,{data:model([node]),context,onSelect:()=>{},metrics:()=>{calls++;return null;},links:()=>{calls++;return null;}}));
  assert.equal(calls,0);assert.match(markup,/aria-label="Inspect gpu-node"/);assert.match(markup,/aria-pressed="false"/);
- assert.match(markup,/Select a resource/);assert.match(markup,/data-state="unknown"/);assert.match(markup,/Collector unknown/);assert.match(markup,/관측된 network hop이 아닙니다/);assert.match(markup,/Map이나 Inventory에서/);
+ assert.match(markup,/Select a resource/);assert.match(markup,/data-state="unknown"/);assert.match(markup,/Collector unknown/);assert.match(markup,/Measurement boundary/);assert.doesNotMatch(markup,/Layout grouping/);assert.match(markup,/Map이나 Inventory에서/);
  assert.doesNotMatch(markup,/Selected Resource · gpu-node/);
 });
 

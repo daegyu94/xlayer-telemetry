@@ -258,7 +258,7 @@ def test_server_config_accepts_an_arbitrary_named_target_list(tmp_path: Path) ->
     assert "nodename: storage-0" in config
     assert {
         path.name for path in (tmp_path / "monitoring" / "dashboards").iterdir()
-    } == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json"}
+    } == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "xlayer-demo-scenarios.json"}
     provisioned = json.loads((tmp_path / "monitoring" / "dashboards" / "agent-rl-stages.json").read_text())
     assert not any(link["title"] == "Bottleneck Summary" for link in provisioned["links"])
     start = json.loads((tmp_path / "monitoring/dashboards/start-here.json").read_text())
@@ -321,7 +321,7 @@ def test_server_log_config_provisions_loki_and_dashboard(tmp_path: Path) -> None
     assert "url: http://192.168.0.1:13100" in (
         output / "provisioning/datasources/default.yaml"
     ).read_text()
-    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json"}
+    assert {path.name for path in (output / "dashboards").iterdir()} == set(DASHBOARDS) | {NAV_DASHBOARD, "workspace-overview.json", "run-logs.json", "bottleneck-summary.json", "cross-layer-timeline.json", "xlayer-demo-scenarios.json"}
 
 
 def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_files(tmp_path):
@@ -329,7 +329,14 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     import sys
     subprocess.run([sys.executable, str(script), '--output', str(tmp_path), '--enable-logs'], check=True)
     assert (tmp_path / 'bottleneck-summary.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 9
+    assert len(list(tmp_path.glob('*.json'))) == 10
+    scenario_path = tmp_path / 'xlayer-demo-scenarios.json'
+    scenario_dashboard = json.loads(scenario_path.read_text())
+    assert scenario_dashboard['uid'] == 'xlayer-demo-scenarios'
+    assert scenario_dashboard['xlayerDemoScenarios']['data_origin'] == 'synthetic'
+    assert len(scenario_dashboard['xlayerDemoScenarios']['scenarios']) == 7
+    assert scenario_dashboard['xlayerDemoScenarios']['observations'] == []
+    initial_scenarios = scenario_path.read_bytes()
     for retired in ('step-explorer.json', 'step-detail.json', 'workspace-focus.json'):
         (tmp_path / retired).write_text('{"uid":"retired"}\n')
     custom = tmp_path / 'my-dashboard.json'
@@ -339,7 +346,8 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert not (tmp_path / 'step-explorer.json').exists()
     assert not (tmp_path / 'step-detail.json').exists()
     assert not (tmp_path / 'workspace-focus.json').exists()
-    assert len(list(tmp_path.glob('*.json'))) == 7  # Six owned plus the custom file.
+    assert len(list(tmp_path.glob('*.json'))) == 8  # Six owned, scenario catalog and custom file.
+    assert scenario_path.read_bytes() == initial_scenarios
     assert custom.read_text() == '{"uid":"custom"}\n'
     for path in tmp_path.glob('*.json'):
         if path == custom:
@@ -357,7 +365,7 @@ def test_provisioning_loki_toggle_removes_dangling_links_and_preserves_custom_fi
     assert any('/d/xlayer-bottleneck-summary' in link['url'] for link in agent['links'])
     overview = json.loads((tmp_path / 'run-overview.json').read_text())
     assert any(panel['id'] == 20 for panel in overview['panels'])
-    assert len(list(tmp_path.glob('*.json'))) == 10  # Nine owned plus custom.
+    assert len(list(tmp_path.glob('*.json'))) == 11  # Nine owned, scenario catalog and custom file.
 
 
 def test_node_log_config_accepts_multiple_local_workload_roots(tmp_path: Path) -> None:

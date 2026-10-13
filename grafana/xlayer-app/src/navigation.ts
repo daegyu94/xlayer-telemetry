@@ -1,7 +1,7 @@
 import { Context, appLink } from './context';
 
 export const WORKSPACE_PAGES = [
-  {route:'demo',title:'Demo Scenarios',description:'Synthetic scenario로 전체 조사 흐름을 확인합니다.'},
+  {route:'demo',title:'Scenario Explorer',description:'Synthetic scenario로 전체 조사 흐름을 확인합니다.'},
   {route:'overview',title:'Run Overview',description:'완료 Step의 KPI와 기록된 실행, 관련 resource 관측을 함께 확인합니다.'},
   {route:'analyze',title:'Analyze',description:'Phase window, 비교 가능한 Worker, source별 Subsystem signal을 확인합니다.'},
   {route:'investigate',title:'Investigation',description:'Current / Baseline 변화와 Candidate의 Supporting / Counter / Missing Evidence를 조사합니다.'},

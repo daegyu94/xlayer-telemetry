@@ -56,6 +56,7 @@ export type Context = {
   timezone: string;
   theme?: "light" | "dark";
 };
+export function appTheme(context:Context):"light"|"dark" { return context.theme||"dark"; }
 export function readContext(search: string): Context {
   const params = new URLSearchParams(search);
   const variables: Context["variables"] = {};

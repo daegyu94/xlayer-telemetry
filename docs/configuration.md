@@ -29,7 +29,7 @@ xltel config validate
 TELEMETRY_HOME = "~/telemetry"
 RUN_ID = "auto"
 ENABLE_LOGS = true
-GF_USERS_DEFAULT_THEME = "light"
+GF_USERS_DEFAULT_THEME = "dark"
 
 [workload]
 # 이미 동작하는 기존 argv를 배열로 저장합니다.

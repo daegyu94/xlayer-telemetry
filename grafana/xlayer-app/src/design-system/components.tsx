@@ -21,7 +21,7 @@ const componentStyles=(theme:GrafanaTheme2)=>{
   border:`1px solid ${t.border}`,borderRadius:t.radius,boxShadow:'none',
   '& strong':{fontSize:theme.typography.h2.fontSize,fontWeight:theme.typography.fontWeightBold,lineHeight:1.25,letterSpacing:'-.025em'},
   '& strong.xlt-kpi-state':{fontSize:theme.typography.h5.fontSize,letterSpacing:0},
-  '& small':{fontSize:t.small,lineHeight:1.45,color:t.muted}}),
+  '& small':{fontSize:t.supporting,lineHeight:1.5,color:t.muted}}),
  status:css({display:'inline-flex',alignItems:'center',gap:t.space(.5),padding:t.space(.25,.75),borderRadius:t.radius,fontSize:t.small,color:t.muted,background:t.soft,border:`1px solid ${t.border}`}),
  attention:css({color:t.warning,borderColor:theme.colors.warning.border,background:theme.colors.warning.transparent}),
  error:css({color:t.danger,borderColor:theme.colors.error.border,background:theme.colors.error.transparent})};

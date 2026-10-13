@@ -15,10 +15,11 @@ function CollectorState({node,compact=false}:{node:Resource;compact?:boolean}) {
  const labels={available:'Available',stale:'Stale',down:'Down',unknown:'Unknown',ambiguous:'Ambiguous'};
  return <span className="xlt-cluster-map-state" data-state={node.collector} title={`Collector ${node.collector} · scrape 응답과 sample age로 확인한 수집 상태입니다. 장비나 workload가 정상이라는 뜻은 아닙니다.`}>{compact?labels[node.collector]:`Collector ${node.collector}`}</span>;
 }
+function resourceRole(node:Resource){return node.type==='fabric'?`${node.kind==='storage'?'Storage':'Compute'} fabric`:`${node.kind}/${node.role}`;}
 function ResourceCard({node,selectedKey,onSelect}:{node:Resource;selectedKey?:string;onSelect:(node:Resource)=>void}) {
  return <button className="xlt-cluster-map-node" data-kind={node.type==='fabric'?'network':node.kind} data-resource-key={node.key} aria-label={`Inspect ${node.id}`} aria-pressed={selectedKey===node.key} onClick={()=>onSelect(node)}>
   <span className="xlt-cluster-map-icon"><ResourceGlyph node={node}/></span>
-  <span className="xlt-cluster-map-node-text"><strong>{node.id}</strong><small>{node.cluster} · {node.kind}/{node.role}</small><small>Mapping {node.mapping}</small></span>
+  <span className="xlt-cluster-map-node-text"><strong>{node.id}</strong><small>{node.cluster} · {resourceRole(node)}</small><small>Mapping {node.mapping}</small></span>
   <CollectorState node={node} compact/>
  </button>;
 }
@@ -27,6 +28,7 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
  const id=useId().replace(/:/g,''),[search,setSearch]=useState(''),[showTopology,setShowTopology]=useState(!context.variables.infra_component?.length);
  const model=topologyLayout(data.nodes,data.edges,{selectedKey:context.variables.infra_component?.[0]});
  const selected=model.selectedResource,group=(name:TopologyGroup['id'])=>model.groups.find(item=>item.id===name)!;
+ const fabricRelations=selected?.type==='fabric'?[...new Set(data.edges.filter(edge=>edge.source===selected.key||edge.destination===selected.key).map(edge=>edge.relation))]:[];
  const detailMode=!preview&&!!selected&&!showTopology;
  const selectionContext=selected&&(selected.mapping==='configured'||selected.type==='fabric')?resourceSelection(context,selected,data):undefined;
  useEffect(()=>{if(selected)setShowTopology(false);},[selected?.key]);
@@ -40,8 +42,8 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
  const inventory=data.nodes.filter(node=>`${node.id} ${node.cluster} ${node.kind} ${node.role} ${node.resource||''}`.toLowerCase().includes(search.toLowerCase()));
  const endpoint=(key:string)=>{const node=data.nodes.find(value=>value.key===key);if(node)return `${node.cluster} / ${node.kind} / ${node.id}`;try{const identity=JSON.parse(key);return Array.isArray(identity)?identity.join(' / '):key;}catch{return key;}};
  return <div className="xlt-infrastructure">
-  {detailMode&&selected&&<section className="xlt-resource-focus" aria-label="Selected resource details"><div className="xlt-section"><div><small>Resource details</small><h3>{selected.id}</h3><p>{selected.cluster} · {selected.kind} / {selected.role}</p></div><div className="xlt-actions"><CollectorState node={selected}/><button onClick={()=>setShowTopology(true)}>Cluster topology 보기</button></div></div>
-   <dl className="xlt-resource-focus-identity">{[['Type',selected.type],['Resource node',selected.resource||`${selectionContext?.variables.node?.length||0} declared nodes`],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'All mapped devices'],['Relation',selected.type==='fabric'?`${selected.kind==='storage'?'Storage':'Compute'} fabric · declared membership`:'Configured resource mapping']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+  {detailMode&&selected&&<section className="xlt-resource-focus" aria-label="Selected resource details"><div className="xlt-section"><div><small>Resource details</small><h3>{selected.id}</h3><p>{selected.cluster} · {resourceRole(selected)}</p></div><div className="xlt-actions"><CollectorState node={selected}/><button onClick={()=>setShowTopology(true)}>Cluster topology 보기</button></div></div>
+   {selected.type==='fabric'&&<p className="xlt-muted">{fabricRelations.join(' · ')||'Configured fabric relation not reported'} · declared member nodes, not observed physical links.</p>}
    {selectionContext?<div className="xlt-actions">{links(selected,selectionContext)}</div>:<p className="xlt-empty">Resource mapping이 없어 metric query를 만들 수 없습니다.</p>}
   </section>}
   {(!detailMode||preview)&&<>
@@ -57,9 +59,7 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
     {unavailable&&<p className="xlt-empty">{unavailable} · inventory를 확인할 수 없습니다. 정상 상태를 추정하지 않습니다.</p>}
     {!data.nodes.length?<p className="xlt-empty">이 시간 범위에 topology inventory가 없습니다. Configured topology를 연결한 뒤 resource를 선택하세요.</p>:<div className="xlt-cluster-map-body">
      <div className="xlt-cluster-map-layer" data-layer="compute"><div className="xlt-cluster-map-layer-header"><h4>Compute / GPU &amp; Rollout</h4><span>{group('compute').visible.length} / {group('compute').total} declarations</span></div>{showGroup(group('compute'),'xlt-cluster-map-compute-grid')}</div>
-     <div className="xlt-cluster-map-grouping" role="note"><span>Layout grouping · 관측된 network hop이 아닙니다</span></div>
      <div className="xlt-cluster-map-layer" data-layer="network"><div className="xlt-cluster-map-layer-header"><h4>Network / Configured identities</h4><span>{group('network').visible.length} / {group('network').total} identities</span></div>{showGroup(group('network'),'xlt-cluster-map-network-grid')}<p className="xlt-cluster-map-scope">이름이 같아도 cluster / namespace별 identity를 구분합니다. 동일한 physical Fabric으로 확인된 관계가 아닙니다.</p></div>
-     <div className="xlt-cluster-map-grouping" role="note"><span>Layout grouping · 관측된 network hop이 아닙니다</span></div>
      <div className="xlt-cluster-map-layer" data-layer="storage"><div className="xlt-cluster-map-layer-header"><h4>Storage / MDS + DS</h4><span>{storageTotal} declarations</span></div><div className="xlt-cluster-map-storage-groups">
       <div><h5>Metadata Servers · {group('mds').total}</h5>{showGroup(group('mds'))}</div>
       <div><h5>Data Servers · {group('ds').total}</h5>{showGroup(group('ds'),'xlt-cluster-map-storage-grid')}</div>
@@ -73,7 +73,6 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
    {!preview&&<aside className="xlt-resource-inspector" aria-label="Resource inspector">
     <div className="xlt-resource-inspector-header"><small>Resource inspector</small>{selected?<><h3>Selected Resource · {selected.id}</h3><CollectorState node={selected}/></>:<h3>Select a resource</h3>}</div>
     {!selected?<p className="xlt-empty">Map이나 Inventory에서 구성된 component를 선택하세요. Resource를 자동 선택하거나 metric 값을 추정하지 않습니다.</p>:<div className="xlt-resource-inspector-body">
-     <dl className="xlt-resource-inspector-identity">{[['Identity',selected.id],['Cluster',selected.cluster],['Namespace',selected.kind],['Type',selected.type],['Role',selected.role],['Mapping',selected.mapping],['Resource node',selected.resource||'Unknown'],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'Not configured'],['Collector',selected.collector],['Relation',selected.type==='fabric'?`${selected.kind==='storage'?'Storage':'Compute'} fabric · declared membership`:selected.mapping==='configured'?'Configured resource mapping':'Not mapped']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
      {selected.mapping!=='configured'?<p className="xlt-empty">Resource mapping이 없거나 서로 충돌합니다. Publisher identity로 resource query나 device attribution을 생성하지 않습니다.</p>:<>
       <label className="xlt-resource-inspector-select">Node / device<select aria-label="Infrastructure resource" value={selected.key} onChange={event=>{const node=data.nodes.find(value=>value.key===event.target.value);if(node)onSelect(node);}}>{devices.map(node=><option key={node.key} value={node.key}>{node.id} · {node.type}</option>)}</select></label>
       <div className="xlt-device-map"><b>{selected.resource} · 선언된 resource mapping</b><div>{devices.filter(node=>node.type!=='node').map(node=><button key={node.key} aria-pressed={node.key===selected.key} onClick={()=>onSelect(node)}>{node.gpu!==undefined?`GPU ${node.gpu}`:node.interface||node.device||node.id}<small>{node.type} · configured</small></button>)}</div></div>

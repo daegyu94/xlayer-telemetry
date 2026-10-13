@@ -559,13 +559,15 @@ UI 변경 당시의 비교 화면은 [검증 기록](validation/README.md)에 �
 
 ## Theme Selection
 
-기본 배색은 Grafana의 안정된 **Light** theme입니다. 옅은 회색 canvas 위에 흰 panel과 얇은 border를 사용하고, 주요 workload graph는 indigo·blue, 정상 KPI는 neutral, stale·candidate는 amber·red로 구분합니다.
+기본 배색은 Grafana의 안정된 **Dark** theme입니다. 어두운 canvas 위에 구분되는 panel과 얇은 border를 사용하고, 주요 workload graph는 indigo·blue, 정상 KPI는 neutral, stale·candidate는 amber·red로 구분합니다.
 Dashboard마다 반복되던 Color 링크는 제거했습니다. 로그인 사용자는 Profile의 **Change theme**에서 Dark 또는 System을 선택할 수 있으며 기존 user·team·organization preference는 server default보다 우선합니다.
+
+XLayer App은 URL에 `theme`이 없으면 Dark로 시작하며, 테마 전환은 링크에 선택한 테마를 보존합니다. Grafana의 `GF_USERS_DEFAULT_THEME`도 기본값을 Dark로 설정합니다. 기존 Grafana 사용자 preference는 서버에 저장되어 default보다 우선하므로, 기존 사용자의 테마를 바꾸려면 Profile에서 변경해야 합니다.
 
 Server 기본값은 TOML의 `[telemetry]`에서 변경합니다.
 
 ```toml
-GF_USERS_DEFAULT_THEME = "light"
+GF_USERS_DEFAULT_THEME = "dark"
 GF_FEATURE_TOGGLES_ENABLE = ""
 ```
 

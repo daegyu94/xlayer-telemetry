@@ -11,7 +11,14 @@ import {
   decodeRecord,
   sceneTime,
   subsystemDestination,
+  appTheme,
 } from "../src/context";
+
+test("app theme defaults to dark and preserves an explicit URL choice",()=>{
+  assert.equal(appTheme(readContext("")),"dark");
+  assert.equal(appTheme(readContext("?theme=light")),"light");
+  assert.equal(appTheme(readContext("?theme=dark")),"dark");
+});
 
 test("multi-node and encoded identifiers survive allowed URL context", () => {
   const context = readContext(

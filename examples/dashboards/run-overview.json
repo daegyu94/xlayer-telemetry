@@ -1167,8 +1167,8 @@
       "panels": [
         {
           "id": 2,
-          "type": "stat",
-          "title": "Host available memory by node",
+          "type": "timeseries",
+          "title": "Host memory utilization by node",
           "gridPos": {
             "x": 0,
             "y": 31,
@@ -1182,14 +1182,13 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"}",
-              "instant": true,
-              "legendFormat": "{{cluster}}/{{instance}}"
+              "expr": "((1 - (node_memory_MemAvailable_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} / node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"})) * 100) and on(cluster,nodename) (node_memory_MemTotal_bytes{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} > 0)",
+              "legendFormat": "{{cluster}}/{{nodename}}"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "bytes",
+              "unit": "percent",
               "noValue": "N/A",
               "mappings": [
                 {
@@ -1207,20 +1206,10 @@
             "overrides": []
           },
           "options": {
-            "reduceOptions": {
-              "calcs": [
-                "last"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {
-              "titleSize": 18,
-              "valueSize": 40
-            },
-            "colorMode": "none"
+            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+            "tooltip": {"mode": "multi", "sort": "none", "hideZeros": false}
           },
-          "description": "선택한 node의 MemAvailable입니다. Host 전체의 값이며 특정 Run의 memory 사용량이 아닙니다."
+          "description": "Host 전체의 사용률입니다. Workload별 memory usage가 아니며 MemAvailable / MemTotal에서 계산합니다."
         },
         {
           "id": 10,

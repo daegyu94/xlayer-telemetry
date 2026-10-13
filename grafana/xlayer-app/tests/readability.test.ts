@@ -25,6 +25,7 @@ test('theme-derived semantic text meets AA on every product surface in both mode
    assert.ok(ratio>=3,`Light panel border/${background}: ${ratio} < 3`);
   }
   assert.ok(tokens.small>=12);
+  assert.equal(tokens.supporting,14);
  }
 });
 test('scoped panel compatibility keeps native geometry without undersized text or global stylesheet',()=>{

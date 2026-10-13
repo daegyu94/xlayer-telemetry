@@ -43,11 +43,19 @@ export function resourceSelection(context:Context,node:Resource,model?:ReturnTyp
   gpu:[node.gpu||'.*'],device:[node.device||node.interface||'.*'],
   storage_node:[node.kind==='storage'?resources[0]:'.*'],storage_system:[node.storageSystem||'.*']}};
 }
-export function resourceMetricIndices(node:Resource):number[]{
+export function resourceMetricIndices(node:Resource,nodes:Resource[]=[]):number[]{
  if(node.type==='gpu')return [2,3];
- if(node.type==='ssd')return [6,7,8,9];
+ if(node.type==='ssd')return [6];
  if(node.type==='fabric'||node.type==='nic')return [4,5];
- return node.kind==='storage'?[0,1,6,7,8,9]:[0,1,2,3,6,7,8,9];
+ const base=node.kind==='storage'?[0,1,6]:[0,1,2,3];
+ return node.kind==='compute'&&hasMappedLocalSsd(node,nodes)?[...base,6]:base;
+}
+export function hasMappedLocalSsd(node:Resource,nodes:Resource[]):boolean{
+ return !!node.resource&&nodes.some(value=>value.cluster===node.cluster&&value.resource===node.resource&&value.type==='ssd');
+}
+export function compactResourceLegend(format:string,retainNode=false):string{
+ const labels=retainNode?'cluster|instance':'cluster|nodename|node|instance';
+ return format.replace(new RegExp(`\\{\\{(?:${labels})\\}\\}[\\s/·]*`,'g'),'').replace(/\s+/g,' ').trim().replace(/^[·/]\s*/, '');
 }
 /** Keep canonical LogQL, renaming only variables with dashboard-specific meaning. */
 export function logPanel(panel:Panel|undefined):Panel|undefined{

@@ -4,6 +4,7 @@ import {readContext,writeContext,dashboardLink,investigationKey} from '../src/co
 import {WORKSPACE_PAGES,themeContext,navigationLink} from '../src/navigation';
 
 test('all workspace pivots retain execution, resource and time context in either theme',()=>{
+ assert.equal(WORKSPACE_PAGES.find(page=>page.route==='demo')?.title,'Scenario Explorer');
  const context=readContext('?var-run_id=run-a&var-run_id=run-b&var-record_id=step%2B128&var-worker=w&var-node=ssd-node&var-device=nvme0&var-engine=e&from=1000&to=2000');
  for(const theme of ['light','dark'] as const){const themed=themeContext(context,theme);
   for(const page of WORKSPACE_PAGES)assert.deepEqual(readContext(new URL(navigationLink(page.route,themed),'http://localhost').search),themed);

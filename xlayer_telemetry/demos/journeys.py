@@ -72,7 +72,7 @@ def publish_explorer(directory: Path, *, selected: str, cycle: int, status: str,
              'scenarios':list(SCENARIOS),'boundary_tests':BOUNDARY_TESTS,'observations':(rows+old)[:28],
              'limitations':'Synthetic SDK / native queries. No real weights, GPU, physical multi-node, RDMA or 3FS validation.'}
     dashboard={'uid':'xlayer-demo-scenarios','title':'XLayer Synthetic Scenario Explorer','schemaVersion':39,
-               'version':cycle+1,'tags':['xlayer','synthetic'],'panels':[],
+               'version':cycle+1,'tags':['xlayer','synthetic'],'panels':[],'links':[],
                'xlayerDemoScenarios':catalog}
     atomic_write_text(path,json.dumps(dashboard,ensure_ascii=False,indent=2)+'\n')
     return catalog

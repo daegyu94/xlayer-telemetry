@@ -496,10 +496,13 @@ class Demo:
 
     def _vllm(self, now: float, value: dict[str, float], *, identity="vllm", labels=None) -> list[GaugeSample]:
         labels = labels or {"model_name": "synthetic-model", "engine": "0"}
+        elapsed = now - self.started
         waiting = value.get("waiting", 8 if value["busy"] > .5 else 1)
+        kv_hit = min(.98,max(.3,value.get("kv_hit",.7)+.1*math.sin(elapsed/11)))
+        cache_usage = min(.99,max(.2,value.get('kv_util',.92 if waiting>1 else .45)+.035*math.sin(elapsed/9)))
         samples = [GaugeSample(name, "Synthetic vLLM gauge.", number, labels) for name, number in {
             "vllm:num_requests_waiting": waiting, "vllm:num_requests_running": 4,
-            "vllm:kv_cache_usage_perc": value.get('kv_util', .92 if waiting > 1 else .45)}.items()]
+            "vllm:kv_cache_usage_perc": cache_usage}.items()]
         # Reason categories must be explicit producer inputs, not inferred from
         # queue depth or interpreted as KV causality.
         for reason in ('capacity','deferred'):
@@ -510,7 +513,7 @@ class Demo:
         for name, rate in {"vllm:num_preemptions_total": .2 if waiting > 1 else 0,
                            "vllm:prompt_tokens_total": 800, "vllm:generation_tokens_total": value["tokens"],
                            "vllm:prefix_cache_queries_total": 100,
-                           "vllm:prefix_cache_hits_total": 100 * value.get("kv_hit", .7),
+                           "vllm:prefix_cache_hits_total": 100 * kv_hit,
                            "vllm:external_prefix_cache_queries_total": 50,
                            "vllm:external_prefix_cache_hits_total": 20,
                            "vllm:kv_offload_allocation_failure_total": .05 if waiting > 1 else 0}.items():
@@ -528,9 +531,11 @@ class Demo:
                 self._counter(identity, "finished-" + reason, rate, now), {**labels, "finished_reason": reason}, kind="counter"))
         # Cumulative bucket COUNTERS, not percentile gauges. Rates preserve the
         # ordering needed by the dashboards' real histogram_quantile queries.
+        slow_weight=min(.9,(.55 if waiting>1 else .06)+.22*(.5+.5*math.sin(elapsed/8)))
+        blend=lambda fast,slow:tuple(a+(b-a)*slow_weight for a,b in zip(fast,slow))
         distributions = {
-            "time_to_first_token_seconds": (.25, .65, .85, .99, 1) if waiting > 1 else (.7, .96, .99, 1, 1),
-            "request_queue_time_seconds": (.4, .75, .9, .99, 1) if waiting > 1 else (.85, .99, 1, 1, 1),
+            "time_to_first_token_seconds": blend((.7,.96,.99,1,1),(.25,.65,.85,.99,1)),
+            "request_queue_time_seconds": blend((.85,.99,1,1,1),(.4,.75,.9,.99,1)),
             "e2e_request_latency_seconds": (.05, .2, .55, .97, 1),
             "request_prefill_time_seconds": (.4, .8, .98, 1, 1),
             "request_decode_time_seconds": (.1, .4, .8, .99, 1),
@@ -550,23 +555,20 @@ class Demo:
                                ("operation_bytes_total", byte_rate), ("operation_failed_keys_total", 0)):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
                     self._counter(identity, operation + name, rate, now), operation_labels, kind="counter"))
-            if self.scenario_state is not None or self.multi_job_state is not None:
-                # Fixed bucket identities for the entire scenario replay. Only
-                # nonnegative observation increments change between phases;
-                # cumulative counters are never replaced by the current CDF.
-                bounds = ("0.001", "0.0025", "0.005", "0.01", "0.02", "0.04", "0.08", "+Inf")
-                fractions = ((.005, .02, .06, .25, .915, .985, 1, 1) if value.get("kv_slow")
-                             else (.03, .15, .8, .995, 1, 1, 1, 1))
-                previous_bound, previous_fraction, mean = 0., 0., 0.
-                for bound, fraction in zip(bounds[:-1], fractions[:-1]):
-                    mean += (float(bound) + previous_bound) / 2 * (fraction - previous_fraction)
-                    previous_bound, previous_fraction = float(bound), fraction
-                self._histogram(samples, identity, "vllm:mooncake_store_operation_time_seconds",
-                                bounds, fractions, calls, now, operation_labels, mean=mean)
-            else:
-                self._histogram(samples, identity, "vllm:mooncake_store_operation_time_seconds",
-                                ("0.001", "0.01", "0.1", "1", "+Inf"), (.1, .7, .95, 1, 1),
-                                calls, now, operation_labels)
+            # Fixed buckets keep the demo histogram schema stable; only its
+            # cumulative observations shift between fast and slow windows.
+            bounds = ("0.001", "0.0025", "0.005", "0.01", "0.02", "0.04", "0.08", "+Inf")
+            fast = (.03, .15, .8, .995, 1, 1, 1, 1)
+            slow = (.005, .02, .06, .25, .915, .985, 1, 1)
+            slow_weight = min(.9, (.55 if value.get("kv_slow") else .06)
+                              + .24 * (.5 + .5 * math.sin((now - self.started) / 8)))
+            fractions = tuple(a + (b - a) * slow_weight for a, b in zip(fast, slow))
+            previous_bound, previous_fraction, mean = 0., 0., 0.
+            for bound, fraction in zip(bounds[:-1], fractions[:-1]):
+                mean += (float(bound) + previous_bound) / 2 * (fraction - previous_fraction)
+                previous_bound, previous_fraction = float(bound), fraction
+            self._histogram(samples, identity, "vllm:mooncake_store_operation_time_seconds",
+                            bounds, fractions, calls, now, operation_labels, mean=mean)
             for name in ("operation_total", "operation_failed_keys_total"):
                 samples.append(GaugeSample(f"vllm:mooncake_store_{name}", "Synthetic Mooncake store operation counter.",
                     self._counter(identity, operation + name + "error", 0, now),
@@ -590,10 +592,15 @@ class Demo:
             {} if endpoint == "mooncake-client" else labels, kind="counter"))
 
     def _mooncake_master(self, now: float) -> list[GaugeSample]:
+        elapsed=now-self.started
+        total_rate=16+4*math.sin(elapsed/8)
+        memory_rate=total_rate*(.52+.08*math.sin(elapsed/5))
+        file_rate=total_rate*(.16+.05*math.cos(elapsed/7))
+        valid_rate=total_rate*(.88+.04*math.sin(elapsed/9))
         samples = [GaugeSample(name, "Synthetic Mooncake master gauge.", number) for name, number in {
             "master_allocated_bytes": 6 * _GIB, "master_total_capacity_bytes": 16 * _GIB}.items()]
-        for name, rate in {"mem_cache_hit_nums_": 12, "file_cache_hit_nums_": 4,
-                           "valid_get_nums_": 16, "total_get_nums_": 20,
+        for name, rate in {"mem_cache_hit_nums_": memory_rate, "file_cache_hit_nums_": file_rate,
+                           "valid_get_nums_": valid_rate, "total_get_nums_": total_rate,
                            "master_put_start_failures_total": 0,
                            "master_batch_put_start_requests_total": 2, "master_batch_put_end_requests_total": 2,
                            "master_batch_get_replica_list_requests_total": 3,
@@ -608,14 +615,19 @@ class Demo:
     def _mooncake_client(self, now: float) -> list[GaugeSample]:
         labels = {"client_mode": "real", "cluster_id": "synthetic-store"}
         samples = []
-        for direction, byte_rate, calls in (("read", .1 * _GIB, 16), ("write", .2 * _GIB, 32)):
+        elapsed=now-self.started
+        wave=math.sin(elapsed/8)
+        for direction, byte_rate, calls in (("read", .1 * _GIB*(1+.25*wave), 16*(1+.2*wave)),
+                                            ("write", .2 * _GIB*(1-.2*wave), 32*(1-.15*wave))):
             for name, rate in ((f"mooncake_dfs_{direction}_bytes_total", byte_rate),
                                (f"mooncake_dfs_{direction}_ops_total", calls)):
                 samples.append(GaugeSample(name, "Synthetic successful DFS key counter.",
                     self._counter("mooncake-client", name, rate, now), labels, kind="counter"))
+            weight=.12+.16*(.5+.5*wave)
+            fast,slow=(.2,.85,.99,1,1),(.02,.28,.78,.98,1)
+            fractions=tuple(a+(b-a)*weight for a,b in zip(fast,slow))
             self._histogram(samples, "mooncake-client", f"mooncake_dfs_{direction}_latency_us",
-                            ("100", "1000", "10000", "100000", "+Inf"),
-                            (.1, .7, .95, 1, 1), calls / 8, now, labels)
+                            ("100", "1000", "10000", "100000", "+Inf"),fractions,calls/8,now,labels)
             errors = f"mooncake_dfs_{direction}_errors_total"
             error = "FILE_READ_FAIL" if direction == "read" else "FILE_WRITE_FAIL"
             samples.append(GaugeSample(errors, "Synthetic DFS failed key counter by error code.",
@@ -628,8 +640,12 @@ class Demo:
 
     def _ray(self, now: float, value: dict[str, float]) -> list[GaugeSample]:
         labels = {"SessionName": "synthetic-session"}
+        elapsed=now-self.started
+        wave=math.sin(elapsed/7)
+        running=max(2,round(8+2*math.sin(elapsed/11)))
+        pending=max(0,round((12 if value.get('kv_slow') else 2)+(3 if value.get('kv_slow') else 2)*wave))
         samples = []
-        for state, count in (("RUNNING", 8), ("PENDING_ARGS_AVAIL", 12 if value.get("kv_slow") else 2)):
+        for state, count in (("RUNNING", running), ("PENDING_ARGS_AVAIL", pending)):
             samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", count,
                                        {**labels, "State": state, "IsRetry": "0"}))
             samples.append(GaugeSample("ray_tasks", "Synthetic Ray state gauge.", 1,
@@ -639,9 +655,10 @@ class Demo:
         for state, count in (("CREATED", 4), ("PENDING", 1)):
             samples.append(GaugeSample("ray_placement_groups", "Synthetic Ray placement group state.", count,
                                        {**labels, "State": state}))
-        for name, number in (("CPU", 16), ("GPU", 8)):
-            for state, fraction in (("AVAILABLE", .25), ("USED", .75)):
-                samples.append(GaugeSample("ray_resources", "Synthetic Ray resource gauge.", number * fraction,
+        for name, number, used in (("CPU", 16, min(13,max(3,8+2*math.sin(elapsed/9+.4)))),
+                                   ("GPU", 8, min(7,max(1,4+math.sin(elapsed/10))))):
+            for state, amount in (("AVAILABLE", number-used), ("USED", used)):
+                samples.append(GaugeSample("ray_resources", "Synthetic Ray resource gauge.", amount,
                                            {**labels, "Name": name, "State": state}))
         samples.extend([
             GaugeSample("ray_object_store_memory", "Synthetic Ray object store bytes.", 4 * _GIB, {**labels, "Location": "MMAP_SHM"}),
@@ -690,6 +707,10 @@ class Demo:
 
     def _topology(self) -> list[GaugeSample]:
         samples = []
+        compute_network = self.gpu['network']
+        storage_network = self.storage['network']
+        compute_relation = f"{compute_network['transport']} {compute_network['bandwidth_gbps']:g} Gbps · compute fabric"
+        storage_relation = f"{storage_network['transport']} {storage_network['bandwidth_gbps']:g} Gbps · storage fabric"
         for node in self.gpu["gpu_nodes"]:
             samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "compute", "component": node, "role": "gpu-node", "resource_node":node}))
             for gpu in range(self.gpu["gpus_per_node"]):
@@ -700,7 +721,7 @@ class Demo:
                 for peer in range(self.gpu["gpus_per_node"]):
                     if gpu != peer:
                         samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": component, "destination": f"{node}/gpu-{peer}", "relation": self.gpu["intra_node_interconnect"]}))
-            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": node, "destination": "compute-roce-fabric", "relation": "compute-fabric"}))
+            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "compute", "source": node, "destination": "compute-roce-fabric", "relation": compute_relation}))
             samples.append(GaugeSample('telemetry_topology_component_info','Synthetic topology component.',1,
                 {'kind':'compute','component':node+'/roce0','role':'nic','resource_node':node,'interface':'roce0'}))
             samples.append(GaugeSample('telemetry_topology_edge_info','Synthetic topology edge.',1,
@@ -713,11 +734,11 @@ class Demo:
                     GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": f"{node}/nvme{ssd}n1", "role": "ssd", "resource_node": node, "device": f"nvme{ssd}n1", "storage_system": "synthetic-3fs"}),
                     GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": f"{node}/nvme{ssd}n1", "relation": "attached"}),
                 ]
-            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": "storage-roce-fabric", "relation": "storage-fabric"}))
+            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": "storage-roce-fabric", "relation": storage_relation}))
         for node in self.storage.get('metadata_nodes', []):
             samples.append(GaugeSample('telemetry_topology_component_info','Synthetic topology component.',1,
                 {'kind':'storage','component':node,'role':'metadata','resource_node':node,'storage_system':'synthetic-3fs'}))
-            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": "storage-roce-fabric", "relation": "storage-fabric"}))
+            samples.append(GaugeSample("telemetry_topology_edge_info", "Synthetic topology edge.", 1, {"kind": "storage", "source": node, "destination": "storage-roce-fabric", "relation": storage_relation}))
         samples.append(GaugeSample("telemetry_topology_component_info", "Synthetic topology component.", 1, {"kind": "storage", "component": "storage-roce-fabric", "role": "storage-fabric"}))
         return samples
 

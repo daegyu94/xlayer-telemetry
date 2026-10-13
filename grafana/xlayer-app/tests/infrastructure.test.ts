@@ -46,8 +46,10 @@ test('All-cluster resource selection pins the explicit resource cluster, not jus
 });
 test('resource details choose node-wide CPU and device panels by resource kind',()=>{
  const model=infrastructure(rows,[],[],2000);
- assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='host')!),[0,1,2,3,6,7,8,9]);
- assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='disk')!),[6,7,8,9]);
+ const host=model.nodes.find(n=>n.id==='host')!;
+ assert.deepEqual(resourceMetricIndices(host,model.nodes),[0,1,2,3]);
+ assert.deepEqual(resourceMetricIndices({...host,resource:'storage'},model.nodes),[0,1,2,3,6]);
+ assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='disk')!),[6]);
  assert.deepEqual(resourceMetricIndices(model.nodes.find(n=>n.id==='fabric')!),[4,5]);
 });
 test('canonical log expressions use distinct application and log payload Run filters without rewriting queries',()=>{

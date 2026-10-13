@@ -3,9 +3,8 @@ import { useEffect, useState } from 'react';
 import { AppPlugin, ThemeContext, createTheme } from '@grafana/data';
 import { locationService } from '@grafana/runtime';
 import { Router } from 'react-router-dom';
-import { useTheme2 } from '@grafana/ui';
 import { loadCatalog } from './catalog';
-import { APP_BASE, readContext, appLink } from './context';
+import { APP_BASE, readContext, appLink, appTheme } from './context';
 import { displayUiNote } from './ui-copy';
 import { validTimezone } from './time-context';
 import type { Catalog } from './catalog';
@@ -33,9 +32,8 @@ function Ready({catalog}: {catalog: Catalog}) {
 const dashboardThemes={light:createTheme({colors:{mode:'light'}}),dark:createTheme({colors:{mode:'dark'}})};
 
 function Root() {
-  const inheritedTheme=useTheme2();
-  const [visualTheme,setVisualTheme]=useState(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'));
-  useEffect(()=>locationService.getHistory().listen(()=>setVisualTheme(readContext(window.location.search).theme || (inheritedTheme.isDark?'dark':'light'))),[inheritedTheme.isDark]);
+  const [visualTheme,setVisualTheme]=useState(appTheme(readContext(window.location.search)));
+  useEffect(()=>locationService.getHistory().listen(()=>setVisualTheme(appTheme(readContext(locationService.getLocation().search)))),[]);
   const [catalog,setCatalog]=useState<Catalog>();
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
@@ -68,9 +66,9 @@ function Root() {
       active = false;
     };
   }, [refresh]);
-  if(invalidContext)return <div className="xlt"><p role="alert" className="xlt-error">{invalidContext}</p><p>Run 선택은 유지됩니다. 최근 30분으로 복구하면 시간 범위가 변경됩니다.</p><button onClick={()=>{const current=readContext(locationService.getLocation().search);locationService.replace(appLink(window.location.pathname.slice(APP_BASE.length+1)||'overview',{...current,from:'now-30m',to:'now',timezone:validTimezone(current.timezone)?current.timezone:'browser'}));}}>Use last 30 minutes</button></div>;
-  return status === "ready" && catalog ? (
-    <ThemeContext.Provider value={dashboardThemes[visualTheme]}><CatalogRetryContext.Provider value={{retry:()=>setRefresh(v=>v+1),refreshing,error}}><DemoBoundary generation={window.location.pathname.endsWith('/demo')?undefined:context.variables.demo_generation?.[0]}><Ready catalog={catalog} key={`${revision}/${context.variables.demo_generation?.[0]||''}`}/></DemoBoundary></CatalogRetryContext.Provider></ThemeContext.Provider>
+  if(invalidContext)return <ThemeContext.Provider value={dashboardThemes[appTheme(context)]}><div className="xlt"><p role="alert" className="xlt-error">{invalidContext}</p><p>Run 선택은 유지됩니다. 최근 30분으로 복구하면 시간 범위가 변경됩니다.</p><button onClick={()=>{const current=readContext(locationService.getLocation().search);locationService.replace(appLink(window.location.pathname.slice(APP_BASE.length+1)||'overview',{...current,from:'now-30m',to:'now',timezone:validTimezone(current.timezone)?current.timezone:'browser'}));}}>Use last 30 minutes</button></div></ThemeContext.Provider>;
+  return <ThemeContext.Provider value={dashboardThemes[visualTheme]}>{status === "ready" && catalog ? (
+    <CatalogRetryContext.Provider value={{retry:()=>setRefresh(v=>v+1),refreshing,error}}><DemoBoundary generation={window.location.pathname.endsWith('/demo')?undefined:context.variables.demo_generation?.[0]}><Ready catalog={catalog} key={`${revision}/${context.variables.demo_generation?.[0]||''}`}/></DemoBoundary></CatalogRetryContext.Provider>
   ) : (
     <div className="xlt">
       <p>
@@ -80,7 +78,7 @@ function Root() {
       </p>
       {status==='error'&&<button onClick={()=>setRefresh(v=>v+1)} disabled={refreshing}>Retry dashboards</button>}
     </div>
-  );
+  )}</ThemeContext.Provider>;
 }
 
 export const plugin = new AppPlugin().setRootPage(Root);

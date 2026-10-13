@@ -7,9 +7,9 @@ import {validDateMs} from './time-context';
 import {useSceneData} from './scene-data';
 import {timelinePanelHeight} from './native-panel-layout';
 
-const plans=new WeakMap<VizPanel,{profile:ResourceMatrixProfile;metrics:Record<string,string>}>();
-export function registerResourcePanel(panel:VizPanel,source:{type:string;targets?:any[]},profile?:ResourceMatrixProfile){
- if(source.type==='timeseries'&&profile)plans.set(panel,{profile,metrics:Object.fromEntries((source.targets||[]).map(t=>[t.refId,metricLabel(t.legendFormat,t.refId)]))});
+const plans=new WeakMap<VizPanel,{profile:ResourceMatrixProfile;metrics:Record<string,string>;compactIdentity:boolean}>();
+export function registerResourcePanel(panel:VizPanel,source:{type:string;targets?:any[]},profile?:ResourceMatrixProfile,compactIdentity=false){
+ if(source.type==='timeseries'&&profile)plans.set(panel,{profile,compactIdentity,metrics:Object.fromEntries((source.targets||[]).map(t=>[t.refId,metricLabel(t.legendFormat,t.refId)]))});
  return panel;
 }
 function valueText(cell:ResourceCell,unit:string){
@@ -52,6 +52,15 @@ function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<ty
  useEffect(()=>{if(unsupported&&mode==='matrix')setMode('series');},[unsupported,mode]);
  const names=chosen&&data?[getFieldDisplayName(chosen.frame.fields[chosen.fieldIndex],chosen.frame,data.series)]:[];
  const duplicate=chosen&&data&&matrix.cells.some(c=>c.key!==chosen.key&&getFieldDisplayName(c.frame.fields[c.fieldIndex],c.frame,data.series)===names[0]);
+ const renderCell=(row:string,column:string)=>{
+  const matching=cells.filter(c=>c.row===row&&c.column===column),cell=matching.length===1?matching[0]:undefined;
+  const text=cell?valueText(cell,unit):'—',status=cell?.status|| (matching.length>1?'unknown':'no-data');
+  const unitValue=plan.profile.color.mode==='fixed-percent'?plan.profile.color.unit:cell?.frame.fields[cell.fieldIndex].config.unit||unit;
+  const alpha=cell?matrixColorAlpha(cell.value,plan.profile.color,max,unitValue):undefined;
+  const differing=additionalIdentityLabels(matching);
+  const unavailableReason=matching.length>1?`복수의 source identity${differing.length?` (${differing.join(', ')})`:''}가 같은 좌표에 있습니다. 값을 합치지 않습니다.`:'이 좌표의 telemetry가 없습니다.';
+  return <button className="xlt-resource-cell" data-state={status} aria-pressed={selected===cell?.key&&!!cell} disabled={!cell||status!=='observed'} aria-label={`${row} · ${column} · ${text} · ${status}`} title={cell?`${JSON.stringify(cell.labels)}\n${cell.count} finite samples · Latest evaluation: ${validDateMs(cell.time)?new Date(cell.time).toISOString():'Unknown'}`:unavailableReason} style={status==='observed'&&alpha!==undefined?{background:`rgba(69,102,213,${alpha})`}:undefined} onClick={()=>setSelected(cell?.key)}><b>{text}</b>{status!=='observed'&&<small>{status==='no-data'?'No data':status==='stale'?'Stale':'Unknown'}</small>}</button>;
+ };
  useEffect(()=>{
   // VizPanel caches fields with applied overrides; selection must invalidate that cache.
   panel.clearFieldConfigCache();
@@ -67,15 +76,7 @@ function MatrixPanel({panel,plan}:{panel:VizPanel;plan:NonNullable<ReturnType<ty
    <label>Metric <select aria-label="Matrix metric" value={activeMetric} disabled={metricRefs.length<2} onChange={e=>{setMetric(e.target.value);setSelected(undefined);}}>{metricRefs.map(ref=><option key={ref} value={ref}>{plan.metrics[ref]||ref}</option>)}</select></label></div>
    {state.description&&<details className="xlt-resource-note"><summary>Source / Scope</summary><p>{state.description}</p></details>}
    <p className="xlt-muted xlt-resource-note">Query evaluation의 {reduction==='latest'?'최신 값':reduction==='mean'?'반환된 samples의 산술 평균':'구간 최댓값'}입니다. Mean은 불규칙한 sample 간격을 고려한 시간 가중 평균이 아닙니다. {plan.profile.color.mode==='relative'?'색상은 같은 Metric의 선택 Entity 중 상대 크기입니다.':'색상은 전체 선택 Entity에 고정된 0~100% 범위를 사용합니다.'} 색은 Health나 Run ownership을 뜻하지 않습니다. Producer freshness는 별도 확인이 필요합니다.</p>
-   {matrix.state!=='ready'&&matrix.state!=='unsupported'?<p className="xlt-empty" role="status">{messages[matrix.state as keyof typeof messages]}</p>:metricAvailability==='missing'?<p className="xlt-empty" role="status">선택한 Metric({plan.metrics[activeMetric]||activeMetric})의 source series가 반환되지 않았습니다. 0이나 다른 Metric 값으로 대체하지 않습니다.</p>:metricAvailability==='empty'?<p className="xlt-empty" role="status">선택한 Metric의 query 결과가 없습니다. 측정값 0과 구분합니다.</p>:unsupported?<p className="xlt-empty" role="status">{messages.unsupported}</p>:matrix.state!=='ready'?<p className="xlt-empty" role="status">{messages[matrix.state as keyof typeof messages]}</p>:<div className="xlt-resource-scroll"><table><thead><tr><th>Cluster / Node</th>{matrix.columns.map(c=><th key={c}>{plan.profile.dimension==='gpu'?'GPU ':''}{c}</th>)}</tr></thead><tbody>{matrix.rows.map(row=><tr key={row}><th scope="row">{row}</th>{matrix.columns.map(column=>{
-    const matching=cells.filter(c=>c.row===row&&c.column===column),cell=matching.length===1?matching[0]:undefined;
-    const text=cell?valueText(cell,unit):'—',status=cell?.status|| (matching.length>1?'unknown':'no-data');
-    const unitValue=plan.profile.color.mode==='fixed-percent'?plan.profile.color.unit:cell?.frame.fields[cell.fieldIndex].config.unit||unit;
-    const alpha=cell?matrixColorAlpha(cell.value,plan.profile.color,max,unitValue):undefined;
-    const differing=additionalIdentityLabels(matching);
-    const unavailableReason=matching.length>1?`복수의 source identity${differing.length?` (${differing.join(', ')})`:''}가 같은 좌표에 있습니다. 값을 합치지 않습니다.`:'이 좌표의 telemetry가 없습니다.';
-    return <td key={column}><button className="xlt-resource-cell" data-state={status} aria-pressed={selected===cell?.key&&!!cell} disabled={!cell||status!=='observed'} aria-label={`${row} · ${column} · ${text} · ${status}`} title={cell?`${JSON.stringify(cell.labels)}\n${cell.count} finite samples · Latest evaluation: ${validDateMs(cell.time)?new Date(cell.time).toISOString():'Unknown'}`:unavailableReason} style={status==='observed'&&alpha!==undefined?{background:`rgba(69,102,213,${alpha})`}:undefined} onClick={()=>setSelected(cell?.key)}><b>{text}</b>{status!=='observed'&&<small>{status==='no-data'?'No data':status==='stale'?'Stale':'Unknown'}</small>}</button></td>;
-   })}</tr>)}</tbody></table></div>}
+   {matrix.state!=='ready'&&matrix.state!=='unsupported'?<p className="xlt-empty" role="status">{messages[matrix.state as keyof typeof messages]}</p>:metricAvailability==='missing'?<p className="xlt-empty" role="status">선택한 Metric({plan.metrics[activeMetric]||activeMetric})의 source series가 반환되지 않았습니다. 0이나 다른 Metric 값으로 대체하지 않습니다.</p>:metricAvailability==='empty'?<p className="xlt-empty" role="status">선택한 Metric의 query 결과가 없습니다. 측정값 0과 구분합니다.</p>:unsupported?<p className="xlt-empty" role="status">{messages.unsupported}</p>:matrix.state!=='ready'?<p className="xlt-empty" role="status">{messages[matrix.state as keyof typeof messages]}</p>:plan.profile.dimension==='gpu'?<div className="xlt-resource-gpu-list" role="table" aria-label="GPU resources">{matrix.rows.map(row=><div className="xlt-resource-gpu-node" role="row" key={row}><strong role="rowheader">{plan.compactIdentity?row.split(' / ').slice(-1)[0]:row}</strong><div className="xlt-resource-gpu-cells">{matrix.columns.map(column=><div role="cell" className="xlt-resource-gpu-cell" key={column}><span>GPU {column}</span>{renderCell(row,column)}</div>)}</div></div>)}</div>:<div className="xlt-resource-scroll"><table><thead><tr><th>Cluster / Node</th>{matrix.columns.map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{matrix.rows.map(row=><tr key={row}><th scope="row">{plan.compactIdentity?row.split(' / ').slice(-1)[0]:row}</th>{matrix.columns.map(column=><td key={column}>{renderCell(row,column)}</td>)}</tr>)}</tbody></table></div>}
    {chosen&&<div className="xlt-resource-selection"><div className="xlt-resource-controls"><b>{chosen.row} · {chosen.column}</b><button onClick={()=>setSelected(undefined)}>Clear selection</button></div>{duplicate?<p className="xlt-empty">동일한 series 표시 이름이 중복돼 선택한 identity만 분리할 수 없습니다. Time series와 기존 필터에서 확인하세요.</p>:<div className="xlt-resource-detail"><panel.Component model={panel}/></div>}</div>}
   </>}
  </section>;
