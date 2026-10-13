@@ -10,7 +10,7 @@ from xlayer_telemetry.analysis.diagnosis_analysis import evaluate_rules
 from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, load_config, tool_span_window
 from xlayer_telemetry.events import CorrelationContext, EventRecorder
 from xlayer_telemetry.metrics.prometheus import format_gauges
-from xlayer_telemetry.sandbox import SandboxRecorder
+from xlayer_telemetry.sandbox import SandboxRecorder, device_window
 from xlayer_telemetry.collectors.sandbox_sampler import (
     parse_io_stat, parse_pressure, pressure_ratio, read_cgroup, samples,
 )
@@ -430,7 +430,49 @@ def test_first_device_io_retains_delta_without_inventing_missing_baseline(tmp_pa
     if baseline_available:
         assert observation['io_devices']['259:0']['wbytes'] == 16781312
         assert observation['io_devices']['259:0']['wios'] == 33
+        assert observation['io_devices']['259:0']['rbytes'] == 0
+        assert observation['device_mapping']['counter_status'] == 'observed'
     else:
         assert observation['io_devices'] == {}
         assert observation['device_mapping']['counter_status'] == 'unavailable'
         assert 'io_write_bytes_delta' not in observation
+    assert device_window(tmp_path / 'events', 'run-1', 'sandbox-2', 0, 9999999999,
+                         '259:0')['status'] == ('observed' if baseline_available else 'unknown')
+
+
+def test_reset_device_counter_is_unknown_not_an_observed_zero(tmp_path):
+    cgroup = tmp_path / 'cgroup'
+    cgroup.mkdir()
+    (cgroup / 'io.stat').write_text('259:0 rbytes=100 wbytes=200 rios=2 wios=3\n')
+    (cgroup / 'memory.current').write_text('1024')
+    events = EventRecorder(tmp_path / 'events', CorrelationContext(
+        run_id='run-1', producer='sandbox', role='sandbox', worker_id='worker-1', node='sandbox-2'))
+    sandbox = SandboxRecorder(events, runtime='docker', filesystem='overlayfs',
+                              deployment='dedicated', sandbox_node='sandbox-2')
+    with sandbox.span('exec', cgroup=cgroup, device_major_minor='259:0'):
+        (cgroup / 'io.stat').write_text('259:0 rbytes=0 wbytes=0 rios=0 wios=0\n')
+    observation = json.loads(events.path.read_text().splitlines()[0])['attributes']
+    assert observation['io_devices'] == {}
+    assert observation['device_mapping']['counter_status'] == 'reset'
+    assert observation['device_mapping']['status'] == 'unknown'
+    assert device_window(tmp_path / 'events', 'run-1', 'sandbox-2', 0, 9999999999,
+                         '259:0')['status'] == 'unknown'
+
+
+def test_unreadable_final_io_stat_does_not_report_unmatched_device(tmp_path):
+    cgroup = tmp_path / 'cgroup'
+    cgroup.mkdir()
+    (cgroup / 'io.stat').write_text('259:0 rbytes=0 wbytes=0 rios=0 wios=0\n')
+    (cgroup / 'memory.current').write_text('1024')
+    events = EventRecorder(tmp_path / 'events', CorrelationContext(
+        run_id='run-1', producer='sandbox', role='sandbox', worker_id='worker-1', node='sandbox-2'))
+    sandbox = SandboxRecorder(events, runtime='docker', filesystem='overlayfs',
+                              deployment='dedicated', sandbox_node='sandbox-2')
+    with sandbox.span('exec', cgroup=cgroup, device_major_minor='259:0'):
+        (cgroup / 'io.stat').unlink()
+    observation = json.loads(events.path.read_text().splitlines()[0])['attributes']
+    assert observation['io_devices'] == {}
+    assert observation['device_mapping']['counter_status'] == 'unavailable'
+    assert observation['device_mapping']['status'] == 'unknown'
+    assert device_window(tmp_path / 'events', 'run-1', 'sandbox-2', 0, 9999999999,
+                         '259:0')['status'] == 'unknown'

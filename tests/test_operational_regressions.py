@@ -103,7 +103,9 @@ def test_custom_producer_and_first_seen_device_remain_observable(tmp_path):
 def test_custom_event_filename_uses_event_identity_and_interval_not_prefix(tmp_path):
     recorder=EventRecorder(tmp_path,CorrelationContext(run_id='r',node='worker',producer='custom_tools',role='rollout',worker_id='0'),clock_ns=lambda:int(15e9))
     recorder.event('sandbox.resource_sample',phase='environment',attributes={'sandbox_node':'worker','io_devices':{'259:0':{'rbytes':0}}})
+    recorder.event('sandbox.resource_sample',phase='environment',attributes={'sandbox_node':'worker','io_devices':{}})
     assert device_window(tmp_path,'r','worker',10,20,'259:0')['status']=='observed'
+    assert device_window(tmp_path,'r','worker',10,20,'8:0')['status']=='unknown'
     assert device_window(tmp_path,'r','other',10,20,'259:0')['observation_count']==0
     assert device_window(tmp_path,'r','worker',20,30,'259:0')['observation_count']==0
 
