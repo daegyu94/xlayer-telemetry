@@ -38,6 +38,13 @@ def network_fixture(output, loki):
     streams=[]
     for signal,path in [('xlayer_diagnosis',projection),('verl_step',output/'telemetry-events/verl-steps.jsonl')]:
         rows=[json.loads(line) for line in path.read_text().splitlines()]
+        if signal == 'xlayer_diagnosis':
+            source=next(row for row in rows if row.get('row_kind')=='evidence')
+            rows.append({**source,'signal':'rdma_transmit_wait_ticks_per_second',
+                         'observation_scope':'network-interface','window_statistic':'max',
+                         'entity':'node=gpu-node-0,port=1','unit':'ticks/s',
+                         'current':8,'baseline':4,'evidence_type':'supporting',
+                         'quality_warnings':''})
         end=report['analysis_window']['end']
         streams.append({'stream':{'signal':signal,'cluster':'scenes-demo','node':'gpu-node-0','run_id':run_id,'data_origin':'synthetic'},
             'values':[[str(int((r.get('observed_at') or end)*1000)*1000000-len(rows)+i),json.dumps(r)] for i,r in enumerate(rows)]})
@@ -94,6 +101,36 @@ def run(args):
                     card.screenshot(path=str(args.output/('network-card-'+screen+'-'+theme+'.png')))
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                 check('network-'+screen+'-'+theme,network)
+            def pressure(page):
+                def rdma_fixture(route):
+                    queries=(route.request.post_data_json or {}).get('queries',[])
+                    relevant=[query for query in queries if 'node_infiniband_port_transmit_wait_total' in query.get('expr','')]
+                    if not relevant:route.continue_();return
+                    response=route.fetch(timeout=15000);body=response.json()
+                    for query in relevant:
+                        body.setdefault('results',{})[query['refId']]={'status':200,'frames':[{
+                            'schema':{'refId':query['refId'],'fields':[
+                                {'name':'Time','type':'time'},
+                                {'name':'Value','type':'number','labels':{'cluster':'scenes-demo','nodename':'gpu-node-0','port':'1'},
+                                 'config':{'unit':'suffix:ticks/s'}}]},
+                            'data':{'values':[[int(stored['analysis_window']['end']*1000)-1000],[8]]}}]}
+                    route.fulfill(response=response,json=body)
+                page.route('**/api/ds/query*',rdma_fixture)
+                page.goto(origin+'/a/xlayer-telemetry-app/analyze?'+urlencode({**params,'theme':theme}))
+                card=page.locator('.xlt-card').filter(has=page.get_by_text('RDMA tx wait',exact=True))
+                expect(card.locator('.xlt-pressure-value')).to_have_count(1,timeout=30000)
+                expect(card).to_contain_text('동일 entity의 Step evidence',timeout=30000)
+                expect(card.locator('.xlt-pressure-value strong')).to_contain_text('ticks/s')
+                card.screenshot(path=str(args.output/('pressure-card-'+theme+'.png')))
+                page.set_viewport_size({'width':390,'height':844})
+                card.scroll_into_view_if_needed()
+                expect(card).to_be_visible()
+                card.screenshot(path=str(args.output/('pressure-card-mobile-'+theme+'.png')))
+                card.get_by_role('link',name='Inspect entity → ↗',exact=True).click()
+                page.wait_for_url('**/d/xlayer-compute-communication/**')
+                selected=parse_qs(urlparse(page.url).query)
+                assert selected.get('var-node')==['gpu-node-0'] and selected.get('var-record_id')==[stored['trigger_record_id']]
+            check('pressure-rdma-'+theme,pressure)
             for host in ('sandbox-a','sandbox-b'):
                 def sandbox(page):
                     seen=[]

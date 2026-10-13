@@ -839,7 +839,7 @@ function PressureCard({
   catalog: Catalog;
 }) {
   const data = useData(provider),
-    ranked=pressureOrder(samples(data),{endTime,maxAgeMs:Math.max(15000,3*(data?.request?.intervalMs||0)),kind:spec.name==='GPU utilization'?'utilization':spec.name==='Ray task states'?'task-state':'higher',signal:({"vLLM waiting":"vllm_requests_waiting","GPU utilization":"gpu_utilization_percent","Storage busy":"storage_device_busy_ratio","Sandbox I/O PSI":"sandbox_io_pressure_ratio","RDMA tx wait":"rdma_tx_wait_per_second"} as Record<string,string>)[spec.name],unit:findPanel(catalog[spec.dashboard],spec.panel)?.fieldConfig?.defaults?.unit||spec.unit,scale:1,evidence}),
+    ranked=pressureOrder(samples(data),{endTime,maxAgeMs:Math.max(15000,3*(data?.request?.intervalMs||0)),kind:spec.name==='GPU utilization'?'utilization':spec.name==='Ray task states'?'task-state':'higher',signal:spec.signal,unit:findPanel(catalog[spec.dashboard],spec.panel)?.fieldConfig?.defaults?.unit||spec.unit,evidence}),
     entities=ranked.map(row=>row.sample);
   return (
     <article className="xlt-card">
@@ -853,9 +853,9 @@ function PressureCard({
       ) : (
         ranked.slice(0, 2).map((row, i) => {const s=row.sample;return (
           <div className="xlt-pressure-value" key={i}>
-            <strong>{format(s.value * (spec.scale || 1), spec.unit)}</strong>
+            <strong>{row.unitKnown ? format(s.value * (spec.scale || 1), spec.unit) : 'Unit unknown'}</strong>
             <small className="xlt-entity" title={JSON.stringify(s.labels)}>{compactEntity(s.labels)}</small>
-            <small>{row.supporting?'명시적인 Step evidence와 일치합니다':spec.name==='GPU utilization'?'Utilization 관측이며 fault 판정이 아닙니다':spec.name==='Ray task states'?'State 우선순위이며 자동 합산하지 않습니다':'관측된 signal이 가장 높으며 원인 판정은 아닙니다'}</small>
+            <small>{row.supporting?`동일 entity의 Step evidence · baseline 변화율 ${row.delta===undefined?'Unknown':format(row.delta,'%')}. 최신 sample과 구간 통계는 다를 수 있습니다.`:spec.name==='GPU utilization'?'Utilization 관측이며 fault 판정이 아닙니다':spec.name==='Ray task states'?'State 우선순위이며 자동 합산하지 않습니다':'관측된 signal이 가장 높으며 원인 판정은 아닙니다'}</small>
             <Link to={spec.dashboard} context={resourceContext(context,{...s.labels,...(spec.name==='vLLM waiting'&&s.labels.instance?{engine:s.labels.instance}:{})},spec.name==='Sandbox I/O PSI'?'sandbox':'resource')} catalog={catalog}>Inspect entity →</Link>
           </div>
         );})
