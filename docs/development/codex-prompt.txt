@@ -9,7 +9,7 @@ docs/development/redesign-plan.md를 읽고 G.1~G.4의 전체 재설계 목표�
 준비된 WP 중 데이터 정확성·운영 안전성·사용자 결함을 우선해줘.
 독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
 main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
-공유 계약 변경·Phase 경계·최종 완료에는 전체 CPU suite를 실행해줘.
+공유 계약 변경들을 통합한 Phase 경계와 최종 완료에 전체 CPU suite를 한 번 실행해줘.
 WP-02의 clean/오염 환경 비교 증거를 유지해줘.
 Signed-off-by commit과 로컬 main fast-forward 병합 후 계속 진행해줘.
 원격 push·PR·배포·설정 변경은 하지 마.
