@@ -65,7 +65,10 @@ def stop(group: int, marker: bytes, grace: float = 5.0, settle: float = 2.0) -> 
         owned = group_is_owned(group, marker)
         if owned is not True:
             return
-        time.sleep(min(0.25, deadline - time.monotonic()))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.25, remaining))
     if group_is_owned(group, marker) is True:
         print("[telemetry] workload descendants remain pending after KILL", file=sys.stderr)
 

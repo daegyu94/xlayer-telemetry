@@ -68,3 +68,25 @@ def test_surviving_child_is_reported_after_bounded_wait(monkeypatch, capsys):
     assert clock[0] == 1.0
     assert signals == [(41, signal.SIGKILL)]
     assert "remain pending after KILL" in capsys.readouterr().err
+
+
+def test_scan_crossing_settle_deadline_does_not_sleep_negative(monkeypatch):
+    clock = [0.0]
+    scans = [0]
+
+    def scan(*_):
+        scans[0] += 1
+        if scans[0] == 3:
+            clock[0] = 0.6
+        return True
+
+    monkeypatch.setattr(owned_shutdown, "group_is_owned", scan)
+    monkeypatch.setattr(owned_shutdown.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(owned_shutdown.time, "sleep", lambda seconds: assert_nonnegative(seconds))
+    monkeypatch.setattr(owned_shutdown.os, "killpg", lambda *_: None)
+
+    def assert_nonnegative(seconds):
+        assert seconds >= 0
+
+    owned_shutdown.stop(41, b"owner", grace=0, settle=0.5)
+    assert scans[0] == 4

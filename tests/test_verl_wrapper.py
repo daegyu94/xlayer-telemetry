@@ -7,6 +7,7 @@ import sys
 import time
 
 import pytest
+from tests._process_helpers import read_process, signal_process
 
 
 ROOT = Path(__file__).parents[1]
@@ -79,12 +80,17 @@ def test_wrapper_cleans_child_forked_during_shutdown(tmp_path: Path) -> None:
     ready = tmp_path / "ready"
     child_file = tmp_path / "late-child.pid"
     launcher = tmp_path / "launcher.py"
+    child_code = (
+        "import os,pathlib,signal,time; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        "stat=pathlib.Path(f'/proc/{os.getpid()}/stat').read_text().rsplit(') ',1)[1].split(); "
+        "pathlib.Path(os.environ['CHILD_PID_FILE']).write_text(f'{os.getpid()} {stat[19]}'); "
+        "time.sleep(30)"
+    )
     launcher.write_text(
         "import os, pathlib, signal, subprocess, sys, time\n"
         "def finish(sig, frame):\n"
-        " child = subprocess.Popen([sys.executable, '-c', "
-        "'import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(30)'])\n"
-        " pathlib.Path(os.environ['CHILD_PID_FILE']).write_text(str(child.pid))\n"
+        f" subprocess.Popen([sys.executable, '-c', {child_code!r}])\n"
         " raise SystemExit(0)\n"
         "signal.signal(signal.SIGTERM, finish)\n"
         "pathlib.Path(os.environ['READY_FILE']).touch()\n"
@@ -105,17 +111,18 @@ def test_wrapper_cleans_child_forked_during_shutdown(tmp_path: Path) -> None:
         wrapper.send_signal(signal.SIGTERM)
         assert wrapper.wait(timeout=10) == 143
         assert child_file.is_file(), "workload did not fork during signal handling"
-        state = Path(f"/proc/{child_file.read_text()}/stat")
-        assert not state.exists() or state.read_text().rsplit(") ", 1)[1].split()[0] == "Z"
+        child_pid, start_time = map(int, child_file.read_text().split())
+        state = read_process(child_pid)
+        assert state is None or state.start_time != start_time or state.state == "Z"
     finally:
         if wrapper.poll() is None:
             wrapper.kill()
             wrapper.wait()
         if child_file.is_file():
-            try:
-                os.kill(int(child_file.read_text()), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            child_pid, start_time = map(int, child_file.read_text().split())
+            child = read_process(child_pid)
+            if child is not None and child.start_time == start_time:
+                signal_process(child, signal.SIGKILL)
         if wrapper.stderr is not None:
             wrapper.stderr.close()
 
