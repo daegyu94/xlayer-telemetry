@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from ..fileio import append_jsonl, atomic_write_text, json_objects
 from ..time_alignment import alignment_metadata
 from .clock_quality import project_clock_quality
+from .observation_contracts import Observation
 from .diagnosis_analysis import finite
 from .jsonl_cache import JSONLCache
 from .storage_series import project_storage_series, project_storage_summary
@@ -154,9 +155,11 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         for kind, items in (("supporting", candidate.get("evidence", [])),
                             ("counter", candidate.get("counter_evidence", []))):
             for item in items:
+                observation = Observation.decode({**item, 'current': item.get('value')})
                 rows.append({**common, "row_kind": "evidence", "candidate_id": candidate.get("id"),
                              "evidence_type": kind, "signal": item.get("signal"),
-                             "current": item.get("value"), "baseline": item.get("baseline"),
+                             "current": observation.value, "baseline": item.get("baseline"),
+                             "observation_status": observation.status,
                              "observation_scope": item.get("observation_scope"),
                              "source": item.get("source"),
                              "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
@@ -167,13 +170,15 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
         for name in candidate.get("missing_evidence", []):
             rows.append({**common, "row_kind": "evidence", "candidate_id": candidate.get("id"),
                          "evidence_type": "missing", "signal": name,
-                         "current": None, "baseline": None,
+                         "current": None, "baseline": None, "observation_status": "unknown",
                          "observation_scope": candidate.get("observation_scope"),
                          "source": None, "entity": ""})
     for signal in comparison.get("signals", []):
         if signal.get("baseline") is None:
             continue
+        observation = Observation.decode(signal)
         rows.append({**common, "row_kind": "comparison", "signal": signal["signal"],
+                     "observation_status": observation.status,
                      "observation_scope": signal["scope"],
                      "entity": ",".join(f"{key}={value}" for key, value in signal.get("labels", {}).items()),
                      "current": signal["current"],

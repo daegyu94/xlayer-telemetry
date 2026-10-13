@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
 from ..measurements import finite_number
-from .evidence_quality import INVALID_SOURCE_TIME, validate_quality
+from .evidence_quality import INVALID_SOURCE_TIME, correlation_quality_issues, validate_quality
 
 ObservationStatus = Literal['observed', 'no_data', 'error', 'stale', 'unknown']
 STATISTICS = frozenset({'min', 'mean', 'max', 'last', 'sample_count',
@@ -43,7 +43,7 @@ class EntityRef:
     def namespace(self, label: str) -> tuple[str | None, ...]:
         values = dict(self.labels)
         result: tuple[str | None, ...] = (values.get('cluster'), values.get('node', values.get('nodename')))
-        if label in {'engine', 'engine_id'}:
+        if label in {'engine', 'engine_id', 'vllm_endpoint'}:
             result += tuple(values.get(k) for k in ('instance', 'component', 'model_name', 'model'))
         if label in {'worker', 'worker_id', 'rank'}:
             result += tuple(values.get(k) for k in ('run_id', 'role', 'producer'))
@@ -126,6 +126,7 @@ class Observation:
     query: str | None = None
     issues: tuple[Issue, ...] = ()
     sampling_quality: Mapping[str, Any] = field(default_factory=dict)
+    comparison_status: str | None = None
 
     @classmethod
     def decode(cls, row: Mapping[str, Any], window: str = 'current') -> Observation:
@@ -154,7 +155,7 @@ class Observation:
                                            row.get('labels', {})), value, status,
                    row.get('unit'), row.get('window_statistic'), row.get('query'),
                    tuple(Issue(w, str(row.get('source', 'unknown')), window) for w in warnings),
-                   dict((row.get('sampling_quality') or {}).get(window, {})))
+                   dict((row.get('sampling_quality') or {}).get(window, {})), row.get('comparison_status'))
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,54 @@ class EvidenceBundle:
     baseline_window: TimeWindow | None
     clock_quality: Mapping[str, Any]
     issues: tuple[Issue, ...] = ()
+
+    @property
+    def timing_usable(self) -> bool:
+        return self.clock_quality.get('status', 'unchecked') in {'aligned', 'unchecked'} and (
+            self.clock_quality.get('baseline', {}).get('status', 'aligned') in {'aligned', 'unchecked'})
+
+    def limiting_issues_at(self, index: int) -> tuple[Issue, ...]:
+        sampling = tuple(Issue(issue, observations[index].signal, role)
+                         for role, observations in (('current', self.current), ('baseline', self.baseline))
+                         for issue in correlation_quality_issues(observations[index].sampling_quality))
+        current = self.current[index]
+        if current.comparison_status not in {None, 'not_reported', 'shared_report_window'}:
+            sampling += (Issue('comparison_withheld:' + str(current.comparison_status), current.signal, 'baseline'),)
+        return sampling
+
+    def limiting_issues(self, signal: str, entity: EntityRef | None = None) -> tuple[Issue, ...]:
+        return tuple(issue for index, observation in enumerate(self.current)
+                     if observation.signal == signal and (entity is None or observation.entity.matches(entity))
+                     for issue in self.limiting_issues_at(index))
+
+    def limits_at(self, index: int) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(f'{issue.window}:{issue.source}:{issue.code}'
+                                   for issue in self.limiting_issues_at(index)))
+
+    def limits(self, signal: str, entity: EntityRef | None = None) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(f'{issue.window}:{issue.source}:{issue.code}'
+                                   for issue in self.limiting_issues(signal, entity)))
+
+    def available_signals(self, role: str = 'current') -> dict[str, Any]:
+        return {observation.signal: observation.value
+                for observation in (self.current if role == 'current' else self.baseline)
+                if observation.status == 'observed'}
+
+    @classmethod
+    def from_rows(cls, rows: list[Mapping[str, Any]], *, window: Mapping[str, Any] | None,
+                  baseline_window: Mapping[str, Any] | None,
+                  clock_quality: Mapping[str, Any], missing: list[str] | None = None) -> EvidenceBundle:
+        return cls.decode({'observations': rows, 'current_interval': window,
+                           'baseline_interval': baseline_window, 'clock_quality': clock_quality,
+                           'missing_sources': missing or []})
+
+    @classmethod
+    def from_report(cls, report: Mapping[str, Any]) -> EvidenceBundle:
+        comparison = report.get('comparison', {})
+        return cls.from_rows(comparison.get('signals', []), window=report.get('analysis_window'),
+                             baseline_window=comparison.get('baseline_interval'),
+                             clock_quality=report.get('clock_quality', {'status': 'unchecked'}),
+                             missing=report.get('missing_sources', []))
 
     @classmethod
     def decode(cls, packet: Mapping[str, Any]) -> EvidenceBundle:

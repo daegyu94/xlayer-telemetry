@@ -13,7 +13,7 @@ import statistics
 from typing import Any, Iterable, Mapping
 
 from ..measurements import finite_number as finite
-from .observation_contracts import usable_window
+from .observation_contracts import EntityRef, usable_window
 from .metric_queries import SIGNAL_SCOPE, BASELINE_REQUIRED, signal_metadata
 
 
@@ -30,7 +30,7 @@ _VLLM_ENGINE_FIELDS = frozenset({'instance', 'component', 'engine', 'engine_id',
 
 def vllm_identity(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
     labels = item.get('labels', {})
-    return tuple((key, str(labels[key])) for key in _VLLM_IDENTITY if key in labels)
+    return EntityRef.decode('service', {key: str(labels[key]) for key in _VLLM_IDENTITY if key in labels}).labels
 
 
 def validate_run_engine_instances(config):
@@ -44,7 +44,7 @@ def validate_run_engine_instances(config):
         raise ValueError('run_engine_instances requires explicit run_id, cluster and rollout_node')
 
 
-def resource_run_relation(evidence, config, run_id):
+def resource_run_relation(evidence: list[Mapping[str, Any]], config: Mapping[str, Any], run_id: str) -> str:
     """Endpoint configuration is a relation declaration, never I/O ownership."""
     validate_run_engine_instances(config)
     from .rollout_replicas import matches_replica

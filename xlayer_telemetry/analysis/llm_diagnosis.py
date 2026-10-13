@@ -19,7 +19,7 @@ from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .metric_observations import collect_query
 from .metric_queries import custom_query_spec
 from .observation_contracts import (
-    has_measurement as _has_measurement, usable_window as _valid_interval,
+    EvidenceBundle, EntityRef, usable_window as _valid_interval,
     validate_measurement as _validate_measurement,
 )
 from .clock_quality import assess_interval
@@ -29,7 +29,7 @@ from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
 
-PROMPT_VERSION = 16
+PROMPT_VERSION = 17
 REVIEW_PROMPT_VERSION = 6
 INFERENCE_OPTIONS = {
     "num_ctx": 32768, "num_predict": 16384,
@@ -80,6 +80,10 @@ In observation_table_v1, each row follows observation_columns and
 common_observation_fields apply to every row. Null means unavailable.
 Clock checks use clock_statistics_columns/rows; common_clock_statistics_fields
 apply to every check row in that node. These tables preserve the original checks.
+evidence_limits maps observation IDs to concrete sampling limitations. When citing an
+observation with partial sampling, copy its required codes into candidate missing_evidence. Withheld comparison codes also
+require explicit missing evidence; retained baseline values cannot establish a comparable delta.
+Do not cite stale current observations; retained raw values are inspection context only.
 Honor comparison_status: withheld deltas or unmatched report populations do not
 establish a latency regression, even when both raw extrema are available.
 When robust_baseline is supplied, insufficient_cohort/workload_unverified cannot
@@ -212,14 +216,15 @@ def review_schema() -> dict[str, Any]:
 def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
     """Allowlist measurements; never forward verdict, candidates or findings."""
     comparison = report.get("comparison", {})
+    bundle = EvidenceBundle.from_report(report)
     observations = []
-    for index, row in enumerate(comparison.get("signals", [])):
+    for index, (row, current, baseline) in enumerate(zip(comparison.get("signals", []), bundle.current, bundle.baseline)):
         observations.append({
             "id": f"m{index + 1}", "signal": row["signal"],
-            "current": row.get("current"), "baseline": row.get("baseline"),
+            "current": current.value, "baseline": baseline.value,
             "delta": row.get("delta"), "delta_percent": row.get("delta_percent"),
-            "observation_scope": row.get("scope", "unknown"),
-            "labels": row.get("labels", {}),
+            "observation_scope": current.entity.scope.name,
+            "labels": dict(current.entity.labels),
             "unit": row.get("unit", "unspecified; infer only if unambiguous from signal name"),
             "source": "saved comparison; raw series may have been aggregated",
             "sampling_quality": row.get("sampling_quality"),
@@ -361,7 +366,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 "current": stats(now), "baseline": stats(before), "source": "prometheus",
                 "sampling_quality": entity_quality,
             })
-    return {
+    packet = {
         "schema_version": 1, "record_type": "llm_observation_packet", "data_origin": "observed",
         "context": config.get("context", {}), "current_interval": current,
         "baseline_interval": baseline, "observations": observations,
@@ -374,6 +379,9 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
             "The preceding window is a temporal baseline, not proof of equivalent workload or a healthy reference.",
         ],
     }
+
+    EvidenceBundle.decode(packet)
+    return packet
 
 
 def validate_packet(packet: dict[str, Any]) -> None:
@@ -427,6 +435,8 @@ def validate_packet(packet: dict[str, Any]) -> None:
             raise ValueError(f"{key} needs finite start < end timestamps or an explicit unknown interval")
     if len(json.dumps(packet, allow_nan=False).encode()) > 131072:
         raise ValueError("observation packet exceeds 128KiB; narrow the interval or series selection")
+
+    EvidenceBundle.decode(packet)
 
 
 def _clock_model_view(clock: dict) -> dict:
@@ -483,6 +493,15 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
                  "observation_rows": [[item.get(key) for key in columns] for item in observations]})
     if common:
         view["common_observation_fields"] = common
+    bundle = EvidenceBundle.decode(packet)
+    limits = {row['id']: list(bundle.limits_at(index))
+              for index, row in enumerate(packet['observations']) if bundle.limits_at(index)}
+    if limits:
+        view['evidence_limits'] = limits
+    stale = [row['id'] for row, observation in zip(packet['observations'], bundle.current)
+             if observation.status == 'stale']
+    if stale:
+        view['unusable_current_observations'] = stale
     return view
 
 
@@ -494,9 +513,8 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
         raise ValueError("invalid diagnosis fields")
     if answer["assessment"] not in schema["properties"]["assessment"]["enum"]:
         raise ValueError("invalid assessment")
-    timing = packet.get("clock_quality", {})
-    if (timing.get("status") in {"unsafe", "unknown"}
-            or timing.get("baseline", {}).get("status") in {"unsafe", "unknown"}) and answer["assessment"] != "insufficient_evidence":
+    bundle = EvidenceBundle.decode(packet)
+    if not bundle.timing_usable and answer["assessment"] != "insufficient_evidence":
         raise ValueError("clock alignment is unavailable; insufficient evidence")
     if not isinstance(answer["summary"], str) or not answer["summary"].strip():
         raise ValueError("summary must be text")
@@ -512,7 +530,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
     if answer["assessment"] == "bottleneck_suspected" and not candidates:
         raise ValueError("bottleneck_suspected needs a candidate")
     if answer["assessment"] != "insufficient_evidence" and not any(
-        _has_measurement(item.get("current")) for item in packet["observations"]
+        observation.status == "observed" for observation in bundle.current
     ):
         raise ValueError("current measurements are unavailable; insufficient evidence")
     window = packet.get("current_interval")
@@ -520,6 +538,8 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
         raise ValueError("candidate rejected: current interval timing is unavailable")
     ids = {item["id"] for item in packet["observations"]}
     observations = {item["id"]: item for item in packet["observations"]}
+    assessed = {item["id"]: value for item, value in zip(packet["observations"], bundle.current)}
+    observation_indices = {item["id"]: index for index, item in enumerate(packet["observations"])}
     if set(re.findall(r"(?<![A-Za-z0-9_])m\d+(?![A-Za-z0-9_])", answer["summary"])) - ids:
         raise ValueError("summary names nonexistent observations")
     required = schema["properties"]["candidates"]["items"]["required"]
@@ -539,8 +559,18 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
             raise ValueError("evidence references must be unique")
         if set(item["evidence_ids"]) & set(item["counter_evidence_ids"]):
             raise ValueError("an observation cannot be both supporting and counter evidence")
-        if any(not _has_measurement(observations[key].get("current")) for key in cited):
+        if any(assessed[key].status != "observed" for key in cited):
             raise ValueError("cited evidence needs available current measurements")
+        required_limits = {
+            f'{issue.window}:{issue.source}:{issue.code}' for key in cited
+            for issue in bundle.limiting_issues_at(observation_indices[key])
+            if issue.code.split(':')[0] in {
+                'backend_warnings', 'backend_infos', 'discarded_samples', 'discarded_series',
+                'query_step_exceeds_interval', 'fewer_than_two_query_evaluations',
+                'fewer_than_two_observed_source_samples', 'comparison_withheld'}}
+        if required_limits - set(item['missing_evidence']):
+            raise ValueError('candidate must preserve sampling limitations in missing_evidence: ' +
+                             ', '.join(sorted(required_limits - set(item['missing_evidence']))))
         text = item["title"] + " " + item["explanation"]
         if set(re.findall(r"(?<![A-Za-z0-9_])m\d+(?![A-Za-z0-9_])", text)) - ids:
             raise ValueError("candidate text names nonexistent observations")
@@ -563,8 +593,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                     or labels.get("telemetry_source") == "vllm"
                     or re.search(r"(?<![A-Za-z0-9_:])vllm:", query))
             if vllm and any(labels.get(key) for key in ("instance", "component", "model_name", "model")):
-                identity = (labels.get("cluster"), labels.get("node", labels.get("nodename")),
-                            *(labels.get(key) for key in ("instance", "component", "model_name", "model")))
+                identity = EntityRef.decode(row['observation_scope'], labels).namespace('vllm_endpoint')
                 endpoints.append((identity, row["signal"]))
         if len({identity for identity, _ in endpoints}) > 1 and len({signal for _, signal in endpoints}) > 1:
             raise ValueError("candidate combines different vLLM endpoint/model entities and signals")
@@ -576,16 +605,7 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
                 row = observations[evidence_id]
                 if label in row.get("labels", {}):
                     labels = row["labels"]
-                    namespace = (labels.get("cluster"), labels.get("node", labels.get("nodename")))
-                    if label in ("engine", "engine_id"):
-                        # Engine indices are endpoint-local; colocated vLLM
-                        # services can both expose engine 0 for distinct models.
-                        namespace += tuple(labels.get(key) for key in ("instance", "component", "model_name", "model"))
-                    if label in ("worker", "worker_id", "rank"):
-                        # Application worker/rank names are local to a Run.
-                        # Shared engine/GPU identities keep their own namespace.
-                        namespace += (labels.get("run_id"), labels.get("role"), labels.get("producer"))
-                    scoped.append(((*namespace, labels[label]), row["signal"]))
+                    scoped.append((EntityRef.decode(row['observation_scope'], labels).namespace(label), row['signal']))
             if len({value for value, _ in scoped}) > 1 and len({signal for _, signal in scoped}) > 1:
                 raise ValueError(f"candidate combines different {label} entities and signals")
 
