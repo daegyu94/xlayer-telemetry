@@ -116,9 +116,35 @@ export const productLayout = `
 
 .xlt-scenario-controls {display:flex;flex-wrap:wrap;align-items:center;gap:var(--xlt-space,12px);margin:20px 0}
 .xlt-scenario-progress {display:flex;align-items:center;gap:12px;background:var(--xl-soft);border-radius:4px;padding:12px}
+.xlt-scenario-progress:has(.xlt-scenario-progress-bar) {display:block}
+.xlt-scenario-progress-caption {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.xlt-scenario-progress-caption small {color:var(--xl-muted);font-size:var(--xl-supporting)}
+.xlt-scenario-progress-bar {position:relative;display:flex;gap:4px;overflow:hidden;height:8px;border-radius:4px;background:var(--xl-bg)}
+.xlt-scenario-progress-bar>span {flex:1;background:var(--xl-border);border-radius:3px}
+.xlt-scenario-progress-bar>span[data-state=passed] {background:var(--xl-teal)}
+.xlt-scenario-progress-bar>span[data-state=failed] {background:var(--xl-danger)}
+.xlt-scenario-progress-bar>span[data-state=running] {background:var(--xl-primary);animation:xlt-stage-pulse 1.6s ease-in-out infinite}
+.xlt-scenario-progress-bar[data-waiting=true]::after {content:'';position:absolute;inset:0;width:20%;background:var(--xl-primary);opacity:.35;animation:xlt-stage-wait 1.8s ease-in-out infinite}
 .xlt-scenario-progress>span:first-child {flex-shrink:0}
-.xlt-validation-stages {display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:8px;margin:16px 0}
-.xlt-validation-stages details {background:var(--xl-soft);border-radius:4px;padding:8px;font-size:var(--xl-supporting);line-height:1.5}
+.xlt-validation-stages {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:8px;margin:16px 0}
+.xlt-validation-stages details {position:relative;overflow:hidden;background:var(--xl-soft);border:1px solid var(--xl-border);border-radius:4px;padding:10px;font-size:var(--xl-supporting);line-height:1.5}
+.xlt-validation-stages details[data-state=passed] {border-color:var(--xl-teal)}
+.xlt-validation-stages details[data-state=failed] {border-color:var(--xl-danger)}
+.xlt-validation-stages details[data-state=running] {border-color:var(--xl-primary)}
+.xlt-validation-stages summary,.xlt-validation-stages p,.xlt-validation-stages small {position:relative}
+.xlt-stage-mark {display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid currentColor;border-radius:50%;color:var(--xl-muted);vertical-align:middle}
+.xlt-validation-stages details[data-state=passed] .xlt-stage-mark {color:var(--xl-teal)}
+.xlt-validation-stages details[data-state=failed] .xlt-stage-mark {color:var(--xl-danger)}
+.xlt-validation-stages details[data-state=running] .xlt-stage-mark {color:var(--xl-primary);border-top-color:transparent;animation:xlt-stage-spin 1s linear infinite}
+.xlt-stage-flash {position:absolute;inset:0;pointer-events:none;background:color-mix(in srgb,var(--xl-teal) 24%,transparent);opacity:0;animation:xlt-stage-flash .85s ease-out both}
+.xlt-validation-stages details[data-state=failed] .xlt-stage-flash {background:color-mix(in srgb,var(--xl-danger) 24%,transparent)}
 .xlt-validation-stages b,.xlt-validation-stages small {display:block}
+@keyframes xlt-stage-pulse {0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes xlt-stage-wait {0%{transform:translateX(-100%)}100%{transform:translateX(500%)}}
+@keyframes xlt-stage-spin {to{transform:rotate(360deg)}}
+@keyframes xlt-stage-flash {0%{opacity:0}20%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce) {
+ .xlt-scenario-progress-bar>span[data-state=running],.xlt-scenario-progress-bar[data-waiting=true]::after,.xlt-validation-stages details[data-state=running] .xlt-stage-mark,.xlt-stage-flash {animation:none}
+}
 .xlt-expected-results {margin:14px 0;font-size:var(--xl-supporting);line-height:1.5}
 `;
