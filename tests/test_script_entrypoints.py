@@ -11,6 +11,8 @@ import time
 
 import pytest
 
+from tests._env import clean_env
+
 
 ROOT = Path(__file__).parents[1]
 
@@ -20,7 +22,7 @@ ROOT = Path(__file__).parents[1]
 def test_help_has_no_installation_or_service_side_effects(tmp_path: Path, name: str) -> None:
     result = subprocess.run(["bash", str(ROOT / "scripts" / name), "--help"],
                             cwd=tmp_path, capture_output=True, text=True, timeout=5,
-                            env=os.environ | {"TELEMETRY_HOME": str(tmp_path / "telemetry")})
+                            env=clean_env(TELEMETRY_HOME=str(tmp_path / "telemetry")))
     assert result.returncode == 0, result.stderr
     assert "Usage:" in result.stdout
     assert list(tmp_path.iterdir()) == []
@@ -49,7 +51,7 @@ def test_setup_and_tool_check_use_checkout_from_another_directory(tmp_path: Path
         "    (root / 'bin' / 'activate').write_text(f'export PATH=\"{root}/bin:$PATH\"\\n')\n"
     )
     fake_python.chmod(0o755)
-    env = os.environ | {"PYTHON": str(fake_python), "CALLS": str(calls)}
+    env = clean_env(PYTHON=str(fake_python), CALLS=str(calls))
     subprocess.run(["bash", str(scripts / "setup.sh")], cwd=caller, env=env,
                    capture_output=True, text=True, check=True, timeout=5)
     assert (repo / ".venv" / "bin" / "python").exists()
