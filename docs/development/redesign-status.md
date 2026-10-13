@@ -5,7 +5,7 @@
 - 최초 Source 기준: `13eb1a04d75c753d95fa399191a3f0c6d0f2585d` (WP-00 시작 시 로컬 main)
 - 원문 진단 기준: `6ddce33a763d3de30e306980860d33aa88ab32f1`
 - 최소 범위 전환 기준: `5b51e268970f87d76f691c4d492a7a182b48daca`
-- 현재 작업: R-02 catalog 통합 검증 완료; R-03 공통 evidence 구현 중
+- 현재 작업: R-03 공통 evidence 통합 검증 완료; R-04 UI 통합 준비
 - 다음 실행: R-00 대표 계약 fixture 검증 → R-01
 - 기존 최근 검증: WP-05 clean default 14 passed, 전체 2183개 test 수집, 실제 hook·linked worktree gate 4 passed. 범위 전환 시 제품 검증을 다시 실행한 결과가 아님
 
@@ -16,7 +16,7 @@
 | R-00 | WP-06 마무리와 계약 baseline | done | `f15590d` | `e671396` | 대표 6 시나리오와 optional ClickHouse failure; 집중 28 passed·통합 문서/fixture 17 passed; 이 상태 커밋까지 main fast-forward |
 | R-01 | 진단 도메인 계약 | done | `8dc10af` | 이 상태 커밋 | 238 passed, narrow strict mypy 통과; Rule/LLM window·measurement 검증 연결; main fast-forward |
 | R-02 | 현재 signal 정의의 단일 기준 | done | `62bc290` | `e21a844` | 통합 176 passed, catalog 83·LLM/artifact 154 passed, narrow mypy·checkout 밖 wheel smoke·drift mutation 통과; main fast-forward |
-| R-03 | 공통 evidence와 단계별 진단 | in-progress | `e21a844` | — | 실제 Rule/LLM/저장 artifact 경로 통합 중 |
+| R-03 | 공통 evidence와 단계별 진단 | done | `e21a844` | `11c09dc` | 22 Rule ID·entity/quality/cap·LLM 경계 검증; 초기 통합 `fc3dc46` 전체 CPU 2257 passed·0 skip, 리뷰 수정 후 집중 99 passed·strict mypy; main fast-forward |
 | R-04 | Frontend 계약 경계 | todo | — | — | — |
 | R-05 | 중복 제거와 완료 증명 | todo | — | — | — |
 
