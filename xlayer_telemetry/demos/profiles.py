@@ -18,7 +18,8 @@ def wave(elapsed, node_index, device_index=0):
 def gpu_profile(elapsed, node_index, node_count, device_index, load):
     wobble=wave(elapsed,node_index,device_index)
     scale=1-.16*node_index/max(1,node_count-1)
-    utilization=max(0,min(100,load*(scale+.02*wobble)))
+    device_scale=(1.,.95,.86,.80,.97,.72,.91,.66)[device_index%8]
+    utilization=max(0,min(100,load*(scale*device_scale+.09*wobble)))
     used=(88+.70*utilization+.7*device_index+1.5*node_index+.6*wobble)*GIB
     capacity=288*GIB
     used=max(0,min(capacity,used))

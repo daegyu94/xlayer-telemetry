@@ -111,6 +111,20 @@ def test_gpu_metrics_and_native_fixture_share_a_bounded_device_model(monkeypatch
         assert metric(busy,'dcgm','DCGM_FI_DEV_XID_ERRORS',**labels)==0
 
 
+def test_gpu_differences_remain_visible_after_panel_rounding():
+    from xlayer_telemetry.demos.profiles import gpu_profile
+    for load in (8,61,94,100):
+        for node in range(4):
+            patterns=[]
+            for elapsed in (0,4,12,24):
+                values=[gpu_profile(elapsed,node,4,gpu,load)['utilization'] for gpu in range(8)]
+                assert all(0<=value<=100 for value in values)
+                assert len({round(value) for value in values})>=3
+                assert max(values)-min(values)>=load*.15
+                patterns.append(values)
+            assert all(len({pattern[gpu] for pattern in patterns})>1 for gpu in range(8))
+
+
 def test_role_specific_host_network_and_rdma_rates_keep_native_invariants(monkeypatch):
     demo=Demo(ROOT/'examples/live-demo');demo.started=0.
     first,last=capture(demo,monkeypatch,1),capture(demo,monkeypatch,3)

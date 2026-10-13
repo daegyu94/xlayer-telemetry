@@ -145,6 +145,9 @@ def verify_run_sources(page, origin, context):
     memory=page.locator('.xlt-infra-metrics .xlt-panel').filter(has=page.get_by_text('Host memory utilization by node',exact=True))
     expect(memory.get_by_text(current['var-node'][0],exact=True)).to_be_visible(timeout=30000)
     assert 'cluster=' not in memory.inner_text(),'Host memory legend exposed the full label set'
+    gpu=page.locator('.xlt-infra-metrics .xlt-resource-panel').filter(has=page.get_by_role('heading',name='GPU utilization',exact=True))
+    expect(gpu.locator('.xlt-resource-cell[data-state=observed]')).to_have_count(8,timeout=30000)
+    assert len(set(gpu.locator('.xlt-resource-cell[data-state=observed] b').all_text_contents()))>=3,'Rounded GPU values look identical'
     more=page.locator('button.xlt-cluster-map-more')
     if more.count():
         before=page.locator('.xlt-cluster-map-node').count()
