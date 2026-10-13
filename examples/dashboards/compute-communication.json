@@ -2139,7 +2139,29 @@
         "showHeader": true,
         "cellHeight": "lg"
       },
-      "transformations": [],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "__name__": true
+            },
+            "indexByName": {
+              "field": 0,
+              "state": 1,
+              "instance": 2,
+              "gpu": 3,
+              "gpu_uuid": 4,
+              "cluster": 5,
+              "nodename": 6,
+              "job": 7,
+              "Time": 8,
+              "Value": 9
+            },
+            "renameByName": {}
+          }
+        }
+      ],
       "id": 133,
       "title": "GPU device field quality",
       "description": "Field별 observed/unsupported/missing/error metadata입니다. Value 1은 해당 상태의 관측이며 utilization·bytes 값이 아닙니다. observed는 finite 숫자 반환이며 physical range·Run ownership 검증이 아닙니다. 30초 이상 또는 미래 quality timestamp는 숨기며 source 실패/미설정과 stale는 collection health/sample age도 확인합니다.",

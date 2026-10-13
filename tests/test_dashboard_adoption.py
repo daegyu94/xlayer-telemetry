@@ -65,3 +65,14 @@ def test_comparison_and_evidence_tables_show_unit_and_window_statistic(panel_id)
         assert properties["custom.hidden"] is False
         assert properties["displayName"] == title
     assert indexes["baseline"] < indexes["unit"] < indexes["window_statistic"]
+
+
+def test_gpu_quality_table_keeps_state_and_device_visible_before_metadata():
+    dashboard = json.loads((ROOT / 'examples/dashboards/compute-communication.json').read_text())
+    panel = next(item for item in dashboard['panels'] if item['id'] == 133)
+    organize = next((item for item in panel['transformations'] if item['id'] == 'organize'), None)
+    assert organize is not None, 'Quality table must order state before incidental Prometheus metadata'
+    indexes = organize['options']['indexByName']
+    assert indexes['field'] < indexes['state'] < indexes['instance'] < indexes['gpu_uuid']
+    assert organize['options']['excludeByName']['__name__']
+    assert not organize['options']['excludeByName'].get('state', False)
