@@ -40,9 +40,13 @@ PROMTOOL="$PWD/artifacts/ci-tools/prometheus-3.5.0.linux-amd64/promtool" \
 # 사용자가 이 검증을 위해 만든 disposable ClickHouse container만 지정합니다.
 XLAYER_TEST_CLICKHOUSE_CONTAINER=owned-clickhouse \
   python -m pytest -q tests/test_storage_distribution_clickhouse.py tests/test_threefs_series_clickhouse.py
+
+# Docker를 사용할 수 없으면 직접 만든 loopback HTTP instance에서 같은 SQL을 확인합니다.
+XLAYER_TEST_CLICKHOUSE_URL=http://127.0.0.1:8123 \
+  python -m pytest -q tests/test_storage_distribution_clickhouse.py tests/test_threefs_series_clickhouse.py
 ```
 
-**정상 결과:** 선택한 테스트가 skip 없이 통과합니다. `PROMTOOL` 또는 container를 지정하지 않은 로컬 실행은 해당 테스트를 skip하며, backend 검증 성공으로 간주하지 않습니다. Installer는 Linux amd64용이며 고정 release의 publisher SHA256을 확인합니다.
+**정상 결과:** 선택한 테스트가 skip 없이 통과합니다. `PROMTOOL` 또는 ClickHouse container/URL을 지정하지 않은 로컬 실행은 해당 테스트를 skip하며, backend 검증 성공으로 간주하지 않습니다. HTTP 경로는 fixture별 고유 Memory database만 생성·제거하고 실제 `ThreeFSClient`로 조회합니다. Installer는 Linux amd64용이며 고정 release의 publisher SHA256을 확인합니다.
 
 CI ClickHouse는 [.github/ci](https://github.com/daegyu94/xlayer-telemetry/tree/main/.github/ci)의 작은 thread·memory 설정과 digest로 고정한 image를 사용합니다. 외부 포트를 열지 않고 `docker exec`로 조회하며, fixture별 고유 Memory database를 생성·제거합니다. CPU 2개·RAM 1 GiB·data tmpfs 256 MiB로 제한하고 job 종료 시 container와 volume을 제거합니다. 이 설정은 production 3FS 배포용이 아닙니다.
 

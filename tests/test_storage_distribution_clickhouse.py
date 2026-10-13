@@ -1,21 +1,21 @@
-"""Optional real ClickHouse SQL regression on an explicitly isolated container.
+"""Optional real ClickHouse SQL regression on an explicitly owned test instance.
 
 Set XLAYER_TEST_CLICKHOUSE_CONTAINER to an owned disposable ClickHouse container.
+Or set XLAYER_TEST_CLICKHOUSE_URL to an owned loopback HTTP instance.
 Only the fixture's uniquely named in-memory database is created and removed.
 """
 
 import json
-import os
-import subprocess
 import uuid
 
 import pytest
 
-from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine, ThreeFSClient
+from tests._clickhouse import AVAILABLE, client as backend_client, execute
+
+from xlayer_telemetry.analysis.diagnostics import DiagnosticEngine
 
 
-CONTAINER = os.environ.get("XLAYER_TEST_CLICKHOUSE_CONTAINER")
-pytestmark = pytest.mark.skipif(not CONTAINER, reason="isolated ClickHouse container not configured")
+pytestmark = pytest.mark.skipif(not AVAILABLE, reason='owned ClickHouse not configured')
 LABELS = ("host", "tag", "mount_name", "instance", "io", "uid", "method", "pod", "thread", "statusCode")
 
 
@@ -23,19 +23,11 @@ LABELS = ("host", "tag", "mount_name", "instance", "io", "uid", "method", "pod",
 def storage():
     database = "xlayer_review_" + uuid.uuid4().hex
 
-    def execute(query, data=None):
-        return subprocess.run(["docker", "exec", "-i", CONTAINER, "clickhouse-client", "--multiquery", "--query", query],
-                              input=data, capture_output=True, text=True, check=True, timeout=15).stdout
-
     execute("CREATE DATABASE " + database)
     try:
         execute(f"CREATE TABLE {database}.distributions (TIMESTAMP DateTime, metricName String, "
                 + ", ".join(key + " String" for key in LABELS)
                 + ", `count` Float64, mean Float64, `max` Float64, p99 Float64) ENGINE Memory")
-
-        class Client(ThreeFSClient):
-            def _query_rows(self, query):
-                return [json.loads(line) for line in execute(query).splitlines()]
 
         def insert(stamp, p99, *, count=3, host="a", method="read"):
             row = {key: "" for key in LABELS}
@@ -43,7 +35,7 @@ def storage():
                        count=count, mean=p99, max=p99, p99=p99)
             execute(f"INSERT INTO {database}.distributions FORMAT JSONEachRow", json.dumps(row) + "\n")
 
-        yield Client("http://unused", database=database), insert, execute
+        yield backend_client(database), insert, execute
     finally:
         execute("DROP DATABASE " + database)
 
