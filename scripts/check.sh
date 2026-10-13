@@ -10,7 +10,18 @@ case "$profile" in
   *) echo "Unknown check profile: $profile" >&2; exit 2 ;;
 esac
 
-python_cmd=${PYTHON:-python}
+if [[ -n ${PYTHON:-} ]]; then
+  python_cmd=$PYTHON
+elif [[ -x $repo_root/.venv/bin/python ]]; then
+  python_cmd="$repo_root/.venv/bin/python"
+else
+  common_dir=$(git rev-parse --path-format=absolute --git-common-dir)
+  python_cmd="$(dirname "$common_dir")/.venv/bin/python"
+fi
+command -v "$python_cmd" >/dev/null || {
+  echo 'Development Python is missing: run bash scripts/setup.sh or set PYTHON.' >&2
+  exit 2
+}
 export PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}"
 mapfile -t changed < <({ git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
 tests=("$@")
