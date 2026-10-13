@@ -165,6 +165,7 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                              "unit": item.get("unit"), "window_statistic": item.get("window_statistic"),
                              "query": item.get("query"),
                              "entity": ",".join(f"{key}={value}" for key, value in item.get("labels", {}).items()),
+                             "resource_identity": dict(item.get("labels", {})),
                              "sampling_quality": json.dumps(item.get("sampling_quality"), separators=(",", ":")),
                              **quality_fields(item.get("sampling_quality"))})
         for name in candidate.get("missing_evidence", []):
@@ -181,6 +182,7 @@ def _investigation_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "observation_status": observation.status,
                      "observation_scope": signal["scope"],
                      "entity": ",".join(f"{key}={value}" for key, value in signal.get("labels", {}).items()),
+                     "resource_identity": dict(signal.get("labels", {})),
                      "current": signal["current"],
                      "baseline": signal["baseline"], "delta_percent": signal["delta_percent"],
                      "unit": signal.get("unit"), "window_statistic": signal.get("window_statistic"),

@@ -231,3 +231,22 @@ def test_saved_missing_units_stay_unknown_instead_of_requesting_inference():
     llm.validate_packet(packet)
     assert all(row['unit'] == 'unknown' for row in packet['observations'])
     assert all(row['unit'] == 'unknown' for row in restore(llm.model_view(packet)))
+
+
+def test_rule_and_llm_rows_preserve_identity_values_with_delimiters(tmp_path):
+    from xlayer_telemetry.analysis.diagnostic_artifacts import _investigation_rows
+    source = report()
+    for signal in source['comparison']['signals']:
+        signal['delta_percent'] = None
+    labels = {'node': 'n', 'device': 'a,b=c'}
+    source['comparison']['signals'][0]['labels'] = labels
+    source['candidates'] = []
+    row = next(row for row in _investigation_rows(source) if row.get('signal') == 'disk_read_latency_seconds')
+    assert row['resource_identity'] == labels
+    packet = llm.packet_from_report(source)
+    result = {'record_type': 'llm_diagnosis', 'generated_at': '2026-10-05T00:00:00Z',
+              'semantic_review': {'decision': 'accept'}, 'context': packet['context'],
+              'current_interval': packet['current_interval'], 'observation_packet': packet, 'diagnosis': answer()}
+    rows = [json.loads(line) for line in project_result(tmp_path, result).read_text().splitlines()]
+    row = next(row for row in rows if row.get('observation_id') == 'm1')
+    assert row['resource_identity'] == labels

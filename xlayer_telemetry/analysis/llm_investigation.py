@@ -78,6 +78,7 @@ def project_result(root: Path, result: dict) -> Path:
                              "query": item.get("query"),
                              "observation_scope": item["observation_scope"], "source": item.get("source"),
                              "entity": ",".join(f"{k}={v}" for k, v in item.get("labels", {}).items()),
+                             "resource_identity": dict(item.get("labels", {})),
                              "sampling_quality": json.dumps(item.get("sampling_quality"))})
         for name in candidate["missing_evidence"]:
             rows.append({**common, "row_kind": "evidence", "candidate_id": identifier,

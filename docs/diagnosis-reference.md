@@ -32,6 +32,8 @@ LLM 경로는 rule catalog와 기존 판정을 입력에 넣지 않는 별도 �
 
 ## Investigation Workflow
 
+Investigation의 evidence/comparison row는 원본 label 값을 `resource_identity` 객체에 보존합니다. `entity` 문자열은 표시와 legacy reader를 위해 유지하며, comma나 equals가 포함된 label의 identity 판정은 구조화된 객체를 사용합니다.
+
 ![Run·step·candidate·evidence·Timeline과 targeted profile의 조사 흐름](figures/diagrams/investigation-flow.svg)
 
 | 읽으려는 결과 | 필요한 경로 | 비어 있으면 |
