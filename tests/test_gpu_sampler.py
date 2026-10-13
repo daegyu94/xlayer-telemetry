@@ -98,6 +98,23 @@ def gpu_textfile(tmp_path, monkeypatch):
     return collect
 
 
+def test_field_quality_exports_metadata_without_inventing_values(gpu_textfile):
+    text = gpu_textfile([['0', '0', '', 'broken', 'nan', '[N/A]', '[N/A]', 'GPU-1']])
+    for field, state in [('utilization.gpu', 'observed'), ('power.draw', 'missing'),
+                         ('temperature.gpu', 'error'), ('memory.used', 'unsupported')]:
+        assert f'field="{field}",gpu="0",gpu_uuid="GPU-1",state="{state}"' in text
+    assert 'telemetry_gpu_field_sample_timestamp_seconds 123' in text
+    assert 'telemetry_gpu_utilization_percent{gpu="0",gpu_uuid="GPU-1"} 0' in text
+    assert 'telemetry_gpu_memory_used_bytes{' not in text
+
+
+def test_quality_timestamp_is_independent_of_all_unavailable_measurements(gpu_textfile):
+    text = gpu_textfile([['0'] + ['[N/A]'] * 6 + ['GPU-1']])
+    assert 'telemetry_gpu_field_sample_timestamp_seconds 123' in text
+    assert 'telemetry_gpu_collection_success 0' in text
+    assert 'telemetry_gpu_sample_timestamp_seconds ' not in text
+
+
 @pytest.mark.parametrize("used_mib", [0, 2048])
 def test_device_memory_exports_bytes_and_omits_only_unavailable_fields(gpu_textfile, used_mib):
     text = gpu_textfile([

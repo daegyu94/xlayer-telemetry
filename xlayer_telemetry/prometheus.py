@@ -26,7 +26,8 @@ GPU_PRODUCER_TIMESTAMPS = {
         'telemetry_gpu_memory_total_bytes', 'telemetry_gpu_power_watts',
         'telemetry_gpu_temperature_celsius', 'telemetry_gpu_sm_clock_mhz',
     )
-} | {'telemetry_gpu_process_memory_bytes': 'telemetry_gpu_process_sample_timestamp_seconds'}
+} | {'telemetry_gpu_process_memory_bytes': 'telemetry_gpu_process_sample_timestamp_seconds',
+     'telemetry_gpu_field_status': 'telemetry_gpu_field_sample_timestamp_seconds'}
 PRODUCER_TIMESTAMP_JOIN = ' + on(cluster, instance, job) group_right() (0 * '
 
 

@@ -179,6 +179,8 @@ class Demo:
         if self.gpu["gpus_per_node"] > 0:
             samples.append(GaugeSample("telemetry_gpu_process_sample_timestamp_seconds",
                                        "Synthetic GPU process memory sample timestamp.", time.time()))
+            samples.append(GaugeSample("telemetry_gpu_field_sample_timestamp_seconds",
+                                       "Synthetic GPU field-quality sample timestamp.", time.time()))
         samples.extend(self._host(node, now, value))
         samples.extend(self._disk_pressure(node, "nvme0n1", now, value))
         samples.extend(self._filesystem_health())
@@ -189,6 +191,11 @@ class Demo:
         ]
         for rank in range(self.gpu["gpus_per_node"]):
             profile = self._gpu_profile(node, rank, now, value)
+            samples.extend(GaugeSample("telemetry_gpu_field_status",
+                                       "Synthetic GPU field-quality metadata; not a measurement.", 1,
+                                       {"gpu": str(rank), "field": field, "state": "observed"})
+                           for field in ("utilization.gpu", "power.draw", "temperature.gpu",
+                                         "clocks.sm", "memory.used", "memory.total"))
             labels = {
                 "run_id": "live-demo", "producer": "synthetic", "role": "trainer",
                 "node": node, "worker_id": str(rank), "local_rank": str(rank),

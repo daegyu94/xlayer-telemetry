@@ -2122,6 +2122,41 @@
           "instant": true
         }
       ]
+    },
+    {
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "telemetry-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "lg"
+      },
+      "transformations": [],
+      "id": 133,
+      "title": "GPU device field quality",
+      "description": "Field별 observed/unsupported/missing/error metadata입니다. Value 1은 해당 상태의 관측이며 utilization·bytes 값이 아닙니다. observed는 finite 숫자 반환이며 physical range·Run ownership 검증이 아닙니다. 30초 이상 또는 미래 quality timestamp는 숨기며 source 실패/미설정과 stale는 collection health/sample age도 확인합니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 98,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "telemetry_gpu_field_status{gpu=~\"$gpu\",job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} and on(cluster, instance) ((time() - telemetry_gpu_field_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} < 30) and (time() - telemetry_gpu_field_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$node\"} >= 0))",
+          "format": "table",
+          "instant": true
+        }
+      ]
     }
   ],
   "refresh": "5s",

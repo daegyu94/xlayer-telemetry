@@ -54,7 +54,12 @@ GPU device memory는 `nvidia-smi`의 MiB를 bytes로 변환하며 지원하지 �
 GPU JSONL의 `field_quality`는 device field별 원인을 보존합니다.
 Finite 숫자는 `observed`, 명시적인 `N/A`·`Not Supported`는 `unsupported`, 빈 값·없는 column은 `missing`, 그 밖의 malformed·non-finite 값은 `error`입니다.
 `observed`는 숫자가 반환됐다는 뜻이며 physical range 검증이나 특정 Run의 사용량을 증명하지 않습니다.
-기존 숫자·`None`·`unavailable_fields`는 유지하며 이 JSONL metadata를 Prometheus/Grafana가 자동 표시한다고 가정하지 않습니다.
+기존 숫자·`None`·`unavailable_fields`는 유지합니다.
+Textfile export의 `telemetry_gpu_field_status{gpu,gpu_uuid,field,state}=1`은 field 상태를 나타내며 GPU 사용률이나 memory bytes가 아닙니다.
+`telemetry_gpu_field_sample_timestamp_seconds`는 identified device field-quality 관측 시각으로 numeric collection 성공 여부와 독립적입니다.
+Numeric field가 전부 unsupported여도 quality는 관측할 수 있고, command 실패 때는 이전 quality 값과 시각을 제거합니다.
+Compute dashboard의 GPU device field quality table과 source-quality query는 이 독립 시각과 identity를 사용합니다.
+미래·30초 이상 된 quality는 표시하지 않으며 Missing/Stale/Error의 다른 근거는 collection health·sample age와 함께 확인합니다.
 `telemetry_gpu_process_memory_bytes`는 `GPU_PROCESS_METRICS=1`일 때만 수집하는 별도 process 관측이며 UUID가 장치와 일치할 때만 `gpu` index label을 붙입니다.
 기본값은 `0`이며 PID churn을 상시 Prometheus 시계열에 넣지 않습니다. 짧은 진단에서만 켜고 `GPU_MAX_PROCESSES`(기본 256, 최대 4096)로 snapshot별 행을 제한합니다.
 `telemetry_gpu_process_collection_enabled`와 `telemetry_gpu_process_samples_truncated`로 설정·잘린 행 수를 구분합니다. 이 한도는 보존 기간 전체의 PID churn이나 nvidia-smi 응답 크기 자체의 한도가 아닙니다.

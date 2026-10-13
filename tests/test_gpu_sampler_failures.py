@@ -213,7 +213,7 @@ def test_failed_sample_clears_stale_exposition_and_recovers_at_interval(tmp_path
     assert "telemetry_gpu_process_collection_enabled 1" in expositions[1]
     for name in ("sample_timestamp_seconds", "utilization_percent", "memory_used_bytes",
                  "process_memory_bytes", "process_sample_timestamp_seconds", "process_samples_truncated",
-                 "host_memory_collection_success"):
+                 "host_memory_collection_success", "field_status", "field_sample_timestamp_seconds"):
         assert f"telemetry_gpu_{name}" not in expositions[1]
 
 

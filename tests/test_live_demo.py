@@ -113,7 +113,9 @@ def test_new_pressure_and_dcgm_fixtures_are_bounded_and_monotonic(monkeypatch):
     for endpoint in endpoints:
         latest = demo.metrics(endpoint)
         before = {(s.name, tuple(sorted(s.labels.items()))): s for s in first[endpoint]}
-        assert len(latest) < 300
+        quality = [s for s in latest if s.name.startswith('telemetry_gpu_field_')]
+        assert len(latest) - len(quality) < 300
+        assert len(quality) <= 1 + 6 * demo.gpu['gpus_per_node']
         for sample in latest:
             assert "synthetic" in sample.help.lower()
             if sample.kind == "counter":
