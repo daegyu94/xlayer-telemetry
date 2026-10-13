@@ -865,6 +865,8 @@ Hook installer는 Git이 알려 주는 hook 경로와 기존 hooksPath를 확인
 
 아래 표의 화살표만 필수 선행 관계다. 독립 후보는 현재 main의 실제 caller·수정 파일·생성물·fixture·공유 자원을 확인한 뒤 별도 worktree에서 최대 3개까지 시작한다. 같은 파일을 수정하거나 같은 backend/container/output·Git index를 공유하면 직렬로 진행한다. WP 번호는 원문과 동일하게 유지한다.
 
+실행 가능한 WP 사이에서는 사용자 데이터·scope·clock·missing/zero의 정확성, 프로세스 ownership·bounded I/O의 안전성, 실제 사용자에게 보이는 결함, 이를 검증하는 gate, 구조 정리 순서로 우선한다. 우선순위는 이미 필요한 선행 관계를 생략하거나 완료 기준을 낮추지 않는다. 선택 이유와 미룬 독립 WP를 상태표에 짧게 기록한다. Phase 0에서는 WP-03의 HTTP proxy와 WP-07의 shutdown을 높은 위험으로 보고, 현재 main에 이미 반영된 WP-01은 계약 확인·ADR을 병렬로 마친다.
+
 | Phase | 선행 관계와 병렬 후보 | 통합 결과 |
 |---|---|---|
 | 0 | WP-00 → WP-04 → WP-02; 이후 WP-01·WP-03·WP-07은 파일 충돌이 없으면 병렬 후보. WP-08은 WP-03과 실제 `diagnostics.py`·App 변경 범위를 대조한 뒤 시작한다. WP-05는 WP-01·02·03·04·07·08 통합 후, WP-06은 WP-05 후 | 환경 재현성, 알려진 결함, 실행 gate |
@@ -1165,6 +1167,8 @@ Phase 4–8은 표의 화살표대로 진행한다. 병렬 후보라도 시작 �
 
 전체 재설계는 하나의 goal이며, WP는 그 안의 검증·commit·로컬 병합 단위다. 선행 WP가 완료되고 실제 변경 범위가 독립적인 WP는 별도 worktree에서 최대 3개까지 병렬로 진행한다. `main` 병합과 상태표는 주 작업자가 직렬로 처리한다. 원격 PR이나 매 WP의 사용자 승인 대기를 필수 단계로 두지 않는다. 명시적인 판단이 필요한 계약 변경만 질문한다.
 
+주 작업자는 매 통합 시점에 준비된 WP의 실제 위험과 사용자 영향을 다시 평가해 다음 worker를 배정한다. 서로 독립적인 높은 우선순위 작업은 동시에 진행할 수 있으며, 먼저 완료된 branch부터 병합한다. 후속 WP가 선행 WP의 결과를 필요로 하면 그 결과가 main에 들어갈 때까지 시작하지 않는다.
+
 진행 상태는 `docs/development/redesign-status.md` 한곳에 기록한다. 각 행은 `WP | 상태 | baseline SHA | 결과 SHA | 검증 명령·결과 | 로컬 병합 근거 | 장애물/후속`으로 구성한다. 상태는 todo, in-progress, verified, done, blocked를 사용한다. verified는 필수 로컬 검증이 끝난 상태, done은 결과 commit의 main 통합까지 확인한 상태다. 실제 hardware validation과 원격 적용은 별도 표로 관리한다.
 
 WP blocked는 원인과 재개 조건을 기록하는 작업 상태다. 실행 환경의 goal 상태 변경에는 별도 도구 규약을 따른다. 단 한 번의 실패로 goal을 임의로 blocked/paused/complete로 바꾸지 않는다. 사용자가 명시적으로 멈추라고 하면 그 요청을 따른다.
@@ -1182,6 +1186,7 @@ WP blocked는 원인과 재개 조건을 기록하는 작업 상태다. 실행 �
 계약 변경은 문서의 Behavior/ADR·전환 규칙대로 처리해줘.
 
 8장의 실행 기준을 적용하고, 6.1의 실제 선행 관계와 변경 파일을 확인해줘.
+준비된 WP 중 데이터 정확성·운영 안전성·사용자 결함을 우선해줘.
 독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
 main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
 공유 계약 변경·Phase 경계·최종 완료에는 전체 CPU suite를 실행해줘.
