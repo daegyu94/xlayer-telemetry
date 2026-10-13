@@ -1,6 +1,7 @@
 import {readContext} from '../src/context';
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {executionKey,executionChoices,selectExecution,observedPhases,measuredWorkers,workerGpuCell,pressureOrder,appliedPolicies,stepProjection,workerContext,resourceContext} from '../src/distributed';
+import {PRESSURE_SPECS} from '../src/scene-specs';
 const step={cluster:'c',run_id:'r',node:'n',step:42,window_start_ms:1000,window_end_ms:20000};
 const span={...step,record_type:'span',node:'n',producer:'sdk',role:'rollout',worker_id:'w0',trace_id:'t',span_id:'s',phase:'rollout',name:'generate',boundary_accuracy:'exact',start_time_ms:2000,end_time_ms:10000,duration_seconds:8,duration_source:'monotonic',attributes:{workload_fingerprint:'f',boundary_scope:'worker_call'}};
 test('execution selection separates same worker IDs across nodes and sources',()=>{
@@ -21,7 +22,7 @@ test('known prompt/tool/concurrency/policy differences cannot share an opaque fi
 });
 test('pressure ordering includes an outlier GPU anywhere in eight entities without calling high util a fault',()=>{
  const rows=Array.from({length:8},(_,i)=>({value:i===7?9:90,time:10000,unit:'percent',labels:{cluster:'c',node:'n',gpu:String(i)}}));assert.equal(pressureOrder(rows,{kind:'utilization'})[0].sample.labels.gpu,'7');
- const ranked=pressureOrder(rows,{kind:'utilization',signal:'gpu',unit:'percent',evidence:[{signal:'gpu',unit:'percent',cluster:'c',window_start_ms:1000,window_end_ms:20000,entity:'node=n,gpu=7',baseline:80,evidence_type:'supporting'}]});assert.equal(ranked[0].delta,-88.75);
+ const ranked=pressureOrder(rows,{kind:'utilization',signal:'gpu',unit:'percent',evidence:[{signal:'gpu',unit:'percent',cluster:'c',window_start_ms:1000,window_end_ms:20000,entity:'node=n,gpu=7',baseline:80,evidence_type:'supporting'}]});assert.ok(Math.abs(ranked[0].delta!+88.75)<1e-9);
 });
 test('queue/task ranking retains entity/state, no sum across sessions',()=>{
  const rows=[{value:100,time:1,unit:'short',labels:{SessionName:'a',State:'RUNNING'}},{value:2,time:1,unit:'short',labels:{SessionName:'a',State:'PENDING_ARGS_AVAIL'}},{value:8,time:1,unit:'short',labels:{SessionName:'b',State:'PENDING_ARGS_AVAIL'}}];assert.equal(pressureOrder(rows,{kind:'task-state'})[0].sample.labels.SessionName,'b');assert.equal(pressureOrder(rows,{kind:'task-state'}).length,3);
@@ -44,6 +45,49 @@ test('pressure support cannot cross cluster, Step window or conflict provenance'
  const evidence={cluster:'c',window_start_ms:1000,window_end_ms:20000,signal:'gpu',unit:'percent',entity:'node=n,gpu=0',evidence_type:'supporting',baseline:80};
  assert.equal(pressureOrder([sample],{kind:'utilization',signal:'gpu',unit:'percent',evidence:[evidence]})[0].supporting,true);
  for(const change of [{cluster:'other'},{window_end_ms:9999},{window_start_ms:10001},{identity_conflict:true}])assert.equal(pressureOrder([sample],{kind:'utilization',signal:'gpu',unit:'percent',evidence:[{...evidence,...change}]})[0].supporting,false);
+});
+test('five pressure cards join canonical producer evidence with entity, scope and units',()=>{
+ const cases=[
+  ['vLLM waiting','vllm_requests_waiting','service','requests','short',{node:'n',instance:'engine-a'},'node=n,engine=engine-a',14,7,100],
+  ['GPU utilization','gpu_utilization_percent','device','percent','percent',{nodename:'n',gpu:'0'},'node=n,gpu=0',80,40,100],
+  ['Storage busy','storage_device_busy_ratio','device','percentunit','percentunit',{nodename:'n',device:'sda'},'nodename=n,device=sda',.8,.4,100],
+  ['Sandbox I/O PSI','sandbox_io_pressure_ratio','cgroup','ratio','percentunit',{nodename:'n',role:'sandbox',worker_id:'w'},'nodename=n,role=sandbox,worker_id=w',.8,.4,100],
+  ['RDMA tx wait','rdma_transmit_wait_ticks_per_second','network-interface','ticks/s','suffix:ticks/s',{nodename:'n',instance:'ep',port:'1'},'nodename=n,instance=ep,port=1',8,4,100],
+ ] as const;
+ for(const [name,signal,scope,evidenceUnit,sampleUnit,labels,entity,current,baseline,delta] of cases){
+  const spec=PRESSURE_SPECS.find(item=>item.name===name);
+  assert.equal(spec?.signal,signal,name);
+  const sample={value:current,time:10_000,unit:sampleUnit,labels:{cluster:'c',...labels}};
+  const evidence={row_kind:'evidence',cluster:'c',window_start_ms:1000,window_end_ms:20_000,
+   signal,observation_scope:scope,unit:evidenceUnit,window_statistic:name==='GPU utilization'?'mean':'max',
+   entity,current,baseline,evidence_type:'supporting'};
+  const [row]=pressureOrder([sample],{kind:'higher',signal:spec?.signal,unit:sampleUnit,evidence:[evidence],endTime:10_000});
+  assert.equal(row.supporting,true,name);
+  assert.equal(row.delta,delta,name);
+ }
+});
+
+test('pressure link preserves unknown units, window statistics, zero and freshness',()=>{
+ const sample={value:80,time:10_000,unit:'percent',labels:{cluster:'c',nodename:'n',gpu:'0'}};
+ const evidence={row_kind:'evidence',cluster:'c',window_start_ms:1000,window_end_ms:20_000,
+  signal:'gpu_utilization_percent',observation_scope:'device',unit:'ratio',window_statistic:'mean',
+  entity:'node=n,gpu=0',current:.8,baseline:.4,evidence_type:'supporting'};
+ const run=(change:Record<string,unknown>={})=>pressureOrder([sample],{kind:'utilization',signal:'gpu_utilization_percent',
+  unit:'percent',evidence:[{...evidence,...change}],endTime:10_000})[0];
+ assert.equal(run().delta,100);
+ assert.equal(pressureOrder([{...sample,value:50}],{kind:'utilization',signal:'gpu_utilization_percent',
+  unit:'percent',evidence:[evidence],endTime:10_000})[0].delta,100); // Window mean, not latest sample.
+ assert.equal(run({unit:null}).delta,100); // Canonical signal contract supplies the producer unit.
+ assert.equal(run({unit:'mystery'}).delta,undefined);
+ assert.equal(run({unit:'mystery'}).supporting,true); // Entity link remains; numeric comparison is unknown.
+ assert.equal(pressureOrder([{...sample,unit:'mystery'}],{kind:'utilization',signal:'gpu_utilization_percent',
+  evidence:[evidence]})[0].unitKnown,false);
+ assert.equal(run({baseline:0}).delta,undefined);
+ for(const change of [{observation_scope:'node'},{window_statistic:'max'},{entity:'node=n,gpu=1'},
+  {window_end_ms:9000},{quality_warnings:'source_sample_before_interval'},{evidence_type:'counter'}]){
+  assert.equal(run(change).supporting,false,JSON.stringify(change));
+ }
+ assert.equal(pressureOrder([sample],{kind:'higher',signal:'gpu_utilization_percent',evidence:[evidence],endTime:20_000,maxAgeMs:1000}).length,0);
 });
 test('unmapped remote clock does not erase an explicit worker monotonic duration',()=>{
  const remote={...span,node:'remote'};const row=measuredWorkers([remote],step)[0];assert.equal(row.duration,8);assert.equal(row.window.status,'missing');

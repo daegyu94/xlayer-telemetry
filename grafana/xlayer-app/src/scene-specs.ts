@@ -72,6 +72,7 @@ export const KPI_SPECS: KpiSpec[] = [
 
 export const PRESSURE_SPECS: {
   name: string;
+  signal?: string;
   dashboard: Destination;
   panel: number;
   refs: string[];
@@ -81,6 +82,7 @@ export const PRESSURE_SPECS: {
 }[] = [
   {
     name: "vLLM waiting",
+    signal: "vllm_requests_waiting",
     dashboard: "stage",
     panel: 9,
     refs: ["A"],
@@ -97,6 +99,7 @@ export const PRESSURE_SPECS: {
   },
   {
     name: "Sandbox I/O PSI",
+    signal: "sandbox_io_pressure_ratio",
     dashboard: "stage",
     panel: 12,
     refs: ["A"],
@@ -106,6 +109,7 @@ export const PRESSURE_SPECS: {
   },
   {
     name: "RDMA tx wait",
+    signal: "rdma_transmit_wait_ticks_per_second",
     dashboard: "compute",
     panel: 43,
     refs: ["A"],
@@ -114,6 +118,7 @@ export const PRESSURE_SPECS: {
   },
   {
     name: "Storage busy",
+    signal: "storage_device_busy_ratio",
     dashboard: "storage",
     panel: 3,
     refs: ["A"],
@@ -123,6 +128,7 @@ export const PRESSURE_SPECS: {
   },
   {
     name: "GPU utilization",
+    signal: "gpu_utilization_percent",
     dashboard: "compute",
     panel: 2,
     refs: ["A"],

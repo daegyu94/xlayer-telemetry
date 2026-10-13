@@ -94,6 +94,24 @@ export type PressureOptions = {
   endTime?: number; maxAgeMs?: number;
 };
 
+const pressureContracts: Record<string, {scope: string; unit: string; statistic: string}> = {
+  vllm_requests_waiting: {scope: 'service', unit: 'requests', statistic: 'max'},
+  gpu_utilization_percent: {scope: 'device', unit: 'percent', statistic: 'mean'},
+  storage_device_busy_ratio: {scope: 'device', unit: 'percentunit', statistic: 'max'},
+  sandbox_io_pressure_ratio: {scope: 'cgroup', unit: 'ratio', statistic: 'max'},
+  rdma_transmit_wait_ticks_per_second: {scope: 'network-interface', unit: 'ticks/s', statistic: 'max'},
+};
+
+function pressureValue(value: unknown, unit: string | undefined): {kind: string; value: number} | undefined {
+  const amount = numeric(value);
+  if (amount === undefined) return undefined;
+  if (unit === 'percent' || unit === '%') return {kind: 'ratio', value: amount / 100};
+  if (unit === 'percentunit' || unit === 'ratio') return {kind: 'ratio', value: amount};
+  if (unit === 'requests' || unit === 'short' || unit === 'tasks') return {kind: 'count', value: amount};
+  if (unit === 'ticks/s' || unit === 'suffix:ticks/s') return {kind: 'ticks/s', value: amount};
+  return undefined;
+}
+
 function evidenceIdentity(row: RecordRow, sample: Sample): boolean {
   if (row.identity_conflict || !row.cluster || row.cluster !== sample.labels.cluster) return false;
   const start = numeric(row.window_start_ms), end = numeric(row.window_end_ms);
@@ -105,10 +123,11 @@ function evidenceIdentity(row: RecordRow, sample: Sample): boolean {
   }));
   const node = expected.node || expected.nodename;
   if (!node || node !== (sample.labels.node || sample.labels.nodename)) return false;
-  const qualifiers = ['gpu', 'gpu_uuid', 'device', 'port', 'worker_id', 'instance', 'engine', 'engine_id']
+  const qualifiers = ['gpu', 'gpu_uuid', 'device', 'port', 'worker_id', 'instance', 'engine', 'engine_id', 'interface', 'cgroup_id']
     .filter(key => expected[key]);
-  return qualifiers.length > 0 && qualifiers.every(key => expected[key] === sample.labels[key]) &&
-    Object.entries(expected).every(([key, value]) => key === 'node' || key === 'nodename' || sample.labels[key] === value);
+  return qualifiers.length > 0 &&
+    Object.entries(expected).every(([key, value]) => key === 'node' || key === 'nodename' ||
+      value === (key === 'engine' ? sample.labels.engine || sample.labels.instance : sample.labels[key]));
 }
 
 export function stepProjection(rows: RecordRow[], step?: RecordRow, summaries?:RecordRow[]): RecordRow[] {
@@ -139,14 +158,28 @@ export function pressureOrder(values: Sample[], options: PressureOptions) {
   return latestEntitySamples(values).filter(sample => Number.isFinite(sample.value) && Number.isFinite(sample.time) &&
       (options.endTime===undefined||sample.time<=options.endTime&&options.endTime-sample.time<=(options.maxAgeMs??15000)))
     .map(sample => {
-      const evidence = (options.evidence || []).filter(row => row.signal === options.signal &&
-        evidenceIdentity(row, sample) && row.unit === options.unit);
-      const baseline = evidence.length === 1 ? numeric(evidence[0].baseline) : undefined;
-      const delta = baseline !== undefined && baseline !== 0
-        ? 100 * (sample.value * (options.scale ?? 1) - baseline) / Math.abs(baseline) : undefined;
-      const supporting = evidence.some(row => row.evidence_type === 'supporting');
+      const contract = options.signal ? pressureContracts[options.signal] : undefined;
+      const currentSample = pressureValue(sample.value * (options.scale ?? 1), sample.unit || options.unit || contract?.unit);
+      const evidence = (options.evidence || []).filter(row => {
+        if (!options.signal || row.signal !== options.signal || row.evidence_type !== 'supporting' ||
+            (row.row_kind && row.row_kind !== 'evidence') || !evidenceIdentity(row, sample) ||
+            /stale|source_sample_before_interval|source_timestamp_in_future/.test(String(row.quality_warnings || ''))) return false;
+        if (contract && (row.observation_scope && row.observation_scope !== contract.scope ||
+            row.window_statistic && row.window_statistic !== contract.statistic)) return false;
+        const measured = pressureValue(row.current ?? sample.value,
+          typeof row.unit === 'string' ? row.unit : contract?.unit || options.unit);
+        return !currentSample || !measured || currentSample.kind === measured.kind;
+      });
+      const row = evidence.length === 1 ? evidence[0] : undefined;
+      const evidenceUnit = row && typeof row.unit === 'string' ? row.unit : contract?.unit || options.unit;
+      const current = row ? pressureValue(row.current ?? (contract ? undefined : sample.value), evidenceUnit) : undefined;
+      const previous = row ? pressureValue(row.baseline, evidenceUnit) : undefined;
+      const baseline = previous?.value;
+      const delta = current && previous && current.kind === previous.kind && previous.value !== 0
+        ? 100 * (current.value - previous.value) / Math.abs(previous.value) : undefined;
+      const supporting = evidence.length > 0;
       const pending = options.kind === 'task-state' && /^(PENDING|FAILED|RETRY)/.test(sample.labels.State || '');
-      return {sample, baseline, delta, supporting, pending};
+      return {sample, baseline, delta, supporting, unitKnown: !!currentSample, pending};
     }).sort((a, b) => Number(b.supporting) - Number(a.supporting) || Number(b.pending) - Number(a.pending) ||
       Math.abs(b.delta || 0) - Math.abs(a.delta || 0) ||
       (options.kind === 'utilization' ? a.sample.value - b.sample.value : b.sample.value - a.sample.value));
