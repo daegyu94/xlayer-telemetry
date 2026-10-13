@@ -113,15 +113,19 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 Runtime은 Python 3.10 이상이며 CPU CI는 Ubuntu 22.04/Python 3.10과 Ubuntu 24.04/Python 3.12를 검사합니다.
 문서 build 환경은 `requirements-docs.txt`를 사용하는 Python 3.11 이상이며 runtime dependency와 분리합니다.
 
-관련 test를 먼저 실행하고, 공유 계약 변경·Phase 경계·최종 완료에는 통합 tree에서 전체 CPU suite를 실행합니다.
-재설계 WP 검증은 `bash scripts/check.sh default tests/test_cli.py`처럼 관련 test를 지정해 실행합니다.
-`fast`는 변경 중 확인, `full`은 backend·browser를 준비한 최종 검증에 사용합니다.
-Mypy는 WP-23 이후 core에 연결합니다.
+변경한 기능과 영향받는 계약의 관련 regression만 기본으로 실행합니다.
+영향 범위가 넓거나 관련 검사만으로 component 간 통합을 확인하기 어려울 때 전체 CPU suite를 실행하고, 그 필요성을 기록합니다.
+공유 계약 변경·Phase 경계·최종 완료·push라는 이유만으로 전체 suite를 매번 실행하지 않습니다.
+검증한 코드와 관련 환경이 동일하면 통과한 결과를 재사용하고, 이후 code나 검증 script가 바뀌면 영향받는 검사만 다시 실행합니다.
+`bash scripts/check.sh default tests/test_cli.py`처럼 관련 test를 명시합니다.
+Commit 전에 필요한 검증을 완료하며, pre-push hook은 outgoing 변경의 whitespace만 확인하고 테스트를 반복하지 않습니다.
+`fast`는 집중 test 확인, `default`는 해당 변경의 추가 gate, `full`은 필요성을 확인한 넓은 통합 검증에 사용합니다.
+Frontend·문서·실제 backend 검증도 변경의 영향과 저장소 계약에 맞춰 선택하며, 필요한 검사를 생략한 것을 통과로 보고하지 않습니다.
 
 ```bash
 bash scripts/check.sh fast tests/test_cli.py
 bash scripts/check.sh default tests/test_cli.py
-# 공유 계약 변경·Phase 경계·최종 완료의 전체 CPU suite:
+# 넓은 영향·통합 위험 때문에 전체 CPU 검사가 필요한 경우:
 python -m pytest -q
 ```
 

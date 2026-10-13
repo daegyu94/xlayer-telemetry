@@ -53,11 +53,12 @@ def test_hook_installer_preserves_existing_hook_and_is_idempotent(tmp_path: Path
                                 capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         assert (hooks / "pre-commit").read_text() == original
-        assert "xlayer-check-hook v1" in (hooks / "pre-push").read_text()
+        assert "xlayer-check-hook v2" in (hooks / "pre-push").read_text()
+        assert 'scripts/check.sh" push' in (hooks / "pre-push").read_text()
         assert not (repo / ".git/hooks/pre-push").exists()
 
 
-def test_clean_checkout_checks_real_contract_targets(tmp_path: Path) -> None:
+def test_clean_checkout_skips_implicit_tests_but_runs_explicit_targets(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "scripts").mkdir(parents=True)
     (repo / "tests").mkdir()
@@ -78,7 +79,12 @@ def test_clean_checkout_checks_real_contract_targets(tmp_path: Path) -> None:
                             env={key: value for key, value in os.environ.items() if key != "PYTHON"} | {"CALLS": str(calls)},
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "-m pytest -q tests/test_schema.py tests/test_artifact_reader_contracts.py" in calls.read_text()
+    assert not calls.exists()
+    result = subprocess.run(["bash", "scripts/check.sh", "default", "tests/test_schema.py"], cwd=repo,
+                            env={key: value for key, value in os.environ.items() if key != "PYTHON"} | {"CALLS": str(calls)},
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "-m pytest -q tests/test_schema.py" in calls.read_text()
 
 
 def test_linked_worktree_uses_common_development_python(tmp_path: Path) -> None:
@@ -101,8 +107,52 @@ def test_linked_worktree_uses_common_development_python(tmp_path: Path) -> None:
     worktree = tmp_path / "linked"
     subprocess.run(["git", "-C", str(repo), "worktree", "add", "-q", str(worktree)], check=True, env=env)
     calls = tmp_path / "calls"
-    result = subprocess.run(["bash", "scripts/check.sh", "fast"], cwd=worktree,
+    result = subprocess.run(["bash", "scripts/check.sh", "fast", "tests/test_schema.py"], cwd=worktree,
                             env=env | {"CALLS": str(calls)},
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "-m pytest -q tests/test_schema.py tests/test_artifact_reader_contracts.py" in calls.read_text()
+    assert "-m pytest -q tests/test_schema.py" in calls.read_text()
+
+
+def test_owned_v1_hook_is_upgraded_without_replacing_custom_hooks(tmp_path):
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    (tmp_path / 'scripts').mkdir()
+    shutil.copy2(ROOT / 'scripts/install_check_hooks.sh', tmp_path / 'scripts/install_check_hooks.sh')
+    target = tmp_path / '.git/hooks/pre-push'
+    target.write_text('#!/usr/bin/env bash\n# xlayer-check-hook v1\nset -euo pipefail\n'
+                      'root=$(git rev-parse --show-toplevel)\nexec bash "$root/scripts/check.sh" default\n')
+    subprocess.run(['bash', 'scripts/install_check_hooks.sh'], cwd=tmp_path, check=True)
+    assert 'xlayer-check-hook v2' in target.read_text()
+    assert 'scripts/check.sh" push' in target.read_text()
+    custom = target.read_text() + 'echo user-customization\n'
+    target.write_text(custom)
+    subprocess.run(['bash', 'scripts/install_check_hooks.sh'], cwd=tmp_path, check=True)
+    assert target.read_text() == custom
+
+
+def test_actual_push_checks_outgoing_whitespace_without_running_python(tmp_path):
+    repo, remote = tmp_path / 'repo', tmp_path / 'remote'
+    (repo / 'scripts').mkdir(parents=True)
+    for name in ('check.sh', 'install_check_hooks.sh'):
+        shutil.copy2(ROOT / 'scripts' / name, repo / 'scripts' / name)
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    subprocess.run(['git', 'init', '-q', '--bare', str(remote)], check=True)
+    for key, value in [('user.name', 'Test'), ('user.email', 'test@example.com')]:
+        subprocess.run(['git', '-C', str(repo), 'config', key, value], check=True)
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'base'], check=True)
+    branch = subprocess.check_output(['git', '-C', str(repo), 'branch', '--show-current'], text=True).strip()
+    subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin', str(remote)], check=True)
+    subprocess.run(['bash', 'scripts/install_check_hooks.sh'], cwd=repo, check=True)
+    env = os.environ | {'PYTHON': str(tmp_path / 'missing-python')}
+    result = subprocess.run(['git', 'push', 'origin', branch], cwd=repo, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    baseline = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
+    (repo / 'bad.py').write_text('trailing whitespace \n')
+    subprocess.run(['git', 'add', 'bad.py'], cwd=repo, check=True)
+    subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', 'bad'], cwd=repo, check=True)
+    result = subprocess.run(['git', 'push', 'origin', branch], cwd=repo, env=env, capture_output=True, text=True)
+    assert result.returncode != 0
+    assert 'trailing whitespace' in (result.stdout + result.stderr).lower()
+    head = subprocess.check_output(['git', '--git-dir', str(remote), 'rev-parse', branch], text=True).strip()
+    assert head == baseline

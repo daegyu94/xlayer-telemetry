@@ -5,10 +5,28 @@ repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_root"
 profile=${1:-default}
 case "$profile" in
-  fast|default|full) [[ $# -eq 0 ]] || shift ;;
+  fast|default|full|push) [[ $# -eq 0 ]] || shift ;;
   -h|--help) echo 'Usage: bash scripts/check.sh [fast|default|full] [tests/test_*.py ...]'; exit 0 ;;
   *) echo "Unknown check profile: $profile" >&2; exit 2 ;;
 esac
+
+if [[ $profile == push ]]; then
+  # Git supplies the outgoing refs; tests were selected before committing.
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ $local_sha =~ ^0+$ ]] && continue
+    if [[ $remote_sha =~ ^0+$ ]]; then
+      base_tree=$(git hash-object -t tree --stdin < /dev/null)
+    else
+      git cat-file -e "$remote_sha^{commit}" 2>/dev/null || {
+        echo 'Remote base is missing locally; fetch before pushing.' >&2
+        exit 2
+      }
+      base_tree=$remote_sha
+    fi
+    git diff --check "$base_tree" "$local_sha" --
+  done
+  exit 0
+fi
 
 if [[ -n ${PYTHON:-} ]]; then
   python_cmd=$PYTHON
@@ -18,10 +36,6 @@ else
   common_dir=$(git rev-parse --path-format=absolute --git-common-dir)
   python_cmd="$(dirname "$common_dir")/.venv/bin/python"
 fi
-command -v "$python_cmd" >/dev/null || {
-  echo 'Development Python is missing: run bash scripts/setup.sh or set PYTHON.' >&2
-  exit 2
-}
 export PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}"
 mapfile -t changed < <({ git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)
 tests=("$@")
@@ -40,9 +54,17 @@ if (( ${#tests[@]} == 0 )); then
           exit 2 ;;
       esac
     done
-    tests=(tests/test_schema.py tests/test_artifact_reader_contracts.py)
+    if [[ $profile != full ]]; then
+      echo 'No related CPU tests selected; pass test paths to recheck unchanged code.'
+      git diff --check HEAD
+      exit 0
+    fi
   fi
 fi
+command -v "$python_cmd" >/dev/null || {
+  echo 'Development Python is missing: run bash scripts/setup.sh or set PYTHON.' >&2
+  exit 2
+}
 for path in "${tests[@]}"; do
   test_file=${path%%::*}
   if [[ $test_file != tests/test_*.py || ! -f $test_file ]]; then
@@ -53,7 +75,7 @@ done
 
 "$python_cmd" scripts/check_ruff.py
 "$python_cmd" scripts/metric_coverage.py --check
-"$python_cmd" -m pytest -q "${tests[@]}"
+(( ${#tests[@]} == 0 )) || "$python_cmd" -m pytest -q "${tests[@]}"
 [[ $profile == fast ]] && exit 0
 
 git diff --check HEAD
