@@ -17,7 +17,7 @@ export function ProgressCard({selected,queryState,timezone}:{selected?:RecordRow
 export function RunBrief({selected,context,candidates,queryState,clock,onInvestigate,actionLabel,diagnosed,available}:{selected?:RecordRow;context:Context;candidates:RecordRow[];queryState?:string;clock:string;diagnosed?:boolean;available?:boolean;actionLabel?:string;onInvestigate:()=>void}){
  const status=investigationStatus(candidates,queryState,clock,diagnosed,available);
  return <section className={`xlt-run-brief xlt-brief-${status.tone}`} aria-label="Investigation starting point">
-  <div><span className="xlt-eyebrow">NEXT INVESTIGATION</span><h3>{status.label}</h3><p>{status.note}</p>
+  <div><span className="xlt-eyebrow">Next investigation</span><h3>{status.label}</h3><p>{status.note}</p>
    <small>저장된 구간의 signal · Correlation ≠ attribution</small>
   </div><div className="xlt-brief-action">{selected?<PrimaryAction onClick={onInvestigate}>{actionLabel||`Investigate ${boundaryPresentation(selected).label} ${scalar(selected.step)} →`}</PrimaryAction>:<a href={appLink('runs',context)}>Choose a Run →</a>}
    <small>{selected?`${scalar(selected.run_id)} · ${scalar(selected.worker_id,'Worker not reported')}`:'서로 다른 Job의 성능을 합산하지 않습니다.'}</small></div>

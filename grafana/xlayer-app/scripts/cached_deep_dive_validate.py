@@ -22,7 +22,7 @@ def run(args):
                 expect(page.get_by_role('heading', name='Key Findings', exact=True)).to_be_visible(timeout=30000)
                 assert not parse_qs(urlparse(page.url).query).get('var-candidate_id')
                 # Stay inside the SPA: a page.goto/reload here would hide the cache defect.
-                page.get_by_role('navigation', name='XLayer investigation').get_by_role('link', name='Run', exact=True).click()
+                page.get_by_role('navigation', name='XLayer investigation').get_by_role('link', name='Run Overview', exact=True).click()
                 page.locator('.xlt-slow-steps li button').first.wait_for(timeout=30000)
                 page.locator('.xlt-slow-steps li button').first.click()
                 card = page.locator('.xlt-candidates .xlt-card').first

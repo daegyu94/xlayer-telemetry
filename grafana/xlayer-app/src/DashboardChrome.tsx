@@ -27,16 +27,16 @@ export function DashboardChrome({page,context,nativePages,contextBar,children,on
  },[open]);
  const theme=useTheme2();const styles=useStyles2(getProductStyles);
  const title=[...WORKSPACE_PAGES,...nativePages].find(p=>p.route===page)?.title||'Dashboard';
- const nav=(entries:readonly Entry[])=>entries.map(entry=><a key={entry.route} href={appLink(entry.route,context)} aria-current={entry.route===page||entries===PRIMARY_PAGES&&entry.route===primaryRoute(page)?'page':undefined} onClick={e=>{e.preventDefault();setOpen(false);onNavigate(entry.route);}}><Icon name={icons[entry.route]||'dashboard'} size="md"/><span>{entry.route==='start-here'?'Start Here':entry.route==='stage-correlation'?'Stage Correlation':entry.title}</span></a>);
+ const nav=(entries:readonly Entry[])=>entries.map(entry=><a key={entry.route} href={appLink(entry.route,context)} aria-current={entry.route===page||entries===PRIMARY_PAGES&&entry.route===primaryRoute(page)?'page':undefined} onClick={e=>{e.preventDefault();setOpen(false);onNavigate(entry.route);}}><Icon name={icons[entry.route]||'dashboard'} size="md"/><span>{entry.title}</span></a>);
  return <div className={`xlt xlt-dashboard ${styles.root}`} data-theme={theme.isDark?'dark':'light'}>
   {open&&<button className="xlt-menu-scrim" aria-label="Dismiss navigation overlay" onClick={closeMenu}/>}
   <aside ref={sidebarRef} role={open?'dialog':undefined} aria-modal={open||undefined} className={`xlt-sidebar ${open?'is-open':''}`} aria-label="Dashboard navigation">
    <button className="xlt-sidebar-close" aria-label="Close navigation" onClick={closeMenu}><Icon name="times"/></button>
-   <div className="xlt-brand"><img src="/public/plugins/xlayer-telemetry-app/img/logo.svg" alt=""/><div><b>XLayer Telemetry</b><small>AGENT RL OBSERVABILITY</small></div></div>
-   <div className="xlt-nav-group">WORKSPACE</div><nav className="xlt-nav" aria-label="XLayer investigation">{nav(PRIMARY_PAGES)}</nav>
-   <details className="xlt-library-nav" open={nativePages.some(p=>p.route===page)?true:undefined}><summary>Metric library</summary><nav className="xlt-nav" aria-label="Canonical dashboards">{nav(nativePages)}</nav></details>
-   <a aria-current={page==='demo'?'page':undefined} className="xlt-demo-link" href={appLink('demo',context)} onClick={e=>{e.preventDefault();setOpen(false);onNavigate('demo');}}>Scenario Explorer <small>Synthetic lab</small></a>
-   <div className="xlt-sidebar-foot">실행을 확인하고, 느린 구간을 조사하세요.<small>Shared signal ≠ Run ownership</small></div>
+   <div className="xlt-brand"><img src="/public/plugins/xlayer-telemetry-app/img/logo.svg" alt=""/><div><b>XLayer Telemetry</b><small>Agent RL observability</small></div></div>
+   <div className="xlt-nav-group">Workspace</div><nav className="xlt-nav" aria-label="XLayer investigation">{nav(PRIMARY_PAGES)}</nav>
+   <details className="xlt-library-nav" open={nativePages.some(p=>p.route===page)?true:undefined}><summary>Dashboards</summary><nav className="xlt-nav" aria-label="Canonical dashboards">{nav(nativePages)}</nav></details>
+   <a aria-current={page==='demo'?'page':undefined} className="xlt-demo-link" href={appLink('demo',context)} onClick={e=>{e.preventDefault();setOpen(false);onNavigate('demo');}}>Demo Scenarios <small>Synthetic data</small></a>
+   <div className="xlt-sidebar-foot">실행을 확인하고, 느린 구간을 조사하세요.</div>
   </aside>
   <div className="xlt-main">
    <div className="xlt-topbar"><div className="xlt-breadcrumb"><button ref={menuRef} className="xlt-menu-toggle" aria-label="Open navigation" aria-expanded={open} onClick={()=>setOpen(!open)}><Icon name="bars"/></button><span>XLayer <i>/</i> <b>{title}</b></span>{synthetic&&<a className="xlt-badge" href={appLink('demo',context)}>Synthetic demo</a>}</div><button className="xlt-theme-toggle" aria-label={`Switch to ${theme.isDark?'Light':'Dark'} theme`} onClick={onTheme}><Icon name="adjust-circle"/></button></div>

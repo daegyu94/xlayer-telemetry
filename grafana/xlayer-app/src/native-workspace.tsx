@@ -7,38 +7,32 @@ import type { Context, Destination } from './context';
 /** Native views borrow the provisioned dashboard, including optional source rows. */
 export const NATIVE_PAGES = [
   {
-    route: 'start-here', destination: 'start', title: 'Start Here · Collection Health',
-    kicker: 'GET STARTED',
+    route: 'start-here', destination: 'start', title: 'Collection Status',
     description: 'Run을 조사하기 전에 연결된 source와 sample freshness를 확인합니다.',
     notice: 'Collector availability는 exporter에 접근할 수 있는지를 뜻하며 Application 정상 상태를 보장하지 않습니다. Missing metric과 stale sample은 측정값 0과 구분합니다.',
   },
   {
-    route: 'stage-correlation', destination: 'stage', title: 'Agent RL Stage Correlation',
-    kicker: 'SUBSYSTEM / TRAINING',
+    route: 'stage-correlation', destination: 'stage', title: 'Stage & Serving Signals',
     description: '보고된 stage를 Serving, Orchestration, KV Storage, optional Sandbox 관측과 비교합니다.',
     notice: '완료 stage duration은 reported scalar입니다. vLLM / Ray / Mooncake의 engine / session / service scope는 구분하며, 시간 중첩만으로 phase의 resource ownership을 판단하지 않습니다.',
   },
   {
     route: 'bottleneck-summary', destination: 'summary', title: 'Bottleneck Summary',
-    kicker: 'NATIVE / DIAGNOSIS',
     description: '저장된 Current / Baseline 비교, Candidate와 Evidence Ledger를 확인합니다.',
     notice: '선택한 조사에 저장된 diagnosis 결과입니다. 현재 live metric으로 과거 Step의 Evidence를 대체하거나, 확인되지 않은 clock / baseline 조건을 보완하지 않습니다.',
   },
   {
-    route: 'compute', destination: 'compute', title: 'Compute & Communication',
-    kicker: 'SUBSYSTEM / COMPUTE',
+    route: 'compute', destination: 'compute', title: 'Compute & Network',
     description: 'Device activity, host pressure와 interface / RDMA 관측을 확인합니다.',
     notice: 'GPU는 device, host pressure는 node, NIC / RDMA는 interface 또는 port scope로 관측합니다. 이 값만으로 Run별 resource ownership이나 endpoint pair 간 traffic을 판단하지 않습니다.',
   },
   {
-    route: 'storage', destination: 'storage', title: 'Data & Storage',
-    kicker: 'SUBSYSTEM / STORAGE',
+    route: 'storage', destination: 'storage', title: 'Storage & I/O',
     description: '선언된 Storage Cluster, local device I/O와 service collection Evidence를 구분해 확인합니다.',
     notice: 'DS / MDS mapping은 선언된 배치이며 device I/O는 host / device 전체 관측입니다. Local mean latency와 maximum reported 3FS p99는 통계와 관측 모집단이 다릅니다. pNFS Deep Dive는 TBD입니다.',
   },
   {
     route: 'signals', destination: 'signals', title: 'Cross-Layer Signals',
-    kicker: 'CROSS-LAYER / RESOURCE',
     description: 'Workload / Serving signal과 shared hardware 관측을 함께 비교합니다.',
     notice: '각 panel의 producer, entity와 observation scope를 유지합니다. Signal의 연관성을 Run attribution이나 causality로 해석하지 않습니다.',
   },

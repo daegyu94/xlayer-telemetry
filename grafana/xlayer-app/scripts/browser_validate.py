@@ -103,6 +103,10 @@ def enter_app(page, url, diagnostics):
     try:
         page.goto(url)
         page.get_by_role('button',name=re.compile('Analyze (Step|Trainer update|Observation)')).first.wait_for(timeout=30000)
+        assert page.get_by_role('navigation', name='XLayer investigation').locator('a span').all_text_contents() == ['Run Explorer', 'Run Overview', 'Investigation', 'Infrastructure']
+        assert page.get_by_role('navigation', name='Canonical dashboards', include_hidden=True).locator('a span').all_text_contents() == ['Collection Status', 'Stage & Serving Signals', 'Bottleneck Summary', 'Compute & Network', 'Storage & I/O', 'Cross-Layer Signals']
+        assert page.locator('.xlt-library-nav > summary').inner_text() == 'Dashboards'
+        assert page.locator('.xlt-header .xlt-eyebrow').count() == 0
     except Exception as error:
         try:
             diagnostics.fail(error)
@@ -447,7 +451,7 @@ def multi_worker_journey(args):
         page.get_by_role('heading', name='Phase × Subsystem', exact=True).wait_for()
         assert parse_qs(urlparse(page.url).query)['var-phase_worker'] == selected['var-phase_worker']
         checks.append('Selected measured worker → Compute dashboard → browser Back preserves exact resource and observer/Step context')
-        page.get_by_role('link', name='Run', exact=True).last.click()
+        page.get_by_role('navigation', name='XLayer investigation').get_by_role('link', name='Run Overview', exact=True).click()
         page.wait_for_timeout(700)
         page.locator('.xlt-execution-details > summary').click()
         lifecycle = page.locator('details.xlt-completed-detail').filter(has=page.locator('summary').filter(has_text='Policy / KV Lifecycle'))

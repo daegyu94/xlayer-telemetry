@@ -165,7 +165,7 @@ export function ShellView({ model }: { model: Shell }) {
       contextBar={state.page==='demo'?null:<RunContext model={model} selected={selected} steps={steps} context={context} policySamples={policySamples} activeWorkloads={activeWorkloads} onStep={row=>navigate(state.page,selectStep(row,context))}/>}>
       {(catalogFailures.length>0||reload.error)&&<section className="xlt-notice" aria-label="Dashboard availability"><p role="alert">{reload.error?displayUiNote(reload.error):'일부 선택 Dashboard를 불러오지 못했습니다. 사용 가능한 Dashboard는 계속 사용할 수 있습니다.'}</p>{catalogFailures.map(([name,issue])=><p key={name}>{name}: {issueText(issue!)}</p>)}<button onClick={reload.retry} disabled={reload.refreshing}>Retry dashboards</button></section>}
       {state.nativeWorkspace&&<>
-        <header className="xlt-header xlt-native-heading"><div><span className="xlt-eyebrow">{NATIVE_PAGES.find(p=>p.route===state.page)?.kicker}</span><h2>{NATIVE_PAGES.find(p=>p.route===state.page)?.title}</h2><p>{NATIVE_PAGES.find(p=>p.route===state.page)?.description}</p></div><a className="xlt-link" href={appLink('infrastructure',context)}>Locate in topology →</a></header>
+        <header className="xlt-header xlt-native-heading"><div><h2>{NATIVE_PAGES.find(p=>p.route===state.page)?.title}</h2><p>{NATIVE_PAGES.find(p=>p.route===state.page)?.description}</p></div><a className="xlt-link" href={appLink('infrastructure',context)}>Locate in topology →</a></header>
         <p className="xlt-notice">{NATIVE_PAGES.find(p=>p.route===state.page)?.notice}</p>
         <details className="xlt-filters"><summary>Resource and native panel filters</summary><div>{state.catalog[state.nativeWorkspace.destination]?.templating.list.filter(v=>VARIABLE_NAMES.includes(v.name)&&!['cluster','run_id'].includes(v.name)).map(v=>{const variable=sceneGraph.lookupVariable(v.name,model);return variable?<VariableValueSelectWrapper key={v.name} variable={variable} showAlways/>:null;})}</div></details>
         <NativeHighlights destination={state.nativeWorkspace.destination} sources={state.nativeWorkspace.panels} panels={state.nativePanels||[]}/>
@@ -176,9 +176,6 @@ export function ShellView({ model }: { model: Shell }) {
       {!state.nativeWorkspace&&state.page!=='demo'&&<>
       <header className={`xlt-header ${state.page==='overview'?'xlt-run-heading':''}`}>
         <div>
-          <span className="xlt-eyebrow">
-            {WORKSPACE_PAGES.find(p=>p.route===state.page)?.kicker}{' '}
-          </span>
           <h2>
             {state.page === "overview"
               ? "Run Overview"

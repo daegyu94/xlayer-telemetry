@@ -63,7 +63,7 @@ export function InfrastructureView({data,context,onSelect,metrics,links,unavaila
     {(data.limited||model.inventoryLimited)&&<p className="xlt-notice">반환된 inventory와 화면 표시는 최대 256개 component로 제한합니다. 표시 한도로 생략된 선언과 missing metric sample을 구분하세요.</p>}
    </section>
    <aside className="xlt-resource-inspector" aria-label="Resource inspector">
-    <div className="xlt-resource-inspector-header"><small>RESOURCE INSPECTOR</small>{selected?<><h3>Selected Resource · {selected.id}</h3><CollectorState node={selected}/></>:<h3>Select a resource</h3>}</div>
+    <div className="xlt-resource-inspector-header"><small>Resource inspector</small>{selected?<><h3>Selected Resource · {selected.id}</h3><CollectorState node={selected}/></>:<h3>Select a resource</h3>}</div>
     {!selected?<p className="xlt-empty">Map이나 Inventory에서 구성된 component를 선택하세요. Resource를 자동 선택하거나 metric 값을 추정하지 않습니다.</p>:<div className="xlt-resource-inspector-body">
      <dl className="xlt-resource-inspector-identity">{[['Identity',selected.id],['Cluster',selected.cluster],['Namespace',selected.kind],['Type',selected.type],['Role',selected.role],['Mapping',selected.mapping],['Resource node',selected.resource||'Unknown'],['Device',selected.gpu!==undefined?`GPU ${selected.gpu}`:selected.interface||selected.device||'Not configured'],['Collector',selected.collector],['Relation','Configured · physical path는 확인되지 않았습니다.']].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
      {selected.mapping!=='configured'?<p className="xlt-empty">Resource mapping이 없거나 서로 충돌합니다. Publisher identity로 resource query나 device attribution을 생성하지 않습니다.</p>:<>

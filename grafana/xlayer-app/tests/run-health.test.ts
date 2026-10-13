@@ -24,7 +24,7 @@ test('diagnosis status distinguishes error, missing, withheld and recorded candi
  assert.equal(investigationStatus([],'Done','aligned').label,'No diagnosis recorded');
  assert.equal(investigationStatus([{state:'supporting_signal'}],'Done','aligned').label,'Review recorded signals');
 });
-test('four primary decisions retain compatible detail routes under Investigation or Systems',()=>{
+test('four primary decisions retain compatible detail routes under Investigation or Infrastructure',()=>{
  assert.equal(PRIMARY_PAGES.length,4);
  for(const route of ['analyze','timeline','deep-dive','logs'])assert.equal(primaryRoute(route),'investigate');
  for(const route of ['storage','compute','stage-correlation'])assert.equal(primaryRoute(route),'infrastructure');
