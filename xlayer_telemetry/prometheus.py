@@ -13,7 +13,9 @@ import statistics
 from typing import Any, Iterable, Mapping
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+from ._http_proxy import urlopen
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_ERROR_RESPONSE_BYTES = 8 * 1024

@@ -21,6 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from ._http_redirects import _CredentialSafeRedirectHandler
+from ._http_proxy import _ProxyHandler
 
 
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -265,7 +266,8 @@ def _main() -> None:
         measure_clock = request.get("measure_clock", False)
         if type(measure_clock) is not bool:
             raise ValueError("Invalid HTTP clock measurement mode")
-        opener = build_opener(_NoRedirectHandler() if measure_clock else _BoundedRedirectHandler(max_response_bytes))
+        opener = build_opener(_ProxyHandler(),
+                              _NoRedirectHandler() if measure_clock else _BoundedRedirectHandler(max_response_bytes))
         timing = {}
         if measure_clock:
             timing["t1"], timing["m1"] = time.time(), time.monotonic()
