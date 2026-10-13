@@ -12,7 +12,7 @@ import { matrixEntities, filterMatrixEntity, matrixLookback, PHASE_COLORS, SUBSY
 import { MATRIX_SPECS } from './matrix-contract';
 import { useSceneData as useData } from './scene-data';
 import type { Shell, ShellState } from './app-scene';
-import { format, Link } from './view-components';
+import { formatObservation, format, Link } from './view-components';
 
 export function Matrix({model,selected,spans,evidence,baselineStep,baselineSpans,comparability,clockStatus,baselineClockStatus,clockProof,baselineClockProof}:{model:Shell;selected:RecordRow;spans:RecordRow[];evidence:RecordRow[];baselineStep?:RecordRow;baselineSpans:RecordRow[];comparability:string;clockStatus:string;baselineClockStatus:string;clockProof:ClockProof;baselineClockProof:ClockProof}){
  const ctx=readContext(window.location.search),workerKey=ctx.variables.phase_worker?.[0];
@@ -47,7 +47,7 @@ function MatrixRow({subsystem:s,phases,model,selected,spans,evidence,baselineSte
   const baselineCell=clockQualifiedCell({...metricCell('sample' in baselineChoice&&baselineChoice.sample?{...baselineChoice.sample,unit}:undefined,baselineWindow,spec.scope,lookback),observations:baselineChoice.count},baselineClockStatus,baselineClockProof,baselineWindow);
   const comparison=phaseComparison(cell,baselineCell,window,baselineWindow,comparability);
   const observed=cell.value!==undefined;
-  const label=data?.state===LoadingState.Error?'Query error':cell.sample&&cell.value===undefined&&cell.explanation.startsWith('Clock quality is')?'Clock unverified':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
+  const label=data?.state===LoadingState.Error?'Query error':cell.reason==='clock_unverified'?'Clock unverified':observed?compactMatrixValue(cell.value!,unit):choice.entities>1?'Choose entity':window.status!=='observed'?'—':!values.length?'No data':s==='sandbox'?'—':'No linked sample';
   const quality=s==='ray'?'Session context':cell.binding==='rolling-context'?`Rolling${typeof lookback==='number'?` ${lookback/1000}s`:''} · ${cell.scope==='shared-service'?'Shared':'Node'}`:cell.scope==='shared-service'?'Sampled · Shared':cell.scope==='worker/cgroup'?'Sampled · Worker':'Sampled · Node';
   return <td key={phase}><MatrixCellButton identity={`${phase} × ${s} evidence`} label={label}
     quality={observed?quality:window.status==='ambiguous'?'Ambiguous span':s==='sandbox'?'No linked worker call':cell.scope}
@@ -135,7 +135,7 @@ export function EvidenceDetail({
               <p key={i}>
                 <b>{scalar(r.signal)}</b> ·{" "}
                 {format(r.baseline, scalar(r.unit, ""))} →{" "}
-                {format(r.current, scalar(r.unit, ""))}
+                {formatObservation(r, scalar(r.unit, ""))}
                 <br />
                 <small>
                   {scalar(r.observation_scope)} ·{" "}

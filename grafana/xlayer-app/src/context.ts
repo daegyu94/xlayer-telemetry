@@ -1,3 +1,7 @@
+import { decodeObservationRow, numeric } from './record-contract';
+import type { RecordRow, ObservationRow } from './record-contract';
+export { numeric } from './record-contract';
+export type { RecordRow } from './record-contract';
 import {validDateMs} from './time-context';
 export const APP_ID = "xlayer-telemetry-app";
 export const APP_BASE = `/a/${APP_ID}`;
@@ -52,7 +56,6 @@ export type Context = {
   timezone: string;
   theme?: "light" | "dark";
 };
-export type RecordRow = Record<string, unknown>;
 export function readContext(search: string): Context {
   const params = new URLSearchParams(search);
   const variables: Context["variables"] = {};
@@ -174,22 +177,6 @@ export function selectStep(row: RecordRow, context: Context): Context {
     },
   };
 }
-export function numeric(value: unknown): number | undefined {
-  if (
-    (typeof value !== "number" && typeof value !== "string") ||
-    (typeof value === "string" && !value.trim())
-  )
-    return undefined;
-  if (
-    value === null ||
-    value === undefined ||
-    value === "" ||
-    typeof value === "boolean"
-  )
-    return undefined;
-  const number = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(number) ? number : undefined;
-}
 export function scalar(value: unknown, fallback = "Unknown"): string {
   return value === undefined ||
     value === null ||
@@ -198,7 +185,7 @@ export function scalar(value: unknown, fallback = "Unknown"): string {
     ? fallback
     : String(value);
 }
-export function decodeRecord(line: unknown): RecordRow | undefined {
+export function decodeRecord(line: unknown): ObservationRow | undefined {
   try {
     const value = typeof line === "string" ? JSON.parse(line) : line;
     if (!value || typeof value !== "object" || Array.isArray(value))
@@ -207,12 +194,12 @@ export function decodeRecord(line: unknown): RecordRow | undefined {
     let record = wrapper.record;
     if (typeof record === "string") record = JSON.parse(record);
     if (record && typeof record === "object" && !Array.isArray(record))
-      return {
+      return decodeObservationRow({
         ...(record as RecordRow),
-        cluster: wrapper.cluster,
-        observer_node: wrapper.observer_node,
-      };
-    return wrapper;
+        ...(wrapper.cluster !== undefined ? {cluster: wrapper.cluster} : {}),
+        ...(wrapper.observer_node !== undefined ? {observer_node: wrapper.observer_node} : {}),
+      });
+    return "record" in wrapper ? undefined : decodeObservationRow(wrapper);
   } catch {
     return undefined;
   }

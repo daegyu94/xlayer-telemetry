@@ -145,3 +145,15 @@ test('sandbox resource links retain the observer and select the canonical nodena
  assert.deepEqual(resourceContext(context,{node:'other'}).variables.sandbox_node,['.*']);
  assert.deepEqual(resourceContext(context,{},'sandbox').variables.sandbox_node,['.*']);
 });
+
+test('explicit observation failure is separate from sampled zero and clock qualification',()=>{
+ const sample={value:0,time:10_000,unit:'percent',labels:{cluster:'c',nodename:'n',gpu:'0'}};
+ const evidence={row_kind:'evidence',cluster:'c',window_start_ms:1000,window_end_ms:20_000,
+  signal:'gpu_utilization_percent',observation_scope:'device',unit:'percent',window_statistic:'mean',
+  entity:'node=n,gpu=0',current:0,baseline:20,evidence_type:'supporting',observation_status:'observed'};
+ assert.equal(pressureOrder([sample],{kind:'utilization',signal:evidence.signal,evidence:[evidence],endTime:10_000})[0].supporting,true);
+ for(const observation_status of ['error','no_data','stale','unknown','future_success']){
+  const result=pressureOrder([sample],{kind:'utilization',signal:evidence.signal,evidence:[{...evidence,observation_status}],endTime:10_000})[0];
+  assert.equal(result.supporting,false);assert.equal(result.sample.value,0);
+ }
+});

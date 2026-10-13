@@ -56,6 +56,7 @@ with sync_playwright() as p:
                         if isinstance(row,dict) and row.get('row_kind')=='summary':
                             row['correlation_clock_status']='unsafe'
                             row['baseline_clock_status']='unknown'
+                            row['future_contract_field']={'synthetic':True}
                             column[index]=json.dumps(record)
         route.fulfill(response=response,json=body)
 
@@ -65,11 +66,17 @@ with sync_playwright() as p:
     page.get_by_text('Clock unverified',exact=True).first.wait_for(timeout=15000)
     assert 'vs baseline' not in page.locator('.xlt-matrix').inner_text()
     assert page.locator('.xlt-pressure-value strong').count()>0, 'Raw system pressure was erased by the clock gate'
-    for width in (1440,390):
-        page.set_viewport_size({'width':width,'height':1000})
-        page.wait_for_timeout(300)
-        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
-        page.screenshot(path=str(args.output/f'clock-withheld-{width}.png'),full_page=True)
+    for theme in ('light','dark'):
+        selected_url=urlparse(page.url)
+        params={**parse_qs(selected_url.query),'theme':[theme]}
+        page.goto(selected_url._replace(query=urlencode(params,doseq=True)).geturl())
+        page.get_by_label('Correlation clock quality').get_by_text('unsafe',exact=True).wait_for(timeout=15000)
+        page.get_by_text('Clock unverified',exact=True).first.wait_for(timeout=15000)
+        for width in (1440,390):
+            page.set_viewport_size({'width':width,'height':1000})
+            page.wait_for_function('document.documentElement.scrollWidth<=innerWidth+1')
+            assert 'vs baseline' not in page.locator('.xlt-matrix').inner_text()
+            page.screenshot(path=str(args.output/f'clock-withheld-{theme}-{width}.png'),full_page=True)
     current=parse_qs(urlparse(page.url).query)
     for key in ('from','to','var-run_id','var-record_id','var-source_node'):
         assert current[key]==saved[key],key
@@ -78,7 +85,8 @@ with sync_playwright() as p:
     page.get_by_label('Correlation clock quality').get_by_text('aligned',exact=True).wait_for(timeout=15000)
     assert not errors,errors
     result={'browser_errors':errors,'clock_pass':True,'unsafe_precision_withheld':True,
-            'raw_queries_retained':True,'recovery':True,'widths':[1440,390],
+            'raw_queries_retained':True,'recovery':True,'widths':[1440,390],'themes':['light','dark'],
+            'additive_saved_metadata':True,
             'scope':'stored summary changed at browser datasource boundary; not OS synchronization or backend NTP failure'}
     (args.output/'validation.json').write_text(json.dumps(result,indent=2)+'\n')
     browser.close()

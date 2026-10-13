@@ -27,6 +27,8 @@ export type Cell = {
   scope: string;
   type: string;
   explanation: string;
+  reason?: "clock_unverified";
+  clockStatus?: string;
   sample?: Sample;
   evidence?: RecordRow[];
   observations?: number;
@@ -133,10 +135,10 @@ export function clockQualifiedCell(cell: Cell, status: string, proof?: ClockProo
     if(proof.uncertainty===undefined || proof.sampleAge===undefined)status='phase_clock_quality_unknown';
     else if(proof.uncertainty>seconds/10 || proof.sampleAge>seconds)status='clock_resolution_exceeds_phase';
   }
-  if(status==='aligned')return cell;
+  if(status==='aligned')return {...cell,clockStatus:status};
   const explanation='Clock quality is '+status+'. Raw resource data remain available; precise phase correlation and deltas are withheld. '+cell.explanation;
-  if(status==='unchecked')return {...cell,binding:'rolling-context',explanation};
-  return {...cell,binding:'unmapped',state:'missing',value:undefined,explanation};
+  if(status==='unchecked')return {...cell,binding:'rolling-context',clockStatus:status,explanation};
+  return {...cell,binding:'unmapped',state:'missing',value:undefined,reason:'clock_unverified',clockStatus:status,explanation};
 }
 function spanIdentity(span: RecordRow): string {
   // A conflicting duplicate ID is ambiguous, rather than last-write-wins.
