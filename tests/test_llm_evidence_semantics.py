@@ -221,3 +221,13 @@ def test_reviewed_projection_does_not_create_absent_clock_bounds(tmp_path):
     assert summary['correlation_clock_uncertainty_seconds'] is None
     assert summary['correlation_clock_sample_age_seconds'] is None
     assert summary['baseline_clock_status']=='not_reported'
+
+
+def test_saved_missing_units_stay_unknown_instead_of_requesting_inference():
+    source = report()
+    for row in source['comparison']['signals']:
+        row.pop('unit')
+    packet = llm.packet_from_report(source)
+    llm.validate_packet(packet)
+    assert all(row['unit'] == 'unknown' for row in packet['observations'])
+    assert all(row['unit'] == 'unknown' for row in restore(llm.model_view(packet)))

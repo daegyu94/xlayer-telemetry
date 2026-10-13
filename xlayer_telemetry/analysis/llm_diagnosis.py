@@ -39,7 +39,7 @@ INFERENCE_OPTIONS = {
 OBSERVATION_FIELDS = {
     "id", "signal", "unit", "observation_scope", "labels", "baseline", "current",
     "delta", "delta_percent", "source", "query", "kind", "window_statistic",
-} | {"sampling_quality", "comparison_status", "robust_baseline"}
+} | {"sampling_quality", "comparison_status", "robust_baseline", "observation_status"}
 STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase", "max_series_delta"}
 
 
@@ -225,13 +225,13 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
             "delta": row.get("delta"), "delta_percent": row.get("delta_percent"),
             "observation_scope": current.entity.scope.name,
             "labels": dict(current.entity.labels),
-            "unit": row.get("unit", "unspecified; infer only if unambiguous from signal name"),
+            "unit": row.get("unit", "unknown"),
             "source": "saved comparison; raw series may have been aggregated",
             "sampling_quality": row.get("sampling_quality"),
         })
         # Preserve the scalar reducer without adding full PromQL to this compact
         # saved-report path. Older reports need not specify one; never infer it.
-        for key in ('window_statistic', 'comparison_status', 'robust_baseline'):
+        for key in ('window_statistic', 'comparison_status', 'robust_baseline', 'observation_status'):
             if row.get(key) is not None:
                 observations[-1][key] = row[key]
     return {
@@ -477,7 +477,7 @@ def model_view(packet: dict[str, Any]) -> dict[str, Any]:
     preferred = ("id", "signal", "unit", "window_statistic", "observation_scope", "labels", "baseline", "current")
     present = set().union(*(item.keys() for item in observations)) if observations else set()
     common = {}
-    for key in ("source", "query", "kind", "unit", "window_statistic", "comparison_status", "observation_scope", "labels", "sampling_quality"):
+    for key in ("source", "query", "kind", "unit", "window_statistic", "comparison_status", "observation_status", "observation_scope", "labels", "sampling_quality"):
         if observations and all(key in item and item[key] == observations[0][key]
                                 for item in observations):
             common[key] = observations[0][key]
@@ -567,7 +567,8 @@ def validate_diagnosis(answer: dict[str, Any], packet: dict[str, Any]) -> None:
             if issue.code.split(':')[0] in {
                 'backend_warnings', 'backend_infos', 'discarded_samples', 'discarded_series',
                 'query_step_exceeds_interval', 'fewer_than_two_query_evaluations',
-                'fewer_than_two_observed_source_samples', 'comparison_withheld'}}
+                'fewer_than_two_observed_source_samples', 'comparison_withheld',
+                'source_sample_before_interval', 'source_timestamp_in_future'}}
         if required_limits - set(item['missing_evidence']):
             raise ValueError('candidate must preserve sampling limitations in missing_evidence: ' +
                              ', '.join(sorted(required_limits - set(item['missing_evidence']))))
