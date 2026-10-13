@@ -255,3 +255,17 @@ def test_gpu_utilization_keeps_zero_idle_and_high_load_bounded():
                     assert utilization==[0]*demo.gpu['gpus_per_node']
                 if base==8:
                     assert max(utilization)<10
+
+
+def test_worker_step_times_and_node_means_have_distinct_synthetic_profiles(monkeypatch):
+    demo = Demo(ROOT / 'examples/live-demo')
+    monkeypatch.setattr('xlayer_telemetry.demos.live.time.time', lambda: demo.started + 12)
+    means = []
+    for node in demo.gpu['gpu_nodes']:
+        workers = [sample for sample in demo.metrics(node)
+                   if sample.name == 'training_step_time_seconds' and sample.labels.get('run_id') == 'live-demo']
+        assert len(workers) == demo.gpu['gpus_per_node']
+        assert len({sample.value for sample in workers}) > 1
+        assert all(sample.labels['node'] == node for sample in workers)
+        means.append(sum(sample.value for sample in workers) / len(workers))
+    assert len(set(means)) == len(means)

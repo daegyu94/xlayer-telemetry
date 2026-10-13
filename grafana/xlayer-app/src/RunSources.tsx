@@ -5,7 +5,7 @@ import {appLink} from './context';
 
 export const RUN_SOURCES:ReadonlyArray<{name:string;route:string;tab?:string;panels:ReadonlyArray<{source:Destination;panel:number;scope:string;title?:string}>}>=[
  {name:'VERL',route:'overview',panels:[
-  {source:'overview',panel:7,scope:'Training step time · worker'},
+  {source:'overview',panel:7,scope:'Training step time · node mean of fresh workers'},
   {source:'stage',panel:2,scope:'Reward mean · Run / worker'},
  ]},
  {name:'vLLM',route:'stage-correlation',panels:[

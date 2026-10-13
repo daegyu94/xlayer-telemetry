@@ -42,3 +42,13 @@ test('missing identity, absent templates and empty results preserve usable names
  assert.equal(compactRunLegends([frame('A',{node:'n'})],[{refId:'A',legendFormat:'{{node}}'}])[0].fields[1].config.displayName,undefined);
  assert.deepEqual(compactRunLegends([],[]),[]);
 });
+
+test('node averages keep the node name even for a single returned node',()=>{
+ const labels={node:'gpu-node-0',run_id:'r',producer:'p',role:'trainer'};
+ const targets=[{refId:'A',legendFormat:'{{node}} {{run_id}} {{producer}} {{role}}'}];
+ assert.equal(compactRunLegends([frame('A',labels)],targets,['node'])[0].fields[1].config.displayName,'gpu-node-0');
+ for(const key of ['run_id','producer','role']){
+  const result=compactRunLegends([frame('A',labels),frame('A',{...labels,[key]:'other'})],targets,['node']);
+  assert.notEqual(result[0].fields[1].config.displayName,result[1].fields[1].config.displayName,key);
+ }
+});

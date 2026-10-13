@@ -92,7 +92,7 @@ export function runner(panel: Panel, refs?: string[]): SceneQueryRunner {
     minInterval: "2s",
   });
 }
-export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile, compactIdentity=false, compactLegends=false): VizPanel {
+export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:ResourceMatrixProfile, compactIdentity=false, compactLegends=false,retainLegendLabels:ReadonlyArray<string>=[]): VizPanel {
   // A proxy preserves the owner's parent/time/variable scope. Reparenting a
   // shared runner under this panel would break the pressure consumer.
   const data = panel.type==='text'&&!panel.targets?.length?new SceneDataNode({}):shared?new DataProviderProxy({source:shared.getRef()}):runner(panel);
@@ -109,7 +109,7 @@ export function viz(panel: Panel, shared?:SceneQueryRunner, matrixProfile?:Resou
     $data: panel.transformations?.length||compactLegends
       ? new SceneDataTransformer({
           $data: data,
-          transformations: [...(panel.transformations||[]),...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : []),...(compactLegends?[((_context:any)=>map((frames:any)=>compactRunLegends(frames,panel.targets||[])))]:[])],
+          transformations: [...(panel.transformations||[]),...(panel.type === "state-timeline" ? [((_context:any)=>map((frames:any)=>timelineLanes(frames)))] : []),...(compactLegends?[((_context:any)=>map((frames:any)=>compactRunLegends(frames,panel.targets||[],retainLegendLabels)))]:[])],
         })
       : data,
   }),panel,matrixProfile,compactIdentity);

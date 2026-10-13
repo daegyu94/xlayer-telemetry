@@ -336,8 +336,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(training_step_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age)",
-          "legendFormat": "{{cluster}}/{{instance}} {{run_id}} {{producer}}/{{role}} worker {{worker_id}}"
+          "expr": "avg by (cluster, run_id, node, producer, role) ((training_step_time_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"}) and on(cluster, instance, run_id, producer, role, worker_id, node, local_rank) (time() - training_sample_timestamp_seconds{job=\"telemetry\",cluster=~\"$cluster\",nodename=~\"$source_node\",run_id=~\"$run_id\"} < $training_max_age))",
+          "legendFormat": "{{node}} {{run_id}} {{producer}} {{role}}"
         }
       ],
       "fieldConfig": {
@@ -358,8 +358,7 @@
             }
           ],
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#6366f1"
+            "mode": "palette-classic"
           }
         },
         "overrides": []
@@ -375,7 +374,7 @@
           "hideZeros": false
         }
       },
-      "description": "Application이 보고한 worker별 step duration입니다. Training sample max age를 넘으면 숨기며 긴 step에서는 age 기준을 조정합니다. Worker 간 합산값이 아닙니다. 느린 구간을 drag하여 확대한 뒤 Run Overview의 Duration을 누르면 해당 record의 진단을 엽니다.",
+      "description": "노드별 fresh worker의 step duration 산술 평균입니다. Training sample max age를 초과한 worker는 평균에서 제외합니다. Cluster·Run·producer·role별로 분리하며 다른 실행이나 보고 scope를 합치지 않습니다. 전체 Run의 wall-clock duration이나 worker 간 합산값이 아닙니다.",
       "links": [
         {
           "title": "Select a slow step",

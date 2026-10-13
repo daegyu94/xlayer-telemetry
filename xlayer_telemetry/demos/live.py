@@ -211,7 +211,9 @@ class Demo:
                 GaugeSample("training_sample_timestamp_seconds", "Synthetic training sample timestamp.", time.time(), labels),
                 GaugeSample("training_step", "Synthetic training step.", int(now - self.started), labels),
                 GaugeSample("training_tokens_per_second", "Synthetic worker throughput.", value["tokens"], labels),
-                GaugeSample("training_step_time_seconds", "Synthetic training step duration.", value["step"], labels),
+                GaugeSample("training_step_time_seconds", "Synthetic training step duration.",
+                            value["step"] * (1 + self.gpu["gpu_nodes"].index(node) * .08 + rank * .015)
+                            + .12 * math.sin((now-self.started)/8 + self.gpu["gpu_nodes"].index(node)), labels),
                 GaugeSample("training_loss", "Synthetic training loss.", 1.4 + rank * .01, labels),
                 GaugeSample("training_gpu_allocation", "Synthetic worker GPU allocation.", 1, {**labels, "gpu": str(rank)}),
             ]

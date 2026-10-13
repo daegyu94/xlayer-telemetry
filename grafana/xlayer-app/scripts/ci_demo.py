@@ -102,7 +102,12 @@ def verify_run_sources(page, origin, context):
     """Landing panels and topology drill-down use native queries and URL context."""
     from urllib.parse import urlencode, urlparse, parse_qs
     from playwright.sync_api import expect
-    page.goto(origin+'/a/xlayer-telemetry-app/runs?'+urlencode(context,doseq=True))
+    def training_request(request):
+        return '/api/ds/query' in request.url and any('training_step_time_seconds' in query.get('expr','') for query in (request.post_data_json or {}).get('queries',[]))
+    with page.expect_request(training_request,timeout=30000) as requested:
+        page.goto(origin+'/a/xlayer-telemetry-app/runs?'+urlencode(context,doseq=True))
+    training_queries=[query['expr'] for query in requested.value.post_data_json['queries'] if 'training_step_time_seconds' in query.get('expr','')]
+    assert all(expr.startswith('avg by (cluster, run_id, node, producer, role) (') for expr in training_queries),training_queries
     cards=page.locator('.xlt-run-source')
     expect(cards).to_have_count(5)
     assert cards.locator('header h4').all_text_contents()==['VERL','vLLM','Ray','Mooncake','3FS']

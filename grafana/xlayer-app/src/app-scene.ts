@@ -101,7 +101,7 @@ function makeScene(page: Page, catalog: Catalog) {
       legendFormat:compactNodeLegend&&typeof target.legendFormat==='string'?compactResourceLegend(target.legendFormat,keepNode):target.legendFormat}))}:panel;
     const pressure=PRESSURE_SPECS.find(s=>s.dashboard===key&&s.panel===id&&
       JSON.stringify(canonicalRefs(panel.targets||[],s.refs))===JSON.stringify(canonicalRefs(panel.targets||[])));
-    return viz(rendered,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined,compactIdentity,page==='runs'&&panel.type==='timeseries');
+    return viz(rendered,pressure&&(page==='analyze'||page==='investigate'||page==='deep-dive')?query(key,id,pressure.refs):undefined,enableMatrix?resourceMatrixProfile(key,id):undefined,compactIdentity,page==='runs'&&panel.type==='timeseries',key==='overview'&&id===7?['node']:[]);
   };
   const body = new Shell({
     page,

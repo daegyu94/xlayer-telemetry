@@ -939,3 +939,43 @@ def test_storage_overview_charts_keep_report_units_and_owner_identity():
             ('metric_name', metric), ('unit', source_unit)]
         assert transforms['partitionByValues']['fields'] == ['run_id', 'record_id', 'source_host', 'series_key']
         assert transforms['convertFieldType']['conversions'][0]['targetField'] == 'sample_timestamp_ms'
+
+
+def test_training_node_average_with_real_promtool(tmp_path):
+    tool = os.environ.get('PROMTOOL') or shutil.which('promtool')
+    if not tool:
+        pytest.skip('set PROMTOOL to validate node worker averaging')
+    overview = json.loads((ROOT / 'examples/dashboards/run-overview.json').read_text())
+    panel = next(panel for panel in _panels(overview) if panel['id'] == 7)
+    expr = panel['targets'][0]['expr'].replace('$cluster', '.*').replace('$source_node', '.*').replace('$run_id', '.*').replace('$training_max_age', '30')
+    assert panel['fieldConfig']['defaults']['color']['mode'] == 'palette-classic'
+    assert 'worker_id' not in panel['targets'][0]['legendFormat']
+    inputs = []
+    for cluster, run, node, producer, role, worker, value, stamp in [
+        ('c', 'r', 'n0', 'p', 'trainer', '0', 10, 60),
+        ('c', 'r', 'n0', 'p', 'trainer', '1', 20, 60),
+        ('c', 'r', 'n0', 'p', 'trainer', 'stale', 900, 0),
+        ('c', 'r', 'n0', 'p', 'trainer', 'missing', 999, None),
+        ('c', 'r', 'n1', 'p', 'trainer', '0', 30, 60),
+        ('c', 'r', 'n1', 'p', 'trainer', '1', 50, 60),
+        ('c', 'other', 'n0', 'p', 'trainer', '0', 99, 60),
+        ('c', 'r', 'n0', 'other', 'trainer', '0', 50, 60),
+        ('c', 'r', 'n0', 'p', 'rollout', '0', 70, 60),
+        ('other', 'r', 'n0', 'p', 'trainer', '0', 80, 60),
+    ]:
+        labels = f'job="telemetry",cluster="{cluster}",run_id="{run}",node="{node}",nodename="{node}",instance="exporter-{worker}",producer="{producer}",role="{role}",worker_id="{worker}"'
+        inputs.append({'series': 'training_step_time_seconds{' + labels + '}', 'values': f'{value}+0x2'})
+        if stamp is not None:
+            inputs.append({'series': 'training_sample_timestamp_seconds{' + labels + '}', 'values': f'{stamp}+0x2'})
+    expected = []
+    for cluster, run, node, producer, role, value in [
+        ('c', 'r', 'n0', 'p', 'trainer', 15), ('c', 'r', 'n1', 'p', 'trainer', 40),
+        ('c', 'other', 'n0', 'p', 'trainer', 99), ('c', 'r', 'n0', 'other', 'trainer', 50),
+        ('c', 'r', 'n0', 'p', 'rollout', 70), ('other', 'r', 'n0', 'p', 'trainer', 80),
+    ]:
+        expected.append({'labels': f'{{cluster="{cluster}",run_id="{run}",node="{node}",producer="{producer}",role="{role}"}}', 'value': value})
+    fixture = tmp_path / 'node-mean.json'
+    fixture.write_text(json.dumps({'evaluation_interval': '1m', 'tests': [{'interval': '1m', 'input_series': inputs,
+        'promql_expr_test': [{'expr': expr, 'eval_time': '1m', 'exp_samples': expected}]}]}))
+    result = subprocess.run([tool, 'test', 'rules', str(fixture)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
