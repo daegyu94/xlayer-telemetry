@@ -33,3 +33,12 @@ test('selected native metrics render outside the map / Inspector grid while navi
  assert.match(markup,/<\/aside><\/div><section class="xlt-infra-resource-metrics"/,'native chart grid is outside the narrow Inspector');
  assert.match(markup,/canonical-scope-metric/);
 });
+
+test('landing preview keeps selectable resource identities without the detail inspector or inventory',()=>{
+ let calls=0;
+ const markup=renderToStaticMarkup(React.createElement(InfrastructureView,{preview:true,data:model([node]),context:{...context,variables:{...context.variables,infra_component:[node.key]}},onSelect:()=>{},metrics:()=>{calls++;return null;},links:()=>{calls++;return null;}}));
+ assert.equal(calls,0);
+ assert.match(markup,/aria-label="Inspect gpu-node"/);
+ assert.match(markup,/data-state="unknown"/);
+ assert.doesNotMatch(markup,/aria-label="Resource inspector"|Component Inventory|Cluster Resource Metrics/);
+});

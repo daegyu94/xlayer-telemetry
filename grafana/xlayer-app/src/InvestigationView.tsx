@@ -17,6 +17,7 @@ import { pressureOrder, resourceContext, stepProjection } from './distributed';
 import { tableRows } from './data';
 import { infrastructure, resourceSelection } from './infrastructure';
 import { InfrastructureView } from './InfrastructureView';
+import { RunSources } from './RunSources';
 import { RunExplorerView } from './RunExplorerView';
 import { displaySummary, displayUiNote, signalPresentation } from './ui-copy';
 import { formatContextTime, formatContextRange } from './time-context';
@@ -250,7 +251,16 @@ export function ShellView({ model }: { model: Shell }) {
           })}
         </div>
       </details>
-      {state.page==='runs'&&<RunExplorerView context={context} steps={steps} liveState={stepData?.state} timeWindow={{from:sceneGraph.getTimeRange(model).state.value.from.valueOf(),to:sceneGraph.getTimeRange(model).state.value.to.valueOf()}}/>}
+      {state.page==='runs'&&<>
+       <RunSources panels={state.runSources||[]} context={context} View={Native}/>
+       <section aria-label="Cluster infrastructure"><div className="xlt-section"><h3>Cluster Infrastructure</h3><a href={appLink('infrastructure',context)}>All resources →</a></div>
+        <InfrastructureView preview data={infrastructure(tableRows(infraComponents),tableRows(infraEdges),tableRows(infraAvailability),Date.now())} context={context}
+         unavailable={infraComponents?.state===LoadingState.Error?'Query failure':!state.infraComponents?'Topology source를 사용할 수 없습니다':undefined}
+         onSelect={node=>navigate('infrastructure',node.mapping==='configured'?resourceSelection(context,node):{...context,variables:{...context.variables,infra_component:[node.key]}})}
+         metrics={()=>null} links={(_node,c)=><a href={appLink('infrastructure',c)}>Resource details →</a>}/>
+       </section>
+       <RunExplorerView context={context} steps={steps} liveState={stepData?.state} timeWindow={{from:sceneGraph.getTimeRange(model).state.value.from.valueOf(),to:sceneGraph.getTimeRange(model).state.value.to.valueOf()}}/>
+      </>}
       {state.page === "overview" && (
         <>
           {stepData?.state===LoadingState.Done&&!steps.length&&<p className="xlt-empty">이 구간에 완료된 Step이 없습니다. Run / Time range를 선택하세요. 이력 누락을 정상 상태로 해석하지 않습니다.</p>}
@@ -630,7 +640,7 @@ export function ShellView({ model }: { model: Shell }) {
         unavailable={infraComponents?.state===LoadingState.Error?'Query failure':!state.infraComponents?'Canonical Topology panel을 사용할 수 없습니다':undefined}
         onSelect={node=>{const c=node.mapping==='configured'?resourceSelection(context,node):{...context,variables:{...context.variables,infra_component:[node.key]}};navigate('infrastructure',c);model.setState({infraSelectionVersion:(state.infraSelectionVersion||0)+1});}}
         links={(node,c)=><><Link to={node.kind==='storage'?'storage':'compute'} context={c} catalog={state.catalog}>Full resource metrics</Link><a href={appLink('deep-dive',{...c,variables:{...c.variables,candidate_id:[],detail_tab:[node.kind==='storage'?'Local I/O mean':'GPU']}})}>Deep Dive →</a></>}
-        metrics={node=>{const indices=node.type==='gpu'?[2,3]:node.type==='ssd'?[6,7,8,9]:node.type==='nic'?[4]:node.kind==='storage'?[0,1,4,5,6,8]:[0,1,2,4,5];return indices.map(index=>state.infraMetrics?.[index]?<Native key={index} panel={state.infraMetrics[index]}/>:<p key={index} className="xlt-empty">Canonical resource panel을 사용할 수 없습니다.</p>);}}/>}
+        metrics={node=>{const indices=node.type==='gpu'?[2,3]:node.type==='ssd'?[6,7,8,9]:node.type==='fabric'?[4,5]:node.type==='nic'?[4,5]:node.kind==='storage'?[0,1,4,5,6,8]:[0,1,2,4,5];return indices.map(index=>state.infraMetrics?.[index]?<Native key={index} panel={state.infraMetrics[index]}/>:<p key={index} className="xlt-empty">Canonical resource panel을 사용할 수 없습니다.</p>);}}/>}
       {state.page==='logs'&&<><section><h3>Log Search</h3><p className="xlt-notice">Application Run context는 유지됩니다. Log payload / directory filter는 독립적이며, Run을 선택해도 모든 node-local log가 해당 Run에 귀속되는 것은 아닙니다.</p><div className="xlt-actions">{['log_run_id','workload','node','trace_id'].map(name=>{const variable=sceneGraph.lookupVariable(name,model);return variable?<VariableValueSelectWrapper key={name} variable={variable} showAlways/>:null;})}<Link to="logs" context={context} catalog={state.catalog}>Full Run Logs</Link></div>{state.logsPanel?<Native panel={state.logsPanel}/>:<p className="xlt-empty">Loki / Canonical Run Logs를 사용할 수 없습니다. 성공한 query의 결과가 비어 있다는 뜻은 아닙니다.</p>}</section><section><h3>Recorded Events</h3>{state.logEvents?<Native panel={state.logEvents}/>:<p className="xlt-empty">Event source를 사용할 수 없습니다. Loki와 명시적인 Event 수집을 활성화하세요.</p>}</section></>}
       {state.page === "deep-dive" && (
         <><DeepWorkspace model={model} summary={comparisonMeta} candidate={workspaceCandidate} evidence={proofs} panels={state.detailPanels} context={context} catalog={state.catalog}/><section><h3>Phase Correlation · measured intervals</h3><Native panel={state.timeline}/><p className="xlt-muted">선택한 Step과 같은 Time range의 execution interval입니다. 구간이 겹친다고 Phase의 resource 소유 관계가 확인되는 것은 아닙니다.</p></section><Pressure model={model} selected={selected} spans={spans} spanData={spanData} /><section><h3>Existing subsystem dashboards</h3><div className="xlt-actions">{(['compute','storage','stage','timeline','logs'] as Destination[]).map(to=><Link key={to} to={to} context={context} catalog={state.catalog}>{to} ↗</Link>)}</div></section></>

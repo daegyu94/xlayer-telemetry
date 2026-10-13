@@ -23,6 +23,31 @@ def verify_loki_all_filters(page, origin):
     assert observed.value.status == 200, f'All-filter Loki workload lookup returned HTTP {observed.value.status}'
 
 
+def verify_run_sources(page, origin, context):
+    """Landing panels and topology drill-down use native queries and URL context."""
+    from urllib.parse import urlencode, urlparse, parse_qs
+    from playwright.sync_api import expect
+    page.goto(origin+'/a/xlayer-telemetry-app/runs?'+urlencode(context,doseq=True))
+    cards=page.locator('.xlt-run-source')
+    expect(cards).to_have_count(6)
+    assert cards.locator('header h4').all_text_contents()==['VERL','GPU','vLLM','Ray','Mooncake','3FS']
+    expect(page.get_by_role('heading',name='Cluster Infrastructure',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Run inventory',exact=True)).to_be_visible()
+    node=page.locator('[aria-label="Cluster infrastructure"] .xlt-cluster-map-node').first
+    expect(node).to_be_visible(timeout=30000)
+    identity=node.get_attribute('data-resource-key')
+    node.click()
+    page.wait_for_url('**/infrastructure?**')
+    current=parse_qs(urlparse(page.url).query)
+    assert current['var-infra_component']==[identity]
+    for key in ('var-run_id','var-source_node','from','to','timezone','theme'):
+        if key in context:assert current.get(key)==context[key],key
+    expect(page.locator('.xlt-resource-inspector-header h3')).to_contain_text('Selected Resource')
+    page.go_back()
+    page.wait_for_url('**/runs?**')
+    expect(page.locator('.xlt-run-source')).to_have_count(6)
+
+
 def assert_policy_lifecycle_text(text):
     """Check disclosures without treating capitalization/wrapping as semantics."""
     normalized = ' '.join(text.casefold().split())

@@ -175,6 +175,8 @@ Coverage를 보고할 때 source 범위·line/branch 수치·미계측 파일·s
 - App/Scenes는 선택적 frontend layer입니다. Query·단위·scope·transform은 provisioned canonical dashboard에서 읽고 별도 Prometheus/Loki client·backend·time picker를 만들지 않습니다.
   Phase matrix는 explicit measured span·resource identity·query window를 확인하며 Step evidence·rolling context를 phase attribution으로 표시하지 않습니다.
   Frontend 변경은 `grafana/xlayer-app`에서 `npm test`, `npm run typecheck`, `npm run build`와 실제 Grafana/browser 검증을 수행합니다. Unsigned allowlist는 격리 개발 환경에서 해당 App ID에만 적용합니다.
+- UI 제목·메뉴·안내는 일반적인 대소문자로 표기하고 장식용 전체 대문자나 단계 번호 prefix를 사용하지 않습니다.
+  GPU·CPU·RDMA 등 기술 약어와 producer가 보고한 원문 식별자는 유지합니다.
 - 화면은 Run → Slow Step → Candidate → Evidence → Timeline/Subsystem 흐름을 우선합니다.
   상세 panel은 drill-down으로 제공하고 Loki 활성화·비활성화, missing/stale source를 모두 고려합니다.
   UI 변경은 가능하면 실제 Grafana에서 검증하며 JSON test만 실행했다면 rendering을 확인했다고 보고하지 않습니다.

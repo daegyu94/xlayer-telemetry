@@ -386,6 +386,10 @@ def multi_worker_journey(args):
             page.screenshot(path=str(args.output / f'{args.label}-{name}.png'), full_page=True)
         url = args.url + '/a/xlayer-telemetry-app?from=now-5m&var-cluster=scenes-demo&var-run_id=verl-agent-demo&var-node=gpu-node-0&var-gpu=0'
         enter_app(page,url,entry_diagnostics)
+        from ci_demo import verify_run_sources
+        verify_run_sources(page, args.url, parse_qs(urlparse(page.url).query))
+        checks.append('Landing subsystem panels and cluster node drill-down preserve investigation context and Back')
+        page.goto(url)
         selector = page.get_by_role('combobox', name='Completed Step')
         slow = next((option.get_attribute('value') for option in selector.locator('option').all() if '48.00' in option.inner_text()), None)
         assert slow, 'Multi-worker fixture must include a completed regression frame'

@@ -9,7 +9,7 @@ export const WORKSPACE_PAGES = [
   {route:'deep-dive',title:'Deep Dive',description:'선택한 Candidate를 기존 Subsystem / Backend Metric과 연결해 조사합니다.'},
   {route:'infrastructure',title:'Infrastructure',description:'Configured Compute / Network / Storage 구성과 관측된 Collector coverage를 확인합니다.'},
   {route:'logs',title:'Logs & Events',description:'Node-local log와 명시적으로 기록된 event를 확인합니다. Application identity와 log directory identity는 구분합니다.'},
-  {route:'runs',title:'Run Explorer',description:'현재 Loki 관측과 저장된 Run artifact를 검색하고, 확인된 comparison 조건으로 실험을 비교합니다.'},
+  {route:'runs',title:'Run Explorer',description:'연결된 Subsystem과 Cluster resource를 확인하고, 조사할 Run을 선택합니다.'},
 ] as const;
 
 export function themeContext(context:Context, theme:'light'|'dark'):Context {
