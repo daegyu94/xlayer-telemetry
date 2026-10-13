@@ -5,7 +5,7 @@
 
 - Source 기준: `13eb1a04d75c753d95fa399191a3f0c6d0f2585d` (WP-00 시작 시 로컬 `main`)
 - 원문 진단 기준: `6ddce33a763d3de30e306980860d33aa88ab32f1`
-- 현재 작업: WP-05 로컬 main 통합 완료; WP-06 CI gate 준비
+- 현재 작업: WP-06 CI gate를 독립 worktree에서 구현 중; main 병합·상태표는 주 작업자 직렬
 - 준비된 WP 우선순위: WP-06 CI gate → Phase 0 전체 CPU 1회 → WP-10 공용 fake
 - 최근 검증: WP-05 clean default 14 passed, 전체 2183개 test 수집, 실제 hook·linked worktree gate 4 passed
 
@@ -19,7 +19,7 @@
 | WP-07 | Bounded shutdown과 ownership | done | `efde642` | `41115699a26206cb5f35110992234d0af14fcfaf` | ownership·signal·late child 통합 후 19 passed, shell·diff 통과 | 최신 main merge commit 후 `80e98e8` fast-forward | 실제 1,800-process host 미검증 |
 | WP-08 | Pressure card의 evidence·단위 연결 | done | `a4cdd5e` | `a1154e509175fdd7fedb7bd8b2a27132d34c6454` | npm 206 passed, typecheck/build, Python helper 52 passed, 병합 후 격리 browser 10 checks/0 failures·390px 확인 | 최신 main merge commit 후 `365ce89` fast-forward | Synthetic·주입된 RDMA fixture; 실제 하드웨어 검증 Pending |
 | WP-05 | 단일 gate와 hooks | done | `f42302a` | `003413cf53e13132dfd75c59a40d524154ce1012` | clean default 14 passed, test 수집 2183, hook·linked worktree 4 passed, shell·diff 통과 | WP-08 통합 후 `003413c` fast-forward, 활성 hook 설치 | full의 실제 backend/browser 결과는 Phase 경계·최종 gate에서 통합 확인 |
-| WP-06 | CI gate 연결 | todo | — | — | — | — | — |
+| WP-06 | CI gate 연결 | in-progress | `921923e` | — | — | — | `redesign/wp-06-ci-gate`; 원격 Actions·branch protection은 Pending |
 | WP-10 | 공용 backend fake와 builders | todo | — | — | — | — | — |
 | WP-11 | Golden characterization | todo | — | — | — | — | — |
 | WP-12 | Layer 의존성 검사 | todo | — | — | — | — | — |
