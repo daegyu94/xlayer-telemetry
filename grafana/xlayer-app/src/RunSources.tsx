@@ -10,7 +10,7 @@ export const RUN_SOURCES:ReadonlyArray<{name:string;route:string;tab?:string;pan
  ]},
  {name:'vLLM',route:'stage-correlation',panels:[
   {source:'stage',panel:21,title:'Request latency p95',scope:'Time to first token p95 · engine'},
-  {source:'stage',panel:28,scope:'Prefix cache token hit ratio · engine'},
+  {source:'stage',panel:28,title:'Prefix cache token hit ratio',scope:'Prefix cache token hit ratio · engine'},
  ]},
  {name:'Ray',route:'stage-correlation',panels:[
   {source:'stage',panel:22,title:'Task states',scope:'Pending and running · shared session'},
