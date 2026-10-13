@@ -225,7 +225,7 @@ def packet_from_report(report: dict[str, Any]) -> dict[str, Any]:
             "delta": row.get("delta"), "delta_percent": row.get("delta_percent"),
             "observation_scope": current.entity.scope.name,
             "labels": dict(current.entity.labels),
-            "unit": row.get("unit", "unspecified; infer only if unambiguous from signal name"),
+            "unit": row.get("unit", "unknown"),
             "source": "saved comparison; raw series may have been aggregated",
             "sampling_quality": row.get("sampling_quality"),
         })

@@ -67,3 +67,23 @@ def test_missing_states_are_distinct(status):
 def test_invalid_measurements_fail_at_boundary(value):
     with pytest.raises(ValueError):
         Observation.decode({'signal': 'gpu', 'current': value})
+
+
+def test_source_query_and_entity_survive_without_quality_warnings():
+    row = {'signal': 'gpu', 'current': 0, 'baseline': 90, 'source': 'prometheus',
+           'query': 'measured_gpu', 'scope': 'device', 'labels': {'node': 'n', 'gpu': '0'},
+           'sampling_quality': {'current': {'warnings': []}, 'baseline': {'warnings': []}}}
+    bundle = EvidenceBundle.from_rows([row], window={'start': 10, 'end': 20},
+                                     baseline_window={'start': 0, 'end': 10}, clock_quality={})
+    for observation in (*bundle.current, *bundle.baseline):
+        assert observation.source == 'prometheus' and observation.query == 'measured_gpu'
+        assert dict(observation.entity.labels) == {'node': 'n', 'gpu': '0'}
+        assert observation.issues == ()
+    legacy = EvidenceBundle.from_report({'comparison': {'signals': [{'signal': 'gpu', 'current': 0}]}})
+    assert legacy.current[0].source is None and legacy.current[0].query is None
+
+
+@pytest.mark.parametrize('source', ['', ' ', 1, True, {}])
+def test_source_identity_must_be_nonempty_text_when_present(source):
+    with pytest.raises(ValueError, match='source must be nonempty text'):
+        Observation.decode({'signal': 'gpu', 'current': 0, 'source': source})

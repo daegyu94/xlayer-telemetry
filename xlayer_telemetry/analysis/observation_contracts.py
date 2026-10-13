@@ -127,6 +127,7 @@ class Observation:
     issues: tuple[Issue, ...] = ()
     sampling_quality: Mapping[str, Any] = field(default_factory=dict)
     comparison_status: str | None = None
+    source: str | None = None
 
     @classmethod
     def decode(cls, row: Mapping[str, Any], window: str = 'current') -> Observation:
@@ -148,14 +149,15 @@ class Observation:
             status = declared
         if INVALID_SOURCE_TIME.intersection(warnings):
             status = 'stale'
-        for key in ('unit', 'window_statistic', 'query'):
+        for key in ('unit', 'window_statistic', 'query', 'source'):
             if row.get(key) is not None and (not isinstance(row[key], str) or not row[key].strip()):
                 raise ValueError(f'observation {key} must be nonempty text')
         return cls(signal, EntityRef.decode(row.get('observation_scope', row.get('scope', 'unknown')),
                                            row.get('labels', {})), value, status,
                    row.get('unit'), row.get('window_statistic'), row.get('query'),
                    tuple(Issue(w, str(row.get('source', 'unknown')), window) for w in warnings),
-                   dict((row.get('sampling_quality') or {}).get(window, {})), row.get('comparison_status'))
+                   dict((row.get('sampling_quality') or {}).get(window, {})),
+                   row.get('comparison_status'), row.get('source'))
 
 
 @dataclass(frozen=True)
