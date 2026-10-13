@@ -6,7 +6,6 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -19,12 +18,13 @@ from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .metric_observations import collect_query
 from .metric_queries import custom_query_spec
 from .observation_contracts import (
-    EvidenceBundle, EntityRef, usable_window as _valid_interval,
+    EvidenceBundle, EntityRef, assess_entity, usable_window as _valid_interval,
     validate_measurement as _validate_measurement,
 )
 from .clock_quality import assess_interval
 from ..time_alignment import alignment_metadata
-from .evidence_quality import quality, source_for_entity, selected_quality, result_quality_issues, validate_sampling, validate_quality
+from .evidence_quality import result_quality_issues, validate_sampling, validate_quality
+from ..measurements import finite_number
 from .llm_investigation import selected_report, project_result
 from .._http_transport import request_json
 
@@ -44,10 +44,7 @@ STAT_FIELDS = {"min", "mean", "max", "last", "sample_count", "sampled_increase",
 
 
 def _finite(value: Any) -> bool:
-    try:
-        return type(value) in (int, float) and math.isfinite(value)
-    except OverflowError:
-        return False
+    return finite_number(value) is not None
 
 
 OUTPUT_LANGUAGE_POLICY = """
@@ -354,10 +351,8 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
                 if name not in qualities:
                     continue
                 entity_stats = matrix.get(identity, {}).get("stats", {})
-                entity_quality[name] = selected_quality(quality(
-                    query["query"], window["start"], window["end"], step, entity_stats,
-                    source=source_for_entity(source_samples.get(name, {}), labels),
-                    result=qualities[name].get("query_result")), entity_stats)
+                entity_quality[name] = assess_entity(query['query'], window, step, entity_stats, labels,
+                    source=source_samples.get(name, {}), result=qualities[name].get('query_result'))
             observations.append({
                 "id": f"m{len(observations) + 1}", "signal": query["signal"],
                 "unit": query["unit"], "observation_scope": query["scope"],

@@ -5,11 +5,22 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Mapping
 
 from ..measurements import finite_number
-from .evidence_quality import INVALID_SOURCE_TIME, correlation_quality_issues, validate_quality
+from .evidence_quality import (INVALID_SOURCE_TIME, correlation_quality_issues, quality,
+                               selected_quality, source_for_entity, validate_quality)
 
 ObservationStatus = Literal['observed', 'no_data', 'error', 'stale', 'unknown']
 STATISTICS = frozenset({'min', 'mean', 'max', 'last', 'sample_count',
                         'sampled_increase', 'max_series_delta'})
+
+
+def assess_entity(query: str | None, window: Mapping[str, Any], step: float,
+                  stats: Mapping[str, Any], labels: Mapping[str, str], *,
+                  source: Mapping[str, Any], result: Mapping[str, Any] | None,
+                  prior_quality: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Assess one selected entity; aggregate-only legacy quality stays explicit."""
+    assessment = quality(query, window['start'], window['end'], step, stats,
+                         source=source_for_entity(source, labels), result=result) if query is not None else (prior_quality or {})
+    return selected_quality(assessment, stats)
 
 
 @dataclass(frozen=True)
