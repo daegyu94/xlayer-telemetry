@@ -104,7 +104,7 @@ xltel cluster down --inventory /path/to/inventory.toml
 
 **정상 결과:** `up`은 server → collector, `down`은 역순으로 각 host의 기존 lifecycle을 실행하며 성공 시 exit `0`을 반환합니다. `status`는 관리 process와 기존 health 검사 결과를 구분해 표시하며, 모두 healthy일 때 exit `0`입니다. 일부 실패·degraded·stopped는 exit `1`, 잘못된 inventory는 SSH 실행 전 exit `2`입니다.
 
-SSH는 비대화형 공개키 인증과 기존 known-host 검증을 사용합니다. Host별 명령은 기본 240초이며 `--timeout 1..600`으로 조정할 수 있습니다. Controller의 telemetry 환경 변수는 원격에 복사하지 않지만, 원격 config는 기존 CLI의 environment 우선순위를 따릅니다.
+SSH는 비대화형 공개키 인증과 기존 known-host 검증을 사용합니다. Host별 명령은 기본 240초이며 `--timeout 1..600`으로 조정할 수 있습니다. 다른 stack과 포트를 격리하려면 server와 모든 node config에 같은 `NODE_EXPORTER_PORT`를 지정합니다(기본 `19100`). Server의 `PROMETHEUS_PORT`·`GRAFANA_PORT`와 선택적 `LOKI_PORT`·`ALLOY_PORT`도 각각 설정할 수 있습니다. Controller의 telemetry 환경 변수는 원격에 복사하지 않지만, 원격 config는 기존 CLI의 environment 우선순위를 따릅니다.
 
 `up` 실패 시 이번 호출이 새로 시작한 role만 PID·시작 시각·boot ID를 대조해 rollback합니다. 기존에 실행 중인 role과 이후 교체된 process는 종료하지 않습니다. 연결이 끊기면 원격 시작·종료 완료를 확정할 수 없으므로 `unknown`과 `cleanup=unconfirmed`를 보고하며, 재접속 후 같은 inventory의 `status/down`으로 확인합니다.
 

@@ -96,7 +96,7 @@ def read_json(path: Path) -> dict:
         return {}
 
 
-def _target_configuration(address, targets):
+def _target_configuration(address, targets, *, port=19100):
     """Compare literal configured hosts; never resolve DNS or infer connectivity."""
     from ipaddress import ip_address
     from urllib.parse import urlsplit
@@ -105,7 +105,7 @@ def _target_configuration(address, targets):
     try:
         parsed = urlsplit(targets[0].get('scrapeUrl', ''))
         actual = parsed.hostname
-        if parsed.scheme != 'http' or not actual or parsed.port != 19100 or parsed.path != '/metrics' or parsed.query or parsed.fragment:
+        if parsed.scheme != 'http' or not actual or parsed.port != port or parsed.path != '/metrics' or parsed.query or parsed.fragment:
             return 'unknown'
         if actual.casefold() == address.casefold():
             return 'matched'
@@ -163,11 +163,12 @@ def status(config: dict[str, str], *, role: str = "all") -> dict:
         rows = [target for target in cluster_targets if target['labels'].get('nodename') == name]
         collector_rows.append({'node': name, 'health': 'up' if rows and all(t.get('health') == 'up' for t in rows)
             else 'down' if rows else 'unavailable' if target_error else 'not_discovered',
-            'configuration_status': _target_configuration(addresses[name], rows), 'expected_address': addresses[name]})
+            'configuration_status': _target_configuration(addresses[name], rows, port=int(config.get('NODE_EXPORTER_PORT', '19100'))), 'expected_address': addresses[name]})
     collectors_ok = expected == target_nodes and all(row['health'] == 'up' and row['configuration_status'] == 'matched' for row in collector_rows)
     services["node"]["health"] = ("healthy" if matching and all(t.get("health") == "up" for t in matching)
                                   else "degraded" if matching else "unknown")
-    own_configuration = _target_configuration(addresses.get(config['NODE_NAME'], config['NODE_ADDR']), matching)
+    own_configuration = _target_configuration(addresses.get(config['NODE_NAME'], config['NODE_ADDR']), matching,
+                                            port=int(config.get('NODE_EXPORTER_PORT', '19100')))
     services['node']['configuration_status'] = own_configuration
     from ..time_alignment import CalibrationCache, reference_now
     calibration = CalibrationCache(Path(config["TELEMETRY_TIME_CALIBRATION_FILE"]), node=config["NODE_NAME"]) if config.get("TELEMETRY_TIME_CALIBRATION_FILE") else None

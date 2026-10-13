@@ -214,8 +214,8 @@ open({str(marker)!r}, 'w').write(json.dumps([os.getpid(), child.pid]))
         assert not path.exists() or path.read_text().rsplit(') ', 1)[1].startswith('Z ')
 
 
-@pytest.fixture
-def local_stack(tmp_path, monkeypatch):
+@pytest.fixture(params=[19100, 25731])
+def local_stack(tmp_path, monkeypatch, request):
     """Real launcher/processes in private state, with synthetic readiness/health."""
     import shutil
     import threading
@@ -234,7 +234,9 @@ while true; do sleep 0.1; done
 ''')
     binary = tmp_path / 'bin'
     binary.mkdir()
-    (binary / 'curl').write_text('#!/usr/bin/env bash\n[[ -f "$MARKER_DIR/node.ready" ]]\n')
+    exporter_port = request.param
+    (binary / 'curl').write_text('#!/usr/bin/env bash\n[[ -f "$MARKER_DIR/node.ready" && '
+                                f'"${{@: -1}}" == "http://127.0.0.1:{exporter_port}/metrics" ]]\n')
     (binary / 'curl').chmod(0o755)
     monkeypatch.setenv('PATH', str(binary) + ':' + os.environ['PATH'])
     monkeypatch.setenv('MARKER_DIR', str(tmp_path))
@@ -245,7 +247,7 @@ while true; do sleep 0.1; done
         def do_GET(self):
             data = {'database': 'ok', 'version': '13.1.7', 'status': 'success', 'data': {'activeTargets': [
                 {'labels': {'job': 'telemetry', 'cluster': 'test', 'nodename': 'worker'},
-                 'health': 'up', 'scrapeUrl': 'http://127.0.0.1:19100/metrics'}]}}
+                 'health': 'up', 'scrapeUrl': f'http://127.0.0.1:{exporter_port}/metrics'}]}}
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps(data).encode())
@@ -263,6 +265,7 @@ while true; do sleep 0.1; done
         config = tmp_path / (row['name'] + " 'quoted' $.toml")
         values = {'CLUSTER_NAME': 'test', 'NODE_NAME': row['name'], 'NODE_ADDR': '127.0.0.1',
                   'TELEMETRY_HOME': str(tmp_path / row['name']), 'ENABLE_GPU_METRICS': False,
+                  'NODE_EXPORTER_PORT': exporter_port,
                   'TELEMETRY_TARGETS': 'worker=127.0.0.1', 'PROMETHEUS_URL': url, 'GRAFANA_URL': url}
         config.write_text('[telemetry]\n' + '\n'.join(f'{key}={json.dumps(value)}' for key, value in values.items()))
         row['management'][role + '_config'] = str(config)

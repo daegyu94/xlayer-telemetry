@@ -269,3 +269,11 @@ def test_unknown_toml_key_identifies_the_setting(tmp_path):
     path.write_text('[telemetry]\nGRAFANA_PRT = 23000\n')
     with pytest.raises(ConfigError, match="GRAFANA_PRT"):
         load_config(path)
+
+
+@pytest.mark.parametrize('value', ['0', '65536', '-1', 'true', '"not-a-port"'])
+def test_node_exporter_port_rejects_invalid_config(tmp_path, value):
+    path = tmp_path / 'config.toml'
+    path.write_text('[telemetry]\nNODE_EXPORTER_PORT=' + value + '\n')
+    with pytest.raises(ConfigError, match='NODE_EXPORTER_PORT'):
+        load_config(path)

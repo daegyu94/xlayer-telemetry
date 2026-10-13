@@ -28,6 +28,10 @@ case "$machine" in
 esac
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
 tools_dir="${TOOLS_DIR:-$HOME/telemetry/tools}"
+node_exporter_port="${NODE_EXPORTER_PORT:-19100}"
+if [[ ! "$node_exporter_port" =~ ^[0-9]{1,5}$ ]] || (( 10#$node_exporter_port < 1 || 10#$node_exporter_port > 65535 )); then
+  echo 'NODE_EXPORTER_PORT must be an integer from 1 to 65535' >&2; exit 2
+fi
 output_dir="${OUTPUT_DIR:-$HOME/telemetry/state/$role-$(hostname)}"
 mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
@@ -315,7 +319,7 @@ EOF
   [[ -n "${TOPOLOGY_DIR:-}" ]] || rm -f "$output_dir/textfile/topology.prom"
   printf '# HELP telemetry_gpu_collection_enabled Whether this collector is configured to sample GPUs.\n# TYPE telemetry_gpu_collection_enabled gauge\ntelemetry_gpu_collection_enabled %s\n' "${ENABLE_GPU_METRICS:-1}" > "$output_dir/textfile/collector.prom"
   "$tools_dir/node_exporter-1.9.1.linux-$release_arch/node_exporter" \
-    --web.listen-address="$NODE_ADDR:19100" \
+    --web.listen-address="$NODE_ADDR:$node_exporter_port" \
     --collector.textfile.directory="$output_dir/textfile" > "$output_dir/node-exporter.log" 2>&1 &
   pids+=("$!")
   if [[ "${ENABLE_GPU_METRICS:-1}" == 1 ]]; then
@@ -446,7 +450,7 @@ EOF
     fi
     seen_nodes+=" $node"
     cat >> "$output_dir/prometheus.yml" <<EOF
-      - targets: ['$address:19100']
+      - targets: ['$address:$node_exporter_port']
         labels:
           cluster: $cluster_name
           nodename: $node

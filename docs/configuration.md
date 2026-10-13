@@ -83,7 +83,9 @@ xltel status
 
 **정상 결과:** config validation과 backend health를 각각 확인합니다. Collector 입력·node·run parent를 바꾸면 collector도 해당 config로 재시작합니다.
 
-### Cluster Configuration Validation
+#Node Exporter의 기본 포트는 `NODE_EXPORTER_PORT=19100`입니다. 다른 포트를 사용할 때는 monitoring server와 모든 collector config에 같은 값을 지정해 bind·scrape·readiness·health 확인을 일치시킵니다.
+
+## Cluster Configuration Validation
 
 `config validate`와 `doctor`는 명시한 `TOPOLOGY_DIR`까지 검사합니다. JSON 형식·중복 component·충돌한 owner/role·존재하지 않는 edge endpoint·등록되지 않은 resource node·Diagnosis cluster 불일치를 시작 전에 확인할 수 있습니다.
 

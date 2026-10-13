@@ -213,7 +213,7 @@ case "$action" in
         grep -Fq 'Monitoring server ready:' "$stack_dir/server.log" || server_ready=0
       fi
       if [[ "$managed_role" != server ]]; then
-        curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:19100/metrics" >/dev/null 2>&1 || node_ready=0
+        curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:${NODE_EXPORTER_PORT:-19100}/metrics" >/dev/null 2>&1 || node_ready=0
       fi
       if [[ "$server_ready" == 1 && "$node_ready" == 1 ]]; then
         ready=1
@@ -256,6 +256,7 @@ case "$action" in
     ENABLE_LOGS="$enable_logs" \
     LOKI_LISTEN_ADDR="${LOKI_LISTEN_ADDR:-127.0.0.1}" \
     PROMETHEUS_PORT="${PROMETHEUS_PORT:-19090}" \
+    NODE_EXPORTER_PORT="${NODE_EXPORTER_PORT:-19100}" \
     PROMETHEUS_RETENTION="${PROMETHEUS_RETENTION-1d}" \
     PROMETHEUS_SAMPLE_LIMIT="${PROMETHEUS_SAMPLE_LIMIT:-100000}" \
     PROMETHEUS_TARGET_LIMIT="${PROMETHEUS_TARGET_LIMIT:-1024}" \
@@ -280,6 +281,7 @@ case "$action" in
       "TOOLS_DIR=$tools_dir"
       "OUTPUT_DIR=${NODE_OUTPUT_DIR:-$telemetry_home/state/node}"
       "NODE_ADDR=$node_addr"
+      "NODE_EXPORTER_PORT=${NODE_EXPORTER_PORT:-19100}"
       "NODE_NAME=$node_name"
       "CLUSTER_NAME=$cluster_name"
       "ENABLE_GPU_METRICS=${ENABLE_GPU_METRICS:-1}"
