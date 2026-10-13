@@ -48,6 +48,7 @@ xltel down
 | `config` | `path`, `show`, `validate`, `migrate --output FILE.toml` |
 | `cluster validate` | `--inventory FILE.toml/FILE.json`, `--live`, `--correlation`, `--json` |
 | `cluster render` | `--inventory FILE`, `--output NEW_DIR`, `--json`; 기존 설정을 생성만 함 |
+| `cluster up`, `cluster status`, `cluster down` | `--inventory FILE`, `--timeout SECONDS`, `--json`; [배포된 stack의 SSH lifecycle](multi-node.md#cluster-lifecycle) |
 | `app` | `install`, `status`, `update`, `rollback`; [package·signing·restart 경계](app-deployment-reference.md#설치--상태--update) |
 | `runs` | `list`, `compare RUN_A RUN_B`, `publish`; [검색·시간 filter·저장 artifact](run-comparison.md) |
 | `completion` | `bash\|zsh\|fish` |

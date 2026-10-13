@@ -70,7 +70,20 @@ esac
 if [[ "$action" == up || "$action" == down ]]; then
   command -v flock >/dev/null || { echo 'flock (util-linux) is required for up/down' >&2; exit 2; }
   mkdir -p "$stack_dir"
-  exec 9>"$stack_dir/lifecycle.lock"
+  if [[ -n ${XLAYER_LIFECYCLE_LOCK_FD:-} ]]; then
+    inherited_lock=$XLAYER_LIFECYCLE_LOCK_FD
+    [[ "$inherited_lock" =~ ^[0-9]+$ && "$inherited_lock" -ge 3 &&
+       /proc/$$/fd/$inherited_lock -ef "$stack_dir/lifecycle.lock" ]] || {
+      echo 'Invalid inherited lifecycle lock' >&2; exit 2;
+    }
+    if [[ "$inherited_lock" != 9 ]]; then
+      exec 9>&"$inherited_lock"
+      exec {inherited_lock}>&-
+    fi
+    unset XLAYER_LIFECYCLE_LOCK_FD
+  else
+    exec 9>"$stack_dir/lifecycle.lock"
+  fi
   flock -n 9 || { echo 'Another monitoring up/down command is running' >&2; exit 1; }
 fi
 process_start_time() {
@@ -200,7 +213,7 @@ case "$action" in
         grep -Fq 'Monitoring server ready:' "$stack_dir/server.log" || server_ready=0
       fi
       if [[ "$managed_role" != server ]]; then
-        curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:19100/metrics" >/dev/null 2>&1 || node_ready=0
+        curl --noproxy '*' -fsS --max-time 1 "http://$probe_addr:${NODE_EXPORTER_PORT:-19100}/metrics" >/dev/null 2>&1 || node_ready=0
       fi
       if [[ "$server_ready" == 1 && "$node_ready" == 1 ]]; then
         ready=1
@@ -243,6 +256,7 @@ case "$action" in
     ENABLE_LOGS="$enable_logs" \
     LOKI_LISTEN_ADDR="${LOKI_LISTEN_ADDR:-127.0.0.1}" \
     PROMETHEUS_PORT="${PROMETHEUS_PORT:-19090}" \
+    NODE_EXPORTER_PORT="${NODE_EXPORTER_PORT:-19100}" \
     PROMETHEUS_RETENTION="${PROMETHEUS_RETENTION-1d}" \
     PROMETHEUS_SAMPLE_LIMIT="${PROMETHEUS_SAMPLE_LIMIT:-100000}" \
     PROMETHEUS_TARGET_LIMIT="${PROMETHEUS_TARGET_LIMIT:-1024}" \
@@ -267,6 +281,7 @@ case "$action" in
       "TOOLS_DIR=$tools_dir"
       "OUTPUT_DIR=${NODE_OUTPUT_DIR:-$telemetry_home/state/node}"
       "NODE_ADDR=$node_addr"
+      "NODE_EXPORTER_PORT=${NODE_EXPORTER_PORT:-19100}"
       "NODE_NAME=$node_name"
       "CLUSTER_NAME=$cluster_name"
       "ENABLE_GPU_METRICS=${ENABLE_GPU_METRICS:-1}"

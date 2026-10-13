@@ -1,0 +1,96 @@
+{
+  "run_id": "cluster-lifecycle-20261013T053114Z",
+  "ports": {
+    "node": 26647,
+    "prometheus": 23079,
+    "grafana": 28336,
+    "loki": 21459,
+    "alloy": 25854,
+    "ssh": 23125
+  },
+  "source_base_commit": "5cdddc16cb84c8a3f11e9911e255054d04783657",
+  "wheel_sha256": "352c545b8b8d55bb726df01b4c985347f9abd3e30619fd50f989bfa9c5ed084b",
+  "nodes": [
+    "NUC11",
+    "spark1",
+    "spark2",
+    "spark3",
+    "spark4",
+    "storage1",
+    "storage2",
+    "storage3",
+    "storage4"
+  ],
+  "scope": "physical monitoring lifecycle; no GPU/VERL workload or 3FS benchmark",
+  "cleanup": {
+    "managed_roles_stopped": true,
+    "test_ports_closed": true,
+    "baseline_monitoring_preserved": true,
+    "baseline_check": "All baseline PID/start-time identities remain; additional unrelated processes are not test-owned.",
+    "remote_test_directories_removed": true
+  },
+  "verification_notes": [
+    "Initial bind check lacked SO_REUSEADDR and falsely treated TIME_WAIT as a listener; corrected to server-style bind.",
+    "A concurrently started unrelated Grafana was identified by its different config path and preserved."
+  ],
+  "status": "pass",
+  "checks": {
+    "up": {
+      "exit_code": 0,
+      "status": "ok",
+      "roles": 9
+    },
+    "status_up": {
+      "exit_code": 0,
+      "status": "ok",
+      "roles": 9
+    },
+    "idempotent_up": {
+      "exit_code": 0,
+      "status": "ok",
+      "roles": 9
+    },
+    "down": {
+      "exit_code": 0,
+      "status": "ok",
+      "roles": 9
+    },
+    "status_down": {
+      "exit_code": 1,
+      "status": "partial_failure",
+      "roles": 9
+    },
+    "partial_failure": {
+      "exit_code": 1,
+      "status": "partial_failure",
+      "roles": 9
+    },
+    "status_after_rollback": {
+      "exit_code": 1,
+      "status": "partial_failure",
+      "roles": 9
+    },
+    "cleanup_down": {
+      "exit_code": 0,
+      "status": "ok",
+      "roles": 9
+    }
+  },
+  "healthy_exporters": 8,
+  "validation_environment": {
+    "NUC11": "Python 3.13.3 / x86_64",
+    "spark1-4": "Python 3.12.3 / aarch64",
+    "storage1-4": "Python 3.12.3 / x86_64"
+  },
+  "limitations": [
+    "No GPU/VERL workload, Loki delivery, 3FS performance, or Python 3.10 execution was validated.",
+    "The NUC11 SSH hop used an isolated loopback SSH daemon; existing SSH service and authorized_keys were preserved."
+  ],
+  "cpu_verification": {
+    "passed": 2308,
+    "skipped": 6,
+    "skip_reason": "Optional disposable ClickHouse checks not configured",
+    "promtool": "3.5.0",
+    "python": "3.13.3"
+  }
+}

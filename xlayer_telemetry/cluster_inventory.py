@@ -102,6 +102,30 @@ def _home(value: Any) -> str:
     return value
 
 
+def _management(value: Any) -> dict[str, str]:
+    data = _object(value, {'ssh', 'python', 'node_config', 'server_config'}, 'node.management')
+    target = data.get('ssh')
+    if not isinstance(target, str) or target.count('@') > 1:
+        raise InventoryError('node.management.ssh must be an SSH alias or user@host')
+    if '@' in target:
+        user, host = target.split('@')
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]{0,63}', user):
+            raise InventoryError('node.management.ssh has an invalid user')
+    else:
+        host = target
+    _address(host)
+    executable = data.get('python', 'python3')
+    if (not isinstance(executable, str) or len(executable) > 1024
+            or any(ord(char) < 32 for char in executable)
+            or not (executable.startswith('/') or re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', executable))):
+        raise InventoryError('node.management.python must be an absolute executable path or command name')
+    result = {'ssh': target, 'python': executable}
+    for key in ('node_config', 'server_config'):
+        if key in data:
+            result[key] = _home(data[key])
+    return result
+
+
 def _normalize_inventory(document: Mapping[str, Any]) -> dict[str, Any]:
     data = _object(document, {'schema_version', 'cluster', 'nodes', 'services', 'components', 'edges', 'storage'}, 'inventory')
     if type(data.get('schema_version')) is not int or data['schema_version'] != 1:
@@ -110,7 +134,7 @@ def _normalize_inventory(document: Mapping[str, Any]) -> dict[str, Any]:
     cluster['name'] = _identifier(cluster.get('name'), 'cluster.name')
     nodes, names, addresses = [], set(), set()
     for raw in _list(data.get('nodes'), 'nodes', MAX_NODES, required=True):
-        node = _object(raw, {'name', 'address', 'roles', 'gpus', 'interfaces', 'devices', 'collector', 'telemetry_home'}, 'node')
+        node = _object(raw, {'name', 'address', 'roles', 'gpus', 'interfaces', 'devices', 'collector', 'telemetry_home', 'management'}, 'node')
         name = _identifier(node.get('name'), 'node.name')
         address = _address(node.get('address'))
         if name in names or address.lower() in addresses:
@@ -129,6 +153,8 @@ def _normalize_inventory(document: Mapping[str, Any]) -> dict[str, Any]:
             'devices': _resources(node.get('devices', []), f'node {name} devices', 256)}
         if 'telemetry_home' in node:
             normalized['telemetry_home'] = _home(node['telemetry_home'])
+        if 'management' in node:
+            normalized['management'] = _management(node['management'])
         nodes.append(normalized)
     if not any(node['collector'] for node in nodes):
         raise InventoryError('Existing server configuration requires at least one collector-enabled node')

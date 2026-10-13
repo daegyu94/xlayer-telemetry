@@ -32,7 +32,7 @@ export const getProductStyles=(theme:GrafanaTheme2)=>{
   '& .xlt-header h2, & .xlt-native-heading h2':{...theme.typography.h2,margin:s(.5,0,1),fontWeight:theme.typography.fontWeightBold},
   '& .xlt-header-actions, & .xlt-actions':{display:'flex',alignItems:'center',flexWrap:'wrap',gap:s(1)},
   '& .xlt-header-details':{fontSize:t.small,color:t.muted,marginTop:s(1)},
-  '& .xlt-page-description':{color:t.secondary,maxWidth:'65ch'},
+  '& .xlt-page-description':{color:t.secondary},
   '& .xlt-eyebrow':{fontSize:t.small,color:t.muted,fontWeight:theme.typography.fontWeightMedium,letterSpacing:'.04em'},
   '& p':{margin:s(1,0,1.5)},
   '& a, & .xlt-link':{color:t.primary},

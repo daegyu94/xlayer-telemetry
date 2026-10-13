@@ -360,3 +360,16 @@ def test_local_server_theme_configuration(tmp_path, theme, expected):
     assert result.returncode == expected, result.stderr
     if expected:
         assert 'Unsupported GF_USERS_DEFAULT_THEME' in result.stderr
+
+
+def test_configured_collector_port_reaches_generated_prometheus_targets(tmp_path):
+    state = tmp_path / 'telemetry'
+    config = tmp_path / 'server.conf'
+    config.write_text(f'RUN_ID=custom-port\nTELEMETRY_HOME={state}\nNODE_EXPORTER_PORT=25731\n')
+    result = subprocess.run(['bash', str(SCRIPT), '--config', str(config), 'server'],
+                            cwd=ROOT, env=os.environ | {'TELEMETRY_PYTHON': sys.executable, 'SERVER_CONFIG_ONLY': '1'},
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    generated = (state / 'state/server/prometheus.yml').read_text()
+    assert "targets: ['127.0.0.1:25731']" in generated
+    assert "targets: ['127.0.0.1:19100']" not in generated

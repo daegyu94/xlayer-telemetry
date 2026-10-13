@@ -83,7 +83,9 @@ xltel status
 
 **정상 결과:** config validation과 backend health를 각각 확인합니다. Collector 입력·node·run parent를 바꾸면 collector도 해당 config로 재시작합니다.
 
-### Cluster Configuration Validation
+#Node Exporter의 기본 포트는 `NODE_EXPORTER_PORT=19100`입니다. 다른 포트를 사용할 때는 monitoring server와 모든 collector config에 같은 값을 지정해 bind·scrape·readiness·health 확인을 일치시킵니다.
+
+## Cluster Configuration Validation
 
 `config validate`와 `doctor`는 명시한 `TOPOLOGY_DIR`까지 검사합니다. JSON 형식·중복 component·충돌한 owner/role·존재하지 않는 edge endpoint·등록되지 않은 resource node·Diagnosis cluster 불일치를 시작 전에 확인할 수 있습니다.
 
@@ -105,11 +107,12 @@ Topology가 미설정이면 optional 상태를 유지합니다. 명시한 디렉
 
 ### Inventory Contract
 
-Inventory는 별도 Runtime 형식이 아니라 기존 설정의 생성 입력입니다. 프로젝트의 TOML parser를 재사용하고 JSON도 허용하며 YAML dependency는 추가하지 않습니다. [예제](../examples/cluster/inventory.toml)를 수정하고 [Multi-node 절차](multi-node.md#1-configure)로 적용합니다.
+Inventory는 기존 설정 생성과 명시적인 cluster lifecycle의 입력입니다. 프로젝트의 TOML parser를 재사용하고 JSON도 허용하며 YAML dependency는 추가하지 않습니다. [예제](../examples/cluster/inventory.toml)를 수정하고 [Multi-node 절차](multi-node.md#1-configure)로 적용합니다.
 
 | 입력 | 의미 |
 | --- | --- |
 | `cluster.name`, `monitoring_node` | 논리 cluster와 명시한 monitoring host. Clock 검증은 별도 |
+| `nodes[].management` | 선택적 원격 관리 정보. [SSH 대상·runtime·기존 config 경로](multi-node.md#cluster-lifecycle)를 명시해야 cluster up/status/down 가능 |
 | `nodes[]` | 고유 `name`, IPv4/hostname `address`, `roles`; 선택적 `gpus`, `interfaces`, `devices`, host-local `telemetry_home` |
 | `services[]` | 기존 native source의 `name`, `kind`, `node`, `target`, `scheme`, `metrics_path`, stable `labels` |
 | `components[]`, `edges[]` | `kind=compute/storage` namespace 안의 명시한 component와 관계 |
