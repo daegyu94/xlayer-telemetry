@@ -80,6 +80,13 @@ Runtime asset을 추가·이동하면 [pyproject.toml](pyproject.toml)의 packag
 - Subprocess는 argv와 적절한 quoting을 사용하고 `eval`·문자열 shell 조합을 피합니다.
   Credential·token·민감한 workload argv를 log·예제·config 표시·검증 artifact에 노출하지 않습니다.
 
+## Redesign 진행 중
+
+[재설계 실행 계획](docs/development/redesign-plan.md)의 목표 구조를 구현할 때 현재 내부 구현은 교체·삭제할 수 있습니다.
+각 WP의 사용자 계약과 검증 경계를 확인하고, 동작 변경은 ADR에 기록합니다.
+이 작업 범위에서는 계획서의 단계에 따라 `ruff`, `mypy`, `pytest-timeout`, `pytest-xdist`, `coverage`를 개발 도구로 도입할 수 있습니다.
+완료 상태와 실제 검증은 [진행 표](docs/development/redesign-status.md)에 기록합니다.
+
 ## 변경 절차
 
 장기 품질 개선 작업은 [Quality Goals](docs/development/quality-goals.md)의 gate와 [Quality Backlog](docs/development/quality-backlog.md)의 재현·loop 결과를 이어서 확인합니다. 실제 hardware validation의 Pending 상태는 기존 Validation 기록과 구분해 유지하며 긴 master prompt를 이 지침에 복제하지 않습니다.
@@ -107,7 +114,7 @@ Runtime은 Python 3.10 이상이며 CPU CI는 Ubuntu 22.04/Python 3.10과 Ubuntu
 문서 build 환경은 `requirements-docs.txt`를 사용하는 Python 3.11 이상이며 runtime dependency와 분리합니다.
 
 관련 test를 먼저 실행하고, 여러 component에 영향을 주는 코드·config 변경에는 전체 CPU suite를 실행합니다.
-별도 lint/type checker는 현재 설정되어 있지 않으므로 새 도구나 전수 formatting을 기본 gate로 추가하지 않습니다.
+재설계 WP-05 이후에는 계획서에 따라 별도 lint/type 검사를 gate에 추가합니다. 그 전에는 새 도구나 전수 formatting을 기본 gate로 추가하지 않습니다.
 
 ```bash
 python -m pytest -q

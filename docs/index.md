@@ -131,6 +131,8 @@ Storage correlation 계약 <storage-correlation>
 Development / Docs <maintainers>
 Quality goals <development/quality-goals>
 Quality backlog <development/quality-backlog>
+Redesign plan <development/redesign-plan>
+Redesign status <development/redesign-status>
 실환경 기록 <real-verl-demo>
 Dashboard design <grafana-ui-ux-review>
 Behavior signature / Triggered profiling 연구 <behavior-signature-research>
