@@ -6,7 +6,7 @@ from xlayer_telemetry.operations.config import KEYS
 
 
 _PROXY_KEYS = {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"}
-_HARNESS_KEYS = {"XLAYER_TEST_CLICKHOUSE_CONTAINER"}
+_HARNESS_KEYS = {"XLAYER_TEST_CLICKHOUSE_CONTAINER", "XLAYER_TEST_CLICKHOUSE_URL"}
 
 
 def external_setting(name: str) -> bool:

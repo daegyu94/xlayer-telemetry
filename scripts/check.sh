@@ -78,7 +78,7 @@ done
 [[ $profile == default ]] && exit 0
 
 [[ -n ${PROMTOOL:-} && -x ${PROMTOOL:-} ]] || { echo 'full requires PROMTOOL.' >&2; exit 2; }
-[[ -n ${XLAYER_TEST_CLICKHOUSE_CONTAINER:-} ]] || { echo 'full requires XLAYER_TEST_CLICKHOUSE_CONTAINER.' >&2; exit 2; }
+[[ -n ${XLAYER_TEST_CLICKHOUSE_CONTAINER:-} || -n ${XLAYER_TEST_CLICKHOUSE_URL:-} ]] || { echo 'full requires an owned ClickHouse container or loopback URL.' >&2; exit 2; }
 [[ -n ${XLAYER_CHECK_TOOLS:-} && -d ${XLAYER_CHECK_TOOLS:-} ]] || { echo 'full requires XLAYER_CHECK_TOOLS.' >&2; exit 2; }
 [[ -n ${XLAYER_CHECK_OUTPUT:-} && ! -e ${XLAYER_CHECK_OUTPUT:-} ]] || { echo 'full requires a new XLAYER_CHECK_OUTPUT directory.' >&2; exit 2; }
 if (( ! app_checked )); then

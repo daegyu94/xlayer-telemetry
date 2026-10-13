@@ -140,7 +140,14 @@ def test_wide_info_metric_scrape_obeys_generated_label_budget(tmp_path, limit, e
         def query(expression):
             with urlopen(base + '/api/v1/query?' + urlencode({'query': expression}), timeout=2) as response:
                 return json.load(response)['data']['result']
-        assert query('up{job="native"}')[0]['value'][1] == expected_up
+        # Target readiness precedes TSDB sample commit; wait for that sample.
+        rows = query('up{job="native"}')
+        while not rows and time.monotonic() < deadline:
+            assert process.poll() is None
+            time.sleep(.05)
+            rows = query('up{job="native"}')
+        assert rows, 'completed native scrape has no committed up sample'
+        assert rows[0]['value'][1] == expected_up
         for metric in ('vllm:cache_config_info', 'wide_label_control'):
             rows = query(metric + '{job="native"}')
             assert bool(rows) == (expected_up == '1'), rows
