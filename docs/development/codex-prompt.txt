@@ -1,20 +1,22 @@
-docs/development/redesign-plan.md를 읽고 G.1~G.4의 전체 재설계 목표를 goal로 등록해 실행해줘.
+docs/development/redesign-plan.md의 G.1–G.4와 R-00–R-05 최소 목표를 goal로 등록해 실행해줘.
 
-원문의 목표 아키텍처와 Phase 0~8 전체 계획을 따라줘.
-현재 저장소 구현을 정답으로 보거나 재사용을 필수 조건으로 두지 말고,
-새 구조에 맞지 않는 내부 구현은 교체·삭제해도 돼.
-계약 변경은 문서의 Behavior/ADR·전환 규칙대로 처리해줘.
+목적은 기존 기능의 반복 버그를 줄이는 구조 재설계야.
+기존 Phase 0 완료 기록을 유지하고, 진행 중인 WP-06의 실제 변경·검증·병합 상태부터 확인해줘.
+공통 진단 타입, 현재 signal catalog, Rule/LLM 공통 evidence, 단계별 판단과 단일 cap,
+frontend의 typed row/reason/identity 경계, 대체된 중복 코드 제거를 완료해줘.
+새 타입 선언이나 파일 이동만으로 완료하지 말고 실제 호출 경로에 연결해줘.
+기존 지원 rule 전체와 standalone LLM query를 유지하고, 새 KPI·producer·rule 확장은 수행하지 마.
 
-8장의 실행 기준을 적용하고, 6.1의 실제 선행 관계와 변경 파일을 확인해줘.
-준비된 WP 중 데이터 정확성·운영 안전성·사용자 결함을 우선해줘.
-독립 WP만 별도 worktree의 worker 최대 3개로 구현·관련 검증·검토해줘.
-main 병합과 상태표 갱신은 주 작업자가 직렬로 맡아줘.
-공유 계약 변경들을 통합한 Phase 경계와 최종 완료에 전체 CPU suite를 한 번 실행해줘.
-WP-02의 clean/오염 환경 비교 증거를 유지해줘.
-Signed-off-by commit과 로컬 main fast-forward 병합 후 계속 진행해줘.
-원격 push·PR·배포·설정 변경은 하지 마.
-기존 변경과 사용자 자원을 보존하고, 실행하지 않은 검증은 Pending으로 남겨줘.
+R-00 → R-01 → R-02 → R-03 → R-04 → R-05 순서로 진행해줘.
+기본은 주 작업자 한 명이며 모델 분업·병렬 실행은 별도 요청이 있을 때만 적용해줘.
+각 작업의 public entrypoint regression과 반례를 확인하고,
+R-03 통합과 최종 완료에 전체 CPU suite를 실행해줘.
+Frontend는 관련 실제 Grafana/browser journey까지 검증해줘.
+기존 CLI·config·artifact·argv/exit code·ownership·bounded I/O와 사용자 자원을 보존해줘.
+동작 변경은 ADR과 변경 전후 검증으로 남겨줘.
 
-Phase 0이나 문서 반입만 끝내고 goal을 완료하지 마.
-G.4 전체 완료 조건을 충족한 뒤 최종 결과를 알려줘.
-중간에는 현재 WP, 완료한 항목, 필요한 결정이나 장애물을 짧게 알려줘.
+Signed-off-by commit과 로컬 main fast-forward 병합 후 다음 작업으로 계속 진행해줘.
+원격 push·PR·배포·설정 변경은 별도 요청이 없으면 수행하지 마.
+실환경·원격 Pending과 로컬 필수 gate 실패를 구분하고,
+기존 전체 Phase 0–8이나 deferred WP를 완료 조건으로 되살리지 마.
+최소 계획 G.4를 충족한 뒤 최종 SHA·검증·미실행 항목·cleanup을 보고해줘.
