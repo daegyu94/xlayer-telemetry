@@ -5,8 +5,17 @@ import os
 import shutil
 import subprocess
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def isolated_git_environment(monkeypatch):
+    for name in tuple(os.environ):
+        if name.startswith("GIT_"):
+            monkeypatch.delenv(name)
 
 
 def test_fast_gate_propagates_selected_test_failure(tmp_path: Path) -> None:
