@@ -22,6 +22,9 @@ class MetricQuery:
     scope: str
     unit: str
     statistic: str = "max"
+    baseline_required: bool = False
+    signal: str | None = None
+    reduce: bool = True
 
 
 # The existing Node Exporter scrape identifies nodes using instance. Native
@@ -103,7 +106,7 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
     "vllm": {
         "vllm_ttft_p95_seconds": MetricQuery(quantile("vllm:time_to_first_token_seconds"), "service", "seconds"),
         "vllm_tpot_p95_seconds": MetricQuery(quantile("vllm:request_time_per_output_token_seconds"), "service", "seconds"),
-        "vllm_queue_p95_seconds": MetricQuery(quantile("vllm:request_queue_time_seconds"), "service", "seconds"),
+        "vllm_queue_p95_seconds": MetricQuery(quantile("vllm:request_queue_time_seconds"), "service", "seconds", baseline_required=True),
         "vllm_e2e_p95_seconds": MetricQuery(quantile("vllm:e2e_request_latency_seconds"), "service", "seconds"),
         "vllm_generation_tokens_per_second": MetricQuery(rate("vllm:generation_tokens_total", VLLM), "service", "tokens/s", "mean"),
         "vllm_prompt_tokens_per_second": MetricQuery(rate("vllm:prompt_tokens_total", VLLM), "service", "tokens/s", "mean"),
@@ -127,8 +130,8 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
     # No source/entity relationship or new storage verdict is inferred here.
     "mooncake": {
         "mooncake_connector_rpc_p95_seconds": MetricQuery("", "shared-service", "seconds"),
-        "mooncake_dfs_read_p95_seconds": MetricQuery("", "shared-service", "seconds"),
-        "mooncake_dfs_write_p95_seconds": MetricQuery("", "shared-service", "seconds"),
+        "mooncake_dfs_read_p95_seconds": MetricQuery("", "shared-service", "seconds", baseline_required=True),
+        "mooncake_dfs_write_p95_seconds": MetricQuery("", "shared-service", "seconds", baseline_required=True),
         "mooncake_dfs_write_staging_p95_seconds": MetricQuery("", "shared-service", "seconds"),
         "mooncake_dfs_read_bytes_per_second": MetricQuery("", "shared-service", "bytes/s", "mean"),
         "mooncake_dfs_read_errors_per_second": MetricQuery("", "shared-service", "keys/s"),
@@ -167,6 +170,60 @@ METRIC_PROFILES: dict[str, dict[str, MetricQuery]] = {
 # Profile selection is fixed and opt-in, keeping the default request count and
 # the existing global per-analysis deadline unchanged.
 PROFILE_SIGNALS = {name: spec for profile in METRIC_PROFILES.values() for name, spec in profile.items()}
+# Default and non-profile observations share the same metadata contract.
+DEFAULT_SIGNALS: dict[str, MetricQuery] = {
+    'gpu_utilization_percent': MetricQuery('telemetry_gpu_utilization_percent{nodename="{compute_node}"}', 'device', 'percent', 'mean', baseline_required=True),
+    'gpu_memory_usage_ratio': MetricQuery('telemetry_gpu_memory_used_bytes{nodename="{compute_node}"} / (telemetry_gpu_memory_total_bytes{nodename="{compute_node}"} > 0)', 'device', 'ratio', 'max'),
+    'host_memory_available_ratio': MetricQuery('node_memory_MemAvailable_bytes{instance="{node}"} / node_memory_MemTotal_bytes{instance="{node}"}', 'node', 'ratio', 'min'),
+    'disk_busy_ratio': MetricQuery('rate(node_disk_io_time_seconds_total{instance="{node}"}[1m])', 'device', 'percentunit', 'max'),
+    'vllm_requests_waiting': MetricQuery('vllm:num_requests_waiting{node="{rollout_node}"}', 'service', 'requests', 'max'),
+    'vllm_kv_cache_usage': MetricQuery('vllm:kv_cache_usage_perc{node="{rollout_node}"}', 'service', 'ratio', 'max'),
+    'vllm_preemptions_total': MetricQuery('vllm:num_preemptions_total{node="{rollout_node}"}', 'service', 'preemptions', 'max_series_delta', signal='vllm_preemptions_delta'),
+    # Pending counts retain their Ray session identity; no node ownership is inferred.
+    'ray_pending_tasks': MetricQuery('sum by (cluster, SessionName) (ray_tasks{telemetry_source="ray",State=~"PENDING.*"})', 'shared-service', 'tasks', 'max', reduce=False),
+    'policy_version_lag': MetricQuery('policy_version_lag{nodename="{node}",run_id="{run_id}"}', 'application', 'versions', 'max', reduce=False),
+    'host_swap_activity': MetricQuery('rate(node_vmstat_pswpin{instance="{node}"}[1m]) + rate(node_vmstat_pswpout{instance="{node}"}[1m])', 'node', 'pages/s', 'max'),
+    'disk_read_bytes_per_second': MetricQuery('rate(node_disk_read_bytes_total{instance="{node}"}[1m])', 'node', 'bytes/s', 'mean'),
+    'rdma_bytes_per_second': MetricQuery('rate(node_infiniband_port_data_received_bytes_total{instance="{node}"}[1m]) + rate(node_infiniband_port_data_transmitted_bytes_total{instance="{node}"}[1m])', 'network-interface', 'bytes/s', 'mean', baseline_required=True),
+}
+CONTEXT_SIGNALS: dict[str, MetricQuery] = {
+    'step_duration_seconds': MetricQuery('', 'application', 's', 'reported completed duration', baseline_required=True, reduce=False),
+    'rollout_duration_seconds': MetricQuery('', 'application', 's', 'reported completed duration', baseline_required=True, reduce=False),
+    'communication_duration_seconds': MetricQuery('', 'application', 's', 'sum of reported stages', baseline_required=True, reduce=False),
+    'actor_update_duration_seconds': MetricQuery('', 'application', 's', 'reported completed duration', baseline_required=True, reduce=False),
+    'critic_update_duration_seconds': MetricQuery('', 'application', 's', 'reported completed duration', baseline_required=True, reduce=False),
+    'checkpoint_duration_seconds': MetricQuery('', 'application', 's', 'reported completed duration', baseline_required=True, reduce=False),
+    'gpu_evictions_delta': MetricQuery('', 'process', 'evictions', 'max'),
+    'storage_device_busy_ratio': MetricQuery('rate(node_disk_io_time_seconds_total{cluster="{cluster}",job="telemetry",instance="{storage_node}",device="{storage_device}"}[1m])', 'device', 'percentunit', 'max'),
+    'storage_request_bytes': MetricQuery('', 'shared-service', 'bytes', 'mean'),
+    'threefs_p99_latency': MetricQuery('', 'shared-service', 'unknown', 'maximum of reported p99', baseline_required=True, reduce=False),
+    'threefs_throughput_bytes_per_second': MetricQuery('', 'shared-service', 'bytes/s', 'mean', baseline_required=True),
+    'network_utilization_ratio': MetricQuery('', 'network-interface', 'percentunit', 'max'),
+    'tool_duration_seconds': MetricQuery('agent_tool_call_duration_seconds{run_id="{run_id}"}', 'application', 's', 'max', baseline_required=True),
+    'sandbox_io_pressure_ratio': MetricQuery('sandbox_io_pressure_ratio{nodename="{sandbox_node}",role="sandbox"}', 'cgroup', 'ratio', 'max'),
+    'sandbox_device_busy_ratio': MetricQuery('rate(node_disk_io_time_seconds_total{nodename="{sandbox_node}",device="{sandbox_device}"}[1m])', 'device', 'percentunit', 'max'),
+}
+DEFAULT_QUERIES = {name: spec.expression for name, spec in DEFAULT_SIGNALS.items()}
+SIGNAL_CATALOG = DEFAULT_SIGNALS | CONTEXT_SIGNALS | PROFILE_SIGNALS
+SIGNAL_SOURCES = {spec.signal or name: name for name, spec in SIGNAL_CATALOG.items()}
+SIGNAL_CATALOG.update({spec.signal: spec for spec in DEFAULT_SIGNALS.values() if spec.signal})
+SIGNAL_SCOPE = {name: spec.scope for name, spec in SIGNAL_CATALOG.items()}
+BASELINE_REQUIRED = {name for name, spec in SIGNAL_CATALOG.items() if spec.baseline_required}
+SIGNAL_REDUCERS = {name: spec.statistic for name, spec in (DEFAULT_SIGNALS | CONTEXT_SIGNALS | PROFILE_SIGNALS).items() if spec.reduce}
+ENTITY_COMPARISON_SIGNALS = PROFILE_SIGNALS | {name: SIGNAL_CATALOG[name] for name in (
+    "disk_busy_ratio", "rdma_bytes_per_second", "storage_device_busy_ratio", "network_utilization_ratio",
+)}
+
+
+def signal_metadata(name: str) -> dict[str, str]:
+    spec = SIGNAL_CATALOG.get(name)
+    if spec is None:
+        return {}
+    metadata = {"window_statistic": spec.statistic}
+    if spec.unit != "unknown":
+        metadata["unit"] = spec.unit
+    return metadata
+
 _MOONCAKE_REFERENCES = {
     "mooncake_connector_rpc_p95_seconds": (60, "A"),
     "mooncake_dfs_read_p95_seconds": (66, "A"),
@@ -223,3 +280,16 @@ def profile_queries(settings: Mapping, cluster: str) -> dict[str, str]:
             expression = expression.replace('{telemetry_source=', '{' + labels + 'telemetry_source=')
             queries[name] = expression
     return queries
+
+
+def custom_query_spec(query: object) -> MetricQuery:
+    """Decode a configured observation without imposing built-in signal meanings."""
+    if (not isinstance(query, Mapping) or not all(
+            isinstance(query.get(key), str) and query[key].strip()
+            for key in ("signal", "query", "unit", "scope"))
+            or query.get("kind", "gauge") not in ("gauge", "counter", "delta")):
+        raise ValueError("each query needs signal, query, unit, scope and a valid kind")
+    statistic = query.get("statistic", "max")
+    if not isinstance(statistic, str) or statistic not in {"min", "mean", "max", "last", "max_series_delta"}:
+        raise ValueError("query statistic must be a supported window reducer")
+    return MetricQuery(query["query"], query["scope"], query["unit"], statistic)

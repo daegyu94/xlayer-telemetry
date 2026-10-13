@@ -17,6 +17,7 @@ from typing import Any
 
 from ..prometheus import _DeadlinePrometheusClient as PrometheusClient
 from .metric_observations import collect_query
+from .metric_queries import custom_query_spec
 from .observation_contracts import (
     has_measurement as _has_measurement, usable_window as _valid_interval,
     validate_measurement as _validate_measurement,
@@ -266,11 +267,7 @@ def collect_packet(config: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(queries, list) or not 1 <= len(queries) <= 64:
         raise ValueError("queries must contain between 1 and 64 scoped queries")
     for query in queries:
-        if not isinstance(query, dict) or not all(
-            isinstance(query.get(key), str) and query[key].strip()
-            for key in ("signal", "query", "unit", "scope")
-        ) or query.get("kind", "gauge") not in ("gauge", "counter", "delta"):
-            raise ValueError("each query needs signal, query, unit, scope and a valid kind")
+        custom_query_spec(query)
     timeout = config.get("timeout_seconds", 5)
     step = config.get("query_step_seconds", 5)
     if not _finite(timeout) or timeout <= 0 or not _finite(step) or step < 1:

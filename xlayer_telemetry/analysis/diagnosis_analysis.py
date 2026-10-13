@@ -14,57 +14,14 @@ from typing import Any, Iterable, Mapping
 
 from ..measurements import finite_number as finite
 from .observation_contracts import usable_window
-from .metric_queries import PROFILE_SIGNALS
+from .metric_queries import SIGNAL_SCOPE, BASELINE_REQUIRED, signal_metadata
 
 
-SIGNAL_SCOPE = {
-    "step_duration_seconds": "application",
-    "rollout_duration_seconds": "application",
-    "communication_duration_seconds": "application",
-    "actor_update_duration_seconds": "application",
-    "critic_update_duration_seconds": "application",
-    "checkpoint_duration_seconds": "application",
-    "gpu_utilization_percent": "device",
-    "gpu_memory_usage_ratio": "device",
-    "gpu_evictions_delta": "process",
-    "host_memory_available_ratio": "node",
-    "host_swap_activity": "node",
-    "disk_busy_ratio": "device",
-    "storage_device_busy_ratio": "device",
-    "disk_read_bytes_per_second": "node",
-    "storage_request_bytes": "shared-service",
-    "threefs_p99_latency": "shared-service",
-    "threefs_throughput_bytes_per_second": "shared-service",
-    "network_utilization_ratio": "network-interface",
-    "rdma_bytes_per_second": "network-interface",
-    "vllm_requests_waiting": "service",
-    "vllm_kv_cache_usage": "service",
-    "vllm_preemptions_delta": "service",
-    "tool_duration_seconds": "application",
-    "sandbox_io_pressure_ratio": "cgroup",
-    "sandbox_device_busy_ratio": "device",
-}
-SIGNAL_SCOPE.update({name: spec.scope for name, spec in PROFILE_SIGNALS.items()})
-BASELINE_REQUIRED = {
-    "vllm_queue_p95_seconds",
-    "actor_update_duration_seconds", "critic_update_duration_seconds", "checkpoint_duration_seconds",
-    "step_duration_seconds", "rollout_duration_seconds",
-    "communication_duration_seconds", "gpu_utilization_percent",
-    "rdma_bytes_per_second", "threefs_p99_latency",
-    "threefs_throughput_bytes_per_second",
-    "tool_duration_seconds",
-    "mooncake_dfs_read_p95_seconds", "mooncake_dfs_write_p95_seconds",
-}
 BASELINE_IDENTITY = (
     "run_id", "node", "worker_id", "boundary_scope", "execution_mode",
     "cluster", "producer", "role", "rank", "local_rank", "gpu",
 )
 _POLICY_IDENTIFIERS = {"policy_version", "fully_async/count/current_param_version"}
-_APPLICATION_DURATION_METADATA = {
-    name: {"unit": "s", "window_statistic": "sum of reported stages" if name == "communication_duration_seconds" else "reported completed duration"}
-    for name in ("step_duration_seconds", "rollout_duration_seconds", "actor_update_duration_seconds",
-                 "critic_update_duration_seconds", "checkpoint_duration_seconds", "communication_duration_seconds")
-}
 
 VLLM_OBSERVATIONS = ('vllm_requests_waiting', 'vllm_kv_cache_usage', 'vllm_preemptions_total')
 _VLLM_IDENTITY = ('cluster', 'node', 'instance', 'component', 'replica', 'replica_rank', 'node_rank', 'engine', 'engine_id', 'model_name', 'model')
@@ -262,7 +219,7 @@ def compare_signals(
         change = now - before if before is not None else None
         rows.append({
             "signal": name,
-            **_APPLICATION_DURATION_METADATA.get(name, {}),
+            **signal_metadata(name),
             "scope": (scopes or {}).get(name, SIGNAL_SCOPE.get(name, "unknown")),
             "labels": dict((labels or {}).get(name, {})),
             "current": now,
@@ -354,7 +311,7 @@ def evaluate_rules(
                        summary+'; resource observations are concurrent context, not a verified storage path')
         evidence = [{
             "signal": name,
-            **_APPLICATION_DURATION_METADATA.get(name, {}),
+            **signal_metadata(name),
             "value": val(name),
             "baseline": val(name, previous=True),
             "observation_scope": scope_for(name),
@@ -378,7 +335,7 @@ def evaluate_rules(
         candidates.append({
             "id": identifier, "component": component, "summary": summary,
             "state": state, "evidence": evidence,
-            "counter_evidence": [{"signal": name, **_APPLICATION_DURATION_METADATA.get(name, {}), "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
+            "counter_evidence": [{"signal": name, **signal_metadata(name), "value": val(name), "observation_scope": scope_for(name), "labels": labels_for(name)} for name in contrary],
             "missing_evidence": missing,
             "observation_scope": scope,
             "related_nodes": sorted(set((related or {}).get("nodes", [])) | set(observed_nodes)) or ([fallback_node] if fallback_node else []),
