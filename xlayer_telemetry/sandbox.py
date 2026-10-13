@@ -95,7 +95,7 @@ class SandboxRecorder:
                         "io_devices": device_deltas,
                         "device_mapping": {
                             "configured_major_minor": device_major_minor,
-                            "status": "unconfigured" if device_major_minor is None else "observed" if device_major_minor in device_deltas else "unknown" if counter_status == 'unavailable' or device_major_minor in reset_devices else "unmatched",
+                            "status": "unconfigured" if device_major_minor is None else "unknown" if counter_status == 'unavailable' or device_major_minor in reset_devices else "observed" if device_major_minor in device_deltas else "unmatched",
                             "observed_major_minors": sorted(device_deltas),
                             "counter_status": counter_status,
                             "reset_major_minors": sorted(reset_devices),
@@ -134,6 +134,7 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
     observations = []
     observed_devices = set()
     unknown_device = False
+    reset_device = False
     observation_count = 0
     scanned = 0
     bytes_seen = 0
@@ -168,9 +169,9 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
                     unknown_device = True  # Legacy empty io_devices could mean an unreadable baseline.
                 elif isinstance(mapping, dict):
                     reset_major_minors = mapping.get("reset_major_minors")
-                    unknown_device |= (mapping.get("counter_status") == "unavailable" or
-                                       (isinstance(reset_major_minors, list) and
-                                        configured_major_minor in reset_major_minors))
+                    unknown_device |= mapping.get("counter_status") == "unavailable"
+                    reset_device |= (isinstance(reset_major_minors, list) and
+                                     configured_major_minor in reset_major_minors)
                 observation_count += 1
                 observed_devices.update(devices)
                 if len(observations) < 20:
@@ -181,7 +182,7 @@ def device_window(directory: Path, run_id: str, node: str, start: float, end: fl
         if scanned>8192:
             break
     return {"configured_major_minor": configured_major_minor,
-            "status": "unconfigured" if not configured_major_minor else "observed" if configured_major_minor in observed_devices else "unknown" if incomplete or unknown_device else "unmatched" if observed_devices else "unknown",
+            "status": "unconfigured" if not configured_major_minor else "unknown" if reset_device else "observed" if configured_major_minor in observed_devices else "unknown" if incomplete or unknown_device else "unmatched" if observed_devices else "unknown",
             "observed_major_minors": sorted(observed_devices), "observations": observations,
             "observation_count": observation_count, "truncated": incomplete or observation_count > len(observations),
             "read_incomplete": incomplete,

@@ -9,7 +9,8 @@
 이후 처음 등장한 device의 counter는 0에서 증가한 delta로 기록하며, 값 0도 실측값으로 보존한다.
 시작 또는 종료 시 `io.stat`을 읽을 수 없으면 device delta를 만들지 않고 `counter_status=unavailable`로 기록한다.
 같은 device의 counter가 감소하면 감소한 항목의 delta는 생략하고 `counter_status=reset`과 `reset_major_minors`를 기록한다.
-유효한 항목이 하나도 남지 않은 device는 `io_devices`에 넣지 않으며, 해당 device의 mapping은 `unknown`이다.
+유효한 항목이 하나도 남지 않은 device는 `io_devices`에 넣지 않는다.
+일부 항목의 유효한 delta가 남아도 설정한 device에서 counter reset이 발생했다면 mapping은 `unknown`이다.
 
 ## 이유
 

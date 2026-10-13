@@ -440,7 +440,12 @@ def test_first_device_io_retains_delta_without_inventing_missing_baseline(tmp_pa
                          '259:0')['status'] == ('observed' if baseline_available else 'unknown')
 
 
-def test_reset_device_counter_is_unknown_not_an_observed_zero(tmp_path):
+@pytest.mark.parametrize('final, expected', [
+    ('259:0 rbytes=0 wbytes=0 rios=0 wios=0\n', {}),
+    ('259:0 rbytes=0 wbytes=250 rios=0 wios=4\n',
+     {'259:0': {'wbytes': 50, 'wios': 1}}),
+], ids=['all-reset', 'partial-reset'])
+def test_reset_device_counter_is_unknown_not_an_observed_zero(tmp_path, final, expected):
     cgroup = tmp_path / 'cgroup'
     cgroup.mkdir()
     (cgroup / 'io.stat').write_text('259:0 rbytes=100 wbytes=200 rios=2 wios=3\n')
@@ -450,9 +455,9 @@ def test_reset_device_counter_is_unknown_not_an_observed_zero(tmp_path):
     sandbox = SandboxRecorder(events, runtime='docker', filesystem='overlayfs',
                               deployment='dedicated', sandbox_node='sandbox-2')
     with sandbox.span('exec', cgroup=cgroup, device_major_minor='259:0'):
-        (cgroup / 'io.stat').write_text('259:0 rbytes=0 wbytes=0 rios=0 wios=0\n')
+        (cgroup / 'io.stat').write_text(final)
     observation = json.loads(events.path.read_text().splitlines()[0])['attributes']
-    assert observation['io_devices'] == {}
+    assert observation['io_devices'] == expected
     assert observation['device_mapping']['counter_status'] == 'reset'
     assert observation['device_mapping']['status'] == 'unknown'
     assert device_window(tmp_path / 'events', 'run-1', 'sandbox-2', 0, 9999999999,
