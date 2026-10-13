@@ -2,10 +2,8 @@ name: Optional Grafana App PoC
 
 on:
   pull_request:
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/**", "config/**", "pyproject.toml", "requirements.txt", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   push:
     branches: [main]
-    paths: ["grafana/xlayer-app/**", "examples/dashboards/**", "xlayer_telemetry/**", "config/**", "pyproject.toml", "requirements.txt", "scripts/dashboard_views.py", "scripts/provision_dashboards.py", ".github/workflows/grafana-app.yml"]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +14,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      app: ${{ steps.detect.outputs.app }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: detect
+        name: Detect App changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch || "$BASE_SHA" =~ ^0+$ || -z "$BASE_SHA" ]]; then
+            app=true
+          else
+            git diff --name-only "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-paths"
+            if grep -Eq '^(grafana/xlayer-app/|examples/dashboards/|xlayer_telemetry/|config/|pyproject\.toml$|requirements\.txt$|scripts/(dashboard_views|provision_dashboards)\.py$|\.github/workflows/grafana-app\.yml$)' "$RUNNER_TEMP/changed-paths"; then
+              app=true
+            else
+              app=false
+            fi
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -94,3 +119,22 @@ jobs:
             artifacts/grafana-app-package/*.sha256
           retention-days: 7
           if-no-files-found: warn
+
+  required:
+    name: Grafana App required
+    if: always()
+    needs: [changes, build]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report App gate result
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          APP_CHANGED: ${{ needs.changes.outputs.app }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          [[ "$CHANGES_RESULT" == success ]] || exit 1
+          if [[ "$APP_CHANGED" == true ]]; then
+            [[ "$BUILD_RESULT" == success ]]
+          else
+            [[ "$BUILD_RESULT" == skipped ]]
+          fi
