@@ -5,9 +5,9 @@
 
 - Source 기준: `13eb1a04d75c753d95fa399191a3f0c6d0f2585d` (WP-00 시작 시 로컬 `main`)
 - 원문 진단 기준: `6ddce33a763d3de30e306980860d33aa88ab32f1`
-- 현재 작업: WP-06 CI gate를 독립 worktree에서 구현 중; main 병합·상태표는 주 작업자 직렬
-- 준비된 WP 우선순위: WP-06 CI gate → Phase 0 전체 CPU 1회 → WP-10 공용 fake
-- 최근 검증: WP-05 clean default 14 passed, 전체 2183개 test 수집, 실제 hook·linked worktree gate 4 passed
+- 현재 작업: WP-06 로컬 main 통합 완료; 사용자 요청으로 WP-10 시작 전 일시정지
+- 다음 작업: WP-10 공용 fake (미시작; 재개 요청 후 진행)
+- 최근 검증: WP-06 집중 gate 6 passed; Phase 0 전체 CPU 2179 passed·6 skipped·1 failed, 유일한 실패 parameter 단독 재실행 통과
 
 | WP | 작업 | 상태 | 기준 SHA | 결과 SHA | 검증 | 병합 근거 | 장애물·후속 |
 |---|---|---|---|---|---|---|---|
@@ -19,7 +19,7 @@
 | WP-07 | Bounded shutdown과 ownership | done | `efde642` | `41115699a26206cb5f35110992234d0af14fcfaf` | ownership·signal·late child 통합 후 19 passed, shell·diff 통과 | 최신 main merge commit 후 `80e98e8` fast-forward | 실제 1,800-process host 미검증 |
 | WP-08 | Pressure card의 evidence·단위 연결 | done | `a4cdd5e` | `a1154e509175fdd7fedb7bd8b2a27132d34c6454` | npm 206 passed, typecheck/build, Python helper 52 passed, 병합 후 격리 browser 10 checks/0 failures·390px 확인 | 최신 main merge commit 후 `365ce89` fast-forward | Synthetic·주입된 RDMA fixture; 실제 하드웨어 검증 Pending |
 | WP-05 | 단일 gate와 hooks | done | `f42302a` | `003413cf53e13132dfd75c59a40d524154ce1012` | clean default 14 passed, test 수집 2183, hook·linked worktree 4 passed, shell·diff 통과 | WP-08 통합 후 `003413c` fast-forward, 활성 hook 설치 | full의 실제 backend/browser 결과는 Phase 경계·최종 gate에서 통합 확인 |
-| WP-06 | CI gate 연결 | in-progress | `921923e` | — | — | — | `redesign/wp-06-ci-gate`; 원격 Actions·branch protection은 Pending |
+| WP-06 | CI gate 연결 | done | `5b51e26` | `6f21b5d97df76df2d3bf5caa50205120eaafd34a` | 집중 gate 6 passed, Git 변수 오염 재현 6 passed, YAML·Bash 통과; Phase 경계 결과는 아래 기록 | 복구 branch `6f21b5d` 로컬 main fast-forward | 원격 Actions·branch protection 미실행; Git 설정 복구 완료 |
 | WP-10 | 공용 backend fake와 builders | todo | — | — | — | — | — |
 | WP-11 | Golden characterization | todo | — | — | — | — | — |
 | WP-12 | Layer 의존성 검사 | todo | — | — | — | — | — |
@@ -60,3 +60,17 @@
 | 물리 multi-node·RDMA·운영 3FS | Pending | 격리 가능한 실제 cluster·source 준비 |
 | 실제 LLM 추론 | Pending | 모델 endpoint와 입력 정책 준비 |
 | GitHub Actions 활성화·branch protection·원격 게시 | Pending | 명시적 원격 작업 요청과 권한 |
+
+## Phase 0 경계 검증
+
+WP-06 통합 source는 `6f21b5d97df76df2d3bf5caa50205120eaafd34a`입니다.
+Python 3.13.3과 실제 Prometheus/promtool 3.5.0에서 전체 CPU suite를 한 번 실행했습니다.
+
+- 전체 결과: 2,179 passed, 6 skipped, 1 failed.
+- Skip 6개는 소유한 ClickHouse 인스턴스가 필요한 실제 SQL 검사입니다.
+- 초기 실패: `test_wide_info_metric_scrape_obeys_generated_label_budget[40-0]`에서 scrape 완료 직후 `up` sample 조회가 빈 결과였습니다.
+- 같은 parameter의 단독 재실행은 1 passed입니다. 테스트와 telemetry 설정 경로는 기준 commit `13eb1a0` 이후 불변이며, readiness 타이밍 한계로 기록합니다.
+- 전체 suite를 다시 실행한 것으로 표현하지 않습니다. Ubuntu/Python 3.10·3.12 CI와 원격 Actions는 미실행입니다.
+- WP-06 격리 Git 테스트의 hook 환경변수 누출을 수정했습니다. 공유 Git의 `core.bare`, `user.name`, `user.email`을 원래 값으로 복구했고 `main` 작업 트리를 확인했습니다.
+
+WP-10 이후 구현은 시작하지 않았습니다.
